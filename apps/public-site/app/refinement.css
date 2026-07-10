@@ -1,0 +1,10 @@
+/* Direction 3: public-facing editorial refinement. */
+.wordmark{display:flex;align-items:center;gap:8px;letter-spacing:0}
+.wordmark img{width:118px;height:34px;object-fit:cover;object-position:center 51%;border-radius:2px}
+.wordmark>span{font-family:Georgia,serif;font-size:19px;letter-spacing:-.6px;color:var(--moss);font-weight:700}
+.hero{min-height:670px;background:#fff;padding-top:10vw}
+.hero h1{max-width:700px;font-size:clamp(54px,6.6vw,88px);letter-spacing:-3.4px}
+.hero-map{background:#e7ece3;box-shadow:20px 25px 0 #e3e0d5}
+.pathways a{transition:background .2s ease,color .2s ease}.pathways a:hover{background:var(--night);color:#fff}.pathways a:hover b{color:#cdd7b0}
+.resident-band{background:#ece6da}.cbcap{background:#fff}.section-intro{margin-left:0;max-width:850px}.dashboard{box-shadow:0 30px 70px #15201825}.impact{background:#f5f2ea}.partner{background:#101614}.site-footer{border-top:1px solid var(--rule)}
+@media(max-width:680px){.wordmark img{width:94px;height:29px}.wordmark>span{font-size:16px}.hero{min-height:auto;padding-top:15vw}.hero h1{font-size:52px;letter-spacing:-2.5px}.hero-map{box-shadow:none}}

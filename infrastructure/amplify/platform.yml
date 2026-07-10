@@ -2,13 +2,14 @@ version: 1
 applications:
   - appRoot: apps/platform
     frontend:
+      buildPath: /
       phases:
         preBuild:
           commands:
             - npm ci
         build:
           commands:
-            - npm run build
+            - npm run build:platform
       artifacts:
         baseDirectory: apps/platform/.next
         files:
