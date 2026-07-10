@@ -1,0 +1,17 @@
+{
+  "name": "sozorock-health",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Nationwide access infrastructure for SozoRock Health.",
+  "workspaces": ["apps/*", "packages/*"],
+  "engines": {"node": ">=20.11.0", "npm": ">=10.0.0"},
+  "scripts": {
+    "dev:public": "npm exec --workspace @sozorock/public-site -- next dev",
+    "build:public": "npm exec --workspace @sozorock/public-site -- next build",
+    "dev:platform": "npm exec --workspace @sozorock/platform -- next dev",
+    "build:platform": "npm exec --workspace @sozorock/platform -- next build",
+    "start:mobile": "npm exec --workspace @sozorock/mobile -- expo start",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present"
+  }
+}

@@ -1,0 +1,23 @@
+# Dependencies and build output
+node_modules/
+.next/
+.expo/
+dist/
+coverage/
+
+# Environment and local secrets
+.env
+.env.*
+!.env.example
+
+# Mobile build credentials and local IDE files
+*.keystore
+*.p8
+*.mobileprovision
+.idea/
+.vscode/
+
+# Logs and operating-system files
+*.log
+.DS_Store
+Thumbs.db

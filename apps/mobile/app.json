@@ -1,0 +1,1 @@
+{"expo":{"name":"SozoRock Health","slug":"sozorock-health","version":"0.1.0","orientation":"portrait","userInterfaceStyle":"light","ios":{"supportsTablet":true,"bundleIdentifier":"org.sozorockfoundation.health"},"android":{"package":"org.sozorockfoundation.health"},"plugins":["expo-localization","expo-speech"],"splash":{"backgroundColor":"#f8f7f2"}}}
