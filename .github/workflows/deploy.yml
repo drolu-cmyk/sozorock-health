@@ -26,5 +26,21 @@ jobs:
         with:
           role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
           aws-region: ${{ vars.AWS_REGION }}
-      - name: Start approved application deployment
-        run: aws amplify start-job --app-id "${{ vars.AMPLIFY_APP_ID }}" --branch-name main --job-type RELEASE
+      - name: Deploy public site and CB-CAP
+        env:
+          PUBLIC_APP_ID: ${{ vars.PUBLIC_AMPLIFY_APP_ID }}
+          CBCAP_APP_ID: ${{ vars.CBCAP_AMPLIFY_APP_ID }}
+        run: |
+          set -euo pipefail
+          for app_id in "$PUBLIC_APP_ID" "$CBCAP_APP_ID"; do
+            test -n "$app_id"
+            job_id=$(aws amplify start-job --app-id "$app_id" --branch-name main --job-type RELEASE --query 'jobSummary.jobId' --output text)
+            while true; do
+              status=$(aws amplify get-job --app-id "$app_id" --branch-name main --job-id "$job_id" --query 'job.summary.status' --output text)
+              case "$status" in
+                SUCCEED) break ;;
+                FAILED|CANCELLED) echo "Amplify job $job_id for $app_id ended with $status"; exit 1 ;;
+                *) sleep 20 ;;
+              esac
+            done
+          done

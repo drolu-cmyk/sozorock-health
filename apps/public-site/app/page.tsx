@@ -1,55 +1,56 @@
-const pathways = [
-  ["For residents", "Find a care pathway through a hub or your own device."],
-  ["For providers", "Keep your platform. Expand access in the states where you are verified."],
-  ["For counties", "Move from fragmented numbers to protected access intelligence."],
+import { Books, Buildings, ChartLineUp, HouseLine, LockKey, MicrophoneStage, Translate, UsersThree } from "@phosphor-icons/react/dist/ssr";
+import { ContactForm } from "./components/ContactForm";
+import { NationalAccessMap } from "./components/NationalAccessMap";
+import { ResidentDemo } from "./components/ResidentDemo";
+import { SiteHeader } from "./components/SiteHeader";
+
+const hubs = [
+  { icon: Books, title: "Library Hubs", copy: "Trusted, private access in a familiar public place." },
+  { icon: Buildings, title: "Community Hubs", copy: "Local partners supporting connection and follow-through." },
+  { icon: HouseLine, title: "Home-Based Hubs", copy: "Guided access when leaving home is the barrier." },
 ];
 
 export default function Home() {
-  return (
-    <main>
-      <header className="nav-shell">
-        <a className="wordmark" href="#top" aria-label="SozoRock Health home"><img src="/brand/sozorock-wordmark-source.png" alt="SozoRock®" /><span>Health</span></a>
-        <nav aria-label="Primary navigation">
-          <a href="#how-it-works">How it works</a><a href="#residents">For residents</a><a href="#providers">For providers</a><a href="#counties">For counties</a><a href="#impact">Impact & publications</a><a href="#about">About SozoRock</a>
-        </nav>
-        <a className="nav-cta" href="#partner">Get involved</a>
-      </header>
+  const cbcapUrl = process.env.NEXT_PUBLIC_CBCAP_URL ?? "#counties";
+  return <main id="top">
+    <a className="skip-link" href="#main-content">Skip to content</a>
+    <SiteHeader />
+    <div id="main-content"><NationalAccessMap /></div>
 
-      <section id="top" className="hero">
-        <div className="hero-copy">
-          <p className="eyebrow">Nationwide access infrastructure</p>
-          <h1>Access should not depend on your ZIP code.</h1>
-          <p className="lede">SozoRock Health helps residents begin a pathway to licensed care through libraries, community hubs, home-based support, and their own devices.</p>
-          <form className="county-search" action="#residents">
-            <label htmlFor="county">Explore access in your community</label>
-            <div><input id="county" name="county" placeholder="Enter a county or ZIP code" /><button type="submit">Search</button></div>
-          </form>
-        </div>
-        <div className="hero-map" aria-label="United States county access map illustration"><div className="map-grid" /><div className="map-lens"><strong>County readiness</strong><span>Explore local pathways, hubs, and provider availability.</span></div></div>
-      </section>
+    <section className="hub-model" id="how-it-works">
+      <div className="hub-intro"><p className="section-number">02 / The hub model</p><h2>Care is closer than it looks.</h2><p>One access model, designed for the places people already know and trust.</p></div>
+      <div className="hub-list">{hubs.map(({icon:Icon,title,copy})=><article key={title}><Icon size={38} weight="light" aria-hidden="true"/><div><h3>{title}</h3><p>{copy}</p></div></article>)}</div>
+    </section>
 
-      <section id="how-it-works" className="pathways" aria-label="Choose a pathway">
-        {pathways.map(([title, text], index) => <a key={title} href={index === 0 ? "#residents" : index === 1 ? "#providers" : "#counties"}><span>0{index + 1}</span><h2>{title}</h2><p>{text}</p><b>Explore →</b></a>)}
-      </section>
+    <section className="resident-section" id="resident">
+      <div className="resident-story"><p className="section-number light">03 / Resident access</p><h2>One clear next step.<br/>In your language.</h2><p>Residents can speak, tap, or type to find a pathway, check in at a hub, and connect through a provider&rsquo;s existing platform. The experience collects only what is needed and never gives clinical advice.</p><div className="trust-list"><span><MicrophoneStage size={20}/>Human voice</span><span><Translate size={20}/>Language access</span><span><LockKey size={20}/>Privacy reset</span></div><a href="#find-access">Explore your county</a></div>
+      <ResidentDemo />
+    </section>
 
-      <section id="residents" className="resident-band">
-        <div><p className="eyebrow">Built for people</p><h2>Simple enough to start. Strong enough to carry through.</h2><p>Choose a language. Speak or type. Check in at a hub or begin from home. SozoRock Health makes the next step clear without asking residents to navigate the system alone.</p><a href="#partner">Find a hub or care pathway</a></div>
-        <div className="tablet" aria-label="Resident tablet experience"><div className="tablet-top"><span>SozoRock Health</span><span>Español</span></div><p>How can we help you today?</p><small>You can speak or tap.</small><div className="voice">◉</div><div className="tablet-actions"><button>Find care</button><button>Check in at a hub</button><button>Get language support</button></div></div>
-      </section>
+    <section className="partner-model" id="providers">
+      <div className="partner-photo" role="img" aria-label="Rural road connecting communities"><div><span>BYOP</span><strong>Providers keep their platform.</strong></div></div>
+      <div className="partner-copy"><p className="section-number">04 / For licensed providers</p><h2>Expand access.<br/>Keep what works.</h2><p>Bring Your Own Platform connects residents to a provider&rsquo;s established clinical system. SozoRock handles the access pathway; the provider remains responsible for care.</p><dl><div><dt>01</dt><dd><strong>State verification</strong><span>Providers must be licensed for every state they serve.</span></dd></div><div><dt>02</dt><dd><strong>Qualified connections</strong><span>Receive resident requests without rebuilding clinical workflows.</span></dd></div><div><dt>03</dt><dd><strong>Clear boundaries</strong><span>SozoRock is non-clinical and does not replace professional judgment.</span></dd></div></dl><a className="primary-action dark" href="#partner">Begin provider readiness</a></div>
+    </section>
 
-      <section id="counties" className="cbcap">
-        <div className="section-intro"><p className="eyebrow">CB-CAP</p><h2>See where access is working—and where a community needs more.</h2><p>CB-CAP helps participating counties turn anonymized access patterns into practical decisions about hubs, language support, and provider pathways.</p></div>
-        <div className="dashboard">
-          <aside><b>CB-CAP</b><span>Overview</span><span>Access funnel</span><span>Map</span><span>Trends & forecast</span><span>Reports</span></aside>
-          <div className="dash-main"><div className="filters"><button>United States</button><button>State</button><button>County</button><button>ZIP code</button><button>Time range</button><button className="apply">Explore patterns</button><button className="export">Export</button><button className="export">Download brief</button></div><div className="dash-grid"><div className="funnel"><h3>Access pathway</h3>{[100,65,42,24,15].map((value, index)=><div key={value}><span style={{width:`${value}%`}} /> <small>{["Community presence","Aware of options","Attempted access","Connected to resource","Follow-up available"][index]}</small></div>)}</div><div className="map-panel"><h3>Access index map</h3><div className="county-map" /></div><div className="trend"><h3>Access over time</h3><svg viewBox="0 0 500 150" aria-label="Access trend chart"><path d="M0 130 C40 120 70 90 110 104 S175 85 220 93 S290 55 330 70 S390 38 430 50 S470 28 500 18" fill="none" stroke="currentColor" strokeWidth="5" /></svg></div><div className="barriers"><h3>Common access barriers</h3>{["Transportation","Cost","Information gap","Digital access","Language"].map((name,index)=><div key={name}><small>{name}</small><span style={{width:`${90-index*13}%`}} /></div>)}</div></div><footer>CB-CAP shows anonymized community patterns—not personal records. <a href="#about">How privacy works →</a></footer></div>
-        </div>
-      </section>
+    <section className="county-story" id="counties">
+      <div className="county-heading"><p className="section-number light">05 / CB-CAP</p><h2>From fragmented reports to systems intelligence.</h2><p>CB-CAP turns protected, aggregated access activity into a clearer picture of where communities need hubs, language support, providers, and follow-through.</p></div>
+      <div className="county-preview"><div className="county-preview-top"><strong>CB-CAP</strong><span>Public demonstration · Illustrative data</span><a href={cbcapUrl} aria-label="Open CB-CAP demonstration">Open dashboard ↗</a></div><div className="metric-row"><div><span>Access pathways</span><strong>42.8k</strong><small>illustrative national activity</small></div><div><span>Hub reach</span><strong>68%</strong><small>of selected communities</small></div><div><span>Language support</span><strong>14</strong><small>languages requested</small></div><div><span>Protected cells</span><strong>&lt;11</strong><small>always suppressed</small></div></div><div className="chart-row"><div className="chart-copy"><ChartLineUp size={38}/><h3>Filter, compare, and download</h3><p>State, county, ZIP, period, hub type, and language views with privacy-aware exports.</p></div><div className="mini-chart" aria-label="Illustrative access trend"><i style={{height:"32%"}}/><i style={{height:"47%"}}/><i style={{height:"44%"}}/><i style={{height:"65%"}}/><i style={{height:"58%"}}/><i style={{height:"79%"}}/><i style={{height:"73%"}}/><i style={{height:"92%"}}/></div></div></div>
+    </section>
 
-      <section id="impact" className="impact"><p className="eyebrow">The work behind the platform</p><h2>Access is a system responsibility.</h2><p>SozoRock Health carries forward the work of Oluwabiyi Adeyemo: translating rural equity, accountable governance, and systems intelligence into practical access infrastructure.</p><div className="book-row"><article><span>Rural Equity Blueprint Series</span><h3>Volume 1: Access Day</h3><p>A framework for rural health equity, readiness, and coordinated access.</p></article><article><span>Rethinking Rural Governance</span><h3>Volume 1: From Compliance to Systems Intelligence</h3><p>A case for evidence that helps communities act, not simply report.</p></article></div></section>
+    <section className="ai-layer" id="technology">
+      <div><p className="section-number">06 / AI-native access</p><h2>AI where it removes a barrier. Human judgment where it matters.</h2></div>
+      <div className="ai-principles"><article><MicrophoneStage size={32}/><h3>Live voice</h3><p>A natural voice interface with interruption handling and text fallback.</p></article><article><Translate size={32}/><h3>Translation</h3><p>English and Spanish from day one, with a modular path to more languages.</p></article><article><UsersThree size={32}/><h3>Agentic support</h3><p>Purpose-built agents coordinate navigation, readiness, and operations within strict permissions.</p></article><article><LockKey size={32}/><h3>Feature control</h3><p>Every advanced capability can be enabled by state, partner, role, or risk threshold.</p></article></div>
+    </section>
 
-      <section id="partner" className="partner"><p className="eyebrow">Partner with SozoRock</p><h2>Build access with your community.</h2><p>For counties, providers, libraries, community organizations, universities, and funders.</p><a href="mailto:contact@sozorockfoundation.org">Start a conversation</a></section>
+    <section className="publications" id="publications">
+      <div className="publication-heading"><p className="section-number">07 / The ideas beneath the infrastructure</p><h2>Built from a body of work.</h2><p>Oluwabiyi Adeyemo&rsquo;s publications move rural equity from isolated programs toward durable access and accountable systems intelligence.</p></div>
+      <div className="publication-grid"><article><a className="cover" href="/publications/rural-equity-blueprint-volume-1.pdf"><img src="/publications/covers/rural-equity-blueprint-volume-1.png" alt="Cover of Rural Equity Blueprint Series, Volume 1: Access Day"/></a><div><span>Rural Equity Blueprint Series</span><h3>Volume 1: Access Day</h3><p>The hub model, readiness, workforce renewal, literacy, and practical activation.</p><a href="/publications/rural-equity-blueprint-volume-1.pdf" download>Read the publication ↘</a></div></article><article><a className="cover" href="/publications/rethinking-rural-governance-volume-1.pdf"><img src="/publications/covers/rethinking-rural-governance-volume-1.png" alt="Cover of Rethinking Rural Governance, Volume 1"/></a><div><span>Rethinking Rural Governance</span><h3>From Compliance to Systems Intelligence</h3><p>The governance foundation for CB-CAP: proactive, transparent, and designed to help communities act.</p><a href="/publications/rethinking-rural-governance-volume-1.pdf" download>Read the publication ↘</a></div></article></div>
+    </section>
 
-      <footer id="about" className="site-footer"><span>© {new Date().getFullYear()} The SozoRock Foundation, Inc.</span><span>Non-clinical access infrastructure</span><a href="mailto:contact@sozorockfoundation.org">contact@sozorockfoundation.org</a></footer>
-    </main>
-  );
+    <section className="about" id="about"><p className="section-number light">08 / About SozoRock Health</p><div><h2>National in scope.<br/>Local in activation.</h2><p>SozoRock Health is an initiative of The SozoRock Foundation, Inc., based in New York and designed for every U.S. state and county. Availability follows local interest, verified provider licensure, hub readiness, and responsible launch safeguards.</p></div></section>
+
+    <section className="partner-section" id="partner"><div><p className="section-number">09 / Get involved</p><h2>Where should access begin?</h2><p>Tell us about your community, provider network, library, institution, or county. We will respond with the right readiness path.</p><a href="mailto:contact@sozorockfoundation.org">contact@sozorockfoundation.org</a></div><ContactForm /></section>
+
+    <footer className="site-footer"><div className="brand-lockup footer-brand"><span className="wordmark-image"><img src="/brand/sozorock-wordmark-source.png" alt="SozoRock"/><sup>®</sup></span><span>HEALTH</span></div><p>A national, non-clinical access infrastructure.</p><nav aria-label="Legal and support"><a href="#about">About</a><a href="#publications">Publications</a><a href="#partner">Contact</a><a href="mailto:contact@sozorockfoundation.org">Accessibility</a><a href="mailto:contact@sozorockfoundation.org">Privacy</a></nav><small>© {new Date().getFullYear()} The SozoRock Foundation, Inc. All rights reserved.</small></footer>
+  </main>;
 }

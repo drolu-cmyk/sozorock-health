@@ -1,0 +1,91 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Durable, least-privilege contact intake for the SozoRock Health public site.
+
+Parameters:
+  AmplifyAppId:
+    Type: String
+  AmplifyBranchName:
+    Type: String
+    Default: main
+  ContactEmail:
+    Type: String
+    Default: contact@sozorockfoundation.org
+
+Resources:
+  ContactSubmissions:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: sozorock-health-contact-submissions
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: submissionId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: submissionId
+          KeyType: HASH
+      SSESpecification:
+        SSEEnabled: true
+      TimeToLiveSpecification:
+        AttributeName: expiresAt
+        Enabled: true
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      Tags:
+        - Key: Product
+          Value: SozoRockHealth
+        - Key: DataClass
+          Value: ContactInquiry
+
+  ContactNotifications:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: sozorock-health-contact-notifications
+      KmsMasterKeyId: alias/aws/sns
+      Tags:
+        - Key: Product
+          Value: SozoRockHealth
+
+  ContactEmailSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      TopicArn: !Ref ContactNotifications
+      Protocol: email
+      Endpoint: !Ref ContactEmail
+
+  PublicSiteComputeRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: AmplifySSRComputeRole-SozoRockHealthPublic
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: amplify.amazonaws.com
+            Action: sts:AssumeRole
+            Condition:
+              StringEquals:
+                aws:SourceAccount: !Ref AWS::AccountId
+              ArnEquals:
+                aws:SourceArn: !Sub arn:${AWS::Partition}:amplify:${AWS::Region}:${AWS::AccountId}:apps/${AmplifyAppId}/branches/${AmplifyBranchName}
+      Policies:
+        - PolicyName: ContactIntakeOnly
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - dynamodb:PutItem
+                  - dynamodb:UpdateItem
+                Resource: !GetAtt ContactSubmissions.Arn
+              - Effect: Allow
+                Action: sns:Publish
+                Resource: !Ref ContactNotifications
+
+Outputs:
+  ContactTableName:
+    Value: !Ref ContactSubmissions
+  ContactTopicArn:
+    Value: !Ref ContactNotifications
+  ComputeRoleArn:
+    Value: !GetAtt PublicSiteComputeRole.Arn

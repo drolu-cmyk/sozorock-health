@@ -22,4 +22,6 @@ jobs:
       - run: npm run typecheck
       - run: npm run build:public
       - run: npm run build:platform
-      - run: npm audit --omit=dev --audit-level=high
+      - run: npm exec --workspace @sozorock/mobile -- expo-doctor
+      - run: npm exec --workspace @sozorock/mobile -- expo export --platform android --output-dir dist/ci-android
+      - run: npm audit --omit=dev --audit-level=moderate

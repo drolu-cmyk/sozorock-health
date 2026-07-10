@@ -25,11 +25,11 @@ The system uses a provider-neutral AI adapter. The preferred OpenAI path is:
 - `gpt-realtime-whisper` when a low-latency transcript stream is required;
 - a reasoning model through the Responses API for non-real-time orchestration, structured summaries, and tool calls.
 
-GPT-5.6 is configured as an optional reasoning-orchestration provider only after the SozoRock Health account receives the required preview entitlement. The public model catalog currently identifies GPT-5.6 as trusted-partner preview and does not position it as the general voice endpoint. Voice remains operational from launch through the Realtime model adapter, without waiting for GPT-5.6 access.
+GPT-5.6 Sol can be configured as an optional reasoning-orchestration provider only after the SozoRock Health account receives the required entitlement. It is not the voice transport. Voice remains operational through the Realtime adapter, without coupling resident access to GPT-5.6 availability.
 
 ### GPT-Live experience contract
 
-`gpt-live` is the SozoRock Health capability name for the most natural, conversational voice experience. It is an environment-controlled alias, not a hard-coded vendor model string: production maps it to the highest approved realtime voice model available to the organization, initially `gpt-realtime-2.1` or `gpt-realtime-1.5`. This preserves the human quality of a live conversation while allowing an approved future GPT-Live or GPT-5.6 voice endpoint to be adopted without changing resident, hub, or provider flows.
+`gpt-live` is the SozoRock Health capability name for the most natural, conversational voice experience. It is an environment-controlled alias, not a hard-coded vendor model string. Production maps it to the highest approved API voice model available to the organization, initially `gpt-realtime-2.1` or `gpt-realtime-1.5`. OpenAI announced GPT-Live-1 for ChatGPT on July 8, 2026 and stated that API availability is planned; SozoRock can adopt that endpoint after it is released and approved without changing resident, hub, or provider flows.
 
 ## Voice safety contract
 

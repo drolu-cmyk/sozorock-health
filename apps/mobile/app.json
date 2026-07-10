@@ -1,1 +1,27 @@
-{"expo":{"name":"SozoRock Health","slug":"sozorock-health","version":"0.1.0","orientation":"portrait","userInterfaceStyle":"light","ios":{"supportsTablet":true,"bundleIdentifier":"org.sozorockfoundation.health"},"android":{"package":"org.sozorockfoundation.health"},"plugins":["expo-localization","expo-speech"],"splash":{"backgroundColor":"#f8f7f2"}}}
+{
+  "expo": {
+    "name": "SozoRock Health",
+    "slug": "sozorock-health",
+    "version": "0.1.0",
+    "icon": "./assets/app-icon.png",
+    "orientation": "default",
+    "userInterfaceStyle": "light",
+    "backgroundColor": "#F8F5EE",
+    "primaryColor": "#385847",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "org.sozorockfoundation.health",
+      "requireFullScreen": false,
+      "buildNumber": "1",
+      "infoPlist": {
+        "CFBundleLocalizations": ["en", "es"]
+      }
+    },
+    "android": {
+      "package": "org.sozorockfoundation.health",
+      "predictiveBackGestureEnabled": true,
+      "versionCode": 1
+    },
+    "plugins": ["expo-localization"]
+  }
+}

@@ -9,14 +9,23 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@phosphor-icons/react": "^2.1.10",
+    "@aws-sdk/client-dynamodb": "^3.933.0",
+    "@aws-sdk/client-sns": "^3.933.0",
+    "@aws-sdk/lib-dynamodb": "^3.933.0",
+    "d3-geo": "^3.1.1",
     "next": "15.5.20",
     "react": "19.1.1",
-    "react-dom": "19.1.1"
+    "react-dom": "19.1.1",
+    "topojson-client": "^3.1.0",
+    "us-atlas": "^3.0.1"
   },
   "devDependencies": {
+    "@types/d3-geo": "^3.1.0",
     "@types/node": "22.15.3",
     "@types/react": "19.1.2",
     "@types/react-dom": "19.1.2",
+    "@types/topojson-client": "^3.1.5",
     "typescript": "5.8.3"
   }
 }

@@ -4,6 +4,11 @@ node_modules/
 .expo/
 dist/
 coverage/
+*.tsbuildinfo
+qa/
+tmp/
+output/
+.playwright-cli/
 
 # Environment and local secrets
 .env

@@ -3,9 +3,28 @@
   "private": true,
   "version": "0.1.0",
   "description": "Nationwide access infrastructure for SozoRock Health.",
-  "workspaces": ["apps/*", "packages/*"],
-  "engines": {"node": ">=20.11.0", "npm": ">=10.0.0"},
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "overrides": {
+    "next": {
+      "postcss": "8.5.14"
+    },
+    "xcode": {
+      "uuid": "11.1.1"
+    }
+  },
+  "resolutions": {
+    "postcss": "8.5.14",
+    "uuid": "11.1.1"
+  },
+  "engines": {
+    "node": ">=20.11.0",
+    "npm": ">=10.0.0"
+  },
   "scripts": {
+    "postinstall": "patch-package && node scripts/reconcile-installed-security-lock.mjs",
     "dev:public": "npm exec --workspace @sozorock/public-site -- next dev",
     "build:public": "npm exec --workspace @sozorock/public-site -- next build",
     "dev:platform": "npm exec --workspace @sozorock/platform -- next dev",
@@ -13,5 +32,8 @@
     "start:mobile": "npm exec --workspace @sozorock/mobile -- expo start",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "test": "npm run test --workspaces --if-present"
+  },
+  "devDependencies": {
+    "patch-package": "^8.0.1"
   }
 }
