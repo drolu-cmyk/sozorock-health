@@ -1,0 +1,19 @@
+version: 1
+applications:
+  - appRoot: apps/platform
+    frontend:
+      phases:
+        preBuild:
+          commands:
+            - npm ci
+        build:
+          commands:
+            - npm run build
+      artifacts:
+        baseDirectory: apps/platform/.next
+        files:
+          - '**/*'
+      cache:
+        paths:
+          - node_modules/**/*
+          - apps/platform/.next/cache/**/*

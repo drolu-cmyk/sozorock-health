@@ -1,0 +1,19 @@
+version: 1
+applications:
+  - appRoot: apps/public-site
+    frontend:
+      phases:
+        preBuild:
+          commands:
+            - npm ci
+        build:
+          commands:
+            - npm run build
+      artifacts:
+        baseDirectory: apps/public-site/.next
+        files:
+          - '**/*'
+      cache:
+        paths:
+          - node_modules/**/*
+          - apps/public-site/.next/cache/**/*
