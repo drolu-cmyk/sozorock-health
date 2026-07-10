@@ -25,7 +25,10 @@ function sameOrigin(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  if (!tableName || !topicArn) return NextResponse.json({ error: "Contact intake is temporarily unavailable." }, { status: 503 });
+  if (!tableName || !topicArn) {
+    console.error("contact-intake-config-missing", { hasTable: Boolean(tableName), hasTopic: Boolean(topicArn) });
+    return NextResponse.json({ error: "Contact intake is temporarily unavailable." }, { status: 503 });
+  }
   if (!sameOrigin(request)) return NextResponse.json({ error: "Request origin was not accepted." }, { status: 403 });
   const contentLength = Number(request.headers.get("content-length") ?? "0");
   if (contentLength > 12_000) return NextResponse.json({ error: "The request is too large." }, { status: 413 });
@@ -59,6 +62,7 @@ export async function POST(request: NextRequest) {
     }));
   } catch (error) {
     if ((error as { name?: string }).name === "ConditionalCheckFailedException") return NextResponse.json({ error: "Please wait before sending another inquiry." }, { status: 429 });
+    console.error("contact-rate-limit-failed", { name: (error as { name?: string }).name ?? "UnknownError" });
     return NextResponse.json({ error: "Contact intake is temporarily unavailable." }, { status: 503 });
   }
 
