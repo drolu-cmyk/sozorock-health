@@ -1,0 +1,23 @@
+{
+  "name": "@sozorock/media",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "studio": "remotion studio src/index.ts",
+    "render:all": "node scripts/render-all.mjs"
+  },
+  "dependencies": {
+    "@phosphor-icons/react": "^2.1.10",
+    "@remotion/cli": "4.0.487",
+    "@remotion/media": "4.0.487",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "remotion": "4.0.487",
+    "zod": "4.3.6"
+  },
+  "devDependencies": {
+    "typescript": "~6.0.3"
+  }
+}

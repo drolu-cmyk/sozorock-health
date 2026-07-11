@@ -1,7 +1,9 @@
 {
   "expo": {
     "name": "SozoRock Health",
+    "description": "Non-clinical access support connecting residents with participating hubs and state-licensed providers.",
     "slug": "sozorock-health",
+    "scheme": "sozorockhealth",
     "version": "0.1.0",
     "icon": "./assets/app-icon.png",
     "orientation": "default",
@@ -14,7 +16,8 @@
       "requireFullScreen": false,
       "buildNumber": "1",
       "infoPlist": {
-        "CFBundleLocalizations": ["en", "es"]
+        "CFBundleLocalizations": ["en", "es"],
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
@@ -22,6 +25,16 @@
       "predictiveBackGestureEnabled": true,
       "versionCode": 1
     },
-    "plugins": ["expo-localization"]
+    "plugins": [
+      "expo-localization",
+      [
+        "expo-speech-recognition",
+        {
+          "microphonePermission": "Allow SozoRock Health to use the microphone when you choose voice input.",
+          "speechRecognitionPermission": "Allow SozoRock Health to turn your spoken access request into text.",
+          "androidSpeechServicePackages": ["com.google.android.googlequicksearchbox", "com.google.android.tts"]
+        }
+      ]
+    ]
   }
 }

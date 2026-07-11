@@ -22,6 +22,7 @@ apps/
   public-site/   Next.js public explainer and secure contact entrypoint
   platform/      Next.js CB-CAP and role-based web platform
   mobile/        Expo/React Native iOS, Android, and shared-tablet app
+  media/         Remotion source for the resident journey campaign video
 packages/
   domain/        Privacy suppression, metrics, filters, and export rules
 infrastructure/
@@ -65,6 +66,7 @@ npm run build:platform
 npm audit --omit=dev --audit-level=moderate
 npm exec --workspace @sozorock/mobile -- expo-doctor
 npm exec --workspace @sozorock/mobile -- expo export --platform android
+npm run render:all --workspace @sozorock/media
 ```
 
 The lockfile includes reviewed security resolutions for upstream packages pinned by Next.js and Expo. `patch-package` reconciles the parent manifests during installation so CI and local dependency trees remain reproducible and audit-clean.
