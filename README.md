@@ -1,6 +1,6 @@
 # SozoRock Health
 
-Nationwide, AI-native access infrastructure connecting rural and underserved residents to licensed providers through trusted hubs, accessible apps, and privacy-protected county intelligence.
+Nationwide non-clinical health access, workforce-readiness, and systems infrastructure for rural and underserved communities. SozoRock Health brings together Health Equity Hubs, Health Access Day, provider-led pathways, Voice Access, public-sector modernization, digital and cybersecurity readiness, and privacy-preserving county systems intelligence.
 
 SozoRock Health is non-clinical. Providers retain their clinical platforms and professional responsibilities.
 

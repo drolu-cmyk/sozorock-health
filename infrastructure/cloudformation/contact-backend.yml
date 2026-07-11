@@ -10,6 +10,9 @@ Parameters:
   ContactEmail:
     Type: String
     Default: contact@sozorockfoundation.org
+  OpenAIApiKey:
+    Type: String
+    NoEcho: true
 
 Resources:
   ContactSubmissions:
@@ -44,6 +47,13 @@ Resources:
       Tags:
         - Key: Product
           Value: SozoRockHealth
+
+  RealtimeVoiceSecret:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: sozorock-health/openai-realtime-voice
+      Description: Server-only OpenAI credential for SozoRock Health Voice Access.
+      SecretString: !Ref OpenAIApiKey
 
   ContactEmailSubscription:
     Type: AWS::SNS::Subscription
@@ -81,6 +91,9 @@ Resources:
               - Effect: Allow
                 Action: sns:Publish
                 Resource: !Ref ContactNotifications
+              - Effect: Allow
+                Action: secretsmanager:GetSecretValue
+                Resource: !Ref RealtimeVoiceSecret
 
 Outputs:
   ContactTableName:
@@ -89,3 +102,5 @@ Outputs:
     Value: !Ref ContactNotifications
   ComputeRoleArn:
     Value: !GetAtt PublicSiteComputeRole.Arn
+  RealtimeVoiceSecretArn:
+    Value: !Ref RealtimeVoiceSecret

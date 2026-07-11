@@ -6,27 +6,27 @@ const siteUrl = "https://health.sozorockfoundation.org";
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
-  title: { default: "SozoRock Health | Access where people live", template: "%s | SozoRock Health" },
-  description: "AI-native, non-clinical access infrastructure connecting rural and underserved residents to licensed providers through trusted hubs and accessible technology nationwide.",
+  title: { default: "SozoRock Health | Non-clinical health systems infrastructure", template: "%s | SozoRock Health" },
+  description: "Nationwide non-clinical health access, workforce-readiness, AI-readiness, digital assurance, and county systems infrastructure for rural and underserved communities.",
   applicationName: "SozoRock Health",
   authors: [{ name: "The SozoRock Foundation, Inc.", url: "https://sozorockfoundation.org" }],
   creator: "The SozoRock Foundation, Inc.",
   publisher: "The SozoRock Foundation, Inc.",
-  category: "health access infrastructure",
-  keywords: ["rural health access", "health equity", "licensed providers", "county health intelligence", "CB-CAP", "community health hubs", "voice access", "SozoRock Health"],
+  category: "health systems infrastructure",
+  keywords: ["rural health systems", "health equity infrastructure", "Health Equity Hubs", "Health Access Day", "county systems intelligence", "CB-CAP", "digital assurance", "AI readiness", "workforce readiness", "SozoRock Health"],
   alternates: { canonical: "/" },
   icons: { icon: "/icon.png", apple: "/apple-icon.png" },
   manifest: "/manifest.webmanifest",
   openGraph: {
-    title: "SozoRock Health | Access where people live",
-    description: "A national, AI-native, non-clinical access infrastructure for rural and underserved communities.",
+    title: "SozoRock Health | Stronger systems, closer to home",
+    description: "National non-clinical health, workforce-readiness, and systems infrastructure for rural and underserved communities.",
     url: siteUrl,
     siteName: "SozoRock Health",
     type: "website",
     locale: "en_US",
-    images: [{ url: "/social/sozorock-health-og.jpg", width: 1200, height: 630, alt: "A community navigator helping a resident use a SozoRock Health access pathway at a rural library hub" }],
+    images: [{ url: "/social/sozorock-health-og.jpg", width: 1200, height: 630, alt: "A Health Equity Hub team member supporting a resident's digital readiness in a rural library" }],
   },
-  twitter: { card: "summary_large_image", title: "SozoRock Health | Access where people live", description: "National, non-clinical access infrastructure connecting residents to licensed providers.", images: ["/social/sozorock-health-og.jpg"] },
+  twitter: { card: "summary_large_image", title: "SozoRock Health | Stronger systems, closer to home", description: "National non-clinical health, workforce-readiness, and systems infrastructure.", images: ["/social/sozorock-health-og.jpg"] },
   robots: { index: true, follow: true, googleBot: { index: true, follow: true, "max-image-preview": "large", "max-snippet": -1, "max-video-preview": -1 } },
 };
 
@@ -35,8 +35,8 @@ export const viewport: Viewport = { width: "device-width", initialScale: 1, them
 const structuredData = {
   "@context": "https://schema.org",
   "@graph": [
-    { "@type": "Organization", "@id": `${siteUrl}/#organization`, name: "The SozoRock Foundation, Inc.", url: "https://sozorockfoundation.org", logo: `${siteUrl}/brand/sozorock-wordmark-transparent.png`, email: "contact@sozorockfoundation.org", nonprofitStatus: "Nonprofit501c3", areaServed: { "@type": "Country", name: "United States" } },
-    { "@type": "WebSite", "@id": `${siteUrl}/#website`, url: siteUrl, name: "SozoRock Health", description: "Nationwide, AI-native, non-clinical access infrastructure.", publisher: { "@id": `${siteUrl}/#organization` }, inLanguage: ["en-US", "es-US"] },
+    { "@type": "Organization", "@id": `${siteUrl}/#organization`, name: "The SozoRock Foundation, Inc.", url: "https://sozorockfoundation.org", logo: `${siteUrl}/brand/sozorock-wordmark-clean-v2.png`, email: "contact@sozorockfoundation.org", nonprofitStatus: "Nonprofit501c3", areaServed: { "@type": "Country", name: "United States" } },
+    { "@type": "WebSite", "@id": `${siteUrl}/#website`, url: siteUrl, name: "SozoRock Health", description: "Nationwide non-clinical health, workforce-readiness, and systems infrastructure.", publisher: { "@id": `${siteUrl}/#organization` }, inLanguage: ["en-US", "es-US"] },
   ],
 };
 

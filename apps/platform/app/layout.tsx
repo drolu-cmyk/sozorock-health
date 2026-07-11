@@ -1,4 +1,7 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./styles.css";
-export const metadata: Metadata={title:"CB-CAP | SozoRock Health",description:"Protected county access intelligence."};
-export default function RootLayout({children}:{children:React.ReactNode}){return <html lang="en"><body>{children}</body></html>}
+const dashboardUrl="https://main.d307qqji18y8il.amplifyapp.com";
+export const metadata: Metadata={metadataBase:new URL(dashboardUrl),title:"CB-CAP | County Systems Intelligence | SozoRock Health",description:"Explore privacy-preserving county systems intelligence for access-gap visibility, Health Equity Hub planning, CHA and CHIP support, workforce development, AI readiness, and public-sector modernization.",alternates:{canonical:"/"},openGraph:{title:"CB-CAP | County-Based Community Access Platform",description:"Privacy-preserving county systems intelligence for planning, readiness, and public-sector modernization.",url:dashboardUrl,siteName:"CB-CAP",type:"website"},twitter:{card:"summary",title:"CB-CAP | County Systems Intelligence",description:"Privacy-preserving county systems intelligence for planning and readiness."}};
+export const viewport:Viewport={width:"device-width",initialScale:1,themeColor:"#10271f"};
+const schema={"@context":"https://schema.org","@type":"WebApplication",name:"County-Based Community Access Platform",alternateName:"CB-CAP",applicationCategory:"BusinessApplication",operatingSystem:"Any",url:dashboardUrl,description:"Privacy-preserving county systems intelligence supporting Health Equity Hub planning, Health Access Day planning, CHA and CHIP support, and systems learning."};
+export default function RootLayout({children}:{children:React.ReactNode}){return <html lang="en"><body>{children}<script type="application/ld+json" dangerouslySetInnerHTML={{__html:JSON.stringify(schema)}}/></body></html>}

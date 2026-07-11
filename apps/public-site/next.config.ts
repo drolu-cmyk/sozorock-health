@@ -12,6 +12,17 @@ const nextConfig: NextConfig = {
     CONTACT_NOTIFICATION_TOPIC_ARN: process.env.CONTACT_NOTIFICATION_TOPIC_ARN,
     CONTACT_RATE_LIMIT_SALT: process.env.CONTACT_RATE_LIMIT_SALT,
     CONTACT_ALLOWED_HOSTS: process.env.CONTACT_ALLOWED_HOSTS,
+    OPENAI_SECRET_ARN: process.env.OPENAI_SECRET_ARN,
+  },
+  async headers() {
+    return [{ source: "/(.*)", headers: [
+      { key: "Content-Security-Policy", value: "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; media-src 'self' blob:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'" },
+      { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains; preload" },
+      { key: "X-Content-Type-Options", value: "nosniff" },
+      { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+      { key: "Permissions-Policy", value: "camera=(), geolocation=(), microphone=(self)" },
+      { key: "X-Frame-Options", value: "DENY" },
+    ] }];
   },
 };
 

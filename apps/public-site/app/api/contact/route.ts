@@ -21,7 +21,7 @@ function value(body: Record<string, unknown>, name: string, max = 180) {
 
 function sameOrigin(request: NextRequest) {
   const origin = request.headers.get("origin");
-  if (!origin) return true;
+  if (!origin) return false;
   const publicHost = request.headers.get("x-forwarded-host")?.split(",")[0]?.trim() ?? request.headers.get("host") ?? request.nextUrl.host;
   try { return new Set([publicHost, ...configuredContactHosts]).has(new URL(origin).host); } catch { return false; }
 }

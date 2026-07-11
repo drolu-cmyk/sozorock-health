@@ -8,6 +8,7 @@ coverage/
 qa/
 tmp/
 output/
+apps/media/exports/
 .playwright-cli/
 
 # Environment and local secrets

@@ -55,18 +55,18 @@ export function NationalLocationFinder() {
 
   return <section className="access-hero" id="find-access" aria-labelledby="access-heading">
     <div className="hero-panel">
-      <p className="section-label light">Nationwide access infrastructure</p>
-      <h1 id="access-heading">Access where<br/>people live.</h1>
-      <p className="hero-lede">SozoRock Health connects rural and underserved residents to licensed providers through trusted local hubs, accessible technology, and voice-first support.</p>
+      <p className="section-label light">Health systems infrastructure · Nationwide</p>
+      <h1 id="access-heading">Stronger systems.<br/>Closer to home.</h1>
+      <p className="hero-lede">SozoRock Health designs and deploys non-clinical health access, workforce-readiness, and systems infrastructure so residents, institutions, and public agencies can use existing healthcare, public-health, digital, and workforce systems more effectively.</p>
       <form onSubmit={submit} className="finder-form" role="search">
-        <label htmlFor="national-search">Find access anywhere in the United States</label>
+        <label htmlFor="national-search">Explore a U.S. community</label>
         <div className="finder-input-row"><MapPin size={20} aria-hidden="true"/><input id="national-search" value={query} onChange={(event)=>{setQuery(event.target.value);setSelected(null);setSubmitted(false);setActiveIndex(-1)}} onKeyDown={onKeyDown} placeholder="ZIP, city, county, place, GEOID, or FIPS" autoComplete="off" role="combobox" aria-expanded={suggestions.length>0} aria-controls={listId} aria-autocomplete="list" aria-activedescendant={activeIndex>=0?suggestions[activeIndex]?.id:undefined}/><button type="submit"><MagnifyingGlass size={18} aria-hidden="true"/><span>Search</span></button></div>
         {suggestions.length>0&&!selected&&<div id={listId} className="county-results" role="listbox" aria-label="U.S. location suggestions">{suggestions.map((result,index)=><button id={result.id} role="option" aria-selected={activeIndex===index} className={activeIndex===index?"is-active":""} key={result.id} type="button" onMouseDown={(event)=>event.preventDefault()} onClick={()=>choose(result)}><strong>{result.displayLabel}</strong><span>{result.detail}</span></button>)}</div>}
         <p className="finder-help">Search suggestions use U.S. Census Bureau county, place, ZIP geography, GEOID, and FIPS data.</p>
         <div className="search-status" aria-live="polite">{loading?"Looking across U.S. Census geographies…":submitted?"No exact match yet. Try a ZIP, city, county, or five-digit FIPS code.":selected?`${selected.displayLabel} is open for SozoRock Health interest and readiness conversations.`:""}</div>
       </form>
-      <div className="hero-actions"><a className="primary-action" href="#resident">Start as a resident <ArrowRight size={16} aria-hidden="true"/></a><a className="text-action light" href="#partner">Bring access to your community</a></div>
+      <div className="hero-actions"><a className="primary-action" href="#resident">Explore resident readiness <ArrowRight size={16} aria-hidden="true"/></a><a className="text-action light" href="#partner">Strengthen your community system</a></div>
     </div>
-    <p className="hero-caption">A community navigator helps a resident begin an access pathway at a trusted local hub.</p>
+    <p className="hero-caption">A Health Equity Hub supports digital readiness and preparation for provider-led services.</p>
   </section>;
 }
