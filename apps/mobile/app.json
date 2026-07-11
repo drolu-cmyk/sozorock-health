@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "SozoRock Health",
-    "description": "Non-clinical access support connecting residents with participating hubs and state-licensed providers.",
+    "description": "A non-clinical Resident Access Layer for digital readiness, Health Equity Hubs, Voice Access, and provider-led pathway preparation.",
     "slug": "sozorock-health",
     "scheme": "sozorockhealth",
     "version": "0.1.0",
@@ -32,7 +32,10 @@
         {
           "microphonePermission": "Allow SozoRock Health to use the microphone when you choose voice input.",
           "speechRecognitionPermission": "Allow SozoRock Health to turn your spoken access request into text.",
-          "androidSpeechServicePackages": ["com.google.android.googlequicksearchbox", "com.google.android.tts"]
+          "androidSpeechServicePackages": [
+            "com.google.android.googlequicksearchbox",
+            "com.google.android.tts"
+          ]
         }
       ]
     ]

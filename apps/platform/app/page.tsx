@@ -1,81 +1,965 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import {useEffect, useMemo, useState} from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
-  aggregateCountyRecords, cbcapSeedMetadata, countyAccessSeed, countyRecordsToCsv,
-  disclosureControl, filterCountyRecords, type CountyAccessRecord, type CountyFilters,
+  aggregateCountyRecords,
+  cbcapSeedMetadata,
+  countyAccessSeed,
+  countyRecordsToCsv,
+  disclosureControl,
+  filterCountyRecords,
+  type CountyAccessRecord,
+  type CountyFilters,
 } from "@sozorock/domain";
 
-const initialFilters: CountyFilters={state:"All states",county:"All counties",zip:"All ZIP codes",period:"All periods",hubType:"All hub types",language:"All languages",barrier:"All barriers",accessRange:"All access levels"};
-const unique=(items:string[])=>[...new Set(items)].sort();
-const labels:Record<string,string>={transportation:"Transportation",cost:"Affordability",information:"Information access",digital:"Digital access",language:"Language access"};
-const AccessMap=dynamic(()=>import("./AccessMap"),{ssr:false,loading:()=><div className="map-loading" role="status"><span/>Loading county map…</div>});
+const initialFilters: CountyFilters = {
+  state: "All states",
+  county: "All counties",
+  zip: "All ZIP codes",
+  period: "All periods",
+  hubType: "All hub types",
+  language: "All languages",
+  barrier: "All barriers",
+  accessRange: "All access levels",
+};
+const unique = (items: string[]) => [...new Set(items)].sort();
+const labels: Record<string, string> = {
+  transportation: "Transportation",
+  cost: "Affordability",
+  information: "Information access",
+  digital: "Digital access",
+  language: "Language access",
+};
+const usStates = [
+  "Alabama",
+  "Alaska",
+  "Arizona",
+  "Arkansas",
+  "California",
+  "Colorado",
+  "Connecticut",
+  "Delaware",
+  "District of Columbia",
+  "Florida",
+  "Georgia",
+  "Hawaii",
+  "Idaho",
+  "Illinois",
+  "Indiana",
+  "Iowa",
+  "Kansas",
+  "Kentucky",
+  "Louisiana",
+  "Maine",
+  "Maryland",
+  "Massachusetts",
+  "Michigan",
+  "Minnesota",
+  "Mississippi",
+  "Missouri",
+  "Montana",
+  "Nebraska",
+  "Nevada",
+  "New Hampshire",
+  "New Jersey",
+  "New Mexico",
+  "New York",
+  "North Carolina",
+  "North Dakota",
+  "Ohio",
+  "Oklahoma",
+  "Oregon",
+  "Pennsylvania",
+  "Rhode Island",
+  "South Carolina",
+  "South Dakota",
+  "Tennessee",
+  "Texas",
+  "Utah",
+  "Vermont",
+  "Virginia",
+  "Washington",
+  "West Virginia",
+  "Wisconsin",
+  "Wyoming",
+];
+const AccessMap = dynamic(() => import("./AccessMap"), {
+  ssr: false,
+  loading: () => (
+    <div className="map-loading" role="status">
+      <span />
+      Loading county map…
+    </div>
+  ),
+});
 
-function downloadFile(contents:string,filename:string,type:string){const url=URL.createObjectURL(new Blob([contents],{type}));const anchor=document.createElement("a");anchor.href=url;anchor.download=filename;anchor.click();URL.revokeObjectURL(url);}
-function SelectFilter({label,value,options,onChange}:{label:string;value:string;options:string[];onChange:(value:string)=>void}){return <label className="filter"><span>{label}</span><select value={value} onChange={(event)=>onChange(event.target.value)}>{options.map((option)=><option key={option}>{option}</option>)}</select></label>}
-
-function Sparkline({values,label}:{values:number[];label:string}){
-  const data=values.length?values:[0],w=560,h=190,max=Math.max(...data,1),min=Math.min(...data,0),span=Math.max(max-min,1);
-  const points=data.map((value,index)=>({value,x:22+index*((w-44)/Math.max(data.length-1,1)),y:h-28-((value-min)/span)*(h-62)}));
-  const line=points.map(({x,y})=>`${x},${y}`).join(" ");
-  return <svg className="sparkline" viewBox={`0 0 ${w} ${h}`} role="img" aria-label={`${label}: ${data.join(", ")}`}>
-    {[0,1,2].map((i)=><line key={i} x1="22" x2={w-22} y1={32+i*54} y2={32+i*54} className="gridline"/>)}
-    <polyline points={line} className="trend-area"/><polyline points={line} className="trend-line"/>
-    {points.map(({value,x,y},i)=><g key={`${value}-${i}`}><circle cx={x} cy={y} r="5"/><text x={x} y={y-13} textAnchor="middle">{value}</text></g>)}
-  </svg>;
+function downloadFile(contents: string, filename: string, type: string) {
+  const url = URL.createObjectURL(new Blob([contents], { type }));
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = filename;
+  anchor.click();
+  URL.revokeObjectURL(url);
+}
+function SelectFilter({
+  label,
+  value,
+  options,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  options: string[];
+  onChange: (value: string) => void;
+}) {
+  return (
+    <label className="filter">
+      <span>{label}</span>
+      <select value={value} onChange={(event) => onChange(event.target.value)}>
+        {options.map((option) => (
+          <option key={option}>{option}</option>
+        ))}
+      </select>
+    </label>
+  );
 }
 
-function Benchmark({county,state,national}:{county:number;state:number;national:number}){
-  const rows=[{label:"Selected view",value:county,tone:"selected"},{label:"State benchmark",value:state,tone:"state"},{label:"National benchmark",value:national,tone:"national"}];
-  return <div className="benchmark" role="img" aria-label={`Access index comparison. Selected view ${county}, state ${state}, national ${national}.`}>{rows.map((row)=><div className="benchmark-row" key={row.label}><span>{row.label}</span><div><i className={row.tone} style={{width:`${row.value}%`}}/></div><strong>{row.value}</strong></div>)}</div>;
+function Sparkline({ values, label }: { values: number[]; label: string }) {
+  const data = values.length ? values : [0],
+    w = 560,
+    h = 190,
+    max = Math.max(...data, 1),
+    min = Math.min(...data, 0),
+    span = Math.max(max - min, 1);
+  const points = data.map((value, index) => ({
+    value,
+    x: 22 + index * ((w - 44) / Math.max(data.length - 1, 1)),
+    y: h - 28 - ((value - min) / span) * (h - 62),
+  }));
+  const line = points.map(({ x, y }) => `${x},${y}`).join(" ");
+  return (
+    <svg
+      className="sparkline"
+      viewBox={`0 0 ${w} ${h}`}
+      role="img"
+      aria-label={`${label}: ${data.join(", ")}`}
+    >
+      {[0, 1, 2].map((i) => (
+        <line
+          key={i}
+          x1="22"
+          x2={w - 22}
+          y1={32 + i * 54}
+          y2={32 + i * 54}
+          className="gridline"
+        />
+      ))}
+      <polyline points={line} className="trend-area" />
+      <polyline points={line} className="trend-line" />
+      {points.map(({ value, x, y }, i) => (
+        <g key={`${value}-${i}`}>
+          <circle cx={x} cy={y} r="5" />
+          <text x={x} y={y - 13} textAnchor="middle">
+            {value}
+          </text>
+        </g>
+      ))}
+    </svg>
+  );
 }
 
-function LoadingState(){return <section className="state-panel" role="status" aria-live="polite"><div className="skeleton wide"/><div className="skeleton"/><div className="skeleton"/><span>Refreshing county information…</span></section>}
-function ErrorState({retry}:{retry:()=>void}){return <section className="state-panel" role="alert"><strong>County information is temporarily unavailable.</strong><p>Your filters are still here. Try the refresh again.</p><button onClick={retry}>Try again</button></section>}
+function Benchmark({
+  county,
+  state,
+  national,
+}: {
+  county: number;
+  state: number;
+  national: number;
+}) {
+  const rows = [
+    { label: "Selected view", value: county, tone: "selected" },
+    { label: "State benchmark", value: state, tone: "state" },
+    { label: "National benchmark", value: national, tone: "national" },
+  ];
+  return (
+    <div
+      className="benchmark"
+      role="img"
+      aria-label={`Systems readiness comparison. Selected view ${county}, state ${state}, national ${national}.`}
+    >
+      {rows.map((row) => (
+        <div className="benchmark-row" key={row.label}>
+          <span>{row.label}</span>
+          <div>
+            <i className={row.tone} style={{ width: `${row.value}%` }} />
+          </div>
+          <strong>{row.value}</strong>
+        </div>
+      ))}
+    </div>
+  );
+}
 
-export default function Platform(){
-  const [filters,setFilters]=useState(initialFilters),[toast,setToast]=useState(""),[selectedFips,setSelectedFips]=useState<string|null>(null),[dataState,setDataState]=useState<"ready"|"loading"|"error">("ready"),[filtersOpen,setFiltersOpen]=useState(false);
-  useEffect(()=>{const params=new URLSearchParams(window.location.search);const saved=params.get("view")||localStorage.getItem("cbcap-view");if(saved){try{setFilters({...initialFilters,...JSON.parse(saved)});}catch{setToast("This saved view could not be restored.");}}},[]);
-  const stateRecords=useMemo(()=>countyAccessSeed.filter((r)=>filters.state==="All states"||r.state===filters.state),[filters.state]);
-  const countyRecords=useMemo(()=>stateRecords.filter((r)=>filters.county==="All counties"||r.county===filters.county),[stateRecords,filters.county]);
-  const filtered=useMemo(()=>filterCountyRecords(countyAccessSeed,filters),[filters]);
-  const summary=useMemo(()=>aggregateCountyRecords(filtered),[filtered]);
-  const nationwide=useMemo(()=>aggregateCountyRecords(countyAccessSeed),[]);
-  const stateSummary=useMemo(()=>aggregateCountyRecords(filters.state==="All states"?countyAccessSeed:countyAccessSeed.filter((r)=>r.state===filters.state)),[filters.state]);
-  const selectedRecord=summary.visible.find((r)=>r.fips===selectedFips);
-  const topBarriers=useMemo(()=>Object.keys(labels).map((key)=>({key,label:labels[key],value:summary.visible.length?Math.round(summary.visible.reduce((sum,r)=>sum+r.barriers[key as keyof typeof r.barriers],0)/summary.visible.length):0})).sort((a,b)=>b.value-a.value),[summary.visible]);
-  const trend=useMemo(()=>unique(summary.visible.map((r)=>r.period)).map((period)=>({period,...aggregateCountyRecords(summary.visible.filter((r)=>r.period===period))})),[summary.visible]);
-  const activeFilters=Object.entries(filters).filter(([,value])=>!value.startsWith("All "));
-  const updateFilter=(key:keyof CountyFilters,value:string)=>{setToast("");setSelectedFips(null);setFilters((current)=>({...current,[key]:value,...(key==="state"?{county:"All counties",zip:"All ZIP codes"}:{}),...(key==="county"?{zip:"All ZIP codes"}:{})}));};
-  const saveView=()=>{const value=JSON.stringify(filters);localStorage.setItem("cbcap-view",value);const url=new URL(window.location.href);url.searchParams.set("view",value);history.replaceState(null,"",url);setToast("View saved on this device. You can also copy this page link.");};
-  const exportCsv=()=>{if(!summary.visible.length)return setToast("There are no rows available to export in this view.");downloadFile(`# ${cbcapSeedMetadata.source}\n# ${cbcapSeedMetadata.note}\n${countyRecordsToCsv(filtered)}`,"cbcap-county-view.csv","text/csv;charset=utf-8");setToast(`CSV downloaded with ${summary.visible.length} row${summary.visible.length===1?"":"s"}.`);};
-  const downloadBrief=(record?:CountyAccessRecord)=>{const target=record?`${record.county}, ${record.state}`:(filters.county!=="All counties"?filters.county:filters.state!=="All states"?filters.state:"Nationwide view");const brief=`CB-CAP ACCESS BRIEF\n${target}\nGenerated ${new Date().toLocaleDateString()}\n\nThis demonstration uses sample information and provides no clinical guidance.\n\nACCESS INDEX ${record?.accessIndex??summary.accessIndex}/100\nCONNECTION REQUESTS ${record?.connectionRequests??summary.totalRequests}\nCOMPLETED PATHWAYS ${record?.completedPathways??summary.completedPathways}\nMEDIAN CONNECTION TIME ${record?.medianMinutes??summary.medianMinutes} minutes\n\nPrivacy: results with fewer than ${disclosureControl.minimumCellSize} observations are not shown.`;downloadFile(brief,"cbcap-access-brief.txt","text/plain;charset=utf-8");setToast("Access brief downloaded.");};
-  const title=filters.county!=="All counties"?filters.county:filters.state!=="All states"?filters.state:"Nationwide overview";
-  const leader=topBarriers[0];
-  const completionDelta=summary.completionRate-nationwide.completionRate;
-
-  return <main className="app-shell">
-    <aside className="rail"><a className="wordmark" href="#overview" aria-label="SozoRock Health CB-CAP home"><span>SozoRock<sup>®</sup></span><small>HEALTH</small></a><div className="product-mark"><strong>CB-CAP</strong><span>County-Based Community<br/>Access Platform</span></div><nav aria-label="Dashboard sections">{[["Overview","overview"],["Geography","geography"],["Barriers","barriers"],["Counties","counties"],["Trends","trends"],["Reports","reports"]].map(([label,target],index)=><a key={target} href={`#${target}`} className={index===0?"active":""}><span aria-hidden="true">{["⌂","◎","◫","▤","↗","⇩"][index]}</span>{label}</a>)}</nav><div className="rail-note"><i/>Demonstration view<small>Sample, non-clinical information</small></div></aside>
-    <section className="workspace" id="overview">
-      <header className="topbar"><div><p className="section-label">Privacy-preserving systems intelligence</p><h1>{title}</h1><p>Make access gaps visible, compare community patterns, and plan Health Equity Hubs, Health Access Days, workforce capacity, and public-sector modernization.</p></div><div className="actions" id="reports"><button className="quiet" onClick={()=>setFiltersOpen(!filtersOpen)} aria-expanded={filtersOpen}>Filters <b>{activeFilters.length||""}</b></button><button className="quiet" onClick={exportCsv}>Export data</button><button className="primary" onClick={()=>downloadBrief()}>Download brief</button></div></header>
-      <div className="notice"><div><strong>Demonstration</strong><span>This preview shows the decision experience using sample information. It does not describe current county performance.</span></div><time>Updated {cbcapSeedMetadata.refreshedAt}</time></div>
-      <section className={`filter-panel ${filtersOpen?"open":""}`} aria-label="Dashboard filters"><SelectFilter label="State" value={filters.state} options={["All states",...unique(countyAccessSeed.map((r)=>r.state))]} onChange={(v)=>updateFilter("state",v)}/><SelectFilter label="County" value={filters.county} options={["All counties",...unique(stateRecords.map((r)=>r.county))]} onChange={(v)=>updateFilter("county",v)}/><SelectFilter label="ZIP code" value={filters.zip} options={["All ZIP codes",...unique(countyRecords.map((r)=>r.zip))]} onChange={(v)=>updateFilter("zip",v)}/><SelectFilter label="Period" value={filters.period} options={["All periods",...unique(countyAccessSeed.map((r)=>r.period))]} onChange={(v)=>updateFilter("period",v)}/><SelectFilter label="Hub" value={filters.hubType} options={["All hub types",...unique(countyAccessSeed.map((r)=>r.hubType))]} onChange={(v)=>updateFilter("hubType",v)}/><SelectFilter label="Language" value={filters.language} options={["All languages",...unique(countyAccessSeed.map((r)=>r.language))]} onChange={(v)=>updateFilter("language",v)}/><SelectFilter label="Leading barrier" value={filters.barrier??"All barriers"} options={["All barriers",...Object.keys(labels)]} onChange={(v)=>updateFilter("barrier",v)}/><SelectFilter label="Access level" value={filters.accessRange??"All access levels"} options={["All access levels","High (70-100)","Developing (50-69)","Limited (0-49)"]} onChange={(v)=>updateFilter("accessRange",v)}/><div className="filter-actions"><button onClick={()=>{setFilters(initialFilters);setToast("Filters cleared.");}}>Clear all</button><button onClick={saveView}>Save this view</button></div></section>
-      {activeFilters.length>0&&<div className="filter-chips" aria-label="Active filters">{activeFilters.map(([key,value])=><button key={key} onClick={()=>updateFilter(key as keyof CountyFilters,initialFilters[key as keyof CountyFilters]??"")} aria-label={`Remove ${value} filter`}>{value}<span aria-hidden="true">×</span></button>)}<button className="clear-chip" onClick={()=>setFilters(initialFilters)}>Clear all</button></div>}
-      {toast&&<div className="toast" role="status">{toast}<button aria-label="Dismiss message" onClick={()=>setToast("")}>×</button></div>}
-      {dataState==="loading"&&<LoadingState/>}{dataState==="error"&&<ErrorState retry={()=>setDataState("ready")}/>} {dataState==="ready"&&<>
-        <section className="metric-grid" aria-label="Filtered access summary"><article><span>People represented</span><strong>{summary.sampleSize.toLocaleString()}</strong><small>{summary.visible.length} community view{summary.visible.length===1?"":"s"}</small></article><article><span>Connection requests</span><strong>{summary.totalRequests.toLocaleString()}</strong><small>For this selection</small></article><article><span>Pathways completed</span><strong>{summary.completionRate}%</strong><small className={completionDelta>=0?"positive":"negative"}>{completionDelta>=0?"+":""}{completionDelta} pts vs nationwide</small></article><article><span>Typical connection time</span><strong>{summary.medianMinutes||"—"}<sup>{summary.medianMinutes?" min":""}</sup></strong><small>Across this selection</small></article><article className="accent-metric"><span>Access index</span><strong>{summary.accessIndex||"—"}<sup>{summary.accessIndex?"/100":""}</sup></strong><small>{summary.accessIndex>=nationwide.accessIndex?"Above":"Below"} nationwide benchmark</small></article></section>
-        <section className="insight-strip" aria-label="Key takeaways"><article><i className="signal"/><div><span>Leading barrier</span><strong>{leader?.label??"No data"}</strong><p>{leader?`${leader.value}/100 across the selected view.`:"Broaden the filters to see a pattern."}</p></div></article><article><i className="signal compare"/><div><span>Benchmark signal</span><strong>{summary.accessIndex-stateSummary.accessIndex>=0?"Ahead of":"Below"} state benchmark</strong><p>{Math.abs(summary.accessIndex-stateSummary.accessIndex)} points separate this view from its state comparison.</p></div></article><article><i className="signal action"/><div><span>Planning opportunity</span><strong>{leader?.key==="transportation"?"Plan local Health Equity Hubs":leader?.key==="language"?"Expand language-ready capacity":"Align partners and workforce"}</strong><p>Bring this systems view into CHA/CHIP priorities, Health Access Day planning, and AI-readiness decisions.</p></div></article></section>
-        <section className="dashboard-grid">
-          <article className="panel map-panel" id="geography"><div className="panel-head"><div><span>Geography</span><h2>County access pattern</h2><p>Select a highlighted county for its decision brief.</p></div><div className="map-key" aria-label="Map legend"><span><i className="limited"/>Limited</span><span><i className="developing"/>Developing</span><span><i className="strong"/>Strong</span></div></div><AccessMap records={summary.visible} selectedFips={selectedFips} onSelect={setSelectedFips}/></article>
-          <article className="panel benchmark-panel"><div className="panel-head"><div><span>Comparison</span><h2>How this view compares</h2><p>Access index, scaled from 0 to 100.</p></div></div><Benchmark county={summary.accessIndex} state={stateSummary.accessIndex} national={nationwide.accessIndex}/><div className="benchmark-note"><strong>{Math.abs(summary.accessIndex-nationwide.accessIndex)} pts</strong><span>{summary.accessIndex>=nationwide.accessIndex?"above":"below"} the nationwide sample</span></div></article>
-          <article className="panel trend-panel" id="trends"><div className="panel-head"><div><span>Trend</span><h2>Requests over time</h2><p>Connection requests within the selected view.</p></div></div><Sparkline values={trend.map((item)=>item.totalRequests)} label="Connection requests by period"/><div className="period-labels">{trend.map((item)=><span key={item.period}>{item.period}</span>)}</div></article>
-          <article className="panel barriers-panel" id="barriers"><div className="panel-head"><div><span>Barriers</span><h2>What residents encounter</h2><p>Higher values indicate a more persistent barrier.</p></div></div><div className="bar-list">{topBarriers.map((barrier,index)=><button className="bar-row" key={barrier.key} onClick={()=>updateFilter("barrier",barrier.key)} aria-label={`Filter to ${barrier.label}, index ${barrier.value}`}><span>{barrier.label}</span><div><i style={{width:`${barrier.value}%`}}/></div><strong>{barrier.value}</strong><small>{index===0?"Leading":""}</small></button>)}</div></article>
-          <article className="panel table-panel" id="counties"><div className="panel-head"><div><span>County detail</span><h2>Community access views</h2><p>{summary.visible.length} shown · {summary.suppressedCount} not shown because the group is too small</p></div></div><div className="table-scroll"><table><thead><tr><th>County</th><th>Hub</th><th>Language</th><th>Requests</th><th>Completed</th><th>Time</th><th>Index</th><th><span className="sr-only">Open</span></th></tr></thead><tbody>{summary.visible.map((r)=><tr key={r.id}><td><strong>{r.county}</strong><small>{r.stateCode} · {r.zip}</small></td><td>{r.hubType}</td><td>{r.language}</td><td>{r.connectionRequests}</td><td>{r.completedPathways}</td><td>{r.medianMinutes} min</td><td><span className={`score score-${r.accessIndex>=70?"high":r.accessIndex>=50?"mid":"low"}`}>{r.accessIndex}</span></td><td><button onClick={()=>setSelectedFips(r.fips)} aria-label={`Open ${r.county} brief`}>View</button></td></tr>)}{!summary.visible.length&&<tr><td colSpan={8} className="empty">No community views match these filters. Clear one or more filters to continue.</td></tr>}</tbody></table></div></article>
-        </section></>}
-      {selectedRecord&&<aside className="county-drawer" data-testid="county-decision-drawer" aria-label={`${selectedRecord.county} decision brief`}><button className="drawer-close" onClick={()=>setSelectedFips(null)} aria-label="Close county brief">×</button><p className="section-label">County systems brief</p><h2>{selectedRecord.county}<small>{selectedRecord.state}</small></h2><div className="drawer-score"><strong>{selectedRecord.accessIndex}</strong><span>Access index<br/>Nationwide benchmark {nationwide.accessIndex}</span></div><section><h3>What stands out</h3><p>{labels[Object.entries(selectedRecord.barriers).sort((a,b)=>b[1]-a[1])[0][0]]} is the most persistent barrier in this community view. The completion rate is {Math.round(selectedRecord.completedPathways/selectedRecord.connectionRequests*100)}%.</p></section><section><h3>Systems planning considerations</h3><ul><li>Test this pattern against current CHA/CHIP priorities and local evidence.</li><li>Assess where a Health Equity Hub or Health Access Day could close the visible gap.</li><li>Align licensed-provider participation, language readiness, and workforce development.</li><li>Document data and governance readiness before enabling AI-supported insights.</li></ul></section><button className="primary" onClick={()=>downloadBrief(selectedRecord)}>Download this brief</button><small>Sample information · No clinical guidance</small></aside>}
-      <footer className="privacy"><span aria-hidden="true">i</span><div><strong>Small groups are not shown</strong><p>Results representing fewer than {disclosureControl.minimumCellSize} observations are withheld. This demonstration contains no personal or clinical information.</p></div><button onClick={()=>setToast("Methodology: sample county-level records, minimum group thresholds, weighted summary measures, and no individual-level information.")}>How this view works</button></footer>
-      <div className="test-controls" aria-hidden="true"><button onClick={()=>{setDataState("loading");setTimeout(()=>setDataState("ready"),700)}}>Test refresh</button><button onClick={()=>setDataState("error")}>Test error</button></div>
+function LoadingState() {
+  return (
+    <section className="state-panel" role="status" aria-live="polite">
+      <div className="skeleton wide" />
+      <div className="skeleton" />
+      <div className="skeleton" />
+      <span>Refreshing county information…</span>
     </section>
-  </main>;
+  );
+}
+function ErrorState({ retry }: { retry: () => void }) {
+  return (
+    <section className="state-panel" role="alert">
+      <strong>County information is temporarily unavailable.</strong>
+      <p>Your filters are still here. Try the refresh again.</p>
+      <button onClick={retry}>Try again</button>
+    </section>
+  );
+}
+
+export default function Platform() {
+  const [filters, setFilters] = useState(initialFilters),
+    [toast, setToast] = useState(""),
+    [selectedFips, setSelectedFips] = useState<string | null>(null),
+    [dataState, setDataState] = useState<"ready" | "loading" | "error">(
+      "ready",
+    ),
+    [filtersOpen, setFiltersOpen] = useState(false);
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const saved = params.get("view") || localStorage.getItem("cbcap-view");
+    if (saved) {
+      try {
+        setFilters({ ...initialFilters, ...JSON.parse(saved) });
+      } catch {
+        setToast("This saved view could not be restored.");
+      }
+    }
+  }, []);
+  const stateRecords = useMemo(
+    () =>
+      countyAccessSeed.filter(
+        (r) => filters.state === "All states" || r.state === filters.state,
+      ),
+    [filters.state],
+  );
+  const countyRecords = useMemo(
+    () =>
+      stateRecords.filter(
+        (r) => filters.county === "All counties" || r.county === filters.county,
+      ),
+    [stateRecords, filters.county],
+  );
+  const filtered = useMemo(
+    () => filterCountyRecords(countyAccessSeed, filters),
+    [filters],
+  );
+  const summary = useMemo(() => aggregateCountyRecords(filtered), [filtered]);
+  const nationwide = useMemo(
+    () => aggregateCountyRecords(countyAccessSeed),
+    [],
+  );
+  const stateSummary = useMemo(
+    () =>
+      aggregateCountyRecords(
+        filters.state === "All states"
+          ? countyAccessSeed
+          : countyAccessSeed.filter((r) => r.state === filters.state),
+      ),
+    [filters.state],
+  );
+  const selectedRecord = summary.visible.find((r) => r.fips === selectedFips);
+  const topBarriers = useMemo(
+    () =>
+      Object.keys(labels)
+        .map((key) => ({
+          key,
+          label: labels[key],
+          value: summary.visible.length
+            ? Math.round(
+                summary.visible.reduce(
+                  (sum, r) => sum + r.barriers[key as keyof typeof r.barriers],
+                  0,
+                ) / summary.visible.length,
+              )
+            : 0,
+        }))
+        .sort((a, b) => b.value - a.value),
+    [summary.visible],
+  );
+  const trend = useMemo(
+    () =>
+      unique(summary.visible.map((r) => r.period)).map((period) => ({
+        period,
+        ...aggregateCountyRecords(
+          summary.visible.filter((r) => r.period === period),
+        ),
+      })),
+    [summary.visible],
+  );
+  const activeFilters = Object.entries(filters).filter(
+    ([, value]) => !value.startsWith("All "),
+  );
+  const updateFilter = (key: keyof CountyFilters, value: string) => {
+    setToast("");
+    setSelectedFips(null);
+    setFilters((current) => ({
+      ...current,
+      [key]: value,
+      ...(key === "state"
+        ? { county: "All counties", zip: "All ZIP codes" }
+        : {}),
+      ...(key === "county" ? { zip: "All ZIP codes" } : {}),
+    }));
+  };
+  const saveView = () => {
+    const value = JSON.stringify(filters);
+    localStorage.setItem("cbcap-view", value);
+    const url = new URL(window.location.href);
+    url.searchParams.set("view", value);
+    history.replaceState(null, "", url);
+    setToast("View saved on this device. You can also copy this page link.");
+  };
+  const exportCsv = () => {
+    if (!summary.visible.length)
+      return setToast("There are no rows available to export in this view.");
+    downloadFile(
+      `# ${cbcapSeedMetadata.source}\n# ${cbcapSeedMetadata.note}\n${countyRecordsToCsv(filtered)}`,
+      "cbcap-county-view.csv",
+      "text/csv;charset=utf-8",
+    );
+    setToast(
+      `CSV downloaded with ${summary.visible.length} row${summary.visible.length === 1 ? "" : "s"}.`,
+    );
+  };
+  const downloadBrief = (record?: CountyAccessRecord) => {
+    const target = record
+      ? `${record.county}, ${record.state}`
+      : filters.county !== "All counties"
+        ? filters.county
+        : filters.state !== "All states"
+          ? filters.state
+          : "Nationwide view";
+    const brief = `CB-CAP COUNTY SYSTEMS BRIEF\n${target}\nGenerated ${new Date().toLocaleDateString()}\n\nThis demonstration uses sample information and provides no clinical guidance.\n\nSYSTEMS READINESS INDEX ${record?.accessIndex ?? summary.accessIndex}/100\nCONNECTION REQUESTS ${record?.connectionRequests ?? summary.totalRequests}\nCOMPLETED PATHWAYS ${record?.completedPathways ?? summary.completedPathways}\nMEDIAN CONNECTION TIME ${record?.medianMinutes ?? summary.medianMinutes} minutes\n\nPlanning lenses: Health Equity Hubs; Health Access Day; Community Health Assessment and Community Health Improvement Plan; digital and AI readiness; workforce capacity; governance and digital assurance.\n\nPrivacy: results with fewer than ${disclosureControl.minimumCellSize} observations are not shown.`;
+    downloadFile(
+      brief,
+      "cbcap-county-systems-brief.txt",
+      "text/plain;charset=utf-8",
+    );
+    setToast("County systems brief downloaded.");
+  };
+  const title =
+    filters.county !== "All counties"
+      ? filters.county
+      : filters.state !== "All states"
+        ? filters.state
+        : "Nationwide overview";
+  const leader = topBarriers[0];
+  const completionDelta = summary.completionRate - nationwide.completionRate;
+
+  return (
+    <main className="app-shell">
+      <aside className="rail">
+        <a
+          className="wordmark"
+          href="#overview"
+          aria-label="SozoRock Health CB-CAP home"
+        >
+          <span>
+            SozoRock<sup>®</sup>
+          </span>
+          <small>HEALTH</small>
+        </a>
+        <div className="product-mark">
+          <strong>CB-CAP</strong>
+          <span>
+            County-Based Community
+            <br />
+            Access Platform
+          </span>
+        </div>
+        <nav aria-label="Dashboard sections">
+          {[
+            ["Overview", "overview"],
+            ["Geography", "geography"],
+            ["Barriers", "barriers"],
+            ["Counties", "counties"],
+            ["Trends", "trends"],
+            ["Reports", "reports"],
+          ].map(([label, target], index) => (
+            <a
+              key={target}
+              href={`#${target}`}
+              className={index === 0 ? "active" : ""}
+            >
+              <span aria-hidden="true">
+                {["⌂", "◎", "◫", "▤", "↗", "⇩"][index]}
+              </span>
+              {label}
+            </a>
+          ))}
+        </nav>
+        <div className="rail-note">
+          <i />
+          Demonstration view<small>Sample, non-clinical information</small>
+        </div>
+      </aside>
+      <section className="workspace" id="overview">
+        <header className="topbar">
+          <div>
+            <p className="section-label">
+              Privacy-preserving county systems intelligence
+            </p>
+            <h1>{title}</h1>
+            <p>
+              See pathway gaps, compare system readiness, and coordinate Health
+              Equity Hubs, Health Access Days, workforce capacity, digital
+              assurance, and public-sector action.
+            </p>
+          </div>
+          <div className="actions" id="reports">
+            <button
+              className="quiet"
+              onClick={() => setFiltersOpen(!filtersOpen)}
+              aria-expanded={filtersOpen}
+            >
+              Filters <b>{activeFilters.length || ""}</b>
+            </button>
+            <button className="quiet" onClick={exportCsv}>
+              Export data
+            </button>
+            <button className="primary" onClick={() => downloadBrief()}>
+              Download brief
+            </button>
+          </div>
+        </header>
+        <div className="notice">
+          <div>
+            <strong>Demonstration</strong>
+            <span>
+              This preview shows the decision experience using sample
+              information. It does not describe current county performance.
+            </span>
+          </div>
+          <time>Updated {cbcapSeedMetadata.refreshedAt}</time>
+        </div>
+        <section
+          className={`filter-panel ${filtersOpen ? "open" : ""}`}
+          aria-label="Dashboard filters"
+        >
+          <SelectFilter
+            label="State"
+            value={filters.state}
+            options={[
+              "All states",
+              ...usStates,
+            ]}
+            onChange={(v) => updateFilter("state", v)}
+          />
+          <SelectFilter
+            label="County"
+            value={filters.county}
+            options={[
+              "All counties",
+              ...unique(stateRecords.map((r) => r.county)),
+            ]}
+            onChange={(v) => updateFilter("county", v)}
+          />
+          <SelectFilter
+            label="ZIP code"
+            value={filters.zip}
+            options={[
+              "All ZIP codes",
+              ...unique(countyRecords.map((r) => r.zip)),
+            ]}
+            onChange={(v) => updateFilter("zip", v)}
+          />
+          <SelectFilter
+            label="Period"
+            value={filters.period}
+            options={[
+              "All periods",
+              ...unique(countyAccessSeed.map((r) => r.period)),
+            ]}
+            onChange={(v) => updateFilter("period", v)}
+          />
+          <SelectFilter
+            label="Hub"
+            value={filters.hubType}
+            options={[
+              "All hub types",
+              ...unique(countyAccessSeed.map((r) => r.hubType)),
+            ]}
+            onChange={(v) => updateFilter("hubType", v)}
+          />
+          <SelectFilter
+            label="Language"
+            value={filters.language}
+            options={[
+              "All languages",
+              ...unique(countyAccessSeed.map((r) => r.language)),
+            ]}
+            onChange={(v) => updateFilter("language", v)}
+          />
+          <SelectFilter
+            label="Leading barrier"
+            value={filters.barrier ?? "All barriers"}
+            options={["All barriers", ...Object.keys(labels)]}
+            onChange={(v) => updateFilter("barrier", v)}
+          />
+          <SelectFilter
+            label="Access level"
+            value={filters.accessRange ?? "All access levels"}
+            options={[
+              "All access levels",
+              "High (70-100)",
+              "Developing (50-69)",
+              "Limited (0-49)",
+            ]}
+            onChange={(v) => updateFilter("accessRange", v)}
+          />
+          <div className="filter-actions">
+            <button
+              onClick={() => {
+                setFilters(initialFilters);
+                setToast("Filters cleared.");
+              }}
+            >
+              Clear all
+            </button>
+            <button onClick={saveView}>Save this view</button>
+          </div>
+        </section>
+        {activeFilters.length > 0 && (
+          <div className="filter-chips" aria-label="Active filters">
+            {activeFilters.map(([key, value]) => (
+              <button
+                key={key}
+                onClick={() =>
+                  updateFilter(
+                    key as keyof CountyFilters,
+                    initialFilters[key as keyof CountyFilters] ?? "",
+                  )
+                }
+                aria-label={`Remove ${value} filter`}
+              >
+                {value}
+                <span aria-hidden="true">×</span>
+              </button>
+            ))}
+            <button
+              className="clear-chip"
+              onClick={() => setFilters(initialFilters)}
+            >
+              Clear all
+            </button>
+          </div>
+        )}
+        {toast && (
+          <div className="toast" role="status">
+            {toast}
+            <button aria-label="Dismiss message" onClick={() => setToast("")}>
+              ×
+            </button>
+          </div>
+        )}
+        {dataState === "loading" && <LoadingState />}
+        {dataState === "error" && (
+          <ErrorState retry={() => setDataState("ready")} />
+        )}{" "}
+        {dataState === "ready" && (
+          <>
+            <section
+              className="metric-grid"
+              aria-label="Filtered pathway and systems summary"
+            >
+              <article>
+                <span>People represented</span>
+                <strong>{summary.sampleSize.toLocaleString()}</strong>
+                <small>
+                  {summary.visible.length} community view
+                  {summary.visible.length === 1 ? "" : "s"}
+                </small>
+              </article>
+              <article>
+                <span>Pathway requests</span>
+                <strong>{summary.totalRequests.toLocaleString()}</strong>
+                <small>For this selection</small>
+              </article>
+              <article>
+                <span>Pathways completed</span>
+                <strong>{summary.completionRate}%</strong>
+                <small
+                  className={completionDelta >= 0 ? "positive" : "negative"}
+                >
+                  {completionDelta >= 0 ? "+" : ""}
+                  {completionDelta} pts vs nationwide
+                </small>
+              </article>
+              <article>
+                <span>Typical connection time</span>
+                <strong>
+                  {summary.medianMinutes || "—"}
+                  <sup>{summary.medianMinutes ? " min" : ""}</sup>
+                </strong>
+                <small>Across this selection</small>
+              </article>
+              <article className="accent-metric">
+                <span>Systems readiness</span>
+                <strong>
+                  {summary.accessIndex || "—"}
+                  <sup>{summary.accessIndex ? "/100" : ""}</sup>
+                </strong>
+                <small>
+                  {summary.accessIndex === nationwide.accessIndex
+                    ? "At"
+                    : summary.accessIndex > nationwide.accessIndex
+                      ? "Above"
+                      : "Below"}{" "}
+                  nationwide benchmark
+                </small>
+              </article>
+            </section>
+            <section className="insight-strip" aria-label="Key takeaways">
+              <article>
+                <i className="signal" />
+                <div>
+                  <span>Leading barrier</span>
+                  <strong>{leader?.label ?? "No data"}</strong>
+                  <p>
+                    {leader
+                      ? `${leader.value}/100 across the selected view.`
+                      : "Broaden the filters to see a pattern."}
+                  </p>
+                </div>
+              </article>
+              <article>
+                <i className="signal compare" />
+                <div>
+                  <span>Benchmark signal</span>
+                  <strong>
+                    {summary.accessIndex === stateSummary.accessIndex
+                      ? "At"
+                      : summary.accessIndex > stateSummary.accessIndex
+                        ? "Ahead of"
+                        : "Below"}{" "}
+                    state benchmark
+                  </strong>
+                  <p>
+                    {Math.abs(summary.accessIndex - stateSummary.accessIndex)}{" "}
+                    points separate this view from its state comparison.
+                  </p>
+                </div>
+              </article>
+              <article>
+                <i className="signal action" />
+                <div>
+                  <span>Planning opportunity</span>
+                  <strong>
+                    {leader?.key === "transportation"
+                      ? "Plan local Health Equity Hubs"
+                      : leader?.key === "language"
+                        ? "Expand language-ready capacity"
+                        : "Align partners and workforce"}
+                  </strong>
+                  <p>
+                    Bring this systems view into Community Health Assessment and
+                    Community Health Improvement Plan priorities, Health Access
+                    Day planning, and AI-readiness decisions.
+                  </p>
+                </div>
+              </article>
+            </section>
+            <section className="planning-lenses" aria-labelledby="planning-lenses-heading">
+              <div>
+                <span>County planning framework</span>
+                <h2 id="planning-lenses-heading">One view. Six connected decisions.</h2>
+              </div>
+              <ul>
+                <li>Health Equity Hub readiness</li>
+                <li>Health Access Day planning</li>
+                <li>CHA and CHIP support</li>
+                <li>Digital and AI readiness</li>
+                <li>Workforce capacity</li>
+                <li>Governance and digital assurance</li>
+              </ul>
+              <p>Community Health Assessment and Community Health Improvement Plan support. These are planning lenses, not clinical measures; demonstration values are sample and de-identified.</p>
+            </section>
+            <section className="dashboard-grid">
+              <article className="panel map-panel" id="geography">
+                <div className="panel-head">
+                  <div>
+                    <span>Geography</span>
+                    <h2>County pathway and readiness pattern</h2>
+                    <p>Select a highlighted county for its systems brief.</p>
+                  </div>
+                  <div className="map-key" aria-label="Map legend">
+                    <span>
+                      <i className="limited" />
+                      Limited
+                    </span>
+                    <span>
+                      <i className="developing" />
+                      Developing
+                    </span>
+                    <span>
+                      <i className="strong" />
+                      Strong
+                    </span>
+                  </div>
+                </div>
+                <AccessMap
+                  records={summary.visible}
+                  selectedFips={selectedFips}
+                  onSelect={setSelectedFips}
+                />
+              </article>
+              <article className="panel benchmark-panel">
+                <div className="panel-head">
+                  <div>
+                    <span>Comparison</span>
+                    <h2>How this view compares</h2>
+                    <p>Systems readiness index, scaled from 0 to 100.</p>
+                  </div>
+                </div>
+                <Benchmark
+                  county={summary.accessIndex}
+                  state={stateSummary.accessIndex}
+                  national={nationwide.accessIndex}
+                />
+                <div className="benchmark-note">
+                  <strong>
+                    {Math.abs(summary.accessIndex - nationwide.accessIndex)} pts
+                  </strong>
+                  <span>
+                    {summary.accessIndex === nationwide.accessIndex
+                      ? "at"
+                      : summary.accessIndex > nationwide.accessIndex
+                        ? "above"
+                        : "below"}{" "}
+                    the nationwide sample
+                  </span>
+                </div>
+              </article>
+              <article className="panel trend-panel" id="trends">
+                <div className="panel-head">
+                  <div>
+                    <span>Trend</span>
+                    <h2>Requests over time</h2>
+                    <p>Connection requests within the selected view.</p>
+                  </div>
+                </div>
+                <Sparkline
+                  values={trend.map((item) => item.totalRequests)}
+                  label="Connection requests by period"
+                />
+                <div className="period-labels">
+                  {trend.map((item) => (
+                    <span key={item.period}>{item.period}</span>
+                  ))}
+                </div>
+              </article>
+              <article className="panel barriers-panel" id="barriers">
+                <div className="panel-head">
+                  <div>
+                    <span>Barriers</span>
+                    <h2>What residents encounter</h2>
+                    <p>Higher values indicate a more persistent barrier.</p>
+                  </div>
+                </div>
+                <div className="bar-list">
+                  {topBarriers.map((barrier, index) => (
+                    <button
+                      className="bar-row"
+                      key={barrier.key}
+                      onClick={() => updateFilter("barrier", barrier.key)}
+                      aria-label={`Filter to ${barrier.label}, index ${barrier.value}`}
+                    >
+                      <span>{barrier.label}</span>
+                      <div>
+                        <i style={{ width: `${barrier.value}%` }} />
+                      </div>
+                      <strong>{barrier.value}</strong>
+                      <small>{index === 0 ? "Leading" : ""}</small>
+                    </button>
+                  ))}
+                </div>
+              </article>
+              <article className="panel table-panel" id="counties">
+                <div className="panel-head">
+                  <div>
+                    <span>County detail</span>
+                    <h2>Community access views</h2>
+                    <p>
+                      {summary.visible.length} shown · {summary.suppressedCount}{" "}
+                      not shown because the group is too small
+                    </p>
+                  </div>
+                </div>
+                <div className="table-scroll">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>County</th>
+                        <th>Hub</th>
+                        <th>Language</th>
+                        <th>Requests</th>
+                        <th>Completed</th>
+                        <th>Time</th>
+                        <th>Index</th>
+                        <th>
+                          <span className="sr-only">Open</span>
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {summary.visible.map((r) => (
+                        <tr key={r.id}>
+                          <td>
+                            <strong>{r.county}</strong>
+                            <small>
+                              {r.stateCode} · {r.zip}
+                            </small>
+                          </td>
+                          <td>{r.hubType}</td>
+                          <td>{r.language}</td>
+                          <td>{r.connectionRequests}</td>
+                          <td>{r.completedPathways}</td>
+                          <td>{r.medianMinutes} min</td>
+                          <td>
+                            <span
+                              className={`score score-${r.accessIndex >= 70 ? "high" : r.accessIndex >= 50 ? "mid" : "low"}`}
+                            >
+                              {r.accessIndex}
+                            </span>
+                          </td>
+                          <td>
+                            <button
+                              onClick={() => setSelectedFips(r.fips)}
+                              aria-label={`Open ${r.county} brief`}
+                            >
+                              View
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                      {!summary.visible.length && (
+                        <tr>
+                          <td colSpan={8} className="empty">
+                            No community views match these filters. Clear one or
+                            more filters to continue.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </article>
+            </section>
+          </>
+        )}
+        {selectedRecord && (
+          <aside
+            className="county-drawer"
+            data-testid="county-decision-drawer"
+            aria-label={`${selectedRecord.county} decision brief`}
+          >
+            <button
+              className="drawer-close"
+              onClick={() => setSelectedFips(null)}
+              aria-label="Close county brief"
+            >
+              ×
+            </button>
+            <p className="section-label">County systems brief</p>
+            <h2>
+              {selectedRecord.county}
+              <small>{selectedRecord.state}</small>
+            </h2>
+            <div className="drawer-score">
+              <strong>{selectedRecord.accessIndex}</strong>
+              <span>
+                Access index
+                <br />
+                Nationwide benchmark {nationwide.accessIndex}
+              </span>
+            </div>
+            <section>
+              <h3>What stands out</h3>
+              <p>
+                {
+                  labels[
+                    Object.entries(selectedRecord.barriers).sort(
+                      (a, b) => b[1] - a[1],
+                    )[0][0]
+                  ]
+                }{" "}
+                is the most persistent barrier in this community view. The
+                completion rate is{" "}
+                {Math.round(
+                  (selectedRecord.completedPathways /
+                    selectedRecord.connectionRequests) *
+                    100,
+                )}
+                %.
+              </p>
+            </section>
+            <section>
+              <h3>Systems planning considerations</h3>
+              <ul>
+                <li>
+                  Test this pattern against current CHA/CHIP priorities and
+                  local evidence.
+                </li>
+                <li>
+                  Assess where a Health Equity Hub or Health Access Day could
+                  close the visible gap.
+                </li>
+                <li>
+                  Align licensed-provider participation, language readiness, and
+                  workforce development.
+                </li>
+                <li>
+                  Document data and governance readiness before enabling
+                  AI-supported insights.
+                </li>
+              </ul>
+            </section>
+            <button
+              className="primary"
+              onClick={() => downloadBrief(selectedRecord)}
+            >
+              Download this brief
+            </button>
+            <small>Sample information · No clinical guidance</small>
+          </aside>
+        )}
+        <footer className="privacy">
+          <span aria-hidden="true">i</span>
+          <div>
+            <strong>Small groups are not shown</strong>
+            <p>
+              Results representing fewer than{" "}
+              {disclosureControl.minimumCellSize} observations are withheld.
+              This demonstration contains no personal or clinical information.
+            </p>
+          </div>
+          <button
+            onClick={() =>
+              setToast(
+                "Methodology: sample county-level records, minimum group thresholds, weighted summary measures, and no individual-level information.",
+              )
+            }
+          >
+            How this view works
+          </button>
+        </footer>
+      </section>
+    </main>
+  );
 }
