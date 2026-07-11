@@ -13,6 +13,7 @@ const dynamo = DynamoDBDocumentClient.from(new DynamoDBClient({ region }), { mar
 const sns = new SNSClient({ region });
 const MAX_REQUESTS_PER_HOUR = 5;
 const RETENTION_SECONDS = 365 * 24 * 60 * 60;
+const configuredContactHosts = (process.env.CONTACT_ALLOWED_HOSTS ?? "").split(";").map((host) => host.trim()).filter(Boolean);
 
 function value(body: Record<string, unknown>, name: string, max = 180) {
   return typeof body[name] === "string" ? body[name].trim().replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, "").slice(0, max) : "";
@@ -22,7 +23,7 @@ function sameOrigin(request: NextRequest) {
   const origin = request.headers.get("origin");
   if (!origin) return true;
   const publicHost = request.headers.get("x-forwarded-host")?.split(",")[0]?.trim() ?? request.headers.get("host") ?? request.nextUrl.host;
-  try { return new URL(origin).host === publicHost; } catch { return false; }
+  try { return new Set([publicHost, ...configuredContactHosts]).has(new URL(origin).host); } catch { return false; }
 }
 
 export async function POST(request: NextRequest) {
