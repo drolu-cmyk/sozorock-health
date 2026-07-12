@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   aggregateCountyRecords,
   cbcapSeedMetadata,
@@ -102,23 +102,36 @@ function downloadFile(contents: string, filename: string, type: string) {
   anchor.click();
   URL.revokeObjectURL(url);
 }
+function escapeHtml(value: string) {
+  return value.replace(/[&<>"']/g, (character) => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;",
+  })[character] ?? character);
+}
 function SelectFilter({
   label,
   value,
   options,
   onChange,
+  optionLabels,
 }: {
   label: string;
   value: string;
   options: string[];
   onChange: (value: string) => void;
+  optionLabels?: Record<string, string>;
 }) {
   return (
     <label className="filter">
       <span>{label}</span>
       <select value={value} onChange={(event) => onChange(event.target.value)}>
         {options.map((option) => (
-          <option key={option}>{option}</option>
+          <option key={option} value={option}>
+            {optionLabels?.[option] ?? option}
+          </option>
         ))}
       </select>
     </label>
@@ -229,7 +242,9 @@ export default function Platform() {
     [dataState, setDataState] = useState<"ready" | "loading" | "error">(
       "ready",
     ),
-    [filtersOpen, setFiltersOpen] = useState(false);
+    [filtersOpen, setFiltersOpen] = useState(false),
+    [activeSection, setActiveSection] = useState("overview");
+  const drawerCloseRef = useRef<HTMLButtonElement>(null);
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const saved = params.get("view") || localStorage.getItem("cbcap-view");
@@ -240,6 +255,31 @@ export default function Platform() {
         setToast("This saved view could not be restored.");
       }
     }
+  }, []);
+  useEffect(() => {
+    if (!selectedFips) return;
+    drawerCloseRef.current?.focus();
+    const close = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setSelectedFips(null);
+    };
+    window.addEventListener("keydown", close);
+    return () => window.removeEventListener("keydown", close);
+  }, [selectedFips]);
+  useEffect(() => {
+    const targets = ["overview", "geography", "barriers", "counties", "trends", "reports"]
+      .map((id) => document.getElementById(id))
+      .filter((target): target is HTMLElement => Boolean(target));
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const visible = entries
+          .filter((entry) => entry.isIntersecting)
+          .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
+        if (visible?.target.id) setActiveSection(visible.target.id);
+      },
+      { rootMargin: "-15% 0px -70% 0px", threshold: [0, 0.1, 0.5] },
+    );
+    targets.forEach((target) => observer.observe(target));
+    return () => observer.disconnect();
   }, []);
   const stateRecords = useMemo(
     () =>
@@ -345,13 +385,20 @@ export default function Platform() {
         : filters.state !== "All states"
           ? filters.state
           : "Nationwide view";
-    const brief = `CB-CAP COUNTY SYSTEMS BRIEF\n${target}\nGenerated ${new Date().toLocaleDateString()}\n\nThis demonstration uses sample information and provides no clinical guidance.\n\nSYSTEMS READINESS INDEX ${record?.accessIndex ?? summary.accessIndex}/100\nCONNECTION REQUESTS ${record?.connectionRequests ?? summary.totalRequests}\nCOMPLETED PATHWAYS ${record?.completedPathways ?? summary.completedPathways}\nMEDIAN CONNECTION TIME ${record?.medianMinutes ?? summary.medianMinutes} minutes\n\nPlanning lenses: Health Equity Hubs; Health Access Day; Community Health Assessment and Community Health Improvement Plan; digital and AI readiness; workforce capacity; governance and digital assurance.\n\nPrivacy: results with fewer than ${disclosureControl.minimumCellSize} observations are not shown.`;
-    downloadFile(
-      brief,
-      "cbcap-county-systems-brief.txt",
-      "text/plain;charset=utf-8",
-    );
-    setToast("County systems brief downloaded.");
+    const report = window.open("", "cbcap-report");
+    if (!report) {
+      setToast("Your browser blocked the report window. Allow pop-ups and try again.");
+      return;
+    }
+    report.opener = null;
+    const index = record?.accessIndex ?? summary.accessIndex;
+    const requests = record?.connectionRequests ?? summary.totalRequests;
+    const completed = record?.completedPathways ?? summary.completedPathways;
+    const minutes = record?.medianMinutes ?? summary.medianMinutes;
+    const safeTarget = escapeHtml(target);
+    report.document.write(`<!doctype html><html lang="en"><head><meta charset="utf-8"><title>CB-CAP systems brief — ${safeTarget}</title><style>body{font:16px/1.55 Arial,sans-serif;color:#13251f;max-width:780px;margin:48px auto;padding:0 28px}header{border-bottom:4px solid #17372d;padding-bottom:24px}h1{font:42px Georgia,serif;margin:.2em 0}.meta{color:#5d6b65}.metrics{display:grid;grid-template-columns:repeat(2,1fr);gap:1px;background:#ccd2cc;border:1px solid #ccd2cc;margin:32px 0}.metrics div{background:#fff;padding:20px}.metrics strong{display:block;font:36px Georgia,serif}.notice{background:#f1eee4;padding:18px;border-left:4px solid #a9863f}li{margin:.55em 0}footer{margin-top:36px;border-top:1px solid #ccd2cc;padding-top:16px;font-size:13px;color:#5d6b65}.print{border:0;background:#17372d;color:white;padding:12px 18px;font-weight:700}@media print{body{margin:0}.print{display:none}}@media(max-width:600px){.metrics{grid-template-columns:1fr}}</style></head><body><header><strong>SozoRock Health® · CB-CAP</strong><h1>${safeTarget}</h1><p>County systems brief</p><p class="meta">Prepared ${new Date().toLocaleDateString()}</p></header><section class="metrics" aria-label="Summary measures"><div><span>Systems readiness</span><strong>${index}/100</strong></div><div><span>Pathway requests</span><strong>${requests.toLocaleString()}</strong></div><div><span>Completed pathways</span><strong>${completed.toLocaleString()}</strong></div><div><span>Typical connection time</span><strong>${minutes} min</strong></div></section><h2>Planning considerations</h2><ul><li>Review the pattern alongside local Community Health Assessment and Community Health Improvement Plan priorities.</li><li>Assess Health Equity Hub and Health Access Day readiness.</li><li>Coordinate provider participation, workforce capacity, language access, digital readiness, and governance.</li></ul><p class="notice"><strong>Decision boundary:</strong> This demonstration uses synthetic, de-identified information. It does not describe current county performance and provides no clinical guidance.</p><button class="print" onclick="window.print()">Print or save as PDF</button><footer>Groups with fewer than ${disclosureControl.minimumCellSize} observations are not shown. No personal or clinical information is included.</footer></body></html>`);
+    report.document.close();
+    setToast("Report opened. Use Print or Save as PDF to keep a copy.");
   };
   const title =
     filters.county !== "All counties"
@@ -395,7 +442,8 @@ export default function Platform() {
             <a
               key={target}
               href={`#${target}`}
-              className={index === 0 ? "active" : ""}
+              className={activeSection === target ? "active" : ""}
+              aria-current={activeSection === target ? "location" : undefined}
             >
               <span aria-hidden="true">
                 {["⌂", "◎", "◫", "▤", "↗", "⇩"][index]}
@@ -434,7 +482,7 @@ export default function Platform() {
               Export data
             </button>
             <button className="primary" onClick={() => downloadBrief()}>
-              Download brief
+              Build report
             </button>
           </div>
         </header>
@@ -448,6 +496,14 @@ export default function Platform() {
           </div>
           <time>Updated {cbcapSeedMetadata.refreshedAt}</time>
         </div>
+        <details className="quick-guide">
+          <summary>New to this dashboard? Start here</summary>
+          <ol>
+            <li><strong>Choose a place or planning lens.</strong> Open Filters to narrow the view.</li>
+            <li><strong>Compare the signals.</strong> Review geography, barriers, benchmarks, and trends together.</li>
+            <li><strong>Carry the view forward.</strong> Save the filters, export data, or build a printable report.</li>
+          </ol>
+        </details>
         <section
           className={`filter-panel ${filtersOpen ? "open" : ""}`}
           aria-label="Dashboard filters"
@@ -510,6 +566,7 @@ export default function Platform() {
             label="Leading barrier"
             value={filters.barrier ?? "All barriers"}
             options={["All barriers", ...Object.keys(labels)]}
+            optionLabels={labels}
             onChange={(v) => updateFilter("barrier", v)}
           />
           <SelectFilter
@@ -868,16 +925,20 @@ export default function Platform() {
             className="county-drawer"
             data-testid="county-decision-drawer"
             aria-label={`${selectedRecord.county} decision brief`}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="county-drawer-title"
           >
             <button
               className="drawer-close"
+              ref={drawerCloseRef}
               onClick={() => setSelectedFips(null)}
               aria-label="Close county brief"
             >
               ×
             </button>
             <p className="section-label">County systems brief</p>
-            <h2>
+            <h2 id="county-drawer-title">
               {selectedRecord.county}
               <small>{selectedRecord.state}</small>
             </h2>

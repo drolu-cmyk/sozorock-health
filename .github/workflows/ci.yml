@@ -20,6 +20,13 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run typecheck
+      - run: npm test
+      - name: Reject publicly served publication PDFs
+        run: |
+          if find apps/public-site/public/publications -type f -name '*.pdf' -print -quit | grep -q .; then
+            echo "Publication PDFs must be delivered from the private publication bucket."
+            exit 1
+          fi
       - run: npm run build:public
       - run: npm run build:platform
       - run: npm exec --workspace @sozorock/mobile -- expo-doctor

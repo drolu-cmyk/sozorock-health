@@ -10,9 +10,9 @@ Parameters:
   ContactEmail:
     Type: String
     Default: contact@sozorockfoundation.org
-  OpenAIApiKey:
+  OpenAISecretArn:
     Type: String
-    NoEcho: true
+    Description: ARN of the existing dedicated OpenAI Realtime Voice secret.
 
 Resources:
   ContactSubmissions:
@@ -48,12 +48,14 @@ Resources:
         - Key: Product
           Value: SozoRockHealth
 
-  RealtimeVoiceSecret:
+  ContactRateLimitSalt:
     Type: AWS::SecretsManager::Secret
     Properties:
-      Name: sozorock-health/openai-realtime-voice
-      Description: Server-only OpenAI credential for SozoRock Health Voice Access.
-      SecretString: !Ref OpenAIApiKey
+      Name: sozorock-health/contact-rate-limit-salt
+      Description: Random salt for one-way contact rate-limit identifiers.
+      GenerateSecretString:
+        PasswordLength: 48
+        ExcludePunctuation: true
 
   ContactEmailSubscription:
     Type: AWS::SNS::Subscription
@@ -93,7 +95,9 @@ Resources:
                 Resource: !Ref ContactNotifications
               - Effect: Allow
                 Action: secretsmanager:GetSecretValue
-                Resource: !Ref RealtimeVoiceSecret
+                Resource:
+                  - !Ref OpenAISecretArn
+                  - !Ref ContactRateLimitSalt
 
 Outputs:
   ContactTableName:
@@ -103,4 +107,6 @@ Outputs:
   ComputeRoleArn:
     Value: !GetAtt PublicSiteComputeRole.Arn
   RealtimeVoiceSecretArn:
-    Value: !Ref RealtimeVoiceSecret
+    Value: !Ref OpenAISecretArn
+  ContactRateLimitSaltSecretArn:
+    Value: !Ref ContactRateLimitSalt

@@ -33,13 +33,66 @@ jobs:
         env:
           PUBLIC_APP_ID: ${{ vars.PUBLIC_AMPLIFY_APP_ID }}
           CBCAP_APP_ID: ${{ vars.CBCAP_AMPLIFY_APP_ID }}
+          AMPLIFY_BRANCH: ${{ vars.AMPLIFY_BRANCH_NAME || 'main' }}
+          CONTACT_EMAIL: contact@sozorockfoundation.org
+          OPENAI_SECRET_ARN: ${{ secrets.OPENAI_SECRET_ARN }}
+          PUBLICATION_HASH_SALT: ${{ secrets.PUBLICATION_HASH_SALT }}
+          SES_IDENTITY_ARN: ${{ vars.SES_IDENTITY_ARN }}
+          PUBLICATION_EMAIL_FROM: ${{ vars.PUBLICATION_EMAIL_FROM || 'publications@sozorockfoundation.org' }}
+          PUBLIC_SITE_URL: ${{ vars.PUBLIC_SITE_URL || 'https://health.sozorockfoundation.org' }}
         run: |
           set -euo pipefail
+          test -n "$PUBLIC_APP_ID"
+          test -n "$CBCAP_APP_ID"
+          test -n "$OPENAI_SECRET_ARN"
+          test -n "$PUBLICATION_HASH_SALT"
+          test -n "$SES_IDENTITY_ARN"
+
+          if find apps/public-site/public/publications -type f -name '*.pdf' -print -quit | grep -q .; then
+            echo "Publication PDFs must never be stored beneath the public web root."
+            exit 1
+          fi
+
+          aws cloudformation deploy \
+            --stack-name sozorock-health-contact \
+            --template-file infrastructure/cloudformation/contact-backend.yml \
+            --capabilities CAPABILITY_NAMED_IAM \
+            --parameter-overrides \
+              AmplifyAppId="$PUBLIC_APP_ID" \
+              AmplifyBranchName="$AMPLIFY_BRANCH" \
+              ContactEmail="$CONTACT_EMAIL" \
+              OpenAISecretArn="$OPENAI_SECRET_ARN"
+
+          aws cloudformation deploy \
+            --stack-name sozorock-health-publication-access \
+            --template-file infrastructure/cloudformation/publication-access.yml \
+            --capabilities CAPABILITY_NAMED_IAM \
+            --parameter-overrides \
+              PublicationEmailFrom="$PUBLICATION_EMAIL_FROM" \
+              SesIdentityArn="$SES_IDENTITY_ARN" \
+              HashSalt="$PUBLICATION_HASH_SALT"
+
+          contact_table=$(aws cloudformation describe-stacks --stack-name sozorock-health-contact --query "Stacks[0].Outputs[?OutputKey=='ContactTableName'].OutputValue" --output text)
+          contact_topic=$(aws cloudformation describe-stacks --stack-name sozorock-health-contact --query "Stacks[0].Outputs[?OutputKey=='ContactTopicArn'].OutputValue" --output text)
+          contact_salt_arn=$(aws cloudformation describe-stacks --stack-name sozorock-health-contact --query "Stacks[0].Outputs[?OutputKey=='ContactRateLimitSaltSecretArn'].OutputValue" --output text)
+          publication_table=$(aws cloudformation describe-stacks --stack-name sozorock-health-publication-access --query "Stacks[0].Outputs[?OutputKey=='PublicationAccessTableName'].OutputValue" --output text)
+          publication_bucket=$(aws cloudformation describe-stacks --stack-name sozorock-health-publication-access --query "Stacks[0].Outputs[?OutputKey=='PublicationAssetBucketName'].OutputValue" --output text)
+          publication_salt_arn=$(aws cloudformation describe-stacks --stack-name sozorock-health-publication-access --query "Stacks[0].Outputs[?OutputKey=='PublicationHashSaltSecretArn'].OutputValue" --output text)
+
+          aws s3 sync infrastructure/assets/publications "s3://$publication_bucket/" --exclude '*' --include '*.pdf' --sse AES256 --only-show-errors
+
+          current_env=$(aws amplify get-app --app-id "$PUBLIC_APP_ID" --query 'app.environmentVariables' --output json)
+          merged_env=$(jq -c \
+            --arg ct "$contact_table" --arg cn "$contact_topic" --arg cs "$contact_salt_arn" \
+            --arg oa "$OPENAI_SECRET_ARN" --arg pt "$publication_table" --arg pb "$publication_bucket" \
+            --arg pe "$PUBLICATION_EMAIL_FROM" --arg ps "$publication_salt_arn" --arg pu "$PUBLIC_SITE_URL" \
+            '. + {CONTACT_SUBMISSIONS_TABLE:$ct,CONTACT_NOTIFICATION_TOPIC_ARN:$cn,CONTACT_RATE_LIMIT_SALT_SECRET_ARN:$cs,OPENAI_SECRET_ARN:$oa,PUBLICATION_ACCESS_TABLE:$pt,PUBLICATION_ASSET_BUCKET:$pb,PUBLICATION_EMAIL_FROM:$pe,PUBLICATION_HASH_SALT_SECRET_ARN:$ps,PUBLIC_SITE_URL:$pu}' <<<"$current_env")
+          aws amplify update-app --app-id "$PUBLIC_APP_ID" --environment-variables "$merged_env" >/dev/null
+
           for app_id in "$PUBLIC_APP_ID" "$CBCAP_APP_ID"; do
-            test -n "$app_id"
-            job_id=$(aws amplify start-job --app-id "$app_id" --branch-name main --job-type RELEASE --query 'jobSummary.jobId' --output text)
+            job_id=$(aws amplify start-job --app-id "$app_id" --branch-name "$AMPLIFY_BRANCH" --job-type RELEASE --query 'jobSummary.jobId' --output text)
             while true; do
-              status=$(aws amplify get-job --app-id "$app_id" --branch-name main --job-id "$job_id" --query 'job.summary.status' --output text)
+              status=$(aws amplify get-job --app-id "$app_id" --branch-name "$AMPLIFY_BRANCH" --job-id "$job_id" --query 'job.summary.status' --output text)
               case "$status" in
                 SUCCEED) break ;;
                 FAILED|CANCELLED) echo "Amplify job $job_id for $app_id ended with $status"; exit 1 ;;

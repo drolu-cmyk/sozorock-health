@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "SozoRock Health",
-    "description": "A non-clinical Resident Access Layer for digital readiness, Health Equity Hubs, Voice Access, and provider-led pathway preparation.",
+    "description": "Non-clinical health access, digital readiness, Health Equity Hubs, Voice Access, and provider-led pathway preparation from The SozoRock Foundation Inc.",
     "slug": "sozorock-health",
     "scheme": "sozorockhealth",
     "version": "0.1.0",

@@ -6,13 +6,17 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "node --experimental-strip-types --test tests/*.test.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-dynamodb": "^3.933.0",
+    "@aws-sdk/client-s3": "^3.1085.0",
     "@aws-sdk/client-secrets-manager": "^3.1085.0",
+    "@aws-sdk/client-sesv2": "^3.1085.0",
     "@aws-sdk/client-sns": "^3.933.0",
     "@aws-sdk/lib-dynamodb": "^3.933.0",
+    "@aws-sdk/s3-request-presigner": "^3.1085.0",
     "@phosphor-icons/react": "^2.1.10",
     "d3-geo": "^3.1.1",
     "next": "15.5.20",

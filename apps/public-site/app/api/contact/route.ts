@@ -1,6 +1,7 @@
 import { createHash, randomUUID } from "node:crypto";
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { SNSClient, PublishCommand } from "@aws-sdk/client-sns";
+import { GetSecretValueCommand, SecretsManagerClient } from "@aws-sdk/client-secrets-manager";
 import { DynamoDBDocumentClient, PutCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -11,9 +12,23 @@ const topicArn = process.env.CONTACT_NOTIFICATION_TOPIC_ARN;
 const region = process.env.AWS_REGION ?? "us-east-1";
 const dynamo = DynamoDBDocumentClient.from(new DynamoDBClient({ region }), { marshallOptions: { removeUndefinedValues: true } });
 const sns = new SNSClient({ region });
+const secrets = new SecretsManagerClient({ region });
 const MAX_REQUESTS_PER_HOUR = 5;
 const RETENTION_SECONDS = 365 * 24 * 60 * 60;
 const configuredContactHosts = (process.env.CONTACT_ALLOWED_HOSTS ?? "").split(";").map((host) => host.trim()).filter(Boolean);
+const rateLimitSalt = process.env.CONTACT_RATE_LIMIT_SALT;
+const rateLimitSaltSecretArn = process.env.CONTACT_RATE_LIMIT_SALT_SECRET_ARN;
+let resolvedRateLimitSalt: Promise<string> | undefined;
+
+async function getRateLimitSalt() {
+  if (rateLimitSalt) return rateLimitSalt;
+  if (!rateLimitSaltSecretArn) throw new Error("Contact rate-limit salt is not configured");
+  resolvedRateLimitSalt ??= secrets.send(new GetSecretValueCommand({ SecretId: rateLimitSaltSecretArn })).then((result) => {
+    if (!result.SecretString) throw new Error("Contact rate-limit salt is empty");
+    return result.SecretString;
+  });
+  return resolvedRateLimitSalt;
+}
 
 function value(body: Record<string, unknown>, name: string, max = 180) {
   return typeof body[name] === "string" ? body[name].trim().replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, "").slice(0, max) : "";
@@ -27,7 +42,7 @@ function sameOrigin(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  if (!tableName || !topicArn) {
+  if (!tableName || !topicArn || (!rateLimitSalt && !rateLimitSaltSecretArn)) {
     console.error("contact-intake-config-missing", { hasTable: Boolean(tableName), hasTopic: Boolean(topicArn) });
     return NextResponse.json({ error: "Contact intake is temporarily unavailable." }, { status: 503 });
   }
@@ -52,7 +67,12 @@ export async function POST(request: NextRequest) {
   const epoch = Math.floor(now.getTime() / 1000);
   const bucket = Math.floor(epoch / 3600);
   const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
-  const ipHash = createHash("sha256").update(`${process.env.CONTACT_RATE_LIMIT_SALT ?? "sozorock-health"}:${ip}`).digest("hex");
+  let ipHash: string;
+  try {
+    ipHash = createHash("sha256").update(`${await getRateLimitSalt()}:${ip}`).digest("hex");
+  } catch {
+    return NextResponse.json({ error: "Contact intake is temporarily unavailable." }, { status: 503 });
+  }
 
   try {
     await dynamo.send(new UpdateCommand({

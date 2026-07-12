@@ -1,6 +1,6 @@
 # SozoRock Health
 
-Nationwide non-clinical health access, workforce-readiness, and systems infrastructure for rural and underserved communities. SozoRock Health brings together Health Equity Hubs, Health Access Day, provider-led pathways, Voice Access, public-sector modernization, digital and cybersecurity readiness, and privacy-preserving county systems intelligence.
+SozoRock Health is a nonprofit health-access initiative of The SozoRock Foundation Inc. It provides a practical layer between uncertainty and appropriate care while strengthening rural health, digital readiness, public systems, workforce capability, and accountable technology implementation.
 
 SozoRock Health is non-clinical. Providers retain their clinical platforms and professional responsibilities.
 
@@ -8,7 +8,7 @@ SozoRock Health is non-clinical. Providers retain their clinical platforms and p
 
 | Surface | Purpose | Release posture |
 | --- | --- | --- |
-| Public site | Explain the ecosystem, search every U.S. county, publish the research foundation, and capture partner interest | Public |
+| Public site | Explain the model, present health priorities and publications, and route community, funding, volunteer, and institutional interest | Public |
 | Resident app | Voice/tap access, language choice, hub check-in, and provider pathways on phones and shared tablets | iOS and Android foundation |
 | CB-CAP | Filtered, downloadable, threshold-protected county access intelligence | Public demonstration; approved county access |
 | Provider/BYOP | State-aware provider readiness and connection management | Gated |
@@ -60,6 +60,7 @@ Validation:
 
 ```bash
 npm run typecheck
+npm run lint
 npm test
 npm run build:public
 npm run build:platform
@@ -80,7 +81,11 @@ Public configuration:
 | `NEXT_PUBLIC_CBCAP_URL` | Separate CB-CAP deployment URL |
 | `CONTACT_SUBMISSIONS_TABLE` | Durable encrypted contact-submission store |
 | `CONTACT_NOTIFICATION_TOPIC_ARN` | Operations notification destination |
-| `CONTACT_RATE_LIMIT_TABLE` | Distributed rate-limit store |
+| `CONTACT_RATE_LIMIT_SALT_SECRET_ARN` | Secrets Manager salt for one-way contact rate-limit identifiers |
+| `PUBLICATION_ACCESS_TABLE` | Verified publication requests, sessions, events, and rate limits |
+| `PUBLICATION_ASSET_BUCKET` | Private publication-object bucket |
+| `PUBLICATION_HASH_SALT_SECRET_ARN` | Secrets Manager salt for publication identifiers and tokens |
+| `PUBLICATION_EMAIL_FROM` | Verified SES sender for access confirmation |
 
 Secrets belong in environment-managed secret stores. Never commit credentials, resident information, provider verification documents, or contact-message bodies.
 
@@ -102,14 +107,15 @@ GitHub Actions assumes a short-lived AWS role through OIDC. A successful release
 
 1. installs from the committed lockfile;
 2. runs type, build, security, privacy, and mobile configuration checks;
-3. deploys the public site and CB-CAP as separate Amplify applications;
-4. waits for both AWS jobs to succeed;
-5. preserves the prior production origin until live verification passes.
+3. provisions the contact and controlled-publication AWS stacks;
+4. uploads approved publications to a private, public-access-blocked bucket;
+5. deploys the public site and CB-CAP as separate Amplify applications;
+6. waits for both AWS jobs to succeed and preserves the prior production origin until live verification passes.
 
 No long-lived AWS keys or manual file uploads are required. See [automation and release](docs/automation-and-release.md).
 
 ## Governance
 
-Public legal identity: **The SozoRock Foundation, Inc.**
+Public legal identity: **The SozoRock Foundation Inc.**
 
-Copyright © 2026 The SozoRock Foundation, Inc. All rights reserved. Contribution and security expectations are documented in [CONTRIBUTING.md](CONTRIBUTING.md) and [SECURITY.md](SECURITY.md).
+Copyright © 2026 The SozoRock Foundation Inc. All rights reserved. Contribution and security expectations are documented in [CONTRIBUTING.md](CONTRIBUTING.md) and [SECURITY.md](SECURITY.md).
