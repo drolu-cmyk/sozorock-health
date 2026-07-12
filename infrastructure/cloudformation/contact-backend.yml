@@ -108,11 +108,6 @@ Resources:
             Principal:
               Service: amplify.amazonaws.com
             Action: sts:AssumeRole
-            Condition:
-              StringEquals:
-                aws:SourceAccount: !Ref AWS::AccountId
-              ArnEquals:
-                aws:SourceArn: !Sub arn:${AWS::Partition}:amplify:${AWS::Region}:${AWS::AccountId}:apps/${AmplifyAppId}/branches/${AmplifyBranchName}
       Policies:
         - PolicyName: ContactIntakeOnly
           PolicyDocument:
