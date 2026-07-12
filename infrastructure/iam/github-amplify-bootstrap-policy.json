@@ -108,6 +108,12 @@
       ]
     },
     {
+      "Sid": "GenerateSozoRockHealthSecretValues",
+      "Effect": "Allow",
+      "Action": "secretsmanager:GetRandomPassword",
+      "Resource": "*"
+    },
+    {
       "Sid": "MaintainPublicSiteComputePermissions",
       "Effect": "Allow",
       "Action": [
