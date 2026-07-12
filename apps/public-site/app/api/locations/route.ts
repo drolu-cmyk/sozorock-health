@@ -1,7 +1,12 @@
 import { createHash } from "node:crypto";
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
+import {
+  GetSecretValueCommand,
+  SecretsManagerClient,
+} from "@aws-sdk/client-secrets-manager";
 import { DynamoDBDocumentClient, UpdateCommand } from "@aws-sdk/lib-dynamodb";
 import { NextRequest, NextResponse } from "next/server";
+import { clientNetworkAddress } from "../../lib/request-security";
 
 export const runtime = "nodejs";
 
@@ -11,9 +16,27 @@ const COUNTY_SERVICE = "https://tigerweb.geo.census.gov/arcgis/rest/services/TIG
 const rateTableName = process.env.CONTACT_RATE_LIMIT_TABLE ?? process.env.CONTACT_SUBMISSIONS_TABLE;
 const region = process.env.AWS_REGION ?? "us-east-1";
 const dynamo = DynamoDBDocumentClient.from(new DynamoDBClient({region}), {marshallOptions:{removeUndefinedValues:true}});
+const secrets = new SecretsManagerClient({ region });
 const MAX_SEARCHES_PER_FIVE_MINUTES = 60;
+const rateLimitSalt = process.env.CONTACT_RATE_LIMIT_SALT;
+const rateLimitSaltSecretArn = process.env.CONTACT_RATE_LIMIT_SALT_SECRET_ARN;
+let resolvedRateLimitSalt: Promise<string> | undefined;
 
 type CensusFeature = { attributes?: Record<string, string | number | null> };
+
+async function getRateLimitSalt() {
+  if (rateLimitSalt) return rateLimitSalt;
+  if (!rateLimitSaltSecretArn)
+    throw new Error("Location search rate-limit salt is not configured");
+  resolvedRateLimitSalt ??= secrets
+    .send(new GetSecretValueCommand({ SecretId: rateLimitSaltSecretArn }))
+    .then((result) => {
+      if (!result.SecretString)
+        throw new Error("Location search rate-limit salt is empty");
+      return result.SecretString;
+    });
+  return resolvedRateLimitSalt;
+}
 
 function safePrefix(value: string) {
   return value.replace(/[^a-zA-Z0-9 .'-]/g, "").trim().slice(0, 64).toUpperCase().replaceAll("'", "''");
@@ -40,12 +63,26 @@ async function queryLayer(url: string, where: string, outFields: string) {
 export async function GET(request: NextRequest) {
   const term = safePrefix(request.nextUrl.searchParams.get("q") ?? "");
   if (term.length < 2) return NextResponse.json({ results: [], source: "U.S. Census Bureau TIGERweb" });
-  if (!rateTableName) return NextResponse.json({error:"Location search is temporarily unavailable."},{status:503});
+  if (!rateTableName || (!rateLimitSalt && !rateLimitSaltSecretArn))
+    return NextResponse.json(
+      { error: "Location search is temporarily unavailable." },
+      { status: 503 },
+    );
 
   const epoch=Math.floor(Date.now()/1000);
   const bucket=Math.floor(epoch/300);
-  const ip=request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
-  const clientHash=createHash("sha256").update(`${process.env.CONTACT_RATE_LIMIT_SALT ?? "sozorock-health"}:location:${ip}`).digest("hex");
+  const ip = clientNetworkAddress(request.headers);
+  let clientHash: string;
+  try {
+    clientHash = createHash("sha256")
+      .update(`${await getRateLimitSalt()}:location:${ip}`)
+      .digest("hex");
+  } catch {
+    return NextResponse.json(
+      { error: "Location search is temporarily unavailable." },
+      { status: 503 },
+    );
+  }
   try {
     await dynamo.send(new UpdateCommand({
       TableName:rateTableName,

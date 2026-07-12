@@ -1,117 +1,183 @@
-import {Buildings, HouseLine, MapPin, Microphone, ShieldCheck, Translate, UsersThree} from "@phosphor-icons/react";
+import {CheckCircle, GlobeHemisphereWest, HouseLine, MapPin, Microphone, ShieldCheck, UserCircle} from "@phosphor-icons/react";
 import {Audio} from "@remotion/media";
 import {AbsoluteFill, Easing, Img, Sequence, interpolate, staticFile, useCurrentFrame, useVideoConfig} from "remotion";
+import campaignSource from "../gpt-live-campaign/campaign.json";
 
 export type SocialFormat = "shorts" | "instagram" | "linkedin" | "x";
-type Props = {format: SocialFormat};
+export type Locale = "en" | "es";
+type Speaker = "resident" | "guide" | "narrator";
+type Props = {format: SocialFormat; locale: Locale; voiceReady?: boolean};
+type DialogueLine = {id: string; speaker: Speaker; startMs: number; endMs: number; text: string};
+type Interruption = {interruptedLineId: string; interruptingLineId: string; yieldAtMs: number; fadeMs: number};
 
-const C = {ink: "#10251d", ivory: "#f4f0e6", paper: "#fffdf8", moss: "#526b42", gold: "#d69a1f", clay: "#b64a32", blue: "#0b426d", mist: "#dce5da", line: "#c9c9bc"};
+const campaign = campaignSource as unknown as {production: {interruption: Interruption}; locales: Record<Locale, {language: string; persona: string; closing: string; lines: DialogueLine[]}>};
+const C = {ink: "#081d19", ink2: "#102d27", paper: "#fbf8ef", moss: "#8eb174", gold: "#efbc53", clay: "#d76b52", cyan: "#75c9c3", line: "rgba(251,248,239,.18)", quiet: "#bfd0c7"};
 const serif = 'Georgia, "Times New Roman", serif';
 const sans = 'Arial, Helvetica, sans-serif';
 
-const captions = [
-  {start: 0, end: 240, text: "A care journey can begin with something simple: being heard."},
-  {start: 240, end: 540, text: "Meet Maya. Today, getting to care means distance, time, and one more unfamiliar system."},
-  {start: 540, end: 900, text: "At a trusted Health Equity Hub, local support and a prepared provider pathway are ready around her."},
-  {start: 900, end: 1200, text: "Maya says, I need help finding care near me. The guide confirms her request in plain language."},
-  {start: 1200, end: 1530, text: "With permission, the Resident Access Layer checks county, language, digital readiness, and provider readiness."},
-  {start: 1530, end: 1860, text: "A clear option appears. Maya chooses it, then moves securely to the provider's own platform."},
-  {start: 1860, end: 2160, text: "SozoRock does not diagnose, prescribe, or replace care. It makes the path to a licensed provider easier to follow."},
-  {start: 2160, end: 2400, text: "One calm conversation. One clearer next step. Access where people live."},
-];
+const labels = {
+  en: {product: "Voice Access", boundary: "Non-clinical support", illustrative: "Illustrative resident journey", preview: "Visual preview · voice pending", listening: "Listening", speaking: "Responding", permission: "Permission before search", use: "Use county and language", county: "Delaware County", language: "English", choices: "Request preview", result: "Review first. Submit by tap or text.", request: "Non-clinical request details", details: "County · language · transportation", readiness: "Submission control", pending: "Nothing submitted yet", notClinical: "SozoRock Health", provider: "Licensed provider", prepare: "Preview and prepare", care: "Clinical care", open: "Ready for review", bring: "Review details", visit: "Digital readiness", followup: "Tap or text submission", private: "Private by design · non-clinical", resident: "Renata", close: "One natural conversation.", closer: "One clearer next step."},
+  es: {product: "Acceso por Voz", boundary: "Apoyo no clínico", illustrative: "Recorrido ilustrativo de una residente", preview: "Vista previa · voz pendiente", listening: "Escuchando", speaking: "Respondiendo", permission: "Permiso antes de buscar", use: "Usar condado e idioma", county: "Condado de Delaware", language: "Español", choices: "Vista previa de la solicitud", result: "Revisa primero. Envía por toque o texto.", request: "Datos de la solicitud no clínica", details: "Condado · idioma · transporte", readiness: "Control del envío", pending: "Aún no se ha enviado nada", notClinical: "SozoRock Health", provider: "Proveedor autorizado", prepare: "Revisar y prepararse", care: "Atención clínica", open: "Lista para revisión", bring: "Revisar datos", visit: "Preparación digital", followup: "Envío por toque o texto", private: "Privado por diseño · no clínico", resident: "Renata", close: "Una conversación natural.", closer: "Un próximo paso más claro."}
+} as const;
 
-const appear = (frame: number, from: number, to: number) => interpolate(frame, [from, from + 16, to - 16, to], [0, 1, 1, 0], {extrapolateLeft: "clamp", extrapolateRight: "clamp", easing: Easing.bezier(0.16, 1, 0.3, 1)});
-const rise = (frame: number, from: number) => interpolate(frame, [from, from + 24], [34, 0], {extrapolateLeft: "clamp", extrapolateRight: "clamp", easing: Easing.bezier(0.16, 1, 0.3, 1)});
+const eased = (frame: number, input: [number, number], output: [number, number]) => interpolate(frame, input, output, {extrapolateLeft: "clamp", extrapolateRight: "clamp", easing: Easing.bezier(.16, 1, .3, 1)});
 
-function Wordmark({light = false}: {light?: boolean}) {
-  return <Img src={staticFile("sozorock-wordmark-transparent.png")} style={{width: 230, height: 67, objectFit: "contain", objectPosition: "left center", filter: light ? "brightness(0) invert(1)" : "none"}} />;
-}
-
-function EditorialLabel({children, light = false}: {children: React.ReactNode; light?: boolean}) {
-  return <div style={{fontFamily: sans, fontSize: 22, lineHeight: 1.2, fontWeight: 800, letterSpacing: 4, textTransform: "uppercase", color: light ? C.ivory : C.moss}}>{children}</div>;
-}
-
-function Scene({from, to, children}: {from: number; to: number; children: React.ReactNode}) {
-  const frame = useCurrentFrame();
-  return <Sequence from={from} durationInFrames={to - from}><AbsoluteFill style={{opacity: appear(frame, from, to)}}>{children}</AbsoluteFill></Sequence>;
-}
-
-function CaptionRail() {
-  const frame = useCurrentFrame();
-  const {width, height} = useVideoConfig();
-  const landscape = width > height;
-  const caption = captions.find((item) => frame >= item.start && frame < item.end) ?? captions.at(-1)!;
-  return <div style={{position: "absolute", left: "7.5%", right: "7.5%", bottom: "5.5%", zIndex: 30, display: "flex", justifyContent: "center"}}>
-    <div style={{maxWidth: 1040, padding: landscape ? "11px 18px" : "15px 22px", background: "rgba(9,28,22,.94)", color: C.paper, fontFamily: sans, fontSize: landscape ? 22 : 28, lineHeight: 1.32, fontWeight: 700, textAlign: "center", borderRadius: 6}}>{caption.text}</div>
+function Wordmark({width = 245}: {width?: number}) {
+  const nameWidth = width * .68;
+  return <div style={{width, display: "flex", alignItems: "center", gap: width * .035, color: C.paper}}>
+    <span style={{display: "flex", alignItems: "flex-start"}}><Img src={staticFile("sozorock-wordmark-clean.png")} style={{width: nameWidth, height: nameWidth * .25, objectFit: "contain", objectPosition: "left center"}}/><sup style={{font: `700 ${Math.max(10, width*.05)}px/1 ${sans}`, color: C.gold, marginLeft: 1, marginTop: width*.015}}>®</sup></span>
+    <span style={{font: `400 ${width*.14}px/1 ${serif}`, color: C.moss, whiteSpace: "nowrap"}}>Health</span>
   </div>;
 }
 
-function PhotoScene({portrait}: {portrait: boolean}) {
-  return <AbsoluteFill>
-    <Img src={staticFile("rural-road-aerial.png")} style={{width: "100%", height: "100%", objectFit: "cover", objectPosition: portrait ? "58% center" : "center 52%", scale: 1.04}} />
-    <AbsoluteFill style={{background: portrait ? "linear-gradient(180deg, rgba(8,29,25,.18) 0%, rgba(8,29,25,.9) 76%)" : "linear-gradient(90deg, rgba(8,29,25,.92) 0%, rgba(8,29,25,.24) 72%)"}} />
+function SystemBackground() {
+  const frame = useCurrentFrame();
+  const {width, height} = useVideoConfig();
+  const progress = eased(frame, [0, 80 * 30], [1150, 0]);
+  const portrait = height > width;
+  return <AbsoluteFill style={{background: C.ink, overflow: "hidden"}}>
+    <svg width="100%" height="100%" viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" style={{position: "absolute", inset: 0}} aria-hidden>
+      <defs><pattern id="dotgrid" width="42" height="42" patternUnits="userSpaceOnUse"><circle cx="2" cy="2" r="1.5" fill="rgba(142,177,116,.16)"/></pattern></defs>
+      <rect width="100%" height="100%" fill="url(#dotgrid)"/>
+      <path d={portrait ? `M -80 ${height*.76} C ${width*.12} ${height*.7}, ${width*.12} ${height*.4}, ${width*.48} ${height*.42} S ${width*.76} ${height*.12}, ${width+90} ${height*.2}` : `M -80 ${height*.7} C ${width*.15} ${height*.76}, ${width*.2} ${height*.25}, ${width*.48} ${height*.42} S ${width*.78} ${height*.7}, ${width+80} ${height*.2}`} fill="none" stroke={C.gold} strokeWidth={4} strokeLinecap="round" strokeDasharray="18 11" strokeDashoffset={progress}/>
+      <path d={portrait ? `M -60 ${height*.82} C ${width*.2} ${height*.75}, ${width*.26} ${height*.54}, ${width*.52} ${height*.49} S ${width*.82} ${height*.25}, ${width+60} ${height*.28}` : `M -50 ${height*.8} C ${width*.17} ${height*.68}, ${width*.28} ${height*.34}, ${width*.5} ${height*.48} S ${width*.75} ${height*.62}, ${width+50} ${height*.28}`} fill="none" stroke="rgba(117,201,195,.23)" strokeWidth={16}/>
+    </svg>
   </AbsoluteFill>;
 }
 
-function VoiceDevice({stage}: {stage: "welcome" | "listen" | "confirm" | "handoff"}) {
-  const frame = useCurrentFrame();
-  const bars = Array.from({length: 17}, (_, i) => 20 + Math.abs(Math.sin((frame + i * 8) / 11)) * 52);
-  return <div style={{width: 440, height: 800, background: C.paper, border: `10px solid ${C.ink}`, borderRadius: 52, boxShadow: "0 34px 80px rgba(16,37,29,.24)", padding: "42px 34px 48px", display: "flex", flexDirection: "column", position: "relative"}}>
-    <div style={{display: "flex", alignItems: "center", justifyContent: "space-between"}}><Wordmark/><span style={{font: `600 18px ${sans}`, color: C.moss}}>English</span></div>
-    {stage === "welcome" && <div style={{marginTop: 82}}><EditorialLabel>Welcome, Maya</EditorialLabel><h2 style={deviceHeading}>What are you trying to get ready for?</h2><p style={deviceBody}>Use your voice, tap a choice, or type. You are always in control.</p><div style={{display: "grid", gap: 18, marginTop: 38}}><DeviceChoice icon={<Microphone size={34}/>} text="Speak"/><DeviceChoice icon={<Translate size={34}/>} text="Choose a language"/><DeviceChoice icon={<MapPin size={34}/>} text="Prepare for a visit"/></div></div>}
-    {stage === "listen" && <div style={deviceCenter}><EditorialLabel>Listening</EditorialLabel><div style={{width: 118, height: 118, borderRadius: 59, marginTop: 34, background: C.gold, color: C.ink, display: "grid", placeItems: "center"}}><Microphone size={56} weight="fill"/></div><div style={{display: "flex", alignItems: "center", gap: 7, height: 100, marginTop: 30}}>{bars.map((h, i) => <span key={i} style={{width: 7, height: h, borderRadius: 7, background: i % 4 === 0 ? C.clay : C.moss}}/>)}</div><h2 style={{...deviceHeading, fontSize: 42, marginTop: 16}}>“I need help finding care near me.”</h2><p style={deviceBody}>Take your time. I’ll confirm before moving on.</p></div>}
-    {stage === "confirm" && <div style={{marginTop: 76}}><EditorialLabel>Here’s what I heard</EditorialLabel><h2 style={deviceHeading}>You want help finding an available care option near Albany County.</h2><div style={{marginTop: 28, padding: "24px 26px", borderLeft: `5px solid ${C.gold}`, background: C.ivory}}><p style={{...deviceBody, fontWeight: 700}}>Is that right?</p></div><div style={{display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginTop: 30}}><div style={devicePrimary}>Yes, continue</div><div style={deviceSecondary}>Change it</div></div></div>}
-    {stage === "handoff" && <div style={deviceCenter}><div style={{width: 120, height: 120, borderRadius: 60, background: C.mist, color: C.moss, display: "grid", placeItems: "center"}}><UsersThree size={64} weight="fill"/></div><EditorialLabel>Ready when you are</EditorialLabel><h2 style={deviceHeading}>Open the provider’s secure platform.</h2><p style={deviceBody}>The licensed provider remains responsible for care and clinical decisions.</p><div style={{...devicePrimary, width: "100%", marginTop: 32}}>Continue securely</div></div>}
-    <div style={{position: "absolute", left: 34, right: 34, bottom: 23, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, color: "#536159", font: `600 16px ${sans}`}}><ShieldCheck size={19}/> Private · Non-clinical</div>
+function Header({locale}: {locale: Locale}) {
+  const {width, height} = useVideoConfig();
+  const portrait = height > width;
+  return <div style={{position: "absolute", zIndex: 30, top: portrait ? 74 : 32, left: portrait ? 68 : 58, right: portrait ? 68 : 58, display: "flex", alignItems: "center", justifyContent: "space-between"}}>
+    <Wordmark width={portrait ? 260 : 210}/>
+    <div style={{font: `800 ${portrait ? 25 : 18}px/1 ${sans}`, letterSpacing: 2.5, textTransform: "uppercase", color: C.moss, textAlign: "right"}}>{labels[locale].product}<br/><span style={{color: C.quiet, fontSize: ".76em"}}>{labels[locale].boundary}</span><br/><span style={{color: C.gold, fontSize: ".58em", letterSpacing: 1.6}}>{labels[locale].illustrative}</span></div>
   </div>;
 }
 
-const deviceHeading: React.CSSProperties = {fontFamily: serif, fontSize: 47, lineHeight: 1.05, fontWeight: 400, color: C.ink, margin: "17px 0 20px"};
-const deviceBody: React.CSSProperties = {fontFamily: sans, fontSize: 23, lineHeight: 1.45, color: "#435149", margin: 0};
-const deviceCenter: React.CSSProperties = {display: "flex", flex: 1, flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center"};
-const devicePrimary: React.CSSProperties = {background: C.gold, color: C.ink, padding: "19px 18px", textAlign: "center", borderRadius: 5, font: `800 21px ${sans}`};
-const deviceSecondary: React.CSSProperties = {border: `2px solid ${C.ink}`, color: C.ink, padding: "17px 18px", textAlign: "center", borderRadius: 5, font: `800 21px ${sans}`};
-function DeviceChoice({icon, text}: {icon: React.ReactNode; text: string}) {return <div style={{display: "flex", alignItems: "center", gap: 17, padding: "20px", borderBottom: `1px solid ${C.line}`, color: C.ink, font: `750 23px ${sans}`}}><span style={{color: C.moss}}>{icon}</span>{text}</div>}
+function PreviewBadge({locale}: {locale: Locale}) {
+  const {width, height} = useVideoConfig();
+  const portrait = height > width;
+  return <div style={{position: "absolute", zIndex: 60, top: portrait ? 170 : 20, left: "50%", translate: "-50% 0", padding: portrait ? "10px 16px" : "8px 13px", border: `1px solid ${C.gold}`, background: C.ink, color: C.gold, font: `800 ${portrait ? 18 : 14}px ${sans}`, letterSpacing: portrait ? 2.4 : 2, textTransform: "uppercase", whiteSpace: "nowrap"}}>{labels[locale].preview}</div>;
+}
 
-function StoryLayout({portrait, label, title, body, device}: {portrait: boolean; label: string; title: string; body: string; device: React.ReactNode}) {
-  return <AbsoluteFill style={{background: C.ivory, color: C.ink, padding: portrait ? "8% 8% 12%" : "4.5% 8% 9%", display: "flex", flexDirection: portrait ? "column" : "row", alignItems: "center", justifyContent: "center", gap: portrait ? 52 : 70}}>
-    <div style={{maxWidth: portrait ? 820 : 560, textAlign: portrait ? "center" : "left"}}><Wordmark/><div style={{marginTop: portrait ? 52 : 24}}><EditorialLabel>{label}</EditorialLabel></div><h1 style={{fontFamily: serif, fontSize: portrait ? 83 : 70, lineHeight: .99, fontWeight: 400, margin: portrait ? "28px 0" : "18px 0"}}>{title}</h1><p style={{fontFamily: sans, fontSize: portrait ? 31 : 24, lineHeight: 1.4, color: "#425148", margin: 0}}>{body}</p></div>
-    <div style={{scale: portrait ? .96 : .65, transformOrigin: "center"}}>{device}</div>
+function VoiceCore({active}: {active: boolean}) {
+  const frame = useCurrentFrame();
+  const size = 226;
+  const pulse = 1 + Math.sin(frame / 7) * .045;
+  const bars = Array.from({length: 19}, (_, index) => 13 + Math.abs(Math.sin((frame + index * 8) / 8)) * (active ? 54 : 20));
+  return <div style={{display: "flex", flexDirection: "column", alignItems: "center", gap: 28}}>
+    <div style={{width: size, height: size, borderRadius: "50%", border: `2px solid ${C.cyan}`, display: "grid", placeItems: "center", position: "relative", scale: pulse, boxShadow: active ? "0 0 86px rgba(117,201,195,.22)" : "none"}}>
+      {[1.28,1.54].map((scale, i) => <div key={scale} style={{position: "absolute", inset: 0, borderRadius: "50%", border: `1px solid ${i ? C.gold : C.cyan}`, opacity: .24 + Math.sin((frame+i*10)/15)*.08, scale}}/>)}
+      <Microphone size={82} weight="duotone" color={active ? C.gold : C.cyan}/>
+    </div>
+    <div style={{height: 72, display: "flex", alignItems: "center", gap: 7}}>{bars.map((height, index) => <span key={index} style={{width: 6, height, borderRadius: 5, background: index % 4 === 0 ? C.gold : C.cyan, opacity: active ? 1 : .48}}/>)}</div>
+  </div>;
+}
+
+function CaptionRail({locale}: {locale: Locale}) {
+  const frame = useCurrentFrame();
+  const {width, height, fps} = useVideoConfig();
+  const ms = frame / fps * 1000;
+  const portrait = height > width;
+  const active = campaign.locales[locale].lines.filter((line) => ms >= line.startMs && ms < line.endMs).slice(-2);
+  if (!active.length) return null;
+  return <div style={{position: "absolute", zIndex: 50, left: portrait ? 62 : 78, right: portrait ? 62 : 78, bottom: portrait ? 102 : 42, display: "grid", gap: 10, justifyItems: "center"}}>
+    {active.map((line) => <div key={line.id} style={{maxWidth: portrait ? 920 : 1100, borderLeft: `6px solid ${line.speaker === "resident" ? C.clay : C.cyan}`, background: "rgba(3,15,12,.94)", color: C.paper, padding: portrait ? "18px 24px" : "10px 18px", font: `700 ${portrait ? 31 : 24}px/1.34 ${sans}`, boxShadow: "0 8px 32px rgba(0,0,0,.24)"}}><span style={{color: line.speaker === "resident" ? "#f29a82" : C.cyan, marginRight: 10}}>{line.speaker === "resident" ? labels[locale].resident : labels[locale].product}</span>{line.text}</div>)}
+  </div>;
+}
+
+function Conversation({locale, mode}: {locale: Locale; mode: "opening" | "correction"}) {
+  const frame = useCurrentFrame();
+  const {width, height, fps} = useVideoConfig();
+  const portrait = height > width;
+  const ms = frame / fps * 1000;
+  const lines = campaign.locales[locale].lines;
+  const active = [...lines].reverse().find((line: DialogueLine) => ms >= line.startMs) ?? lines[0];
+  const guideActive = active.speaker !== "resident";
+  const displayLines = lines.filter((line) => line.startMs <= ms && line.endMs >= (mode === "opening" ? 0 : 10000)).slice(-4);
+  return <AbsoluteFill style={{padding: portrait ? "250px 72px 300px" : "126px 72px 118px", display: "grid", gridTemplateColumns: portrait ? "1fr" : "1fr .82fr", alignItems: "center", gap: portrait ? 60 : 76, color: C.paper}}>
+    <div style={{display: "flex", flexDirection: "column", gap: 30}}>
+      <div style={{display: "flex", alignItems: "center", gap: 20}}><UserCircle size={portrait ? 76 : 58} color={C.clay} weight="duotone"/><div><div style={{font: `800 ${portrait ? 34 : 28}px ${sans}`}}>{campaign.locales[locale].persona}</div><div style={{font: `600 ${portrait ? 23 : 18}px ${sans}`, color: C.quiet}}>{mode === "opening" ? (locale === "en" ? "Finding a place to begin" : "Buscando por dónde empezar") : (locale === "en" ? "Correcting the request in real time" : "Corrigiendo la solicitud en tiempo real")}</div></div></div>
+      <div style={{borderTop: `1px solid ${C.line}`, display: "grid"}}>{displayLines.map((line) => <div key={line.id} style={{padding: portrait ? "24px 0" : "16px 0", borderBottom: `1px solid ${C.line}`, opacity: line.id === active.id ? 1 : .48, font: `${line.id === active.id ? 750 : 500} ${portrait ? 30 : 23}px/1.4 ${sans}`, color: line.speaker === "resident" ? C.paper : C.cyan}}>{line.speaker === "resident" ? labels[locale].resident : labels[locale].product} · {line.text}</div>)}</div>
+    </div>
+    <div style={{display: "grid", placeItems: "center", alignSelf: "center"}}><VoiceCore active={guideActive}/><div style={{marginTop: 26, color: guideActive ? C.cyan : C.moss, font: `800 ${portrait ? 25 : 20}px ${sans}`, letterSpacing: 2.5, textTransform: "uppercase"}}>{guideActive ? labels[locale].speaking : labels[locale].listening}</div></div>
   </AbsoluteFill>;
 }
 
-function NetworkScene({portrait}: {portrait: boolean}) {
-  const items = [
-    {icon: <Buildings size={56}/>, title: "Health Equity Hubs", text: "A trusted, digitally ready place to begin."},
-    {icon: <UsersThree size={56}/>, title: "Health Access Days", text: "Local support and prepared provider pathways."},
-    {icon: <HouseLine size={56}/>, title: "Home access", text: "The same clear starting point from home."},
-  ];
-  return <AbsoluteFill style={{background: C.ink, color: C.paper, padding: portrait ? "11% 8% 14%" : "8%", display: "flex", flexDirection: "column", justifyContent: "center"}}>
-    <Wordmark light/><EditorialLabel light>Resident Access Layer</EditorialLabel><h1 style={{fontFamily: serif, fontSize: portrait ? 96 : 108, lineHeight: 1, fontWeight: 400, maxWidth: 1100, margin: "32px 0 54px"}}>Understand where to start. Prepare for a provider-led pathway.</h1>
-    <div style={{display: "grid", gridTemplateColumns: portrait ? "1fr" : "repeat(3, 1fr)", gap: portrait ? 22 : 34}}>{items.map((item) => <div key={item.title} style={{display: "grid", gridTemplateColumns: portrait ? "86px 1fr" : "1fr", gap: 18, padding: portrait ? "26px 0" : "30px 0", borderTop: `1px solid rgba(244,240,230,.38)`, color: C.ivory}}><span style={{color: C.gold}}>{item.icon}</span><div><strong style={{font: `700 29px ${sans}`}}>{item.title}</strong><p style={{font: `23px/1.4 ${sans}`, color: C.mist, margin: "8px 0 0"}}>{item.text}</p></div></div>)}</div>
-  </AbsoluteFill>;
-}
-
-export function ResidentJourney80({format}: Props) {
+function Permission({locale}: {locale: Locale}) {
   const frame = useCurrentFrame();
   const {width, height} = useVideoConfig();
-  const portrait = height / width > 1.2;
-  return <AbsoluteFill style={{background: C.ivory, overflow: "hidden"}}>
-    <Audio src={staticFile("resident-journey-80s-narration.mp3")} />
-    <Scene from={0} to={240}><PhotoScene portrait={portrait}/><div style={{position: "absolute", left: "8%", right: "8%", top: portrait ? "11%" : "15%", color: C.paper, translate: `0 ${rise(frame, 0)}px`}}><Wordmark light/><EditorialLabel light>A resident journey</EditorialLabel><h1 style={{fontFamily: serif, fontSize: portrait ? 102 : 118, lineHeight: .98, fontWeight: 400, maxWidth: portrait ? 850 : 900, margin: "34px 0"}}>Readiness starts with being heard.</h1></div></Scene>
-    <Scene from={240} to={540}><PhotoScene portrait={portrait}/><div style={{position: "absolute", left: "8%", right: "8%", bottom: portrait ? "21%" : "23%", color: C.paper}}><EditorialLabel light>Meet Maya</EditorialLabel><h1 style={{fontFamily: serif, fontSize: portrait ? 92 : 108, lineHeight: 1, fontWeight: 400, maxWidth: 1000, margin: "28px 0"}}>Distance should not decide whether the next step feels possible.</h1><p style={{font: `30px/1.45 ${sans}`, maxWidth: 780, color: C.mist}}>A trusted hub brings the doorway closer.</p></div></Scene>
-    <Scene from={540} to={900}><StoryLayout portrait={portrait} label="Begin your way" title="A voice that makes room for a pause." body="No rush. No unfamiliar clinical language. Voice, touch, and text remain equally available." device={<VoiceDevice stage="welcome"/>}/></Scene>
-    <Scene from={900} to={1200}><StoryLayout portrait={portrait} label="Listen, then confirm" title="Natural language. Clear permission." body="The guide reflects Maya’s request back before using it to find an access pathway." device={<VoiceDevice stage="listen"/>}/></Scene>
-    <Scene from={1200} to={1530}><StoryLayout portrait={portrait} label="Maya stays in control" title="Nothing moves forward without a yes." body="County, language, digital readiness, and provider readiness are checked only after a clear confirmation." device={<VoiceDevice stage="confirm"/>}/></Scene>
-    <Scene from={1530} to={1860}><StoryLayout portrait={portrait} label="The handoff" title="Access support meets licensed care." body="SozoRock opens the provider’s platform. The provider owns the clinical relationship." device={<VoiceDevice stage="handoff"/>}/></Scene>
-    <Scene from={1860} to={2160}><NetworkScene portrait={portrait}/></Scene>
-    <Scene from={2160} to={2400}><PhotoScene portrait={portrait}/><AbsoluteFill style={{display: "flex", alignItems: "center", justifyContent: "center", textAlign: "center", color: C.paper, padding: "8%"}}><div><Wordmark light/><h1 style={{fontFamily: serif, fontSize: portrait ? 103 : 120, lineHeight: .98, fontWeight: 400, maxWidth: 1050, margin: "42px auto 28px"}}>One calm conversation. One clearer next step.</h1><p style={{font: `700 29px/1.4 ${sans}`, color: C.mist}}>Nationwide in scope. Local in activation. Strictly non-clinical.</p><div style={{marginTop: 45, color: C.gold, font: `800 28px ${sans}`, letterSpacing: 1}}>health.sozorockfoundation.org</div></div></AbsoluteFill></Scene>
-    <CaptionRail/>
-    <div style={{position: "absolute", top: "3.2%", right: "4.5%", zIndex: 40, font: `800 17px ${sans}`, letterSpacing: 3, textTransform: "uppercase", color: frame < 540 || frame >= 1860 ? C.paper : C.moss}}>SozoRock Health · {format}</div>
+  const portrait = height > width;
+  const reveal = eased(frame, [840, 1040], [0, 1]);
+  return <AbsoluteFill style={{padding: portrait ? "260px 72px 310px" : "130px 82px 120px", color: C.paper, display: "flex", flexDirection: "column", justifyContent: "center"}}>
+    <div style={{font: `800 ${portrait ? 25 : 19}px ${sans}`, color: C.moss, textTransform: "uppercase", letterSpacing: 3}}>{labels[locale].permission}</div>
+    <h1 style={{font: `400 ${portrait ? 86 : 74}px/.98 ${serif}`, maxWidth: 990, margin: "25px 0 50px"}}>{labels[locale].use}?</h1>
+    <div style={{display: "grid", gridTemplateColumns: portrait ? "1fr" : "1fr 1fr", gap: 22, maxWidth: 980}}>
+      {[{Icon: MapPin, text: labels[locale].county}, {Icon: GlobeHemisphereWest, text: labels[locale].language}].map(({Icon, text}, index) => <div key={String(text)} style={{display: "flex", alignItems: "center", gap: 24, padding: "28px 30px", borderTop: `2px solid ${index ? C.cyan : C.gold}`, background: "rgba(255,255,255,.045)", opacity: reveal, translate: `0 ${(1-reveal)*30}px`}}><span style={{color: index ? C.cyan : C.gold}}><Icon size={52}/></span><strong style={{font: `700 ${portrait ? 32 : 27}px ${sans}`}}>{text}</strong><CheckCircle size={36} color={C.moss} weight="fill" style={{marginLeft: "auto"}}/></div>)}
+    </div>
+    <div style={{marginTop: 40, display: "flex", gap: 14, alignItems: "center", color: C.quiet, font: `600 ${portrait ? 25 : 20}px ${sans}`}}><ShieldCheck size={32} color={C.moss}/>{locale === "en" ? "Nothing moves forward without a clear yes." : "Nada avanza sin un sí claro."}</div>
   </AbsoluteFill>;
 }
 
-export function ResidentJourneyPoster({format}: Props) {
-  const portrait = format !== "x";
-  return <AbsoluteFill><PhotoScene portrait={portrait}/><div style={{position: "absolute", left: "8%", right: "8%", bottom: "12%", color: C.paper}}><Wordmark light/><EditorialLabel light>Resident journey</EditorialLabel><h1 style={{fontFamily: serif, fontSize: portrait ? 103 : 112, lineHeight: .98, fontWeight: 400, maxWidth: 900, margin: "32px 0"}}>Readiness starts with being heard.</h1><p style={{font: `700 29px/1.4 ${sans}`, color: C.mist}}>Voice Access. Digital readiness. Provider-led pathways.</p></div></AbsoluteFill>;
+function Options({locale}: {locale: Locale}) {
+  const frame = useCurrentFrame();
+  const {width, height} = useVideoConfig();
+  const portrait = height > width;
+  const interrupt = frame >= Math.round(46.7 * 30);
+  const rows = [{icon: <CheckCircle size={43}/>, title: labels[locale].request, note: labels[locale].details}, {icon: <ShieldCheck size={43}/>, title: labels[locale].readiness, note: labels[locale].pending}];
+  return <AbsoluteFill style={{padding: portrait ? "250px 72px 330px" : "125px 74px 125px", color: C.paper, display: "grid", gridTemplateColumns: portrait ? "1fr" : ".9fr 1.1fr", gap: portrait ? 40 : 60, alignItems: "center"}}>
+    <div><div style={{font: `800 ${portrait ? 25 : 19}px ${sans}`, color: C.moss, textTransform: "uppercase", letterSpacing: 3}}>{labels[locale].choices}</div><h1 style={{font: `400 ${portrait ? 80 : 67}px/1 ${serif}`, margin: "25px 0"}}>{labels[locale].result}</h1><p style={{font: `500 ${portrait ? 29 : 23}px/1.45 ${sans}`, color: C.quiet}}>{locale === "en" ? "Voice shows the information only. Nothing is submitted and no provider match is claimed." : "La voz solo muestra la información. No se envía nada ni se afirma una asignación de proveedor."}</p></div>
+    <div style={{display: "grid", gap: 20}}>{rows.map((row, index) => <div key={row.title} style={{display: "grid", gridTemplateColumns: "64px 1fr", gap: 20, padding: portrait ? "30px" : "24px", background: "rgba(251,248,239,.06)", borderLeft: `5px solid ${index ? C.cyan : C.gold}`}}><span style={{color: index ? C.cyan : C.gold}}>{row.icon}</span><div><strong style={{font: `750 ${portrait ? 30 : 25}px ${sans}`}}>{row.title}</strong><div style={{marginTop: 8, color: C.quiet, font: `600 ${portrait ? 23 : 19}px ${sans}`}}>{row.note}</div></div></div>)}
+      {interrupt && <div style={{padding: "22px 26px", border: `2px solid ${C.clay}`, background: "rgba(215,107,82,.12)", color: C.paper, font: `750 ${portrait ? 29 : 23}px/1.35 ${sans}`}}>{locale === "en" ? "Renata interrupts: “Wait—does that mean you found a provider?”" : "Renata interrumpe: «Espera, ¿eso significa que encontraste un proveedor?»"}</div>}
+    </div>
+  </AbsoluteFill>;
+}
+
+function Boundary({locale}: {locale: Locale}) {
+  const {width, height} = useVideoConfig();
+  const portrait = height > width;
+  const blocks = [{icon: <HouseLine size={62}/>, title: labels[locale].notClinical, lead: labels[locale].prepare, points: locale === "en" ? ["Review request details", "Prepare for a future visit", "Choose whether to submit"] : ["Revisar los datos de la solicitud", "Prepararse para una futura visita", "Elegir si se envía"]}, {icon: <ShieldCheck size={62}/>, title: labels[locale].provider, lead: labels[locale].care, points: locale === "en" ? ["Diagnosis", "Treatment", "Prescribing"] : ["Diagnóstico", "Tratamiento", "Recetas"]}];
+  return <AbsoluteFill style={{padding: portrait ? "250px 72px 320px" : "130px 76px 130px", color: C.paper, display: "grid", gridTemplateColumns: portrait ? "1fr" : "1fr 1fr", gap: portrait ? 28 : 40, alignItems: "center"}}>{blocks.map((block, index) => <div key={block.title} style={{minHeight: portrait ? 430 : 390, padding: portrait ? "42px" : "34px", background: index ? C.paper : "rgba(255,255,255,.05)", color: index ? C.ink : C.paper, borderTop: `7px solid ${index ? C.cyan : C.gold}`, display: "flex", flexDirection: "column"}}><span style={{color: index ? C.ink2 : C.gold}}>{block.icon}</span><div style={{marginTop: 20, color: index ? C.ink2 : C.moss, font: `800 ${portrait ? 22 : 18}px ${sans}`, textTransform: "uppercase", letterSpacing: 2.5}}>{block.lead}</div><h2 style={{font: `400 ${portrait ? 54 : 43}px/1 ${serif}`, margin: "14px 0 26px"}}>{block.title}</h2>{block.points.map((point) => <div key={point} style={{padding: "11px 0", borderTop: `1px solid ${index ? "rgba(8,29,25,.18)" : C.line}`, font: `650 ${portrait ? 25 : 20}px ${sans}`}}>{point}</div>)}</div>)}</AbsoluteFill>;
+}
+
+function Handoff({locale}: {locale: Locale}) {
+  const {width, height} = useVideoConfig();
+  const portrait = height > width;
+  return <AbsoluteFill style={{padding: portrait ? "260px 72px 330px" : "130px 80px", color: C.paper, display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", textAlign: "center"}}>
+    <div style={{width: portrait ? 170 : 130, height: portrait ? 170 : 130, borderRadius: "50%", display: "grid", placeItems: "center", background: C.gold, color: C.ink}}><CheckCircle size={portrait ? 88 : 66} weight="duotone"/></div>
+    <div style={{font: `800 ${portrait ? 24 : 19}px ${sans}`, color: C.moss, textTransform: "uppercase", letterSpacing: 3, marginTop: 32}}>{labels[locale].open}</div>
+    <h1 style={{font: `400 ${portrait ? 82 : 68}px/.99 ${serif}`, maxWidth: 1050, margin: "24px 0 42px"}}>{locale === "en" ? "The details are visible. The resident chooses whether to submit." : "Los datos están visibles. La persona elige si quiere enviar."}</h1>
+    <div style={{display: "flex", flexWrap: "wrap", justifyContent: "center", gap: 16}}>{[labels[locale].bring, labels[locale].visit, labels[locale].followup].map((item) => <span key={item} style={{padding: "17px 22px", border: `1px solid ${C.line}`, font: `700 ${portrait ? 24 : 20}px ${sans}`, color: C.quiet}}>{item}</span>)}</div>
+  </AbsoluteFill>;
+}
+
+function Closing({locale}: {locale: Locale}) {
+  const {width, height} = useVideoConfig();
+  const portrait = height > width;
+  return <AbsoluteFill style={{padding: portrait ? "240px 72px 290px" : "120px 76px", display: "flex", alignItems: "center", justifyContent: "center", textAlign: "center", color: C.paper}}><div><Wordmark width={portrait ? 350 : 280}/><h1 style={{font: `400 ${portrait ? 100 : 88}px/.95 ${serif}`, maxWidth: 1080, margin: "48px auto 30px"}}>{labels[locale].close}<br/><span style={{color: C.gold}}>{labels[locale].closer}</span></h1><p style={{font: `650 ${portrait ? 29 : 23}px/1.45 ${sans}`, color: C.quiet, maxWidth: 880, margin: "0 auto"}}>{campaign.locales[locale].closing}</p><div style={{marginTop: 44, font: `800 ${portrait ? 26 : 21}px ${sans}`, color: C.moss}}>health.sozorockfoundation.org</div></div></AbsoluteFill>;
+}
+
+function AudioTracks({locale, voiceReady}: {locale: Locale; voiceReady: boolean}) {
+  const {fps} = useVideoConfig();
+  const interruption = campaign.production.interruption;
+  return <>{voiceReady && campaign.locales[locale].lines.map((line) => {
+    const from = Math.round(line.startMs / 1000 * fps);
+    const approvedEndMs = line.id === interruption.interruptedLineId ? interruption.yieldAtMs : line.endMs;
+    const durationInFrames = Math.max(1, Math.round((approvedEndMs - line.startMs) / 1000 * fps));
+    const fadeFrames = Math.max(2, Math.min(Math.round(interruption.fadeMs / 1000 * fps), Math.floor(durationInFrames / 4)));
+    const fadeOutEnd = Math.max(1, durationInFrames - 1);
+    const fadeOutStart = Math.max(fadeFrames, fadeOutEnd - fadeFrames);
+    const baseVolume = line.speaker === "resident" ? .94 : 1;
+    return <Sequence key={line.id} from={from} durationInFrames={durationInFrames} layout="none"><Audio src={staticFile(`gpt-live-campaign/${locale}-${line.id}-${line.speaker}.mp3`)} trimAfter={durationInFrames} volume={(audioFrame) => Math.min(interpolate(audioFrame, [0, fadeFrames], [0, baseVolume], {extrapolateLeft: "clamp", extrapolateRight: "clamp"}), interpolate(audioFrame, [fadeOutStart, fadeOutEnd], [baseVolume, 0], {extrapolateLeft: "clamp", extrapolateRight: "clamp"}))}/></Sequence>;
+  })}<Audio src={staticFile("gpt-live-campaign/ambient-bed.wav")} volume={(audioFrame) => interpolate(audioFrame, [0, 60, 2280, 2399], [0, .42, .42, 0], {extrapolateLeft: "clamp", extrapolateRight: "clamp"})}/></>;
+}
+
+export function LiveCampaign({format, locale, voiceReady = false}: Props) {
+  const frame = useCurrentFrame();
+  const phase = frame < 321 ? <Conversation locale={locale} mode="opening"/> : frame < 858 ? <Conversation locale={locale} mode="correction"/> : frame < 1179 ? <Permission locale={locale}/> : frame < 1539 ? <Options locale={locale}/> : frame < 1953 ? <Boundary locale={locale}/> : frame < 2145 ? <Handoff locale={locale}/> : <Closing locale={locale}/>;
+  return <AbsoluteFill style={{overflow: "hidden", background: C.ink}}><SystemBackground/><Header locale={locale}/>{phase}<AudioTracks locale={locale} voiceReady={voiceReady}/><CaptionRail locale={locale}/>{!voiceReady && <PreviewBadge locale={locale}/>}<div style={{position: "absolute", zIndex: 40, left: "4.5%", bottom: "3.2%", color: C.moss, font: `800 15px ${sans}`, letterSpacing: 2.4, textTransform: "uppercase"}}>{format} · {campaign.locales[locale].language}</div><div style={{position: "absolute", zIndex: 40, right: "4.5%", bottom: "3.2%", color: C.quiet, font: `700 15px ${sans}`}}>{labels[locale].private}</div></AbsoluteFill>;
+}
+
+export function LiveCampaignPoster({locale, voiceReady = false}: Props) {
+  return <AbsoluteFill style={{background: C.ink, overflow: "hidden"}}><SystemBackground/><Header locale={locale}/>{!voiceReady && <PreviewBadge locale={locale}/>}<AbsoluteFill style={{display: "flex", alignItems: "center", justifyContent: "center", textAlign: "center", color: C.paper, padding: "11%"}}><div><VoiceCore active/><div style={{marginTop: 58, color: C.moss, font: `800 24px ${sans}`, textTransform: "uppercase", letterSpacing: 3}}>{labels[locale].product}</div><h1 style={{font: `400 94px/.98 ${serif}`, maxWidth: 1000, margin: "28px auto"}}>{locale === "en" ? "A conversation that makes the next step visible." : "Una conversación que hace visible el próximo paso."}</h1></div></AbsoluteFill></AbsoluteFill>;
 }

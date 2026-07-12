@@ -1,16 +1,11 @@
 name: Deploy
 
 on:
-  workflow_run:
-    workflows: [Verify]
-    types: [completed]
   workflow_dispatch:
-    inputs:
-      environment:
-        description: Deployment environment
-        required: true
-        type: choice
-        options: [staging, production]
+
+concurrency:
+  group: sozorock-health-production
+  cancel-in-progress: false
 
 permissions:
   contents: read
@@ -18,14 +13,31 @@ permissions:
 
 jobs:
   deploy:
-    if: github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push' && github.event.workflow_run.head_branch == 'main' && github.event.workflow_run.head_repository.full_name == github.repository)
     runs-on: ubuntu-latest
-    environment: ${{ github.event_name == 'workflow_dispatch' && inputs.environment || 'staging' }}
+    environment: production
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
-          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
-      - uses: aws-actions/configure-aws-credentials@v4
+          ref: main
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 24
+          cache: npm
+      - name: Verify the release source
+        run: |
+          set -euo pipefail
+          npm ci
+          npm run typecheck
+          npm run lint
+          npm test
+          if find apps/public-site/public/publications -type f -name '*.pdf' -print -quit | grep -q .; then
+            echo "Publication PDFs must be delivered from the private publication bucket."
+            exit 1
+          fi
+          npm run build:public
+          npm run build:platform
+          npm audit --omit=dev --audit-level=moderate
+      - uses: aws-actions/configure-aws-credentials@7474bc4690e29a8392af63c5b98e7449536d5c3a # v4
         with:
           role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
           aws-region: ${{ vars.AWS_REGION }}
@@ -33,13 +45,75 @@ jobs:
         env:
           PUBLIC_APP_ID: ${{ vars.PUBLIC_AMPLIFY_APP_ID }}
           CBCAP_APP_ID: ${{ vars.CBCAP_AMPLIFY_APP_ID }}
+          AMPLIFY_BRANCH: ${{ vars.AMPLIFY_BRANCH_NAME || 'main' }}
+          CONTACT_EMAIL: contact@sozorockfoundation.org
+          OPENAI_SECRET_ARN: ${{ secrets.OPENAI_SECRET_ARN }}
+          VOICE_PROVIDER_ALIAS: ${{ vars.VOICE_PROVIDER_ALIAS || 'gpt-live' }}
+          OPENAI_REALTIME_MODEL: ${{ vars.OPENAI_REALTIME_MODEL || 'gpt-realtime-2.1' }}
+          OPENAI_GPT_LIVE_MODEL: ${{ vars.OPENAI_GPT_LIVE_MODEL }}
+          PUBLICATION_HASH_SALT: ${{ secrets.PUBLICATION_HASH_SALT }}
+          SES_IDENTITY_ARN: ${{ vars.SES_IDENTITY_ARN }}
+          PUBLICATION_EMAIL_FROM: ${{ vars.PUBLICATION_EMAIL_FROM || 'publications@sozorockfoundation.org' }}
+          PUBLIC_SITE_URL: ${{ vars.PUBLIC_SITE_URL || 'https://health.sozorockfoundation.org' }}
+          ACCESS_ALLOWED_ORIGINS: ${{ vars.ACCESS_ALLOWED_ORIGINS || 'https://health.sozorockfoundation.org;https://www.health.sozorockfoundation.org' }}
         run: |
           set -euo pipefail
+          test -n "$PUBLIC_APP_ID"
+          test -n "$CBCAP_APP_ID"
+          test -n "$OPENAI_SECRET_ARN"
+          test -n "$PUBLICATION_HASH_SALT"
+          test -n "$SES_IDENTITY_ARN"
+
+          if find apps/public-site/public/publications -type f -name '*.pdf' -print -quit | grep -q .; then
+            echo "Publication PDFs must never be stored beneath the public web root."
+            exit 1
+          fi
+
+          aws cloudformation deploy \
+            --stack-name sozorock-health-contact \
+            --template-file infrastructure/cloudformation/contact-backend.yml \
+            --capabilities CAPABILITY_NAMED_IAM \
+            --parameter-overrides \
+              AmplifyAppId="$PUBLIC_APP_ID" \
+              AmplifyBranchName="$AMPLIFY_BRANCH" \
+              ContactEmail="$CONTACT_EMAIL" \
+              OpenAISecretArn="$OPENAI_SECRET_ARN"
+
+          aws cloudformation deploy \
+            --stack-name sozorock-health-publication-access \
+            --template-file infrastructure/cloudformation/publication-access.yml \
+            --capabilities CAPABILITY_NAMED_IAM \
+            --parameter-overrides \
+              PublicationEmailFrom="$PUBLICATION_EMAIL_FROM" \
+              SesIdentityArn="$SES_IDENTITY_ARN" \
+              HashSalt="$PUBLICATION_HASH_SALT"
+
+          contact_table=$(aws cloudformation describe-stacks --stack-name sozorock-health-contact --query "Stacks[0].Outputs[?OutputKey=='ContactTableName'].OutputValue" --output text)
+          contact_topic=$(aws cloudformation describe-stacks --stack-name sozorock-health-contact --query "Stacks[0].Outputs[?OutputKey=='ContactTopicArn'].OutputValue" --output text)
+          contact_salt_arn=$(aws cloudformation describe-stacks --stack-name sozorock-health-contact --query "Stacks[0].Outputs[?OutputKey=='ContactRateLimitSaltSecretArn'].OutputValue" --output text)
+          public_compute_role=$(aws cloudformation describe-stacks --stack-name sozorock-health-contact --query "Stacks[0].Outputs[?OutputKey=='ComputeRoleArn'].OutputValue" --output text)
+          access_table=$(aws cloudformation describe-stacks --stack-name sozorock-health-contact --query "Stacks[0].Outputs[?OutputKey=='AccessRequestTableName'].OutputValue" --output text)
+          access_salt_arn=$(aws cloudformation describe-stacks --stack-name sozorock-health-contact --query "Stacks[0].Outputs[?OutputKey=='AccessRateLimitSaltSecretArn'].OutputValue" --output text)
+          publication_table=$(aws cloudformation describe-stacks --stack-name sozorock-health-publication-access --query "Stacks[0].Outputs[?OutputKey=='PublicationAccessTableName'].OutputValue" --output text)
+          publication_bucket=$(aws cloudformation describe-stacks --stack-name sozorock-health-publication-access --query "Stacks[0].Outputs[?OutputKey=='PublicationAssetBucketName'].OutputValue" --output text)
+          publication_salt_arn=$(aws cloudformation describe-stacks --stack-name sozorock-health-publication-access --query "Stacks[0].Outputs[?OutputKey=='PublicationHashSaltSecretArn'].OutputValue" --output text)
+
+          aws s3 sync infrastructure/assets/publications "s3://$publication_bucket/" --exclude '*' --include '*.pdf' --sse AES256 --only-show-errors
+
+          current_env=$(aws amplify get-app --app-id "$PUBLIC_APP_ID" --query 'app.environmentVariables' --output json)
+          merged_env=$(jq -c \
+            --arg ct "$contact_table" --arg cn "$contact_topic" --arg cs "$contact_salt_arn" \
+            --arg at "$access_table" --arg as "$access_salt_arn" \
+            --arg oa "$OPENAI_SECRET_ARN" --arg pt "$publication_table" --arg pb "$publication_bucket" \
+            --arg pe "$PUBLICATION_EMAIL_FROM" --arg ps "$publication_salt_arn" --arg pu "$PUBLIC_SITE_URL" --arg au "$ACCESS_ALLOWED_ORIGINS" \
+            --arg va "$VOICE_PROVIDER_ALIAS" --arg rm "$OPENAI_REALTIME_MODEL" --arg lm "$OPENAI_GPT_LIVE_MODEL" \
+            '. + {CONTACT_SUBMISSIONS_TABLE:$ct,CONTACT_NOTIFICATION_TOPIC_ARN:$cn,CONTACT_RATE_LIMIT_SALT_SECRET_ARN:$cs,ACCESS_REQUESTS_TABLE:$at,ACCESS_NOTIFICATION_TOPIC_ARN:$cn,ACCESS_RATE_LIMIT_SALT_SECRET_ARN:$as,ACCESS_ALLOWED_ORIGINS:$au,OPENAI_SECRET_ARN:$oa,PUBLICATION_ACCESS_TABLE:$pt,PUBLICATION_ASSET_BUCKET:$pb,PUBLICATION_EMAIL_FROM:$pe,PUBLICATION_HASH_SALT_SECRET_ARN:$ps,PUBLIC_SITE_URL:$pu,VOICE_PROVIDER_ALIAS:$va,OPENAI_REALTIME_MODEL:$rm,OPENAI_GPT_LIVE_MODEL:$lm}' <<<"$current_env")
+          aws amplify update-app --app-id "$PUBLIC_APP_ID" --compute-role-arn "$public_compute_role" --environment-variables "$merged_env" >/dev/null
+
           for app_id in "$PUBLIC_APP_ID" "$CBCAP_APP_ID"; do
-            test -n "$app_id"
-            job_id=$(aws amplify start-job --app-id "$app_id" --branch-name main --job-type RELEASE --query 'jobSummary.jobId' --output text)
+            job_id=$(aws amplify start-job --app-id "$app_id" --branch-name "$AMPLIFY_BRANCH" --job-type RELEASE --query 'jobSummary.jobId' --output text)
             while true; do
-              status=$(aws amplify get-job --app-id "$app_id" --branch-name main --job-id "$job_id" --query 'job.summary.status' --output text)
+              status=$(aws amplify get-job --app-id "$app_id" --branch-name "$AMPLIFY_BRANCH" --job-id "$job_id" --query 'job.summary.status' --output text)
               case "$status" in
                 SUCCEED) break ;;
                 FAILED|CANCELLED) echo "Amplify job $job_id for $app_id ended with $status"; exit 1 ;;

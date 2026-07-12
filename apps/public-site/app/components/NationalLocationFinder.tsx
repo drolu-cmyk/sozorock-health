@@ -169,28 +169,24 @@ export function NationalLocationFinder() {
 
   return (
     <section
-      className="access-hero"
+      className="location-finder"
       id="find-access"
-      aria-labelledby="access-heading"
+      aria-labelledby="location-finder-heading"
     >
-      <div className="hero-panel">
-        <p className="section-label light">
-          Non-clinical health, workforce & systems infrastructure · Nationwide
+      <div className="location-finder__intro">
+        <p className="eyebrow eyebrow--light">Nationwide readiness</p>
+        <h2 id="location-finder-heading">Begin with a place.</h2>
+        <p>
+          Search any U.S. community to begin a local readiness or partnership
+          conversation. Results show geography—not claimed programs or active
+          sites.
         </p>
-        <h1 id="access-heading">
-          Stronger systems.
-          <br />
-          Closer to home.
-        </h1>
-        <p className="hero-lede">
-          SozoRock Health strengthens rural and underserved communities through
-          non-clinical health infrastructure spanning chronic-disease
-          mitigation, digital navigation, AI readiness, public-sector
-          modernization, cybersecurity readiness, and interdisciplinary
-          workforce development.
-        </p>
-        <form onSubmit={submit} className="finder-form" role="search">
-          <label htmlFor="national-search">Explore a U.S. community</label>
+      </div>
+      <div className="location-finder__search">
+        <form onSubmit={submit} className="finder-form" role="search" noValidate>
+          <label htmlFor="national-search">
+            ZIP code, city, town, county, GEOID, or FIPS code
+          </label>
           <div className="finder-input-row">
             <MapPin size={20} aria-hidden="true" />
             <input
@@ -215,7 +211,7 @@ export function NationalLocationFinder() {
             />
             <button type="submit">
               <MagnifyingGlass size={18} aria-hidden="true" />
-              <span>Search</span>
+              <span>Find a place</span>
             </button>
           </div>
           {suggestions.length > 0 && !selected && (
@@ -243,8 +239,8 @@ export function NationalLocationFinder() {
             </div>
           )}
           <p className="finder-help">
-            Search suggestions use U.S. Census Bureau county, place, ZIP
-            geography, GEOID, and FIPS data.
+            Suggestions use U.S. Census Bureau county, place, ZIP geography,
+            GEOID, and FIPS data.
           </p>
           <div className="search-status" aria-live="polite">
             {loading
@@ -256,20 +252,10 @@ export function NationalLocationFinder() {
                   : ""}
           </div>
         </form>
-        <div className="hero-actions">
-          <a className="primary-action" href="#systems">
-            Explore the systems model{" "}
-            <ArrowRight size={16} aria-hidden="true" />
-          </a>
-          <a className="text-action light" href="#partner">
-            Strengthen your community system
-          </a>
-        </div>
+        <a className="location-finder__action" href="#systems">
+          See how the layers work <ArrowRight size={16} aria-hidden="true" />
+        </a>
       </div>
-      <p className="hero-caption">
-        A Health Equity Hub supports digital readiness and preparation for
-        provider-led services.
-      </p>
     </section>
   );
 }

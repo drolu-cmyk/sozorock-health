@@ -21,7 +21,8 @@
     "skipLibCheck": true,
     "incremental": true,
     "esModuleInterop": true,
-    "resolveJsonModule": true
+    "resolveJsonModule": true,
+    "allowImportingTsExtensions": true
   },
   "include": [
     "next-env.d.ts",

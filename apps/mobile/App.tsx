@@ -59,11 +59,11 @@ const copy = {
     hubCode: "Hub name or code",
     hubHint: "Enter the hub name or code shown at this location",
     support: "What kind of support are you looking for?",
-    supportOptions: ["Primary care", "Mental health", "Medication support", "I’m not sure"],
+    supportOptions: ["Virtual visit readiness", "Digital access support", "Community resources", "I’m not sure where to start"],
     continue: "Continue",
     required: "Enter the requested information to continue.",
     consentRequired: "Confirm consent before continuing.",
-    consent: "I agree that SozoRock Health may use these selections to identify access options.",
+    consent: "I agree that SozoRock Health may use these selections to identify non-clinical readiness and support pathways.",
     languagePrompt: "Choose your preferred language",
     languages: ["English", "Español", "American Sign Language", "Another language"],
     completeTitle: "Your request is ready.",
@@ -76,7 +76,7 @@ const copy = {
     queuedBody: "This device is not connected to the access service. Your selections remain on this screen. Reconnect or ask hub staff to continue.",
     emptyTitle: "No participating pathway is listed yet.",
     emptyBody: "Availability changes as licensed providers and community partners join in your state. You may return later or ask Health Equity Hub staff for help.",
-    errorTitle: "We couldn’t check access options.",
+    errorTitle: "We couldn’t check available pathways.",
     errorBody: "Your selections are still on this screen. Check the connection and try again.",
     retry: "Try again",
     lowDataMode: "Low-data core ready",
@@ -84,7 +84,7 @@ const copy = {
   es: {
     language: "English",
     eyebrow: "ACCESO PARA RESIDENTES",
-    title: "¿Cómo podemos apoyarle hoy?",
+    title: "¿Para qué desea prepararse?",
     subtitle: "Elija una opción. Puede escuchar esta pantalla en cualquier momento.",
     hear: "Escuchar esta pantalla",
     stop: "Dejar de escuchar",
@@ -94,16 +94,16 @@ const copy = {
     speechError: "No se pudo iniciar la reproducción. Puede continuar usando la pantalla.",
     startVoice: "Diga su solicitud",
     stopVoice: "Detener entrada de voz",
-    voicePrompt: "Toque para describir el apoyo de acceso que necesita.",
+    voicePrompt: "Toque para describir para qué desea prepararse.",
     voicePermissionError: "La entrada de voz necesita permiso para el micrófono y el reconocimiento de voz. Puede continuar tocando una opción.",
-    careTitle: "Encontrar atención",
-    careBody: "Conéctese con un proveedor autorizado disponible en su estado.",
-    hubTitle: "Registrarse en un centro",
-    hubBody: "Comience en un centro de biblioteca, comunidad o en el hogar.",
-    languageTitle: "Obtener apoyo de idioma",
-    languageBody: "Elija un idioma o solicite apoyo de interpretación.",
+    careTitle: "Prepararse para un servicio dirigido por un profesional",
+    careBody: "Desarrolle la preparación digital necesaria para usar un servicio disponible.",
+    hubTitle: "Encontrar un Centro de Equidad en Salud",
+    hubBody: "Explore apoyo en bibliotecas, espacios comunitarios o en el hogar.",
+    languageTitle: "Entender el apoyo local",
+    languageBody: "Explore educación no clínica, preparación y opciones de idioma.",
     lowData: "Diseñado para tabletas compartidas y conexiones de pocos datos",
-    privacy: "Apoyo de acceso no clínico",
+    privacy: "Apoyo de preparación no clínica",
     privacyLink: "Privacidad y uso de datos",
     emergency: "Si tiene una emergencia, llame al 911.",
     back: "Atrás",
@@ -112,24 +112,24 @@ const copy = {
     zipHint: "Ingrese su código postal de 5 dígitos",
     hubCode: "Nombre o código del centro",
     hubHint: "Ingrese el nombre o código que aparece en este lugar",
-    support: "¿Qué tipo de apoyo está buscando?",
-    supportOptions: ["Atención primaria", "Salud mental", "Apoyo con medicamentos", "No estoy seguro"],
+    support: "¿Qué tipo de preparación busca?",
+    supportOptions: ["Preparación para visita virtual", "Apoyo de acceso digital", "Recursos comunitarios", "No sé por dónde empezar"],
     continue: "Continuar",
     required: "Ingrese la información solicitada para continuar.",
     consentRequired: "Confirme su consentimiento antes de continuar.",
-    consent: "Acepto que SozoRock Health use estas selecciones para identificar opciones de acceso.",
+    consent: "Acepto que SozoRock Health use estas selecciones para identificar vías de preparación y apoyo no clínico.",
     languagePrompt: "Elija su idioma preferido",
     languages: ["English", "Español", "Lengua de señas americana", "Otro idioma"],
     completeTitle: "Su solicitud está lista.",
     completeBody:
-      "SozoRock Health usará su ubicación y selección para mostrar la próxima vía de acceso disponible. La disponibilidad del proveedor depende de su licencia estatal y participación.",
+      "SozoRock Health usará su ubicación y selección para mostrar vías de preparación no clínica y servicios dirigidos por profesionales. La disponibilidad depende de la licencia estatal y la participación.",
     reference: "SOLICITUD DE ACCESO",
     finish: "Volver al inicio",
     loading: "Buscando vías de acceso disponibles…",
     queuedTitle: "Sus selecciones están listas.",
-    queuedBody: "Este dispositivo no está conectado al servicio de acceso. Sus selecciones permanecen en esta pantalla. Reconéctese o pida ayuda al personal del centro.",
+    queuedBody: "Este dispositivo no está conectado al servicio. Sus selecciones permanecen en esta pantalla. Reconéctese o pida ayuda al personal del centro.",
     emptyTitle: "Aún no hay una vía participante disponible.",
-    emptyBody: "La disponibilidad cambia cuando proveedores autorizados y socios comunitarios se unen en su estado. Puede volver más tarde o pedir ayuda a un navegador del centro.",
+    emptyBody: "La disponibilidad cambia cuando profesionales autorizados y socios comunitarios se unen en su estado. Puede volver más tarde o pedir apoyo al personal del Centro de Equidad en Salud.",
     errorTitle: "No pudimos consultar las opciones de acceso.",
     errorBody: "Sus selecciones siguen en esta pantalla. Verifique la conexión e inténtelo de nuevo.",
     retry: "Intentar de nuevo",
@@ -138,10 +138,34 @@ const copy = {
 } as const;
 
 const journeyMeta = {
-  care: {number: "01", tone: "gold"},
-  hub: {number: "02", tone: "clay"},
-  language: {number: "03", tone: "blue"},
+  care: {label: "PROVIDER READINESS", tone: "gold"},
+  hub: {label: "HEALTH EQUITY HUB", tone: "clay"},
+  language: {label: "LOCAL SUPPORT", tone: "blue"},
 } as const;
+
+const careSelectionCodes = [
+  "virtual-visit-readiness",
+  "digital-access-support",
+  "community-resources",
+  "not-sure",
+] as const;
+const languageSelectionCodes = ["en", "es", "asl", "other"] as const;
+
+function selectionCode(
+  journey: Journey,
+  selectedOption: string,
+  localizedCopy: (typeof copy)[Language],
+) {
+  const labels: readonly string[] =
+    journey === "care"
+      ? localizedCopy.supportOptions
+      : journey === "language"
+        ? localizedCopy.languages
+        : [];
+  const index = labels.indexOf(selectedOption);
+  if (index < 0) return undefined;
+  return journey === "care" ? careSelectionCodes[index] : languageSelectionCodes[index];
+}
 
 export default function App() {
   const {width} = useWindowDimensions();
@@ -267,6 +291,10 @@ export default function App() {
       AccessibilityInfo.announceForAccessibility(c.voiceUnavailable);
       return;
     }
+    if (isRecognizing) {
+      ExpoSpeechRecognitionModule.abort();
+      setIsRecognizing(false);
+    }
     setIsSpeaking(true);
     Speech.speak(spokenWelcome, {
       language: language === "es" ? "es-US" : "en-US",
@@ -289,6 +317,10 @@ export default function App() {
     if (!ExpoSpeechRecognitionModule.isRecognitionAvailable()) {
       AccessibilityInfo.announceForAccessibility(c.voiceUnavailable);
       return;
+    }
+    if (isSpeaking) {
+      Speech.stop();
+      setIsSpeaking(false);
     }
     const permission = await ExpoSpeechRecognitionModule.requestPermissionsAsync();
     if (!permission.granted) {
@@ -346,13 +378,18 @@ export default function App() {
     try {
       const response = await fetch(`${accessApiUrl}/v1/access-requests`, {
         method: "POST",
-        headers: {"content-type": "application/json"},
+        headers: {
+          "content-type": "application/json",
+          "x-sozorock-client": "mobile-v1",
+        },
         body: JSON.stringify({
           journey,
           location: value.trim() || undefined,
-          selection: selectedOption || undefined,
+          selection: selectionCode(journey as Journey, selectedOption, c),
           locale: language,
           source: "mobile",
+          consent: consented,
+          consentVersion: "mobile-access-v1",
         }),
         signal: controller.signal,
       });
@@ -419,7 +456,7 @@ export default function App() {
           onReset={reset}
         />
       )}
-      <TrustFooter emergency={c.emergency} privacy={c.privacy} privacyLink={c.privacyLink} lowData={c.lowData} />
+      <TrustFooter emergency={c.emergency} privacy={c.privacy} privacyLink={c.privacyLink} lowData={c.lowData} isTablet={isTablet} />
     </SafeAreaView>
   );
 }
@@ -442,10 +479,10 @@ function Header({
         onPress={onHome}
         style={({pressed}) => [styles.brandButton, pressed && styles.pressed]}
       >
-        <View accessibilityLabel="SozoRock registered trademark Health" accessible>
+        <View accessibilityLabel="SozoRock Health, registered trademark" accessible>
           <Text style={styles.wordmarkText}>
             <Text style={styles.wordmarkCapital}>S</Text>ozo
-            <Text style={styles.wordmarkCapital}>R</Text>ock.
+            <Text style={styles.wordmarkCapital}>R</Text>ock
             <Text style={styles.registered}>®</Text>
           </Text>
           <Text style={styles.healthLabel}>HEALTH</Text>
@@ -459,7 +496,7 @@ function Header({
         onPress={onLanguage}
         style={({pressed}) => [styles.languageButton, pressed && styles.pressed]}
       >
-        <Text style={styles.globe}>◎</Text>
+        <Text accessibilityElementsHidden importantForAccessibility="no" style={styles.globe}>◉</Text>
         <Text style={styles.languageText}>{languageLabel}</Text>
       </Pressable>
     </View>
@@ -592,7 +629,7 @@ function JourneyCard({
       style={({pressed}) => [styles.journeyCard, pressed && styles.cardPressed]}
     >
       <View style={styles.cardTopline}>
-        <Text style={styles.cardNumber}>{meta.number}</Text>
+        <Text style={styles.cardNumber}>{meta.label}</Text>
         <View style={[styles.cardIcon, styles[`${meta.tone}Icon`]]}>
           <JourneyIcon journey={journey} />
         </View>
@@ -744,7 +781,7 @@ function JourneyScreen({
           </View>
         ) : (
           <View style={styles.formCard}>
-            <Text style={styles.formEyebrow}>{journeyMeta[journey].number} / 03</Text>
+            <Text style={styles.formEyebrow}>{journeyMeta[journey].label}</Text>
             <Text accessibilityRole="header" style={styles.formTitle}>
               {title}
             </Text>
@@ -875,14 +912,16 @@ function TrustFooter({
   privacy,
   privacyLink,
   lowData,
+  isTablet,
 }: {
   emergency: string;
   privacy: string;
   privacyLink: string;
   lowData: string;
+  isTablet: boolean;
 }) {
   return (
-    <View style={styles.footer}>
+    <View style={[styles.footer, !isTablet && styles.footerCompact]}>
       <View style={styles.footerItem}>
         <Text style={styles.footerLock}>◇</Text>
         <View>
@@ -899,7 +938,7 @@ function TrustFooter({
           ) : null}
         </View>
       </View>
-      <Text accessibilityRole="alert" style={styles.emergency}>
+      <Text accessibilityRole="alert" style={[styles.emergency, !isTablet && styles.emergencyCompact]}>
         {emergency}
       </Text>
     </View>
@@ -974,7 +1013,7 @@ const styles = StyleSheet.create({
   journeyCard: {backgroundColor: colors.white, borderColor: colors.line, borderRadius: 18, borderWidth: 1, minHeight: 162, padding: 20, shadowColor: colors.ink, shadowOffset: {width: 0, height: 6}, shadowOpacity: 0.055, shadowRadius: 18},
   cardPressed: {backgroundColor: "#F3EFE6", transform: [{scale: 0.992}]},
   cardTopline: {alignItems: "flex-start", flexDirection: "row", justifyContent: "space-between"},
-  cardNumber: {color: colors.muted, fontSize: 11, fontWeight: "800", letterSpacing: 1.5},
+  cardNumber: {color: colors.muted, fontSize: 10, fontWeight: "800", letterSpacing: 1.25},
   cardIcon: {alignItems: "center", borderRadius: 20, height: 40, justifyContent: "center", width: 40},
   goldIcon: {backgroundColor: colors.paleGold},
   clayIcon: {backgroundColor: colors.paleClay},
@@ -1041,10 +1080,12 @@ const styles = StyleSheet.create({
   completeTitle: {color: colors.ink, fontFamily: Platform.select({ios: "New York", default: "serif"}), fontSize: 38, fontWeight: "500", letterSpacing: -1, marginTop: 10, textAlign: "center"},
   completeBody: {color: colors.muted, fontSize: 16, lineHeight: 25, marginTop: 16, maxWidth: 600, textAlign: "center"},
   footer: {alignItems: "center", backgroundColor: colors.white, borderTopColor: colors.line, borderTopWidth: StyleSheet.hairlineWidth, flexDirection: "row", justifyContent: "space-between", minHeight: 68, paddingHorizontal: 24, paddingVertical: 10},
+  footerCompact: {alignItems: "flex-start", paddingHorizontal: 20, paddingVertical: 12},
   footerItem: {alignItems: "center", flex: 1, flexDirection: "row"},
   footerLock: {color: colors.green, fontSize: 20, marginRight: 9},
   footerTitle: {color: colors.ink, fontSize: 11, fontWeight: "800"},
   footerBody: {color: colors.muted, fontSize: 9, marginTop: 2, maxWidth: 290},
   privacyLink: {color: colors.green, fontSize: 10, fontWeight: "800", marginTop: 3, textDecorationLine: "underline"},
   emergency: {color: colors.error, fontSize: 11, fontWeight: "800", marginLeft: 12, textAlign: "right"},
+  emergencyCompact: {maxWidth: 116},
 });

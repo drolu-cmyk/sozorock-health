@@ -11,25 +11,26 @@ Every agent is constrained by role, state readiness, consent, language, feature 
 | Agent | Job | Permitted tools |
 | --- | --- | --- |
 | Resident access agent | Clarify access need, language, hub preference, and next pathway. | County directory, approved hub registry, state-readiness lookup, provider-availability lookup, translation, session handoff. |
-| Hub navigator agent | Help staff guide a resident through an access flow. | Session support, approved accessibility prompts, hub operating information, escalation workflow. |
+| Hub support agent | Help staff prepare a resident for an approved non-clinical pathway. | Session support, approved accessibility prompts, hub operating information, escalation workflow. |
 | Provider readiness agent | Guide provider onboarding and surface missing verification requirements. | License-verification workflow, state-readiness configuration, BYOP connection setup, audit checklist. |
 | CB-CAP intelligence agent | Explain protected aggregate patterns and prepare permitted reports. | Aggregated-query service, disclosure-control service, report generator, methodology library. |
 | Operations agent | Help approved internal teams manage exceptions, incidents, flags, and readiness. | Feature-control service, approval queue, audit events, incident runbooks. |
 
 ## Voice and model strategy
 
-The system uses a provider-neutral AI adapter. The preferred OpenAI path is:
-
-- `gpt-realtime-2.1` or `gpt-realtime-1.5` for live speech-to-speech conversations;
-- `gpt-realtime-translate` for controlled real-time translation;
-- `gpt-realtime-whisper` when a low-latency transcript stream is required;
-- a reasoning model through the Responses API for non-real-time orchestration, structured summaries, and tool calls.
-
-GPT-5.6 Sol can be configured as an optional reasoning-orchestration provider only after the SozoRock Health account receives the required entitlement. It is not the voice transport. Voice remains operational through the Realtime adapter, without coupling resident access to GPT-5.6 availability.
+The system uses a provider-neutral AI adapter. The current web fallback connects through the OpenAI Realtime API using the account-approved model assigned to `OPENAI_REALTIME_MODEL`. The deployment defaults to `gpt-realtime-2.1`, the newest Realtime model currently exposed to the dedicated project. Non-real-time orchestration and tool use remain separate from the live audio transport.
 
 ### GPT-Live experience contract
 
-`gpt-live` is the SozoRock Health capability name for the most natural, conversational voice experience. It is an environment-controlled alias, not a hard-coded vendor model string. Production maps it to the highest approved API voice model available to the organization, initially `gpt-realtime-2.1` or `gpt-realtime-1.5`. OpenAI announced GPT-Live-1 for ChatGPT on July 8, 2026 and stated that API availability is planned; SozoRock can adopt that endpoint after it is released and approved without changing resident, hub, or provider flows.
+`gpt-live` is the SozoRock Health capability alias for the most natural conversational voice experience. It is not a vendor model identifier. OpenAI announced GPT-Live on July 8, 2026 as the technology powering ChatGPT Voice and said API availability is coming soon. The production resolver therefore activates GPT-Live only when OpenAI publishes an API model and that exact account-approved identifier is assigned to `OPENAI_GPT_LIVE_MODEL`. Until then, choosing the alias safely uses the configured Realtime fallback. No resident, hub, or provider flow needs to change when the approved API model becomes available. [OpenAI: Introducing GPT-Live](https://openai.com/index/introducing-gpt-live/)
+
+| Server setting | Purpose |
+| --- | --- |
+| `VOICE_PROVIDER_ALIAS=gpt-live` | Requests the future-ready GPT-Live capability. The deployment workflow uses this alias by default. |
+| `OPENAI_GPT_LIVE_MODEL` | Remains empty until OpenAI publishes API access and the Foundation's project is entitled to an exact model. No guessed model value is permitted. |
+| `OPENAI_REALTIME_MODEL` | Account-approved Realtime fallback. Defaults to `gpt-realtime-2.1`, which the dedicated project currently lists as available. |
+
+The active Realtime session uses semantic turn detection and interruption handling. Its prompt asks the voice guide to wait through thinking pauses, stop when interrupted, acknowledge sparingly, confirm the resident's meaning before acting, and keep tap and text alternatives available.
 
 ## Voice safety contract
 

@@ -7,7 +7,7 @@ export type StateReadiness =
 
 export type UserRole =
   | "resident"
-  | "hub-navigator"
+  | "hub-support-staff"
   | "provider-admin"
   | "county-admin"
   | "internal-operator";
@@ -38,6 +38,25 @@ export type CountyAccessRecord = {
     digital: number;
     language: number;
   };
+};
+
+export type CountyFipsSummary = {
+  fips: string;
+  state: string;
+  stateCode: string;
+  county: string;
+  zips: string[];
+  periods: string[];
+  hubTypes: HubType[];
+  languages: SupportedLanguage[];
+  sampleSize: number;
+  connectionRequests: number;
+  completedPathways: number;
+  completionRate: number;
+  medianMinutes: number;
+  hubs: number;
+  accessIndex: number;
+  barriers: CountyAccessRecord["barriers"];
 };
 
 export type CountyFilters = {
@@ -171,6 +190,66 @@ export function aggregateCountyRecords(records: CountyAccessRecord[]) {
     accessIndex: weighted("accessIndex"),
     hubs: visible.reduce((sum, item) => sum + item.hubs, 0),
   };
+}
+
+/**
+ * Produces one disclosure-controlled summary per county FIPS code. Every surface
+ * that presents a county-level value should use this helper so the map, table,
+ * and decision brief cannot disagree when the seed contains multiple hub,
+ * language, ZIP, or period records for the same county.
+ */
+export function aggregateCountyRecordsByFips(
+  records: CountyAccessRecord[],
+): CountyFipsSummary[] {
+  const groups = new Map<string, CountyAccessRecord[]>();
+
+  for (const record of discloseCountyRecords(records)) {
+    groups.set(record.fips, [...(groups.get(record.fips) ?? []), record]);
+  }
+
+  return [...groups.entries()]
+    .map(([fips, group]) => {
+      const aggregate = aggregateCountyRecords(group);
+      const first = group[0];
+      const weightedBarrier = (key: keyof CountyAccessRecord["barriers"]) =>
+        aggregate.sampleSize
+          ? Math.round(
+              group.reduce(
+                (sum, record) =>
+                  sum + record.barriers[key] * record.sampleSize,
+                0,
+              ) / aggregate.sampleSize,
+            )
+          : 0;
+
+      return {
+        fips,
+        state: first.state,
+        stateCode: first.stateCode,
+        county: first.county,
+        zips: [...new Set(group.map((record) => record.zip))].sort(),
+        periods: [...new Set(group.map((record) => record.period))].sort(),
+        hubTypes: [...new Set(group.map((record) => record.hubType))].sort(),
+        languages: [...new Set(group.map((record) => record.language))].sort(),
+        sampleSize: aggregate.sampleSize,
+        connectionRequests: aggregate.totalRequests,
+        completedPathways: aggregate.completedPathways,
+        completionRate: aggregate.completionRate,
+        medianMinutes: aggregate.medianMinutes,
+        hubs: aggregate.hubs,
+        accessIndex: aggregate.accessIndex,
+        barriers: {
+          transportation: weightedBarrier("transportation"),
+          cost: weightedBarrier("cost"),
+          information: weightedBarrier("information"),
+          digital: weightedBarrier("digital"),
+          language: weightedBarrier("language"),
+        },
+      } satisfies CountyFipsSummary;
+    })
+    .sort((a, b) =>
+      a.state.localeCompare(b.state) || a.county.localeCompare(b.county),
+    );
 }
 
 export function countyRecordsToCsv(records: CountyAccessRecord[]) {

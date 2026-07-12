@@ -1,0 +1,60 @@
+{
+  "durationMs": 80000,
+  "production": {
+    "creativeReference": "GPT-Live continuous interaction",
+    "voiceModel": "gpt-4o-mini-tts",
+    "guideVoice": "marin",
+    "residentVoice": "coral",
+    "interruption": {
+      "interruptedLineId": "08",
+      "interruptingLineId": "09",
+      "yieldAtMs": 46700,
+      "fadeMs": 120
+    },
+    "disclosure": "GPT-Live is not yet available through the developer API. Every prerecorded campaign master must record the exact authorized OpenAI speech model and voices used and must not be represented as GPT-Live output."
+  },
+  "locales": {
+    "en": {
+      "language": "English",
+      "persona": "Renata Cole",
+      "closing": "A clearer path to care that already exists.",
+      "lines": [
+        {"id":"01","speaker":"resident","startMs":1200,"endMs":4800,"text":"Okay... where do I even start?"},
+        {"id":"02","speaker":"guide","startMs":5200,"endMs":10400,"text":"Mm-hm. Take your time. What are you trying to get ready for?"},
+        {"id":"03","speaker":"resident","startMs":10700,"endMs":18400,"text":"I need help with my diabetes, and— actually, I don't need advice. I need to know where to go."},
+        {"id":"04","speaker":"guide","startMs":18400,"endMs":23600,"text":"Got it. You're looking for a place to begin, not medical advice."},
+        {"id":"05","speaker":"resident","startMs":23800,"endMs":28000,"text":"Exactly. And it has to be close. I don't drive."},
+        {"id":"06","speaker":"guide","startMs":28600,"endMs":34600,"text":"Okay. May I use your county and preferred language to narrow the options?"},
+        {"id":"07","speaker":"resident","startMs":35100,"endMs":38900,"text":"Yes. Delaware County. English is fine."},
+        {"id":"08","speaker":"guide","startMs":39300,"endMs":48700,"text":"Thanks. I can show the request details for you to review. Want to see them?"},
+        {"id":"09","speaker":"resident","startMs":46700,"endMs":50700,"text":"Wait—does that mean you found a provider?"},
+        {"id":"10","speaker":"guide","startMs":51500,"endMs":60800,"text":"No. I haven't matched you to a provider. SozoRock doesn't diagnose, treat, or prescribe. Licensed care stays with licensed professionals."},
+        {"id":"11","speaker":"resident","startMs":61600,"endMs":64600,"text":"Okay. Show me what the request needs."},
+        {"id":"12","speaker":"guide","startMs":65100,"endMs":70800,"text":"Here they are: county, language, transportation, and follow-up. Submit only after you confirm by tap or text."},
+        {"id":"13","speaker":"narrator","startMs":71500,"endMs":75000,"text":"One natural conversation. One clearer next step."},
+        {"id":"14","speaker":"narrator","startMs":75500,"endMs":80000,"text":"SozoRock Health. A clearer path to care that already exists."}
+      ]
+    },
+    "es": {
+      "language": "Español",
+      "persona": "Renata Cole",
+      "closing": "Un camino más claro hacia la atención que ya existe.",
+      "lines": [
+        {"id":"01","speaker":"resident","startMs":1200,"endMs":4800,"text":"Bueno... ¿por dónde empiezo?"},
+        {"id":"02","speaker":"guide","startMs":5200,"endMs":10400,"text":"Mm-hm. Tómate tu tiempo. ¿Para qué te estás preparando?"},
+        {"id":"03","speaker":"resident","startMs":10700,"endMs":18400,"text":"Necesito ayuda con mi diabetes y... en realidad, no necesito consejos. Necesito saber adónde ir."},
+        {"id":"04","speaker":"guide","startMs":18400,"endMs":23600,"text":"Entiendo. Buscas un punto de partida, no orientación médica."},
+        {"id":"05","speaker":"resident","startMs":23800,"endMs":28000,"text":"Exacto. Y tiene que estar cerca. No conduzco."},
+        {"id":"06","speaker":"guide","startMs":28600,"endMs":34600,"text":"De acuerdo. ¿Puedo usar tu condado y el idioma que prefieres para limitar las opciones?"},
+        {"id":"07","speaker":"resident","startMs":35100,"endMs":38900,"text":"Sí. Condado de Delaware. Prefiero español."},
+        {"id":"08","speaker":"guide","startMs":39300,"endMs":48700,"text":"Gracias. Puedo mostrarte los datos de la solicitud para que los revises. ¿Quieres verlos?"},
+        {"id":"09","speaker":"resident","startMs":46700,"endMs":50700,"text":"Espera, ¿eso significa que encontraste un proveedor?"},
+        {"id":"10","speaker":"guide","startMs":51500,"endMs":60800,"text":"No. No te he asignado un proveedor. SozoRock no diagnostica, trata ni receta. La atención clínica permanece con profesionales autorizados."},
+        {"id":"11","speaker":"resident","startMs":61600,"endMs":64600,"text":"De acuerdo. Muéstrame qué necesita la solicitud."},
+        {"id":"12","speaker":"guide","startMs":65100,"endMs":70800,"text":"Aquí están: condado, idioma, transporte y seguimiento. Solo envías después de confirmar por toque o texto."},
+        {"id":"13","speaker":"narrator","startMs":71500,"endMs":75000,"text":"Una conversación natural. Un próximo paso más claro."},
+        {"id":"14","speaker":"narrator","startMs":75500,"endMs":80000,"text":"SozoRock Health. Un camino más claro hacia la atención que ya existe."}
+      ]
+    }
+  }
+}

@@ -1,7 +1,7 @@
 {
   "name": "@sozorock/mobile",
   "private": true,
-  "version": "0.1.0",
+  "version": "1.0.0",
   "main": "node_modules/expo/AppEntry.js",
   "scripts": {
     "start": "expo start",
@@ -9,6 +9,13 @@
     "ios": "expo start --ios",
     "check:config": "expo config --type public",
     "export:android": "expo export --platform android",
+    "export:ios": "expo export --platform ios",
+    "release:doctor": "expo-doctor",
+    "release:validate": "node scripts/validate-release-env.mjs",
+    "release:validate:submit": "node scripts/validate-release-env.mjs --submit",
+    "release:build": "npx --yes eas-cli@20.5.1 build --platform all --profile production --non-interactive",
+    "release:submit:internal": "npx --yes eas-cli@20.5.1 submit --platform ios --profile production --latest --non-interactive && npx --yes eas-cli@20.5.1 submit --platform android --profile internal --latest --non-interactive",
+    "release:submit:production": "npx --yes eas-cli@20.5.1 submit --platform ios --profile production --latest --non-interactive && npx --yes eas-cli@20.5.1 submit --platform android --profile production --latest --non-interactive",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
@@ -18,6 +25,7 @@
     "expo-localization": "57.0.0",
     "expo-speech": "57.0.0",
     "expo-speech-recognition": "^56.0.1",
+    "expo-splash-screen": "~57.0.2",
     "react": "19.2.3",
     "react-native": "0.86.0"
   },

@@ -1,0 +1,128 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Verified, privacy-conscious publication delivery for SozoRock Health.
+
+Parameters:
+  PublicSiteComputeRoleName:
+    Type: String
+    Default: AmplifySSRComputeRole-SozoRockHealthPublic
+  PublicationEmailFrom:
+    Type: String
+    Default: publications@sozorockfoundation.org
+  SesIdentityArn:
+    Type: String
+    Description: ARN of an existing verified SES domain or email identity.
+  HashSalt:
+    Type: String
+    NoEcho: true
+    MinLength: 32
+
+Resources:
+  PublicationAccessTable:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      TableName: sozorock-health-publication-access
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: pk
+          AttributeType: S
+        - AttributeName: sk
+          AttributeType: S
+      KeySchema:
+        - AttributeName: pk
+          KeyType: HASH
+        - AttributeName: sk
+          KeyType: RANGE
+      SSESpecification:
+        SSEEnabled: true
+      TimeToLiveSpecification:
+        AttributeName: expiresAt
+        Enabled: true
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      Tags:
+        - Key: Product
+          Value: SozoRockHealth
+        - Key: DataClass
+          Value: PublicationAccess
+
+  PublicationAssets:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      VersioningConfiguration:
+        Status: Enabled
+      LifecycleConfiguration:
+        Rules:
+          - Id: RemoveIncompleteUploads
+            Status: Enabled
+            AbortIncompleteMultipartUpload:
+              DaysAfterInitiation: 7
+      Tags:
+        - Key: Product
+          Value: SozoRockHealth
+        - Key: DataClass
+          Value: ControlledPublication
+
+  PublicationHashSalt:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: sozorock-health/publication-access-hash-salt
+      Description: Salt for one-way publication access identifiers. Never exposed to the browser.
+      SecretString: !Ref HashSalt
+
+  PublicationAccessPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: SozoRockHealthPublicationAccess
+      Roles:
+        - !Ref PublicSiteComputeRoleName
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: PublicationRecords
+            Effect: Allow
+            Action:
+              - dynamodb:GetItem
+              - dynamodb:PutItem
+              - dynamodb:UpdateItem
+            Resource: !GetAtt PublicationAccessTable.Arn
+          - Sid: ControlledPublicationRead
+            Effect: Allow
+            Action: s3:GetObject
+            Resource: !Sub ${PublicationAssets.Arn}/*
+          - Sid: VerificationEmail
+            Effect: Allow
+            Action: ses:SendEmail
+            Resource: !Ref SesIdentityArn
+            Condition:
+              StringEquals:
+                ses:FromAddress: !Ref PublicationEmailFrom
+          - Sid: ReadHashSalt
+            Effect: Allow
+            Action: secretsmanager:GetSecretValue
+            Resource: !Ref PublicationHashSalt
+
+Outputs:
+  PublicationAccessTableName:
+    Value: !Ref PublicationAccessTable
+  PublicationAssetBucketName:
+    Value: !Ref PublicationAssets
+  PublicationEmailFrom:
+    Value: !Ref PublicationEmailFrom
+  PublicationHashSaltSecretArn:
+    Value: !Ref PublicationHashSalt
+  RequiredRuntimeEnvironment:
+    Description: Server-only variables required by the public-site compute runtime.
+    Value: PUBLICATION_ACCESS_TABLE, PUBLICATION_ASSET_BUCKET, PUBLICATION_EMAIL_FROM, PUBLICATION_HASH_SALT_SECRET_ARN, PUBLIC_SITE_URL, PUBLICATION_ALLOWED_HOSTS

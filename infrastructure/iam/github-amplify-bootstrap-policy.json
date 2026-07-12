@@ -1,9 +1,142 @@
 {
   "Version": "2012-10-17",
-  "Statement": [{
-    "Sid": "StartAndInspectSozoRockHealthDeployments",
-    "Effect": "Allow",
-    "Action": ["amplify:StartJob", "amplify:GetJob", "amplify:GetBranch"],
-    "Resource": "*"
-  }]
+  "Statement": [
+    {
+      "Sid": "DeploySozoRockHealthAmplifyApps",
+      "Effect": "Allow",
+      "Action": [
+        "amplify:GetApp",
+        "amplify:UpdateApp",
+        "amplify:StartJob",
+        "amplify:GetJob",
+        "amplify:GetBranch"
+      ],
+      "Resource": [
+        "arn:aws:amplify:us-east-1:791860731989:apps/d2k1gmeov1v557",
+        "arn:aws:amplify:us-east-1:791860731989:apps/d2k1gmeov1v557/*",
+        "arn:aws:amplify:us-east-1:791860731989:apps/d307qqji18y8il",
+        "arn:aws:amplify:us-east-1:791860731989:apps/d307qqji18y8il/*"
+      ]
+    },
+    {
+      "Sid": "ManageSozoRockHealthCloudFormation",
+      "Effect": "Allow",
+      "Action": [
+        "cloudformation:CreateStack",
+        "cloudformation:UpdateStack",
+        "cloudformation:DescribeStacks",
+        "cloudformation:DescribeStackEvents",
+        "cloudformation:DescribeStackResources",
+        "cloudformation:CreateChangeSet",
+        "cloudformation:DescribeChangeSet",
+        "cloudformation:ExecuteChangeSet",
+        "cloudformation:DeleteChangeSet",
+        "cloudformation:GetTemplateSummary"
+      ],
+      "Resource": [
+        "arn:aws:cloudformation:us-east-1:791860731989:stack/sozorock-health-contact/*",
+        "arn:aws:cloudformation:us-east-1:791860731989:stack/sozorock-health-publication-access/*",
+        "arn:aws:cloudformation:us-east-1:791860731989:changeSet/*/*",
+        "arn:aws:cloudformation:us-east-1:aws:transform/Serverless-2016-10-31"
+      ]
+    },
+    {
+      "Sid": "ProvisionSozoRockHealthDataStores",
+      "Effect": "Allow",
+      "Action": [
+        "dynamodb:CreateTable",
+        "dynamodb:DescribeTable",
+        "dynamodb:UpdateTable",
+        "dynamodb:UpdateTimeToLive",
+        "dynamodb:DescribeTimeToLive",
+        "dynamodb:UpdateContinuousBackups",
+        "dynamodb:DescribeContinuousBackups",
+        "dynamodb:TagResource",
+        "dynamodb:UntagResource"
+      ],
+      "Resource": [
+        "arn:aws:dynamodb:us-east-1:791860731989:table/sozorock-health-contact-submissions",
+        "arn:aws:dynamodb:us-east-1:791860731989:table/sozorock-health-access-requests",
+        "arn:aws:dynamodb:us-east-1:791860731989:table/sozorock-health-publication-access"
+      ]
+    },
+    {
+      "Sid": "ProvisionControlledPublicationStorage",
+      "Effect": "Allow",
+      "Action": [
+        "s3:CreateBucket",
+        "s3:GetBucketLocation",
+        "s3:GetBucketVersioning",
+        "s3:PutBucketVersioning",
+        "s3:GetEncryptionConfiguration",
+        "s3:PutEncryptionConfiguration",
+        "s3:GetBucketPublicAccessBlock",
+        "s3:PutBucketPublicAccessBlock",
+        "s3:GetLifecycleConfiguration",
+        "s3:PutLifecycleConfiguration",
+        "s3:GetBucketTagging",
+        "s3:PutBucketTagging",
+        "s3:ListBucket"
+      ],
+      "Resource": "arn:aws:s3:::sozorock-health-publication-access-*"
+    },
+    {
+      "Sid": "UploadControlledPublicationFiles",
+      "Effect": "Allow",
+      "Action": [
+        "s3:PutObject",
+        "s3:GetObject",
+        "s3:GetObjectTagging",
+        "s3:PutObjectTagging"
+      ],
+      "Resource": "arn:aws:s3:::sozorock-health-publication-access-*/*"
+    },
+    {
+      "Sid": "ProvisionSozoRockHealthSecrets",
+      "Effect": "Allow",
+      "Action": [
+        "secretsmanager:CreateSecret",
+        "secretsmanager:DescribeSecret",
+        "secretsmanager:PutSecretValue",
+        "secretsmanager:TagResource",
+        "secretsmanager:UntagResource"
+      ],
+      "Resource": [
+        "arn:aws:secretsmanager:us-east-1:791860731989:secret:sozorock-health/contact-rate-limit-salt-*",
+        "arn:aws:secretsmanager:us-east-1:791860731989:secret:sozorock-health/access-rate-limit-salt-*",
+        "arn:aws:secretsmanager:us-east-1:791860731989:secret:sozorock-health/publication-access-hash-salt-*"
+      ]
+    },
+    {
+      "Sid": "MaintainPublicSiteComputePermissions",
+      "Effect": "Allow",
+      "Action": [
+        "iam:GetRole",
+        "iam:UpdateAssumeRolePolicy",
+        "iam:PutRolePolicy",
+        "iam:GetRolePolicy",
+        "iam:DeleteRolePolicy",
+        "iam:TagRole",
+        "iam:UntagRole",
+        "iam:PassRole"
+      ],
+      "Resource": "arn:aws:iam::791860731989:role/AmplifySSRComputeRole-SozoRockHealthPublic"
+    },
+    {
+      "Sid": "MaintainContactNotifications",
+      "Effect": "Allow",
+      "Action": [
+        "sns:CreateTopic",
+        "sns:GetTopicAttributes",
+        "sns:SetTopicAttributes",
+        "sns:TagResource",
+        "sns:UntagResource",
+        "sns:Subscribe",
+        "sns:GetSubscriptionAttributes",
+        "sns:SetSubscriptionAttributes",
+        "sns:ListSubscriptionsByTopic"
+      ],
+      "Resource": "arn:aws:sns:us-east-1:791860731989:sozorock-health-contact-notifications"
+    }
+  ]
 }
