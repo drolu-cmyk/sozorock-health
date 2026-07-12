@@ -2,7 +2,7 @@
   "name": "sozorock-health",
   "private": true,
   "version": "0.1.0",
-  "description": "Nationwide access infrastructure for SozoRock Health.",
+  "description": "Nationwide non-clinical health, workforce-readiness, and public-systems infrastructure for SozoRock Health.",
   "workspaces": [
     "apps/*",
     "packages/*"

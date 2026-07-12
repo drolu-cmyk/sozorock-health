@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: Durable, least-privilege contact intake for the SozoRock Health public site.
+Description: Durable, least-privilege public contact and mobile non-clinical access intake for SozoRock Health.
 
 Parameters:
   AmplifyAppId:
@@ -39,6 +39,30 @@ Resources:
         - Key: DataClass
           Value: ContactInquiry
 
+  AccessRequests:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: sozorock-health-access-requests
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: requestId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: requestId
+          KeyType: HASH
+      SSESpecification:
+        SSEEnabled: true
+      TimeToLiveSpecification:
+        AttributeName: expiresAt
+        Enabled: true
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      Tags:
+        - Key: Product
+          Value: SozoRockHealth
+        - Key: DataClass
+          Value: NonClinicalAccessRequest
+
   ContactNotifications:
     Type: AWS::SNS::Topic
     Properties:
@@ -53,6 +77,15 @@ Resources:
     Properties:
       Name: sozorock-health/contact-rate-limit-salt
       Description: Random salt for one-way contact rate-limit identifiers.
+      GenerateSecretString:
+        PasswordLength: 48
+        ExcludePunctuation: true
+
+  AccessRateLimitSalt:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: sozorock-health/access-rate-limit-salt
+      Description: Random salt for one-way mobile access request rate-limit identifiers.
       GenerateSecretString:
         PasswordLength: 48
         ExcludePunctuation: true
@@ -89,7 +122,9 @@ Resources:
                 Action:
                   - dynamodb:PutItem
                   - dynamodb:UpdateItem
-                Resource: !GetAtt ContactSubmissions.Arn
+                Resource:
+                  - !GetAtt ContactSubmissions.Arn
+                  - !GetAtt AccessRequests.Arn
               - Effect: Allow
                 Action: sns:Publish
                 Resource: !Ref ContactNotifications
@@ -98,6 +133,7 @@ Resources:
                 Resource:
                   - !Ref OpenAISecretArn
                   - !Ref ContactRateLimitSalt
+                  - !Ref AccessRateLimitSalt
 
 Outputs:
   ContactTableName:
@@ -110,3 +146,7 @@ Outputs:
     Value: !Ref OpenAISecretArn
   ContactRateLimitSaltSecretArn:
     Value: !Ref ContactRateLimitSalt
+  AccessRequestTableName:
+    Value: !Ref AccessRequests
+  AccessRateLimitSaltSecretArn:
+    Value: !Ref AccessRateLimitSalt

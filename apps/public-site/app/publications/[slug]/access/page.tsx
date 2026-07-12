@@ -24,10 +24,6 @@ export default async function AccessPage({
       <PublicationEvent event="access_started" slug={publication.slug} />
       <header className={styles.header}>
         <LogoLockup />
-        <Link className={styles.brand} href="/">
-          SozoRock<sup>®</sup>
-          <span>Health</span>
-        </Link>
         <Link href={`/publications/${publication.slug}`}>
           Return to summary
         </Link>

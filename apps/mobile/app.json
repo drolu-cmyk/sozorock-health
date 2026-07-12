@@ -1,10 +1,10 @@
 {
   "expo": {
     "name": "SozoRock Health",
-    "description": "Non-clinical health access, digital readiness, Health Equity Hubs, Voice Access, and provider-led pathway preparation from The SozoRock Foundation Inc.",
+    "description": "Non-clinical health readiness, digital navigation, Health Equity Hubs, Voice Access, and provider-led pathway preparation from The SozoRock Foundation, Inc.",
     "slug": "sozorock-health",
     "scheme": "sozorockhealth",
-    "version": "0.1.0",
+    "version": "1.0.0",
     "icon": "./assets/app-icon.png",
     "orientation": "default",
     "userInterfaceStyle": "light",
@@ -23,10 +23,23 @@
     "android": {
       "package": "org.sozorockfoundation.health",
       "predictiveBackGestureEnabled": true,
-      "versionCode": 1
+      "versionCode": 1,
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/app-icon.png",
+        "backgroundColor": "#083D68"
+      }
     },
     "plugins": [
       "expo-localization",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/sozorock-wordmark.png",
+          "imageWidth": 260,
+          "resizeMode": "contain",
+          "backgroundColor": "#F8F5EE"
+        }
+      ],
       [
         "expo-speech-recognition",
         {

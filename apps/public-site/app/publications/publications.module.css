@@ -11,24 +11,6 @@
   justify-content: space-between;
   border-bottom: 1px solid #d7d0c2;
 }
-.brand {
-  display: none;
-  font:
-    600 20px/1.1 Georgia,
-    serif;
-  letter-spacing: -0.3px;
-}
-.brand sup {
-  font:
-    600 8px Arial,
-    sans-serif;
-  margin-left: 1px;
-  vertical-align: super;
-}
-.brand span {
-  color: #6c7847;
-  margin-left: 5px;
-}
 .header a:last-child {
   font-size: 14px;
   text-decoration: underline;
@@ -175,6 +157,17 @@
   padding: 13px 14px;
   border-radius: 0;
   color: #101512;
+}
+.form [aria-invalid="true"] {
+  border-color: #a12f20;
+  box-shadow: 0 0 0 1px #a12f20;
+}
+.fieldError {
+  display: block;
+  color: #8d2618 !important;
+  font-size: 13px;
+  font-weight: 600 !important;
+  line-height: 1.4;
 }
 .form textarea {
   resize: vertical;
@@ -370,10 +363,6 @@
   }
   .header {
     padding-inline: 16px;
-  }
-  .brand {
-    min-width: 0;
-    font-size: 18px;
   }
   .header a:last-child {
     font-size: 12px;

@@ -8,6 +8,10 @@ import { GetSecretValueCommand, SecretsManagerClient } from "@aws-sdk/client-sec
 import type { NextRequest } from "next/server";
 import { getPublication } from "./publications";
 import type { AccessInput } from "./publication-validation";
+import type { AccessEvent } from "./publication-events";
+import { clientNetworkAddress, isTrustedSameOrigin } from "./request-security";
+
+export type { AccessEvent } from "./publication-events";
 
 const region = process.env.AWS_REGION ?? "us-east-1";
 const tableName = process.env.PUBLICATION_ACCESS_TABLE;
@@ -28,13 +32,8 @@ const VERIFY_SECONDS = 30 * 60;
 const SESSION_SECONDS = 12 * 60 * 60;
 const MAX_REQUESTS_PER_HOUR = 4;
 
-export type AccessEvent = "publication_viewed" | "access_started" | "access_form_completed" | "verification_sent" | "email_verified" | "publication_opened" | "publication_downloaded" | "access_failed";
-
 export function sameOrigin(request: NextRequest) {
-  const origin = request.headers.get("origin");
-  if (!origin) return false;
-  const host = request.headers.get("x-forwarded-host")?.split(",")[0]?.trim() ?? request.headers.get("host") ?? request.nextUrl.host;
-  try { return new Set([host, ...configuredHosts]).has(new URL(origin).host); } catch { return false; }
+  return isTrustedSameOrigin(request, configuredHosts);
 }
 
 async function getHashSalt() {
@@ -71,7 +70,7 @@ export async function enforceRateLimit(request: NextRequest, email: string) {
   const { tableName } = requireConfig();
   const epoch = Math.floor(Date.now() / 1000);
   const bucket = Math.floor(epoch / 3600);
-  const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+  const ip = clientNetworkAddress(request.headers);
   const key = await hash(`${ip}:${email}:${bucket}`);
   await dynamo.send(new UpdateCommand({
     TableName: tableName, Key: { pk: `RATE#${key}`, sk: "HOUR" },
@@ -85,7 +84,7 @@ export async function enforceEventRateLimit(request: NextRequest) {
   const { tableName } = requireConfig();
   const epoch = Math.floor(Date.now() / 1000);
   const bucket = Math.floor(epoch / 3600);
-  const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+  const ip = clientNetworkAddress(request.headers);
   const key = await hash(`event:${ip}:${bucket}`);
   await dynamo.send(new UpdateCommand({
     TableName: tableName,
@@ -163,6 +162,6 @@ export async function createDownloadUrl(sessionToken: string, slug: string) {
   const session = await dynamo.send(new GetCommand({ TableName: tableName, Key: { pk: `SESSION#${await hash(sessionToken)}`, sk: `ACCESS#${slug}` }, ConsistentRead: true }));
   if (!session.Item || Number(session.Item.expiresAt) < Math.floor(Date.now() / 1000)) return null;
   const url = await getSignedUrl(s3, new GetObjectCommand({ Bucket: bucketName, Key: publication.assetKey, ResponseContentDisposition: `attachment; filename="${publication.assetKey}"`, ResponseContentType: "application/pdf" }), { expiresIn: 300 });
-  await recordEvent("publication_downloaded", slug, String(session.Item.requestId));
+  await recordEvent("download_link_issued", slug, String(session.Item.requestId));
   return url;
 }

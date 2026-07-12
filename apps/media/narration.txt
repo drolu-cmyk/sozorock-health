@@ -1,11 +1,23 @@
-A care journey can begin with something simple: being heard.
+SOZOROCK HEALTH VOICE ACCESS CAMPAIGN — APPROVED INTERACTION SCRIPT
 
-Meet Maya. Today, getting to care means distance, time, and one more unfamiliar system. At a trusted Health Equity Hub, she opens SozoRock Health. On a Health Access Day, trained local support and a prepared provider pathway are ready around her.
+Persona: Renata Cole
+Guide: Voice Access
 
-The voice guide says, “Take your time. You can speak, tap, or type.” Maya says, “I need help finding care near me.” The guide listens, then confirms her request in plain language.
+RENATA: Okay... where do I even start?
+VOICE ACCESS: Mm-hm. Take your time. What are you trying to get ready for?
+RENATA: I need help with my diabetes, and— actually, I don't need advice. I need to know where to go.
+VOICE ACCESS: Got it. You're looking for a place to begin, not medical advice.
+RENATA: Exactly. And it has to be close. I don't drive.
+VOICE ACCESS: Okay. May I use your county and preferred language to narrow the options?
+RENATA: Yes. Delaware County. English is fine.
+VOICE ACCESS: Thanks. I can show the request details for you to review. Want to see them?
+RENATA: Wait—does that mean you found a provider?
+VOICE ACCESS: No. I haven't matched you to a provider. SozoRock doesn't diagnose, treat, or prescribe. Licensed care stays with licensed professionals.
+RENATA: Okay. Show me what the request needs.
+VOICE ACCESS: Here they are: county, language, transportation, and follow-up. Submit only after you confirm by tap or text.
+VOICE ACCESS: One natural conversation. One clearer next step.
+VOICE ACCESS: SozoRock Health. A clearer path to care that already exists.
 
-With her permission, the Resident Access Layer checks her county, language preference, digital readiness, and the providers ready to serve New York residents. A clear option appears. Maya chooses it, then moves securely to the provider’s own platform.
+Production disclosure: GPT-Live is the interaction reference, not the rendered model. OpenAI states that GPT-Live developer API access is planned but not yet available. Final prerecorded narration will use the highest approved OpenAI speech model available to the SozoRock Health project and will identify that method accurately.
 
-SozoRock does not diagnose, prescribe, or replace care. Clinical decisions remain with the licensed provider. The platform simply makes the path easier to understand and follow—through a library hub, a community hub, or from home.
-
-One calm conversation. One clearer next step. SozoRock Health: access where people live.
+Scenario disclosure: This is an illustrative resident journey. It previews non-clinical request details and hands submission to tap or text. It does not depict voice persistence, a provider match, a hub opening, or a verified local result.

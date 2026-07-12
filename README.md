@@ -1,6 +1,8 @@
 # SozoRock Health
 
-SozoRock Health is a nonprofit health-access initiative of The SozoRock Foundation Inc. It provides a practical layer between uncertainty and appropriate care while strengthening rural health, digital readiness, public systems, workforce capability, and accountable technology implementation.
+SozoRock Health is a national public-interest initiative of The SozoRock Foundation Inc. It designs and deploys non-clinical health-access, workforce-readiness, and systems infrastructure that helps people, institutions, and public agencies use existing healthcare, public-health, digital, and workforce systems more effectively.
+
+The work spans rural and underserved health access, chronic-disease mitigation, digital navigation, AI readiness, public-sector modernization, cybersecurity readiness, and interdisciplinary workforce development.
 
 SozoRock Health is non-clinical. Providers retain their clinical platforms and professional responsibilities.
 
@@ -9,7 +11,7 @@ SozoRock Health is non-clinical. Providers retain their clinical platforms and p
 | Surface | Purpose | Release posture |
 | --- | --- | --- |
 | Public site | Explain the model, present health priorities and publications, and route community, funding, volunteer, and institutional interest | Public |
-| Resident app | Voice/tap access, language choice, hub check-in, and provider pathways on phones and shared tablets | iOS and Android foundation |
+| Resident app | Voice/tap readiness, language choice, hub check-in, and bounded provider-led pathways on phones and shared tablets | iOS and Android foundation |
 | CB-CAP | Filtered, downloadable, threshold-protected county access intelligence | Public demonstration; approved county access |
 | Provider/BYOP | State-aware provider readiness and connection management | Gated |
 
@@ -67,7 +69,9 @@ npm run build:platform
 npm audit --omit=dev --audit-level=moderate
 npm exec --workspace @sozorock/mobile -- expo-doctor
 npm exec --workspace @sozorock/mobile -- expo export --platform android
+npm run audio:ambient --workspace @sozorock/media
 npm run render:all --workspace @sozorock/media
+npm run verify:campaign --workspace @sozorock/media
 ```
 
 The lockfile includes reviewed security resolutions for upstream packages pinned by Next.js and Expo. `patch-package` reconciles the parent manifests during installation so CI and local dependency trees remain reproducible and audit-clean.
@@ -82,6 +86,10 @@ Public configuration:
 | `CONTACT_SUBMISSIONS_TABLE` | Durable encrypted contact-submission store |
 | `CONTACT_NOTIFICATION_TOPIC_ARN` | Operations notification destination |
 | `CONTACT_RATE_LIMIT_SALT_SECRET_ARN` | Secrets Manager salt for one-way contact rate-limit identifiers |
+| `ACCESS_REQUESTS_TABLE` | Separate, encrypted non-clinical mobile access-request store |
+| `ACCESS_NOTIFICATION_TOPIC_ARN` | Operations notification destination for mobile access requests |
+| `ACCESS_RATE_LIMIT_SALT_SECRET_ARN` | Secrets Manager salt for one-way mobile abuse-control identifiers |
+| `ACCESS_ALLOWED_ORIGINS` | Exact HTTPS origins permitted for browser preflight requests |
 | `PUBLICATION_ACCESS_TABLE` | Verified publication requests, sessions, events, and rate limits |
 | `PUBLICATION_ASSET_BUCKET` | Private publication-object bucket |
 | `PUBLICATION_HASH_SALT_SECRET_ARN` | Secrets Manager salt for publication identifiers and tokens |
@@ -107,10 +115,10 @@ GitHub Actions assumes a short-lived AWS role through OIDC. A successful release
 
 1. installs from the committed lockfile;
 2. runs type, build, security, privacy, and mobile configuration checks;
-3. provisions the contact and controlled-publication AWS stacks;
+3. provisions the contact, non-clinical mobile access, and controlled-publication AWS resources;
 4. uploads approved publications to a private, public-access-blocked bucket;
 5. deploys the public site and CB-CAP as separate Amplify applications;
-6. waits for both AWS jobs to succeed and preserves the prior production origin until live verification passes.
+6. waits for both AWS deployment jobs to succeed before the workflow completes.
 
 No long-lived AWS keys or manual file uploads are required. See [automation and release](docs/automation-and-release.md).
 

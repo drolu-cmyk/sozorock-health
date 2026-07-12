@@ -6,7 +6,11 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "studio": "remotion studio src/index.ts",
-    "render:all": "node scripts/render-all.mjs"
+    "voice:generate": "node scripts/generate-voice-assets.mjs",
+    "audio:ambient": "node scripts/create-ambient-bed.mjs",
+    "render:all": "node scripts/render-all.mjs",
+    "render:final": "node scripts/render-final.mjs",
+    "verify:campaign": "node scripts/verify-campaign-exports.mjs"
   },
   "dependencies": {
     "@phosphor-icons/react": "^2.1.10",

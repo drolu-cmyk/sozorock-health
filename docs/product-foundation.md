@@ -13,7 +13,7 @@ SozoRock Health is designed as national access infrastructure, beginning from Ne
 | Framework principle | SozoRock Health requirement |
 | --- | --- |
 | Access is a system responsibility | Library, community, and home-based hubs have first-class workflows, not a marketing afterthought. |
-| Readiness and literacy determine usable access | Voice-first and large-button interfaces, language selection, plain-language prompts, and navigator support are launch requirements. |
+| Readiness and literacy determine usable access | Voice-first and large-button interfaces, language selection, plain-language prompts, and non-clinical readiness support are launch requirements. |
 | Coordinated action outperforms episodic outreach | Hub, provider, and county workflows use a shared access-event model with clear ownership and follow-up states. |
 | Improvement must be measurable | Aggregate measures track connection requests, completed connections, access barriers, hub utilization, and time-to-connection without exposing people. |
 

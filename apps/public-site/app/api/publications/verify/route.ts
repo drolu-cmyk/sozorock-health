@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifyAccessToken } from "../../../lib/publication-access";
+import { sameOrigin, verifyAccessToken } from "../../../lib/publication-access";
+import { readBoundedText } from "../../../lib/request-security";
 
 export const runtime = "nodejs";
 
@@ -10,8 +11,17 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const form = await request.formData().catch(() => null);
-  const token = typeof form?.get("token") === "string" ? String(form.get("token")).slice(0, 160) : "";
+  if (!sameOrigin(request))
+    return NextResponse.json({ error: "Request origin was not accepted." }, { status: 403 });
+  const body = await readBoundedText(request, 2_048, ["application/x-www-form-urlencoded"]);
+  if (!body.ok) {
+    if (body.error === "unsupported-media-type")
+      return NextResponse.json({ error: "Send this request as a form." }, { status: 415 });
+    if (body.error === "too-large")
+      return NextResponse.json({ error: "The request is too large." }, { status: 413 });
+    return NextResponse.json({ error: "The verification request was not valid." }, { status: 400 });
+  }
+  const token = new URLSearchParams(body.text).get("token")?.slice(0, 160) ?? "";
   if (!token) return NextResponse.redirect(new URL("/publications?verification=missing", request.url), 303);
   try {
     const verified = await verifyAccessToken(token);

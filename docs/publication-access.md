@@ -8,7 +8,7 @@ The publication workflow separates public summaries from controlled PDF delivery
 2. The visitor requests access and gives delivery consent. Publication-update consent is separate and optional.
 3. The server validates the request, applies a per-email-and-network rate limit, and emails a single-use verification link.
 4. Verification creates a 12-hour, HTTP-only access session.
-5. A download request receives a five-minute S3 presigned URL. The source bucket remains private.
+5. A download request receives a five-minute S3 presigned URL. The source bucket remains private. Issuing that link is recorded; the application does not claim that the file was downloaded successfully.
 
 The form must not collect medical records, diagnoses, symptoms, insurance identifiers, or other health information.
 
@@ -23,7 +23,9 @@ The form must not collect medical records, diagnoses, symptoms, insurance identi
 
 ## Events
 
-`publication_viewed`, `access_started`, `access_form_completed`, `verification_sent`, `email_verified`, `publication_opened`, `publication_downloaded`, and `access_failed` are stored without health information.
+`publication_viewed`, `access_started`, `access_form_completed`, `verification_sent`, `email_verified`, `publication_opened`, `download_link_issued`, and `access_failed` are stored without health information.
+
+`download_link_issued` means the server authenticated the session and returned a short-lived signed link. It is not a completed-download metric. Any future KPI for confirmed delivery must be backed by private S3 or CloudFront delivery telemetry with an approved retention and access policy.
 
 ## Release prerequisites
 

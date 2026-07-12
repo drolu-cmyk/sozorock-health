@@ -3,23 +3,29 @@ import {
   Books,
   CheckCircle,
   EnvelopeSimple,
-  GlobeHemisphereWest,
   HandHeart,
   Heartbeat,
   HouseLine,
-  InstagramLogo,
   MapPin,
   Path,
   ShieldCheck,
   UsersThree,
-  XLogo,
-  YoutubeLogo,
 } from "@phosphor-icons/react/dist/ssr";
+import type { Metadata } from "next";
 import Image from "next/image";
 import { ContactForm } from "./components/ContactForm";
-import { LogoLockup } from "./components/LogoLockup";
+import { HeroPathVisual } from "./components/HeroPathVisual";
+import { NationalLocationFinder } from "./components/NationalLocationFinder";
 import { ResidentDemo } from "./components/ResidentDemo";
+import { SiteFooter } from "./components/SiteFooter";
 import { SiteHeader } from "./components/SiteHeader";
+
+export const metadata: Metadata = {
+  alternates: {
+    canonical: "/",
+    languages: { "en-US": "/", "es-US": "/es" },
+  },
+};
 
 const priorities = [
   ["Cardiovascular health", "Emerging priority"],
@@ -65,13 +71,13 @@ const involvement = [
 
 export default function Home() {
   return (
-    <main id="top">
+    <>
       <a className="skip-link" href="#main-content">
         Skip to content
       </a>
       <SiteHeader />
 
-      <div id="main-content">
+      <main id="main-content" tabIndex={-1}>
         <section className="new-hero" aria-labelledby="hero-heading">
           <div className="new-hero__copy">
             <p className="eyebrow">Nonprofit health access initiative</p>
@@ -89,18 +95,13 @@ export default function Home() {
               Not a clinic. Not a provider. Not a telehealth platform.
             </p>
           </div>
-          <figure className="path-illustration">
-            <Image
-              src="/media/clearer-path-hero.png"
-              width={1536}
-              height={1024}
-              alt="An illustrated route moves from uncertainty through community landmarks toward a clear destination"
-              priority
-              sizes="(max-width: 820px) 100vw, 58vw"
-            />
-            <figcaption>From uncertainty to a practical next step.</figcaption>
-          </figure>
+          <HeroPathVisual
+            label="An illustrated route moves from uncertainty through community landmarks toward a clear destination"
+            caption="From uncertainty to a practical next step."
+          />
         </section>
+
+        <NationalLocationFinder />
 
         <section className="problem-band" aria-labelledby="problem-heading">
           <div className="section-heading section-heading--compact">
@@ -186,6 +187,65 @@ export default function Home() {
               clinical decisions.
             </p>
           </div>
+        </section>
+
+        <section
+          className="systems-section"
+          id="systems"
+          aria-labelledby="systems-heading"
+        >
+          <div className="section-heading section-heading--split">
+            <div>
+              <p className="eyebrow eyebrow--light">Systems model</p>
+              <h2 id="systems-heading">One model. Four connected layers.</h2>
+            </div>
+            <p>
+              The layers keep resident support, licensed care, public planning,
+              and institutional readiness distinct while helping them work
+              together.
+            </p>
+          </div>
+          <div className="systems-grid">
+            <article>
+              <span>Resident layer</span>
+              <h3>Non-clinical access enablement</h3>
+              <p>
+                Health Equity Hubs, Health Access Day, Voice Access, and digital
+                readiness help people prepare for existing services.
+              </p>
+            </article>
+            <article>
+              <span>Provider layer</span>
+              <h3>Provider-led pathways</h3>
+              <p>
+                In the Bring Your Own Platform model, licensed providers retain
+                their clinical systems, judgment, records, and care.
+              </p>
+            </article>
+            <article>
+              <span>County layer</span>
+              <h3>County-Based Community Access Platform (CB-CAP)</h3>
+              <p>
+                De-identified pathway intelligence supports access-gap
+                visibility, hub planning, and Community Health Assessment and
+                Community Health Improvement Plan work.
+              </p>
+            </article>
+            <article>
+              <span>Readiness layer</span>
+              <h3>Institutions prepared to act</h3>
+              <p>
+                AI readiness, cybersecurity readiness, public-sector
+                modernization, and interdisciplinary workforce development
+                strengthen accountable implementation.
+              </p>
+            </article>
+          </div>
+          <p className="systems-note">
+            CB-CAP supports system-level learning without exposing individual
+            protected health information or turning non-clinical activity into
+            patient management.
+          </p>
         </section>
 
         <section
@@ -420,8 +480,8 @@ export default function Home() {
             For public agencies, providers, researchers, community institutions,
             and implementers responsible for safe, transparent digital systems.
           </p>
-          <a href="#get-involved">
-            Register for publication access{" "}
+          <a href="/publications/health-systems-assurance">
+            View the series{" "}
             <ArrowRight size={15} aria-hidden="true" />
           </a>
         </section>
@@ -452,13 +512,22 @@ export default function Home() {
               <br />
               The SozoRock Foundation Inc.
             </p>
-            <a
-              href="https://www.sozorockfoundation.org"
-              target="_blank"
-              rel="noreferrer"
-            >
-              Visit the Foundation <ArrowRight size={15} aria-hidden="true" />
-            </a>
+            <div className="leadership-links">
+              <a
+                href="https://sozorockfoundation.org/about-us"
+                target="_blank"
+                rel="noreferrer"
+              >
+                View full profile <ArrowRight size={15} aria-hidden="true" />
+              </a>
+              <span>Selected publications</span>
+              <a href="/publications/rural-equity-blueprint-volume-1">
+                Rural Equity Blueprint, Volume 1
+              </a>
+              <a href="/publications/rethinking-rural-governance-volume-1">
+                Rethinking Rural Governance, Volume 1
+              </a>
+            </div>
           </div>
         </section>
 
@@ -517,79 +586,9 @@ export default function Home() {
             <ContactForm />
           </div>
         </section>
-      </div>
+      </main>
 
-      <footer className="new-footer">
-        <div className="new-footer__lead">
-          <LogoLockup inverse href="#top" />
-          <p>
-            A nonprofit health-access initiative helping people and institutions
-            find clearer practical paths through existing systems.
-          </p>
-        </div>
-        <div className="new-footer__links">
-          <div>
-            <h2>Explore</h2>
-            <a href="#model">What We Do</a>
-            <a href="#priorities">Health Priorities</a>
-            <a href="#publications">Publications</a>
-            <a href="#about">About</a>
-          </div>
-          <div>
-            <h2>Take part</h2>
-            <a href="#get-involved">Partner</a>
-            <a href="#get-involved">Fund the work</a>
-            <a href="#get-involved">Volunteer</a>
-            <a href="#get-involved">Public-sector inquiry</a>
-          </div>
-          <div>
-            <h2>Policies</h2>
-            <a href="/privacy">Privacy</a>
-            <a href="/accessibility">Accessibility</a>
-            <a href="/nondiscrimination">Nondiscrimination</a>
-            <a href="/terms">Terms</a>
-          </div>
-        </div>
-        <div className="new-footer__contact">
-          <a
-            href="https://x.com/srockfoundation"
-            aria-label="SozoRock Foundation on X"
-          >
-            <XLogo size={20} />
-          </a>
-          <a
-            href="https://www.youtube.com/@srockfoundation"
-            aria-label="SozoRock Foundation on YouTube"
-          >
-            <YoutubeLogo size={20} />
-          </a>
-          <a
-            href="https://www.instagram.com/srockfoundation/"
-            aria-label="SozoRock Foundation on Instagram"
-          >
-            <InstagramLogo size={20} />
-          </a>
-          <a href="https://www.sozorockfoundation.org">
-            <GlobeHemisphereWest size={20} aria-hidden="true" />
-            sozorockfoundation.org
-          </a>
-        </div>
-        <div className="new-footer__legal">
-          <p>
-            SozoRock® is a registered trademark of SozoRock Tech Inc., used
-            under license by The SozoRock Foundation Inc.
-          </p>
-          <p>
-            The SozoRock Foundation Inc. is a nonprofit, tax-exempt charitable
-            organization under Section 501(c)(3) of the Internal Revenue Code.
-            EIN 39-4736725. Donations are tax-deductible as allowed by law.
-          </p>
-          <small>
-            © {new Date().getFullYear()} The SozoRock Foundation Inc. All rights
-            reserved.
-          </small>
-        </div>
-      </footer>
-    </main>
+      <SiteFooter />
+    </>
   );
 }

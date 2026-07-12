@@ -27,10 +27,6 @@ export default async function VerifiedPage({
       <PublicationEvent event="publication_opened" slug={publication.slug} />
       <header className={styles.header}>
         <LogoLockup />
-        <Link className={styles.brand} href="/">
-          SozoRock<sup>®</sup>
-          <span>Health</span>
-        </Link>
         <Link href={`/publications/${publication.slug}`}>
           Publication summary
         </Link>

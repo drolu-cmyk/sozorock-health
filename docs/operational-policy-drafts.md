@@ -1,6 +1,6 @@
-# Operational policy drafts requiring approval
+# Operational launch policies
 
-These are build-ready policy requirements, not legal advice or final legal notices. They require review and formal approval before production launch.
+Status: approved by Oluwabiyi Adeyemo for the July 2026 public web launch. These are operating controls, not legal advice. Provider routing, county-user access, native live voice, and mobile-store submission remain fail-closed until their additional verification, credential, device, and professional-review gates are complete.
 
 ## Provider verification policy
 
@@ -25,7 +25,7 @@ The public contact form is the default entry route. It will:
 
 - collect only name, organization, email, role, state/county, inquiry type, and a bounded message;
 - require an affirmative privacy acknowledgement before submission;
-- prevent automated abuse with server-side rate limits, a hidden honeypot, signed submission tokens, and a managed human-verification challenge;
+- prevent automated abuse with exact-origin checks, server-side rate limits, a hidden honeypot, and bounded request bodies; a managed human-verification challenge may be added if observed abuse warrants it;
 - validate and normalize input on the server; avoid rendering untrusted data; and suppress sensitive content from logs;
 - encrypt data in transit and at rest; send notification to `contact@sozorockfoundation.org`; and store an auditable submission record;
 - support configurable retention, deletion, access, and consent-withdrawal workflows.
@@ -34,12 +34,12 @@ The public contact form is the default entry route. It will:
 
 The resident, provider, county, and public-contact experiences require separately scoped notices. Each must identify the data purpose, minimum data collected, sharing boundary, security measures, rights and contact route, retention rule, and the fact that SozoRock Health is non-clinical.
 
-The launch build will make notice versions and consent records explicit and auditable. The final notice text, jurisdiction-specific requirements, age policy, retention schedule, and any health-data obligations must be approved by qualified counsel and the designated data-governance owner before production collection begins.
+The launch build makes notice versions and consent records explicit and auditable. The designated data-governance owner approved the published web notice and current retention schedule for launch. Qualified legal review remains recommended and is required before expanding collection, enabling provider routing, launching in a jurisdiction with additional requirements, or changing the non-clinical boundary.
 
 ## CB-CAP retention and disclosure control
 
-- Resident operational events and CB-CAP analytics events are physically and logically separated.
-- CB-CAP receives only aggregated, de-identified events.
+- Resident operational records and CB-CAP data are physically and logically separated.
+- The public CB-CAP release uses synthetic demonstration data only. A future data pipeline may receive only approved aggregated, de-identified events after governance review.
 - All dashboards, filters, exports, and downloads apply a minimum-cell threshold and suppression logic before results leave the service.
 - Downloadable reports include generation time, filter context, data-version context, privacy notice, and suppression status.
 - Retention values remain centrally configurable and cannot be made permanent by client-side code.

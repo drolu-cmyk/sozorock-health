@@ -143,6 +143,30 @@ const journeyMeta = {
   language: {label: "LOCAL SUPPORT", tone: "blue"},
 } as const;
 
+const careSelectionCodes = [
+  "virtual-visit-readiness",
+  "digital-access-support",
+  "community-resources",
+  "not-sure",
+] as const;
+const languageSelectionCodes = ["en", "es", "asl", "other"] as const;
+
+function selectionCode(
+  journey: Journey,
+  selectedOption: string,
+  localizedCopy: (typeof copy)[Language],
+) {
+  const labels: readonly string[] =
+    journey === "care"
+      ? localizedCopy.supportOptions
+      : journey === "language"
+        ? localizedCopy.languages
+        : [];
+  const index = labels.indexOf(selectedOption);
+  if (index < 0) return undefined;
+  return journey === "care" ? careSelectionCodes[index] : languageSelectionCodes[index];
+}
+
 export default function App() {
   const {width} = useWindowDimensions();
   const isTablet = width >= 760;
@@ -267,6 +291,10 @@ export default function App() {
       AccessibilityInfo.announceForAccessibility(c.voiceUnavailable);
       return;
     }
+    if (isRecognizing) {
+      ExpoSpeechRecognitionModule.abort();
+      setIsRecognizing(false);
+    }
     setIsSpeaking(true);
     Speech.speak(spokenWelcome, {
       language: language === "es" ? "es-US" : "en-US",
@@ -289,6 +317,10 @@ export default function App() {
     if (!ExpoSpeechRecognitionModule.isRecognitionAvailable()) {
       AccessibilityInfo.announceForAccessibility(c.voiceUnavailable);
       return;
+    }
+    if (isSpeaking) {
+      Speech.stop();
+      setIsSpeaking(false);
     }
     const permission = await ExpoSpeechRecognitionModule.requestPermissionsAsync();
     if (!permission.granted) {
@@ -346,13 +378,18 @@ export default function App() {
     try {
       const response = await fetch(`${accessApiUrl}/v1/access-requests`, {
         method: "POST",
-        headers: {"content-type": "application/json"},
+        headers: {
+          "content-type": "application/json",
+          "x-sozorock-client": "mobile-v1",
+        },
         body: JSON.stringify({
           journey,
           location: value.trim() || undefined,
-          selection: selectedOption || undefined,
+          selection: selectionCode(journey as Journey, selectedOption, c),
           locale: language,
           source: "mobile",
+          consent: consented,
+          consentVersion: "mobile-access-v1",
         }),
         signal: controller.signal,
       });

@@ -3,6 +3,7 @@ import { ConditionalCheckFailedException } from "@aws-sdk/client-dynamodb";
 import { createAccessRequest, enforceRateLimit, recordEvent, sameOrigin } from "../../../../lib/publication-access";
 import { parseAccessInput, validateAccessInput } from "../../../../lib/publication-validation";
 import { getPublication } from "../../../../lib/publications";
+import { readBoundedText } from "../../../../lib/request-security";
 
 export const runtime = "nodejs";
 
@@ -11,8 +12,23 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const publication = getPublication(slug);
   if (!publication?.assetKey) return NextResponse.json({ error: "This publication is not available for access." }, { status: 404 });
   if (!sameOrigin(request)) return NextResponse.json({ error: "Request origin was not accepted." }, { status: 403 });
-  if (Number(request.headers.get("content-length") ?? "0") > 16_000) return NextResponse.json({ error: "The request is too large." }, { status: 413 });
-  const body = await request.json().catch(() => null) as Record<string, unknown> | null;
+  const rawBody = await readBoundedText(request, 16_000, ["application/json"]);
+  if (!rawBody.ok) {
+    if (rawBody.error === "unsupported-media-type")
+      return NextResponse.json({ error: "Send this request as JSON." }, { status: 415 });
+    if (rawBody.error === "too-large")
+      return NextResponse.json({ error: "The request is too large." }, { status: 413 });
+    return NextResponse.json({ error: "Enter the required information." }, { status: 400 });
+  }
+  let body: Record<string, unknown> | null = null;
+  try {
+    const parsed = JSON.parse(rawBody.text || "null") as unknown;
+    body = parsed && typeof parsed === "object" && !Array.isArray(parsed)
+      ? parsed as Record<string, unknown>
+      : null;
+  } catch {
+    body = null;
+  }
   if (!body) return NextResponse.json({ error: "Enter the required information." }, { status: 400 });
   const input = parseAccessInput(body);
   if (input.website) return NextResponse.json({ accepted: true, message: "Check your email for a verification link." }, { status: 202 });

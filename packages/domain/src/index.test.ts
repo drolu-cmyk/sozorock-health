@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { aggregateCountyRecords, canRouteConnection, canViewCountyIntelligence, countyAccessSeed, countyRecordsToCsv, filterCountyRecords } from "./index.ts";
+import { aggregateCountyRecords, aggregateCountyRecordsByFips, canRouteConnection, canViewCountyIntelligence, countyAccessSeed, countyRecordsToCsv, filterCountyRecords } from "./index.ts";
 
 test("suppresses small CB-CAP cells from metrics and exports", () => {
   const records = filterCountyRecords(countyAccessSeed, { state: "Kentucky", county: "Wayne County", zip: "All ZIP codes", period: "All periods", hubType: "All hub types", language: "All languages" });
@@ -35,4 +35,24 @@ test("coordinates primary-barrier and access-level filters", () => {
   assert.ok(records.length > 0);
   assert.ok(records.every((record) => record.accessIndex >= 70));
   assert.ok(records.every((record) => Object.entries(record.barriers).sort((a, b) => b[1] - a[1])[0]?.[0] === "transportation"));
+});
+
+test("uses one disclosure-controlled aggregate for every county FIPS code", () => {
+  const summaries = aggregateCountyRecordsByFips(countyAccessSeed);
+  const delaware = summaries.find((summary) => summary.fips === "36025");
+  const wayne = summaries.find((summary) => summary.fips === "21231");
+
+  assert.equal(summaries.length, 6);
+  assert.ok(delaware);
+  assert.equal(delaware.sampleSize, 182);
+  assert.equal(delaware.connectionRequests, 161);
+  assert.equal(delaware.completedPathways, 109);
+  assert.equal(delaware.accessIndex, 69);
+  assert.deepEqual(delaware.hubTypes, ["Community", "Library"]);
+  assert.deepEqual(delaware.languages, ["English", "Spanish"]);
+
+  assert.ok(wayne);
+  assert.equal(wayne.sampleSize, 116);
+  assert.equal(wayne.connectionRequests, 104);
+  assert.deepEqual(wayne.languages, ["English"]);
 });

@@ -22,10 +22,6 @@ export default async function PublicationsPage({
     <div className={styles.page}>
       <header className={styles.header}>
         <LogoLockup />
-        <Link className={styles.brand} href="/">
-          SozoRock<sup>®</sup>
-          <span>Health</span>
-        </Link>
         <Link href="/">Return home</Link>
       </header>
       <main className={styles.main}>

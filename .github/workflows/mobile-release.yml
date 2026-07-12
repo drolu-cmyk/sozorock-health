@@ -1,0 +1,116 @@
+name: Mobile Store Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      submission:
+        description: Build only, upload to test tracks, or submit for production review
+        required: true
+        type: choice
+        options:
+          - build-only
+          - internal
+          - production
+        default: build-only
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mobile-store-release
+  cancel-in-progress: false
+
+jobs:
+  validate-build-submit:
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 120
+    env:
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+      EXPO_PROJECT_ID: ${{ vars.EXPO_PROJECT_ID }}
+      EXPO_OWNER: ${{ vars.EXPO_OWNER }}
+      EXPO_PUBLIC_ACCESS_API_URL: ${{ vars.EXPO_PUBLIC_ACCESS_API_URL }}
+      EXPO_PUBLIC_PRIVACY_URL: ${{ vars.EXPO_PUBLIC_PRIVACY_URL || 'https://health.sozorockfoundation.org/privacy' }}
+      EXPO_PUBLIC_DEVICE_SPEECH: ${{ vars.EXPO_PUBLIC_DEVICE_SPEECH || 'true' }}
+      EXPO_PUBLIC_LIVE_VOICE_ENABLED: ${{ vars.EXPO_PUBLIC_LIVE_VOICE_ENABLED || 'false' }}
+      EXPO_PUBLIC_LIVE_VOICE_SESSION_URL: ${{ vars.EXPO_PUBLIC_LIVE_VOICE_SESSION_URL }}
+      EXPO_PUBLIC_VOICE_PROVIDER_ALIAS: ${{ vars.EXPO_PUBLIC_VOICE_PROVIDER_ALIAS || 'gpt-live' }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Confirm release authority and linkage
+        run: |
+          set -euo pipefail
+          test -n "${EXPO_TOKEN:-}" || { echo "Missing production secret EXPO_TOKEN"; exit 1; }
+          test -n "${EXPO_PROJECT_ID:-}" || { echo "Missing production variable EXPO_PROJECT_ID"; exit 1; }
+          test -n "${EXPO_OWNER:-}" || { echo "Missing production variable EXPO_OWNER"; exit 1; }
+
+      - name: Enforce mobile feature and endpoint gates
+        run: |
+          set -euo pipefail
+          if [ "${{ inputs.submission }}" = "build-only" ]; then
+            node apps/mobile/scripts/validate-release-env.mjs
+          else
+            node apps/mobile/scripts/validate-release-env.mjs --submit
+          fi
+
+      - run: npm ci
+
+      - name: Validate mobile source and native configuration
+        run: |
+          set -euo pipefail
+          npm run typecheck --workspace @sozorock/mobile
+          npm run check:config --workspace @sozorock/mobile
+          npm exec --workspace @sozorock/mobile -- expo-doctor
+
+      - name: Produce platform exports
+        run: |
+          set -euo pipefail
+          npm exec --workspace @sozorock/mobile -- expo export --platform android --output-dir ../../dist/mobile-android
+          npm exec --workspace @sozorock/mobile -- expo export --platform ios --output-dir ../../dist/mobile-ios
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: sozorock-health-mobile-exports
+          path: dist/mobile-*
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Confirm Expo account and project
+        working-directory: apps/mobile
+        run: |
+          set -euo pipefail
+          npx --yes eas-cli@20.5.1 whoami
+          npx --yes eas-cli@20.5.1 project:info
+
+      - name: Create signed iOS and Android production builds
+        working-directory: apps/mobile
+        run: |
+          set -euo pipefail
+          mkdir -p ../../dist/mobile-release
+          npx --yes eas-cli@20.5.1 build --platform all --profile production --non-interactive --wait --json > ../../dist/mobile-release/eas-builds.json
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: sozorock-health-eas-build-record
+          path: dist/mobile-release/eas-builds.json
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Submit iOS build to App Store Connect
+        if: inputs.submission != 'build-only'
+        working-directory: apps/mobile
+        run: npx --yes eas-cli@20.5.1 submit --platform ios --profile production --latest --non-interactive
+
+      - name: Submit Android build
+        if: inputs.submission != 'build-only'
+        working-directory: apps/mobile
+        run: npx --yes eas-cli@20.5.1 submit --platform android --profile "${{ inputs.submission }}" --latest --non-interactive

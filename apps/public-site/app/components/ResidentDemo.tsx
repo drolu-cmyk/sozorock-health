@@ -258,8 +258,8 @@ export function ResidentDemo() {
               ? "Stop listening"
               : "Dejar de escuchar"
             : isEnglish
-              ? "Start voice intake"
-              : "Iniciar entrada de voz"}
+              ? "Talk with Voice Access"
+              : "Hablar con Voice Access"}
         </span>
       </button>
       {consentOpen && (
@@ -330,8 +330,8 @@ export function ResidentDemo() {
           <span>
             <strong>{active}</strong>{" "}
             {isEnglish
-              ? "selected. The next step confirms your state and shows an eligible pathway."
-              : "seleccionado. El siguiente paso confirma su estado y muestra una ruta disponible."}
+              ? "selected. You can review the choice and send a non-clinical readiness request. This does not confirm a provider or appointment."
+              : "seleccionado. Puede revisar la opción y enviar una solicitud de preparación no clínica. Esto no confirma un proveedor ni una cita."}
           </span>
         </div>
       )}

@@ -55,10 +55,6 @@ export default async function PublicationPage({
       <PublicationEvent event="publication_viewed" slug={publication.slug} />
       <header className={styles.header}>
         <LogoLockup />
-        <Link className={styles.brand} href="/">
-          SozoRock<sup>®</sup>
-          <span>Health</span>
-        </Link>
         <Link href="/#publications">All publications</Link>
       </header>
       <main className={styles.main}>

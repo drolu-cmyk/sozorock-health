@@ -9,6 +9,8 @@ qa/
 tmp/
 output/
 apps/media/exports/
+apps/media/public/gpt-live-campaign/
+artifacts/
 .playwright-cli/
 
 # Environment and local secrets

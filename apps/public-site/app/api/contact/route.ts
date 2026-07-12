@@ -4,6 +4,11 @@ import { SNSClient, PublishCommand } from "@aws-sdk/client-sns";
 import { GetSecretValueCommand, SecretsManagerClient } from "@aws-sdk/client-secrets-manager";
 import { DynamoDBDocumentClient, PutCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
 import { NextRequest, NextResponse } from "next/server";
+import {
+  clientNetworkAddress,
+  isTrustedSameOrigin,
+  readBoundedText,
+} from "../../lib/request-security";
 
 export const runtime = "nodejs";
 
@@ -35,10 +40,7 @@ function value(body: Record<string, unknown>, name: string, max = 180) {
 }
 
 function sameOrigin(request: NextRequest) {
-  const origin = request.headers.get("origin");
-  if (!origin) return false;
-  const publicHost = request.headers.get("x-forwarded-host")?.split(",")[0]?.trim() ?? request.headers.get("host") ?? request.nextUrl.host;
-  try { return new Set([publicHost, ...configuredContactHosts]).has(new URL(origin).host); } catch { return false; }
+  return isTrustedSameOrigin(request, configuredContactHosts);
 }
 
 export async function POST(request: NextRequest) {
@@ -47,10 +49,23 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Contact intake is temporarily unavailable." }, { status: 503 });
   }
   if (!sameOrigin(request)) return NextResponse.json({ error: "Request origin was not accepted." }, { status: 403 });
-  const contentLength = Number(request.headers.get("content-length") ?? "0");
-  if (contentLength > 12_000) return NextResponse.json({ error: "The request is too large." }, { status: 413 });
-
-  const body = await request.json().catch(() => null) as Record<string, unknown> | null;
+  const rawBody = await readBoundedText(request, 12_000, ["application/json"]);
+  if (!rawBody.ok) {
+    if (rawBody.error === "unsupported-media-type")
+      return NextResponse.json({ error: "Send this request as JSON." }, { status: 415 });
+    if (rawBody.error === "too-large")
+      return NextResponse.json({ error: "The request is too large." }, { status: 413 });
+    return NextResponse.json({ error: "Enter the required information." }, { status: 400 });
+  }
+  let body: Record<string, unknown> | null = null;
+  try {
+    const parsed = JSON.parse(rawBody.text || "null") as unknown;
+    body = parsed && typeof parsed === "object" && !Array.isArray(parsed)
+      ? parsed as Record<string, unknown>
+      : null;
+  } catch {
+    body = null;
+  }
   if (!body || typeof body !== "object") return NextResponse.json({ error: "Enter the required information." }, { status: 400 });
   if (value(body, "website", 120)) return NextResponse.json({ accepted: true }, { status: 202 });
 
@@ -66,7 +81,7 @@ export async function POST(request: NextRequest) {
   const now = new Date();
   const epoch = Math.floor(now.getTime() / 1000);
   const bucket = Math.floor(epoch / 3600);
-  const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+  const ip = clientNetworkAddress(request.headers);
   let ipHash: string;
   try {
     ipHash = createHash("sha256").update(`${await getRateLimitSalt()}:${ip}`).digest("hex");
