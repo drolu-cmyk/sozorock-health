@@ -45,6 +45,7 @@
       "Effect": "Allow",
       "Action": [
         "dynamodb:CreateTable",
+        "dynamodb:DeleteTable",
         "dynamodb:DescribeTable",
         "dynamodb:UpdateTable",
         "dynamodb:UpdateTimeToLive",
@@ -65,6 +66,7 @@
       "Effect": "Allow",
       "Action": [
         "s3:CreateBucket",
+        "s3:DeleteBucket",
         "s3:GetBucketLocation",
         "s3:GetBucketVersioning",
         "s3:PutBucketVersioning",
@@ -78,7 +80,7 @@
         "s3:PutBucketTagging",
         "s3:ListBucket"
       ],
-      "Resource": "arn:aws:s3:::sozorock-health-publication-access-*"
+      "Resource": "arn:aws:s3:::sozorock-health-publications-791860731989-us-east-1"
     },
     {
       "Sid": "UploadControlledPublicationFiles",
@@ -89,7 +91,7 @@
         "s3:GetObjectTagging",
         "s3:PutObjectTagging"
       ],
-      "Resource": "arn:aws:s3:::sozorock-health-publication-access-*/*"
+      "Resource": "arn:aws:s3:::sozorock-health-publications-791860731989-us-east-1/*"
     },
     {
       "Sid": "ProvisionSozoRockHealthSecrets",
@@ -97,6 +99,7 @@
       "Action": [
         "secretsmanager:CreateSecret",
         "secretsmanager:DescribeSecret",
+        "secretsmanager:DeleteSecret",
         "secretsmanager:PutSecretValue",
         "secretsmanager:TagResource",
         "secretsmanager:UntagResource"
@@ -110,7 +113,10 @@
     {
       "Sid": "GenerateSozoRockHealthSecretValues",
       "Effect": "Allow",
-      "Action": "secretsmanager:GetRandomPassword",
+      "Action": [
+        "secretsmanager:GetRandomPassword",
+        "secretsmanager:ListSecrets"
+      ],
       "Resource": "*"
     },
     {
