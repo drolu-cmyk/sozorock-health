@@ -44,7 +44,7 @@ Both works are authored by Oluwabiyi Adeyemo. See [product foundation](docs/prod
 
 ## Requirements
 
-- Node.js 20.11 or newer
+- Node.js 24 or newer
 - npm 10 or newer
 - AWS CLI and GitHub CLI for release operations
 - EAS credentials for signed iOS and Android store builds
