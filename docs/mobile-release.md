@@ -1,6 +1,6 @@
 # SozoRock Health mobile release readiness
 
-Status date: July 11, 2026
+Status date: July 13, 2026
 
 This checklist covers the Expo application in `apps/mobile` for iPhone, iPad, Android phones, and Android tablets. The public legal identity is **The SozoRock Foundation, Inc.** The app is a non-clinical access service; it does not diagnose, treat, prescribe, or replace emergency services.
 

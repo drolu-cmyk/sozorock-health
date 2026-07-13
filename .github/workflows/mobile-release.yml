@@ -69,7 +69,7 @@ jobs:
           set -euo pipefail
           npm run typecheck --workspace @sozorock/mobile
           npm run check:config --workspace @sozorock/mobile
-          npm exec --workspace @sozorock/mobile -- expo-doctor
+          npm run release:doctor --workspace @sozorock/mobile
 
       - name: Produce platform exports
         run: |
