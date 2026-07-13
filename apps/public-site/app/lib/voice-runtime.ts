@@ -19,6 +19,10 @@ function providerAlias(value: string | undefined): VoiceProviderAlias {
   return clean(value)?.toLowerCase() === "gpt-live" ? "gpt-live" : "openai-realtime";
 }
 
+export function isRealtimeVoiceEnabled(environment: VoiceEnvironment = process.env) {
+  return clean(environment.OPENAI_REALTIME_ENABLED)?.toLowerCase() === "true";
+}
+
 /**
  * Resolve a server-side voice model without exposing vendor credentials or
  * inventing a GPT-Live API identifier. GPT-Live is available in ChatGPT today,

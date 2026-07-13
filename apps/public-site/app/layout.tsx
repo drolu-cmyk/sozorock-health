@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { DM_Sans, Newsreader } from "next/font/google";
+import { headers } from "next/headers";
 import "./globals.css";
 import "./marketing.css";
 
@@ -48,11 +49,12 @@ export const viewport: Viewport = { width: "device-width", initialScale: 1, them
 const structuredData = {
   "@context": "https://schema.org",
   "@graph": [
-    { "@type": "Organization", "@id": `${siteUrl}/#organization`, name: "The SozoRock Foundation, Inc.", url: "https://sozorockfoundation.org", logo: `${siteUrl}/brand/sozorock-wordmark-clean-v3.png`, email: "contact@sozorockfoundation.org", nonprofitStatus: "Nonprofit501c3", areaServed: { "@type": "Country", name: "United States" } },
+    { "@type": "Organization", "@id": `${siteUrl}/#organization`, name: "The SozoRock Foundation, Inc.", url: "https://sozorockfoundation.org", logo: `${siteUrl}/brand/sozorock-wordmark-clean-v2.png`, email: "contact@sozorockfoundation.org", nonprofitStatus: "Nonprofit501c3", areaServed: { "@type": "Country", name: "United States" } },
     { "@type": "WebSite", "@id": `${siteUrl}/#website`, url: siteUrl, name: "SozoRock Health", description: "A national public-interest initiative developing non-clinical health access, workforce-readiness, and systems infrastructure while licensed care remains with licensed professionals.", publisher: { "@id": `${siteUrl}/#organization` }, inLanguage: ["en-US", "es-US"] },
   ],
 };
 
-export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return <html lang="en"><body className={`${dmSans.variable} ${newsreader.variable}`}>{children}<script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}/></body></html>;
+export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+  const language = (await headers()).get("x-sozorock-language") === "es" ? "es" : "en";
+  return <html lang={language}><body className={`${dmSans.variable} ${newsreader.variable}`}>{children}<script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}/></body></html>;
 }

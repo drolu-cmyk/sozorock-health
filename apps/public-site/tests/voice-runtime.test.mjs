@@ -1,6 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { DEFAULT_REALTIME_MODEL, resolveVoiceRuntime } from "../app/lib/voice-runtime.ts";
+import { DEFAULT_REALTIME_MODEL, isRealtimeVoiceEnabled, resolveVoiceRuntime } from "../app/lib/voice-runtime.ts";
+
+test("keeps live speech disabled until the production safety gate is explicitly opened", () => {
+  assert.equal(isRealtimeVoiceEnabled({}), false);
+  assert.equal(isRealtimeVoiceEnabled({OPENAI_REALTIME_ENABLED: "false"}), false);
+  assert.equal(isRealtimeVoiceEnabled({OPENAI_REALTIME_ENABLED: "true"}), true);
+});
 
 test("uses the deployed Realtime model by default", () => {
   assert.deepEqual(resolveVoiceRuntime({}), {

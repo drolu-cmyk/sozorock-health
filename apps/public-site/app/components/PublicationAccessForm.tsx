@@ -195,7 +195,7 @@ export function PublicationAccessForm({ slug, title }: { slug: string; title: st
       <label className={styles.checkbox} htmlFor="publication-delivery-consent">
         <input id="publication-delivery-consent" required type="checkbox" name="deliveryConsent" value="yes" aria-invalid={Boolean(errors.deliveryConsent)} aria-describedby={errors.deliveryConsent ? "publication-deliveryConsent-error" : undefined} />
         <span>
-          I agree that The SozoRock Foundation Inc. may email me the verification
+          I agree that The SozoRock Foundation, Inc. may email me the verification
           and access link for this publication.
           {fieldError("deliveryConsent")}
         </span>

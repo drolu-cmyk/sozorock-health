@@ -124,8 +124,8 @@ export async function createAccessRequest(slug: string, input: AccessInput) {
   await ses.send(new SendEmailCommand({ FromEmailAddress: emailFrom, Destination: { ToAddresses: [input.email] }, Content: { Simple: {
     Subject: { Data: `Confirm access to ${publication.shortTitle}` },
     Body: {
-      Text: { Data: `Hello ${input.firstName},\n\nConfirm your email to access ${publication.title}:\n${verifyUrl}\n\nThis link expires in 30 minutes. You did not subscribe to updates unless you selected that separate option.\n\nSozoRock Health\nAn initiative of The SozoRock Foundation Inc.` },
-      Html: { Data: `<p>Hello ${escapeHtml(input.firstName)},</p><p>Confirm your email to access <strong>${escapeHtml(publication.title)}</strong>.</p><p><a href="${verifyUrl}">Confirm email and access publication</a></p><p>This link expires in 30 minutes. You did not subscribe to updates unless you selected that separate option.</p><p>SozoRock Health<br>An initiative of The SozoRock Foundation Inc.</p>` },
+      Text: { Data: `Hello ${input.firstName},\n\nConfirm your email to access ${publication.title}:\n${verifyUrl}\n\nThis link expires in 30 minutes. You did not subscribe to updates unless you selected that separate option.\n\nSozoRock Health\nAn initiative of The SozoRock Foundation, Inc.` },
+      Html: { Data: `<p>Hello ${escapeHtml(input.firstName)},</p><p>Confirm your email to access <strong>${escapeHtml(publication.title)}</strong>.</p><p><a href="${verifyUrl}">Confirm email and access publication</a></p><p>This link expires in 30 minutes. You did not subscribe to updates unless you selected that separate option.</p><p>SozoRock Health<br>An initiative of The SozoRock Foundation, Inc.</p>` },
     },
   } } }));
   await Promise.all([recordEvent("access_form_completed", slug, requestId), recordEvent("verification_sent", slug, requestId)]);

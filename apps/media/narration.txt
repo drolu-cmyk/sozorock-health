@@ -10,14 +10,14 @@ VOICE ACCESS: Got it. You're looking for a place to begin, not medical advice.
 RENATA: Exactly. And it has to be close. I don't drive.
 VOICE ACCESS: Okay. May I use your county and preferred language to narrow the options?
 RENATA: Yes. Delaware County. English is fine.
-VOICE ACCESS: Thanks. I can show the request details for you to review. Want to see them?
+VOICE ACCESS: Thanks. I’ll bring your county, language, transportation, and follow-up details together, then show you the request so you can review—
 RENATA: Wait—does that mean you found a provider?
 VOICE ACCESS: No. I haven't matched you to a provider. SozoRock doesn't diagnose, treat, or prescribe. Licensed care stays with licensed professionals.
 RENATA: Okay. Show me what the request needs.
-VOICE ACCESS: Here they are: county, language, transportation, and follow-up. Submit only after you confirm by tap or text.
-VOICE ACCESS: One natural conversation. One clearer next step.
-VOICE ACCESS: SozoRock Health. A clearer path to care that already exists.
+VOICE ACCESS: County, language, transport, follow-up. Tap or type to confirm.
+NARRATOR: One natural conversation. One clearer next step.
+NARRATOR: SozoRock Health. A clearer path to care that already exists.
 
-Production disclosure: GPT-Live is the interaction reference, not the rendered model. OpenAI states that GPT-Live developer API access is planned but not yet available. Final prerecorded narration will use the highest approved OpenAI speech model available to the SozoRock Health project and will identify that method accurately.
+Production disclosure: GPT-Live is the interaction-design reference, not the rendered model. OpenAI states that GPT-Live developer API access is planned but not yet available. The current prerecorded English and Spanish campaign uses Amazon Polly generative voices and records the provider, engine, region, voice identifiers, dialogue, and file hashes accurately.
 
 Scenario disclosure: This is an illustrative resident journey. It previews non-clinical request details and hands submission to tap or text. It does not depict voice persistence, a provider match, a hub opening, or a verified local result.

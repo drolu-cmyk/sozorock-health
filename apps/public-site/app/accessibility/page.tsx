@@ -22,7 +22,7 @@ export default function AccessibilityPage() {
       <h2>Request an accessible format or report a barrier</h2>
       <p>Email <a href="mailto:contact@sozorockfoundation.org">contact@sozorockfoundation.org</a>. Include the page or document, the task you were trying to complete, the barrier you encountered, and the accessible format or accommodation that would help. Device and assistive-technology details are helpful but optional. We will acknowledge the request and work toward a reasonable response.</p>
       <h2>Formal concerns</h2>
-      <p>If an accessibility concern is not resolved through the contact above, reply to the same email thread and ask that it be reviewed by The SozoRock Foundation Inc. Accessibility requests do not require disclosure of a diagnosis or medical information.</p>
+      <p>If an accessibility concern is not resolved through the contact above, reply to the same email thread and ask that it be reviewed by The SozoRock Foundation, Inc. Accessibility requests do not require disclosure of a diagnosis or medical information.</p>
     </LegalPage>
   );
 }

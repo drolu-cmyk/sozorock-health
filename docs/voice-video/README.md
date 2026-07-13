@@ -6,10 +6,10 @@ The campaign demonstrates **Voice Access**, the non-clinical resident layer that
 
 The interaction design follows the qualities demonstrated in OpenAI’s GPT-Live announcement: continuous attention, brief acknowledgements, room for pauses, user interruption, mid-thought correction, translation, and visual responses. OpenAI states that GPT-Live powers ChatGPT Voice and that developer API access is planned. Therefore:
 
-- the product may describe the interaction pattern as **GPT-Live-ready**;
+- the public product may describe the experience as **natural voice interaction**;
 - it must not claim that a current API render or live session uses GPT-Live;
 - the runtime adapter uses the highest approved Realtime API model available to the account;
-- prerecorded campaign narration uses an approved OpenAI speech endpoint and records its exact model and voices in the asset manifest;
+- prerecorded campaign narration uses an approved, provenance-recorded speech provider that is separate from the live runtime;
 - the adapter can adopt GPT-Live after the API is released, security-reviewed, and enabled by feature flag.
 
 Official reference: <https://openai.com/index/introducing-gpt-live/>
@@ -54,7 +54,9 @@ Formats:
 
 ## Production state
 
-The creative, timing, bilingual scripts, captions, visual system, and Remotion compositions are complete. Final voice synthesis requires an active OpenAI project with speech billing enabled. A render made without approved OpenAI voice tracks is labelled **visual preview · voice pending** and is not a final marketing master.
+The creative, timing, bilingual scripts, captions, visual system, natural voice assets, and Remotion compositions are complete. Prerecorded English and Spanish dialogue is synthesized through Amazon Polly’s generative engine with distinct resident and Voice Access speakers. Every asset records its provider, engine, region, voice identifier, line text, and content hash. The live product remains on the OpenAI Realtime adapter; prerecorded Polly audio is never represented as GPT-Live output.
+
+Visual-only renders remain labelled **visual preview · voice pending** and are never published as marketing masters.
 
 No legacy resident-journey audio or public-site campaign files should be reused or silently relabelled.
 
@@ -70,14 +72,15 @@ npm run render:all --workspace @sozorock/media
 npm run verify:campaign --workspace @sozorock/media
 ```
 
-Final-candidate rendering is separate and fail-closed:
+Final rendering is separate and fail-closed:
 
 ```powershell
 $env:NODE_OPTIONS='--use-system-ca'
 npm run voice:generate --workspace @sozorock/media
 npm run render:final --workspace @sozorock/media
+npm run publish:web --workspace @sozorock/media
 ```
 
-`voice:generate` records the exact campaign hash, approved line text, and a SHA-256 provenance record for every expected dialogue asset. `render:final` refuses to run if any of the 28 English and Spanish assets is absent, altered, invalid, stale, or longer than its approved dialogue window. Voice sequences are trimmed to their line windows with short edge fades; the guide's interrupted line yields exactly when Renata begins. Every encoded candidate must also pass automated duration, codec, 48 kHz stereo, integrated-loudness, true-peak, and loudness-range gates. The renderer passes `voiceReady: true` only after preflight succeeds, writes voiced master candidates to `apps/media/exports/gpt-live-campaign/final-voiced-masters/`, and keeps `releaseApproved: false` until naturalness, interruption timing, caption sync, mix, boundaries, and final release approval are reviewed by a person.
+`voice:generate` records the exact campaign hash, approved line text, voice identifiers, and a SHA-256 provenance record for every expected dialogue asset. `render:final` refuses to run if any of the 28 English and Spanish assets is absent, altered, invalid, stale, or outside its approved dialogue window. The interrupted guide line must extend beyond Renata’s interruption point before it is deliberately yielded with an audible overlap. Every encoded master passes duration, codec, fast-start, 48 kHz stereo, two-pass loudness normalization, true-peak, and loudness-range gates. Release approval is a separate tracked artifact bound to both the campaign hash and the exact voice-production manifest. `publish:web` verifies the approval, campaign, source hashes, media contract, and inactive render lock before publishing the localized landscape film, poster, captions, transcript, and provenance manifest.
 
 Preview assets are written to `apps/media/exports/gpt-live-campaign/`. API credentials stay server-side and are never written into campaign artifacts.

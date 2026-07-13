@@ -29,6 +29,7 @@ The system uses a provider-neutral AI adapter. The current web fallback connects
 | `VOICE_PROVIDER_ALIAS=gpt-live` | Requests the future-ready GPT-Live capability. The deployment workflow uses this alias by default. |
 | `OPENAI_GPT_LIVE_MODEL` | Remains empty until OpenAI publishes API access and the Foundation's project is entitled to an exact model. No guessed model value is permitted. |
 | `OPENAI_REALTIME_MODEL` | Account-approved Realtime fallback. Defaults to `gpt-realtime-2.1`, which the dedicated project currently lists as available. |
+| `OPENAI_REALTIME_ENABLED` | Server-side kill switch. It defaults off and may be set to `true` only after billing, boundary red-team, guardrail/monitoring, and real-device WebRTC gates pass. |
 
 The active Realtime session uses semantic turn detection and interruption handling. Its prompt asks the voice guide to wait through thinking pauses, stop when interrupted, acknowledge sparingly, confirm the resident's meaning before acting, and keep tap and text alternatives available.
 
@@ -37,10 +38,11 @@ The active Realtime session uses semantic turn detection and interruption handli
 1. Get explicit microphone and voice-processing consent before a live session.
 2. Show a persistent text transcript and a one-tap text-only fallback.
 3. Label AI-facilitated communication clearly; never represent generated speech as a clinician.
-4. Use server-issued ephemeral session credentials. Never embed a long-lived provider key in a mobile or web client.
+4. Use the same-origin, server-mediated SDP route. Never embed or return a long-lived provider key to a mobile or web client.
 5. Enforce per-organization, per-state, per-channel, and incident-level feature controls.
 6. Log only the minimum operational metadata needed for security, quality, and consent audit; do not place unnecessary voice content in application logs.
 7. Escalate emergency or clinical concerns to an approved, plain-language emergency notice and human/provider workflow rather than attempting clinical decision-making.
+8. Keep live speech disabled until the boundary evaluation suite, policy monitoring, human escalation, and real-device release gates pass. Prompt instructions alone are not a production safety control.
 
 ## Agent control plane
 

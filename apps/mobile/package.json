@@ -10,7 +10,7 @@
     "check:config": "expo config --type public",
     "export:android": "expo export --platform android",
     "export:ios": "expo export --platform ios",
-    "release:doctor": "expo-doctor",
+    "release:doctor": "npx --yes expo-doctor@1.20.0",
     "release:validate": "node scripts/validate-release-env.mjs",
     "release:validate:submit": "node scripts/validate-release-env.mjs --submit",
     "release:build": "npx --yes eas-cli@20.5.1 build --platform all --profile production --non-interactive",

@@ -1,0 +1,32 @@
+{
+  "publishedAt": "2026-07-13T05:31:58.408Z",
+  "releaseId": "sozorock-health-voice-access-4e270ac333cb",
+  "campaignSha256": "4e270ac333cb01064c2ccc2de2a8fcd1a19d4a02ad38ec3661eb65ff24653410",
+  "sourceManifestStatus": "final-voiced-master",
+  "releaseApproved": true,
+  "durationSeconds": 80,
+  "files": [
+    {
+      "locale": "en",
+      "video": "sozorock-health-voice-access-english.mp4",
+      "videoSha256": "137a9b69837bf69dd0a13ac4046598234dc4a7cb516dd818b52c88f249e83a79",
+      "poster": "sozorock-health-voice-access-english-poster.png",
+      "posterSha256": "ffb706b6a3f2d9158aaa1b267b7b27f452a9addd2de7c7cc920a6314c0f45ff1",
+      "captions": "sozorock-health-voice-access-english.vtt",
+      "captionsSha256": "bb1e0eb97e3bf50a4705430c6fdc833bdc7762383a8b6b77238caefea2bce177",
+      "transcript": "sozorock-health-voice-access-english-transcript.txt",
+      "transcriptSha256": "d4fe45e5430aed119689c4ba3f272170e1e86ac1c6674cd94a301e705adce9c8"
+    },
+    {
+      "locale": "es",
+      "video": "sozorock-health-voice-access-spanish.mp4",
+      "videoSha256": "c822508c1467aa2d7027aca796f061b5b2a9be87c0e1ecdcb3c622d94f457b1c",
+      "poster": "sozorock-health-voice-access-spanish-poster.png",
+      "posterSha256": "e87f9502cfd8825003e1da57bb76f686f610cc165894ffbf347c3895a7ed9c24",
+      "captions": "sozorock-health-voice-access-spanish.vtt",
+      "captionsSha256": "18ffb47b9fdb989d9f0cba6132bfa3d91c0daddc8e9703c9034301bf4ea987fc",
+      "transcript": "sozorock-health-voice-access-spanish-transcript.txt",
+      "transcriptSha256": "bbafef57d1a420a3b7332bf230c68284c0ef04fe1c4ce6adc52ce8f16661119c"
+    }
+  ]
+}

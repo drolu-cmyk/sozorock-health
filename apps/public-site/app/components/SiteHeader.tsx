@@ -106,7 +106,7 @@ export function SiteHeader({ locale = "en" }: { locale?: Locale }) {
 
   return (
     <header className="site-header" id="top">
-      <LogoLockup href="#top" />
+      <LogoLockup href="#top" locale={locale} />
       <button ref={menuButton} className="menu-button" type="button" onClick={() => setOpen(!open)} aria-controls="primary-navigation" aria-expanded={open} aria-label={open ? copy.menuClose : copy.menuOpen}>
         {open ? <X size={25} aria-hidden="true" /> : <List size={25} aria-hidden="true" />}
       </button>

@@ -10,10 +10,10 @@ import {
 } from "@phosphor-icons/react/dist/ssr";
 import Image from "next/image";
 import { ContactForm } from "../components/ContactForm";
-import { DocumentLanguage } from "../components/DocumentLanguage";
 import { HeroPathVisual } from "../components/HeroPathVisual";
 import { SiteFooter } from "../components/SiteFooter";
 import { SiteHeader } from "../components/SiteHeader";
+import { VoiceAccessFilm } from "../components/VoiceAccessFilm";
 
 export const metadata: Metadata = {
   title: "Un camino más claro hacia la atención que ya existe",
@@ -28,8 +28,22 @@ export const metadata: Metadata = {
     description:
       "Infraestructura de interés público para el acceso no clínico a la salud, la preparación comunitaria y sistemas públicos más sólidos.",
     url: "/es",
+    siteName: "SozoRock Health",
+    type: "website",
     locale: "es_US",
     alternateLocale: ["en_US"],
+    images: [{
+      url: "/social/sozorock-health-og.jpg",
+      width: 1200,
+      height: 630,
+      alt: "Un camino ilustrado avanza desde la incertidumbre hacia apoyo local bajo el mensaje de SozoRock Health",
+    }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "SozoRock Health | Un camino más claro hacia la atención",
+    description: "Infraestructura de interés público para el acceso no clínico a la salud, la preparación comunitaria y sistemas públicos más sólidos.",
+    images: ["/social/sozorock-health-og.jpg"],
   },
 };
 
@@ -75,10 +89,24 @@ const involvement = [
   ],
 ] as const;
 
+const voiceFilmStructuredData = {
+  "@context": "https://schema.org",
+  "@type": "VideoObject",
+  "@id": "https://health.sozorockfoundation.org/es#voice-access-film-es",
+  name: "Voice Access: un recorrido ilustrativo para residentes",
+  description: "Una ilustración de 80 segundos en español de una residente que usa interacción de voz natural para aclarar una solicitud no clínica, interrumpir, revisar los datos y mantener el control antes de enviar.",
+  thumbnailUrl: "https://health.sozorockfoundation.org/media/voice-access/sozorock-health-voice-access-spanish-poster.png",
+  contentUrl: "https://health.sozorockfoundation.org/media/voice-access/sozorock-health-voice-access-spanish.mp4",
+  uploadDate: "2026-07-12",
+  duration: "PT1M20S",
+  inLanguage: "es-US",
+  publisher: {"@id": "https://health.sozorockfoundation.org/#organization"},
+};
+
 export default function SpanishHome() {
   return (
     <div lang="es">
-      <DocumentLanguage language="es" />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{__html: JSON.stringify(voiceFilmStructuredData)}} />
       <a className="skip-link" href="#main-content">
         Ir al contenido
       </a>
@@ -212,6 +240,8 @@ export default function SpanishHome() {
           </div>
         </section>
 
+        <VoiceAccessFilm locale="es" />
+
         <section className="priorities-section" id="priorities" aria-labelledby="priorities-heading">
           <div className="section-heading section-heading--split">
             <div>
@@ -323,7 +353,7 @@ export default function SpanishHome() {
             <p>Oluwabiyi dirige la estrategia de SozoRock Health, integrando acceso a la salud, investigación, tecnología, desarrollo laboral y preparación de los sistemas públicos.</p>
             <p className="leadership-role">
               <strong>Director of Strategic Initiatives</strong><br />
-              The SozoRock Foundation Inc.
+              The SozoRock Foundation, Inc.
             </p>
             <div className="leadership-links">
               <a href="https://sozorockfoundation.org/about-us" target="_blank" rel="noreferrer">
@@ -338,7 +368,7 @@ export default function SpanishHome() {
 
         <section className="foundation-statement" aria-label="Acerca de The SozoRock Foundation">
           <p>The SozoRock Foundation desarrolla formas prácticas de mejorar el acceso a la salud, fortalecer los sistemas públicos y preparar a las comunidades para cambios duraderos.</p>
-          <span>SozoRock Health es una iniciativa de The SozoRock Foundation Inc., una organización sin fines de lucro 501(c)(3) con sede en Nueva York.</span>
+          <span>SozoRock Health es una iniciativa de The SozoRock Foundation, Inc., una organización sin fines de lucro 501(c)(3) con sede en Nueva York.</span>
         </section>
 
         <section className="involved-section" id="get-involved" aria-labelledby="involved-heading">

@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "status": "approved",
+  "approvedBy": "Oluwabiyi Adeyemo",
+  "approvedAt": "2026-07-12",
+  "approvedCampaignSha256": "4e270ac333cb01064c2ccc2de2a8fcd1a19d4a02ad38ec3661eb65ff24653410",
+  "approvedProductionMethodSha256": "33a9a596a3dcb8a51bd885b39e286e2d674f5f13103e116b4fb89904ff76d30f",
+  "approvedProvider": "amazon-polly",
+  "approvedEngine": "generative",
+  "scope": "Approved narration, bilingual natural-voice production, homepage publication, social-media delivery, and production deployment.",
+  "source": "Explicit approval recorded in the SozoRock Health implementation task."
+}

@@ -3,7 +3,7 @@ import { createLegalMetadata } from "../lib/legal-metadata";
 
 export const metadata = createLegalMetadata({
   title: "Nondiscrimination",
-  description: "The SozoRock Foundation Inc. nondiscrimination commitment for SozoRock Health public programs and digital experiences.",
+  description: "The SozoRock Foundation, Inc. nondiscrimination commitment for SozoRock Health public programs and digital experiences.",
   path: "/nondiscrimination",
 });
 
@@ -11,7 +11,7 @@ export default function NondiscriminationPage() {
   return (
     <LegalPage eyebrow="Our commitment" title="Nondiscrimination" titleSize="compact" updated="July 11, 2026">
       <h2>Equal access and respectful participation</h2>
-      <p>The SozoRock Foundation Inc. is committed to providing its programs, activities, and public digital experiences without unlawful discrimination. We welcome people from rural and underserved communities and the broader public with dignity and respect.</p>
+      <p>The SozoRock Foundation, Inc. is committed to providing its programs, activities, and public digital experiences without unlawful discrimination. We welcome people from rural and underserved communities and the broader public with dignity and respect.</p>
       <h2>Protected characteristics</h2>
       <p>Consistent with applicable law, we do not discriminate on the basis of race, color, national origin, ethnicity, religion, sex, pregnancy, sexual orientation, gender identity or expression, age, disability, genetic information, veteran or military status, marital or familial status, or another characteristic protected by law.</p>
       <h2>Communication access and reasonable accommodation</h2>
