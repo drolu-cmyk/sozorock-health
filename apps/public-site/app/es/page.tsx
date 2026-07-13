@@ -13,7 +13,6 @@ import { ContactForm } from "../components/ContactForm";
 import { HeroPathVisual } from "../components/HeroPathVisual";
 import { SiteFooter } from "../components/SiteFooter";
 import { SiteHeader } from "../components/SiteHeader";
-import { VoiceAccessFilm } from "../components/VoiceAccessFilm";
 
 export const metadata: Metadata = {
   title: "Un camino más claro hacia la atención que ya existe",
@@ -89,24 +88,9 @@ const involvement = [
   ],
 ] as const;
 
-const voiceFilmStructuredData = {
-  "@context": "https://schema.org",
-  "@type": "VideoObject",
-  "@id": "https://health.sozorockfoundation.org/es#voice-access-film-es",
-  name: "Voice Access: un recorrido ilustrativo para residentes",
-  description: "Una ilustración de 80 segundos en español de una residente que usa interacción de voz natural para aclarar una solicitud no clínica, interrumpir, revisar los datos y mantener el control antes de enviar.",
-  thumbnailUrl: "https://health.sozorockfoundation.org/media/voice-access/sozorock-health-voice-access-spanish-poster.png",
-  contentUrl: "https://health.sozorockfoundation.org/media/voice-access/sozorock-health-voice-access-spanish.mp4",
-  uploadDate: "2026-07-12",
-  duration: "PT1M20S",
-  inLanguage: "es-US",
-  publisher: {"@id": "https://health.sozorockfoundation.org/#organization"},
-};
-
 export default function SpanishHome() {
   return (
     <div lang="es">
-      <script type="application/ld+json" dangerouslySetInnerHTML={{__html: JSON.stringify(voiceFilmStructuredData)}} />
       <a className="skip-link" href="#main-content">
         Ir al contenido
       </a>
@@ -239,8 +223,6 @@ export default function SpanishHome() {
             </article>
           </div>
         </section>
-
-        <VoiceAccessFilm locale="es" />
 
         <section className="priorities-section" id="priorities" aria-labelledby="priorities-heading">
           <div className="section-heading section-heading--split">
