@@ -19,6 +19,7 @@ import { NationalLocationFinder } from "./components/NationalLocationFinder";
 import { ResidentDemo } from "./components/ResidentDemo";
 import { SiteFooter } from "./components/SiteFooter";
 import { SiteHeader } from "./components/SiteHeader";
+import { VoiceAccessFilm } from "./components/VoiceAccessFilm";
 
 export const metadata: Metadata = {
   alternates: {
@@ -69,9 +70,24 @@ const involvement = [
   ],
 ];
 
+const voiceFilmStructuredData = {
+  "@context": "https://schema.org",
+  "@type": "VideoObject",
+  "@id": "https://health.sozorockfoundation.org/#voice-access-film-en",
+  name: "Voice Access: an illustrative resident journey",
+  description: "An 80-second English-language illustration of a resident using natural voice interaction to clarify a non-clinical request, interrupt, review details, and retain control before submission.",
+  thumbnailUrl: "https://health.sozorockfoundation.org/media/voice-access/sozorock-health-voice-access-english-poster.png",
+  contentUrl: "https://health.sozorockfoundation.org/media/voice-access/sozorock-health-voice-access-english.mp4",
+  uploadDate: "2026-07-12",
+  duration: "PT1M20S",
+  inLanguage: "en-US",
+  publisher: {"@id": "https://health.sozorockfoundation.org/#organization"},
+};
+
 export default function Home() {
   return (
     <>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{__html: JSON.stringify(voiceFilmStructuredData)}} />
       <a className="skip-link" href="#main-content">
         Skip to content
       </a>
@@ -279,6 +295,8 @@ export default function Home() {
           </div>
           <ResidentDemo />
         </section>
+
+        <VoiceAccessFilm />
 
         <section className="hub-section" aria-labelledby="hub-heading">
           <div className="section-heading">
@@ -510,7 +528,7 @@ export default function Home() {
             <p className="leadership-role">
               <strong>Director of Strategic Initiatives</strong>
               <br />
-              The SozoRock Foundation Inc.
+              The SozoRock Foundation, Inc.
             </p>
             <div className="leadership-links">
               <a
@@ -541,7 +559,7 @@ export default function Home() {
             lasting change.
           </p>
           <span>
-            SozoRock Health is an initiative of The SozoRock Foundation Inc., a
+            SozoRock Health is an initiative of The SozoRock Foundation, Inc., a
             New York–based 501(c)(3) nonprofit.
           </span>
         </section>

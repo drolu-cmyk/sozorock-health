@@ -25,7 +25,7 @@ const eased = (frame: number, input: [number, number], output: [number, number])
 function Wordmark({width = 245}: {width?: number}) {
   const nameWidth = width * .68;
   return <div style={{width, display: "flex", alignItems: "center", gap: width * .035, color: C.paper}}>
-    <span style={{display: "flex", alignItems: "flex-start"}}><Img src={staticFile("sozorock-wordmark-clean.png")} style={{width: nameWidth, height: nameWidth * .25, objectFit: "contain", objectPosition: "left center"}}/><sup style={{font: `700 ${Math.max(10, width*.05)}px/1 ${sans}`, color: C.gold, marginLeft: 1, marginTop: width*.015}}>®</sup></span>
+    <span style={{display: "flex", alignItems: "flex-start"}}><Img src={staticFile("sozorock-wordmark-clean-v2.png")} style={{width: nameWidth, height: nameWidth * .25, objectFit: "contain", objectPosition: "left center", filter: "brightness(0) invert(1)"}}/><sup style={{font: `700 ${Math.max(10, width*.05)}px/1 ${sans}`, color: C.gold, marginLeft: -5, marginTop: width*.015}}>®</sup></span>
     <span style={{font: `400 ${width*.14}px/1 ${serif}`, color: C.moss, whiteSpace: "nowrap"}}>Health</span>
   </div>;
 }
@@ -79,7 +79,11 @@ function CaptionRail({locale}: {locale: Locale}) {
   const {width, height, fps} = useVideoConfig();
   const ms = frame / fps * 1000;
   const portrait = height > width;
-  const active = campaign.locales[locale].lines.filter((line) => ms >= line.startMs && ms < line.endMs).slice(-2);
+  const interruption = campaign.production.interruption;
+  const active = campaign.locales[locale].lines.filter((line) => {
+    const visibleEndMs = line.id === interruption.interruptedLineId ? interruption.yieldAtMs : line.endMs;
+    return ms >= line.startMs && ms < visibleEndMs;
+  }).slice(-2);
   if (!active.length) return null;
   return <div style={{position: "absolute", zIndex: 50, left: portrait ? 62 : 78, right: portrait ? 62 : 78, bottom: portrait ? 102 : 42, display: "grid", gap: 10, justifyItems: "center"}}>
     {active.map((line) => <div key={line.id} style={{maxWidth: portrait ? 920 : 1100, borderLeft: `6px solid ${line.speaker === "resident" ? C.clay : C.cyan}`, background: "rgba(3,15,12,.94)", color: C.paper, padding: portrait ? "18px 24px" : "10px 18px", font: `700 ${portrait ? 31 : 24}px/1.34 ${sans}`, boxShadow: "0 8px 32px rgba(0,0,0,.24)"}}><span style={{color: line.speaker === "resident" ? "#f29a82" : C.cyan, marginRight: 10}}>{line.speaker === "resident" ? labels[locale].resident : labels[locale].product}</span>{line.text}</div>)}
@@ -165,10 +169,11 @@ function AudioTracks({locale, voiceReady}: {locale: Locale; voiceReady: boolean}
     const approvedEndMs = line.id === interruption.interruptedLineId ? interruption.yieldAtMs : line.endMs;
     const durationInFrames = Math.max(1, Math.round((approvedEndMs - line.startMs) / 1000 * fps));
     const fadeFrames = Math.max(2, Math.min(Math.round(interruption.fadeMs / 1000 * fps), Math.floor(durationInFrames / 4)));
+    const fadeInFrames = line.id === interruption.interruptingLineId ? 1 : fadeFrames;
     const fadeOutEnd = Math.max(1, durationInFrames - 1);
     const fadeOutStart = Math.max(fadeFrames, fadeOutEnd - fadeFrames);
     const baseVolume = line.speaker === "resident" ? .94 : 1;
-    return <Sequence key={line.id} from={from} durationInFrames={durationInFrames} layout="none"><Audio src={staticFile(`gpt-live-campaign/${locale}-${line.id}-${line.speaker}.mp3`)} trimAfter={durationInFrames} volume={(audioFrame) => Math.min(interpolate(audioFrame, [0, fadeFrames], [0, baseVolume], {extrapolateLeft: "clamp", extrapolateRight: "clamp"}), interpolate(audioFrame, [fadeOutStart, fadeOutEnd], [baseVolume, 0], {extrapolateLeft: "clamp", extrapolateRight: "clamp"}))}/></Sequence>;
+    return <Sequence key={line.id} from={from} durationInFrames={durationInFrames} layout="none"><Audio src={staticFile(`gpt-live-campaign/${locale}-${line.id}-${line.speaker}.mp3`)} trimAfter={durationInFrames / fps} volume={(audioFrame) => Math.min(interpolate(audioFrame, [0, fadeInFrames], [0, baseVolume], {extrapolateLeft: "clamp", extrapolateRight: "clamp"}), interpolate(audioFrame, [fadeOutStart, fadeOutEnd], [baseVolume, 0], {extrapolateLeft: "clamp", extrapolateRight: "clamp"}))}/></Sequence>;
   })}<Audio src={staticFile("gpt-live-campaign/ambient-bed.wav")} volume={(audioFrame) => interpolate(audioFrame, [0, 60, 2280, 2399], [0, .42, .42, 0], {extrapolateLeft: "clamp", extrapolateRight: "clamp"})}/></>;
 }
 

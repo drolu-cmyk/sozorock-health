@@ -42,9 +42,9 @@ const footerContent = {
       },
     ],
     trademark:
-      "SozoRock® is a registered trademark of SozoRock Tech Inc., used under license by The SozoRock Foundation Inc.",
+      "SozoRock® is a registered trademark of SozoRock Tech Inc., used under license by The SozoRock Foundation, Inc.",
     disclosure:
-      "The SozoRock Foundation Inc. is a nonprofit, tax-exempt charitable organization under Section 501(c)(3) of the Internal Revenue Code. EIN 39-4736725. Donations are tax-deductible as allowed by law.",
+      "The SozoRock Foundation, Inc. is a nonprofit, tax-exempt charitable organization under Section 501(c)(3) of the Internal Revenue Code. EIN 39-4736725. Donations are tax-deductible as allowed by law.",
     rights: "All rights reserved.",
     social: "SozoRock Foundation on",
   },
@@ -81,9 +81,9 @@ const footerContent = {
       },
     ],
     trademark:
-      "SozoRock® es una marca registrada de SozoRock Tech Inc., utilizada bajo licencia por The SozoRock Foundation Inc.",
+      "SozoRock® es una marca registrada de SozoRock Tech Inc., utilizada bajo licencia por The SozoRock Foundation, Inc.",
     disclosure:
-      "The SozoRock Foundation Inc. es una organización benéfica sin fines de lucro exenta de impuestos conforme a la Sección 501(c)(3) del Código de Rentas Internas. EIN 39-4736725. Las donaciones son deducibles de impuestos según lo permita la ley.",
+      "The SozoRock Foundation, Inc. es una organización benéfica sin fines de lucro exenta de impuestos conforme a la Sección 501(c)(3) del Código de Rentas Internas. EIN 39-4736725. Las donaciones son deducibles de impuestos según lo permita la ley.",
     rights: "Todos los derechos reservados.",
     social: "SozoRock Foundation en",
   },
@@ -102,7 +102,7 @@ export function SiteFooter({ locale = "en" }: { locale?: Locale }) {
   return (
     <footer className="new-footer" lang={locale}>
       <div className="new-footer__lead">
-        <LogoLockup inverse href="#top" />
+        <LogoLockup inverse href="#top" locale={locale} />
         <p>{copy.description}</p>
       </div>
       <div className="new-footer__links">
@@ -145,7 +145,7 @@ export function SiteFooter({ locale = "en" }: { locale?: Locale }) {
         <p>{copy.trademark}</p>
         <p>{copy.disclosure}</p>
         <small>
-          © {new Date().getFullYear()} The SozoRock Foundation Inc. {copy.rights}
+          © {new Date().getFullYear()} The SozoRock Foundation, Inc. {copy.rights}
         </small>
       </div>
     </footer>

@@ -45,7 +45,7 @@ export default async function PublicationPage({
     author: { "@type": "Person", name: "Oluwabiyi Adeyemo" },
     publisher: {
       "@type": "Organization",
-      name: "The SozoRock Foundation Inc.",
+      name: "The SozoRock Foundation, Inc.",
     },
     about: publication.tags,
     description: publication.description,

@@ -7,7 +7,10 @@ import {fileURLToPath} from "node:url";
 const root = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const output = join(root, "exports", "gpt-live-campaign");
 const cli = join(root, "..", "..", "node_modules", "@remotion", "cli", "remotion-cli.js");
-const campaign = JSON.parse(readFileSync(join(root, "gpt-live-campaign", "campaign.json"), "utf8"));
+const campaignPath = join(root, "gpt-live-campaign", "campaign.json");
+const campaignBuffer = readFileSync(campaignPath);
+const campaign = JSON.parse(campaignBuffer.toString("utf8"));
+const campaignSha256 = createHash("sha256").update(campaignBuffer).digest("hex");
 const videos = readdirSync(output).filter((name) => name.endsWith("-visual-preview.mp4")).sort();
 const posters = readdirSync(output).filter((name) => name.endsWith("-visual-preview-poster.png")).sort();
 if (videos.length !== 8) throw new Error(`Expected 8 visual previews; found ${videos.length}`);
@@ -45,8 +48,18 @@ const posterFiles = posters.map((name) => {
 });
 
 const voiceDir = join(root, "public", "gpt-live-campaign");
-const expectedVoiceAssets = Object.entries(campaign.locales).flatMap(([locale, localeData]) => localeData.lines.map((line) => join(voiceDir, `${locale}-${line.id}-${line.speaker}.mp3`)));
-const voiceAssetsAvailable = expectedVoiceAssets.every((path) => existsSync(path)) && existsSync(join(voiceDir, "PRODUCTION-METHOD.json"));
+const voiceMethodPath = join(voiceDir, "PRODUCTION-METHOD.json");
+let voiceAssetsAvailable = false;
+if (existsSync(voiceMethodPath)) {
+  const productionMethod = JSON.parse(readFileSync(voiceMethodPath, "utf8"));
+  const records = new Map(productionMethod.files?.map((file) => [file.name, file]) ?? []);
+  voiceAssetsAvailable = productionMethod.campaignSha256 === campaignSha256 && Object.entries(campaign.locales).every(([locale, localeData]) => localeData.lines.every((line) => {
+    const name = `${locale}-${line.id}-${line.speaker}.mp3`;
+    const path = join(voiceDir, name);
+    const record = records.get(name);
+    return existsSync(path) && record?.locale === locale && record?.id === line.id && record?.speaker === line.speaker && record?.text === line.text && record?.sha256 === createHash("sha256").update(readFileSync(path)).digest("hex");
+  }));
+}
 
 const manifest = {
   generatedAt: new Date().toISOString(),
@@ -56,11 +69,11 @@ const manifest = {
   scenario: "illustrative-resident-journey",
   scenarioAccuracy: "Previews non-clinical request details and hands submission to tap or text. No voice persistence, provider match, hub opening, or verified local result is depicted.",
   interactionReference: "GPT-Live continuous interaction",
-  voiceProduction: "pending",
+  voiceProduction: "separate-final-path",
   voiceAssetsAvailable,
-  voiceBlocker: "The configured OpenAI project returned billing_not_active during approved speech generation.",
+  voiceBlocker: voiceAssetsAvailable ? null : "A complete provenance-recorded speech asset set is not available.",
   accuracy: "These files contain an ambient bed and visualized dialogue only. They are not final voiced masters and are not represented as GPT-Live output.",
-  plannedVoiceProduction: voiceAssetsAvailable ? "A complete, provenance-recorded OpenAI speech asset set is available for the separate fail-closed final render path." : "No complete, provenance-recorded OpenAI speech asset set is available. Final voiced masters remain pending.",
+  plannedVoiceProduction: voiceAssetsAvailable ? "A complete, provenance-recorded speech asset set is available for the separate fail-closed final render path." : "No complete, provenance-recorded speech asset set is available. Final voiced masters remain pending.",
   disclosure: campaign.production.disclosure,
   music: "Original programmatic ambient bed; no third-party recording or license dependency.",
   files,

@@ -1,6 +1,6 @@
 # SozoRock Health
 
-SozoRock Health is a national public-interest initiative of The SozoRock Foundation Inc. It designs and deploys non-clinical health-access, workforce-readiness, and systems infrastructure that helps people, institutions, and public agencies use existing healthcare, public-health, digital, and workforce systems more effectively.
+SozoRock Health is a national public-interest initiative of The SozoRock Foundation, Inc. It designs and deploys non-clinical health-access, workforce-readiness, and systems infrastructure that helps people, institutions, and public agencies use existing healthcare, public-health, digital, and workforce systems more effectively.
 
 The work spans rural and underserved health access, chronic-disease mitigation, digital navigation, AI readiness, public-sector modernization, cybersecurity readiness, and interdisciplinary workforce development.
 
@@ -72,9 +72,14 @@ npm exec --workspace @sozorock/mobile -- expo export --platform android
 npm run audio:ambient --workspace @sozorock/media
 npm run render:all --workspace @sozorock/media
 npm run verify:campaign --workspace @sozorock/media
+npm run voice:generate --workspace @sozorock/media
+npm run render:final --workspace @sozorock/media
+npm run publish:web --workspace @sozorock/media
 ```
 
 The lockfile includes reviewed security resolutions for upstream packages pinned by Next.js and Expo. `patch-package` reconciles the parent manifests during installation so CI and local dependency trees remain reproducible and audit-clean.
+
+The prerecorded bilingual campaign uses provenance-recorded Amazon Polly generative voices. The live website and mobile voice architecture remain on the OpenAI Realtime adapter. GPT-Live is an interaction-design reference until OpenAI releases and enables its developer API; current assets and sessions must not be represented as GPT-Live output. See [`docs/voice-video/VOICE-PROVIDER-DECISION.md`](docs/voice-video/VOICE-PROVIDER-DECISION.md).
 
 ## Environment contract
 
@@ -84,6 +89,7 @@ Public configuration:
 | --- | --- |
 | `NEXT_PUBLIC_CBCAP_URL` | Separate CB-CAP deployment URL |
 | `CONTACT_SUBMISSIONS_TABLE` | Durable encrypted contact-submission store |
+| `OPENAI_REALTIME_ENABLED` | Server-side live-voice kill switch. Keep unset or `false` until boundary red-team, real-device QA, and project billing pass; set exactly `true` to activate. |
 | `CONTACT_NOTIFICATION_TOPIC_ARN` | Operations notification destination |
 | `CONTACT_RATE_LIMIT_SALT_SECRET_ARN` | Secrets Manager salt for one-way contact rate-limit identifiers |
 | `ACCESS_REQUESTS_TABLE` | Separate, encrypted non-clinical mobile access-request store |
@@ -124,6 +130,6 @@ No long-lived AWS keys or manual file uploads are required. See [automation and 
 
 ## Governance
 
-Public legal identity: **The SozoRock Foundation Inc.**
+Public legal identity: **The SozoRock Foundation, Inc.**
 
-Copyright © 2026 The SozoRock Foundation Inc. All rights reserved. Contribution and security expectations are documented in [CONTRIBUTING.md](CONTRIBUTING.md) and [SECURITY.md](SECURITY.md).
+Copyright © 2026 The SozoRock Foundation, Inc. All rights reserved. Contribution and security expectations are documented in [CONTRIBUTING.md](CONTRIBUTING.md) and [SECURITY.md](SECURITY.md).

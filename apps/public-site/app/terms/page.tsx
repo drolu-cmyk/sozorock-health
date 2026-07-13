@@ -12,7 +12,7 @@ export default function TermsPage() {
   return (
     <LegalPage eyebrow="Public policy" title="Terms of use" updated="July 11, 2026">
       <h2>About these terms</h2>
-      <p>These terms apply to the public SozoRock Health website and related public digital experiences operated by The SozoRock Foundation Inc. By using them, you agree to use them lawfully and consistently with these terms. If you do not agree, do not use the service.</p>
+      <p>These terms apply to the public SozoRock Health website and related public digital experiences operated by The SozoRock Foundation, Inc. By using them, you agree to use them lawfully and consistently with these terms. If you do not agree, do not use the service.</p>
       <h2>Non-clinical purpose</h2>
       <p>SozoRock Health provides public education, access readiness, research, systems infrastructure, and practical pathway support. It is not a clinic, healthcare provider, or telehealth platform. It does not diagnose, triage symptoms, recommend treatment, prescribe medication, or create a provider-patient relationship.</p>
       <h2>Emergencies</h2>

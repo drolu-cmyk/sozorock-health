@@ -5,14 +5,17 @@
   "type": "module",
   "scripts": {
     "typecheck": "tsc --noEmit",
+    "test": "node --test tests/*.test.mjs",
     "studio": "remotion studio src/index.ts",
     "voice:generate": "node scripts/generate-voice-assets.mjs",
     "audio:ambient": "node scripts/create-ambient-bed.mjs",
     "render:all": "node scripts/render-all.mjs",
     "render:final": "node scripts/render-final.mjs",
+    "publish:web": "node scripts/publish-web-assets.mjs",
     "verify:campaign": "node scripts/verify-campaign-exports.mjs"
   },
   "dependencies": {
+    "@aws-sdk/client-polly": "^3.1085.0",
     "@phosphor-icons/react": "^2.1.10",
     "@remotion/cli": "4.0.487",
     "@remotion/media": "4.0.487",

@@ -3,7 +3,7 @@ import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { GetSecretValueCommand, SecretsManagerClient } from "@aws-sdk/client-secrets-manager";
 import { DynamoDBDocumentClient, UpdateCommand } from "@aws-sdk/lib-dynamodb";
 import { NextRequest, NextResponse } from "next/server";
-import { resolveVoiceRuntime } from "../../../lib/voice-runtime";
+import { isRealtimeVoiceEnabled, resolveVoiceRuntime } from "../../../lib/voice-runtime";
 import {
   clientNetworkAddress,
   isTrustedSameOrigin,
@@ -96,8 +96,22 @@ async function getOpenAIKey() {
   return cachedApiKey;
 }
 
+async function createRealtimeCall(offer: string, session: object, apiKey: string) {
+  const form = new FormData();
+  form.set("sdp", new Blob([offer], { type: "application/sdp" }), "offer.sdp");
+  form.set("session", new Blob([JSON.stringify(session)], { type: "application/json" }), "session.json");
+  return fetch("https://api.openai.com/v1/realtime/calls", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${apiKey}` },
+    body: form,
+    cache: "no-store",
+    signal: AbortSignal.timeout(15_000),
+  });
+}
+
 export async function POST(request: NextRequest) {
   if (!sameOrigin(request)) return NextResponse.json({ error: "Request origin was not accepted." }, { status: 403 });
+  if (!isRealtimeVoiceEnabled()) return NextResponse.json({ error: "Live voice is temporarily unavailable. Use tap or text instead." }, { status: 503 });
   const offerBody = await readBoundedText(request, 120_000, ["application/sdp"]);
   if (!offerBody.ok) {
     if (offerBody.error === "unsupported-media-type")
@@ -129,10 +143,18 @@ export async function POST(request: NextRequest) {
     audio: { output: { voice: "marin", speed: 1.02 }, input: { turn_detection: { type: "semantic_vad", eagerness: "low", create_response: true, interrupt_response: true } } },
     max_output_tokens: 180,
   };
-  const form = new FormData();
-  form.set("sdp", new Blob([offer], { type: "application/sdp" }), "offer.sdp");
-  form.set("session", new Blob([JSON.stringify(session)], { type: "application/json" }), "session.json");
-  const response = await fetch("https://api.openai.com/v1/realtime/calls", { method: "POST", headers: { Authorization: `Bearer ${apiKey}` }, body: form, cache: "no-store" });
+  let response: Response;
+  try {
+    response = await createRealtimeCall(offer, session, apiKey);
+    if (response.status === 401 || response.status === 403) {
+      cachedApiKey = null;
+      const refreshedApiKey = await getOpenAIKey();
+      if (refreshedApiKey && refreshedApiKey !== apiKey) response = await createRealtimeCall(offer, session, refreshedApiKey);
+    }
+  } catch (error) {
+    console.error("voice-session-unavailable", { name: (error as { name?: string }).name ?? "UnknownError" });
+    return NextResponse.json({ error: "Live voice is temporarily unavailable." }, { status: 503 });
+  }
   if (!response.ok) {
     console.error("voice-session-failed", { status: response.status });
     return NextResponse.json({ error: "Live voice is temporarily unavailable." }, { status: 503 });

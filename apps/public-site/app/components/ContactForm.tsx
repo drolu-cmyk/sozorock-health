@@ -30,7 +30,7 @@ const formCopy = {
     location: "City, state, or region",
     outcome: "What outcome are you working toward?",
     consentStart:
-      "I agree that The SozoRock Foundation Inc. may use this information to respond to my inquiry. I have read the",
+      "I agree that The SozoRock Foundation, Inc. may use this information to respond to my inquiry. I have read the",
     privacy: "Privacy Notice",
     send: "Send inquiry",
     sending: "Sending…",
@@ -64,7 +64,7 @@ const formCopy = {
     location: "Ciudad, estado o región",
     outcome: "¿Qué resultado desea lograr?",
     consentStart:
-      "Acepto que The SozoRock Foundation Inc. utilice esta información para responder a mi consulta. He leído el",
+      "Acepto que The SozoRock Foundation, Inc. utilice esta información para responder a mi consulta. He leído el",
     privacy: "Aviso de privacidad",
     send: "Enviar consulta",
     sending: "Enviando…",
