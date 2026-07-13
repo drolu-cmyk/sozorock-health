@@ -1465,6 +1465,9 @@ p {
   html {
     scroll-padding-top: 70px;
   }
+  .legal-page h1.legal-title--compact {
+    font-size: clamp(32px, 9.5vw, 48px);
+  }
   .site-header {
     height: 70px;
     grid-template-columns: auto 1fr;

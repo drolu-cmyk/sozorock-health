@@ -1,7 +1,12 @@
-import type { Metadata } from "next";
 import { LegalPage } from "../components/LegalPage";
+import { createLegalMetadata } from "../lib/legal-metadata";
 
-export const metadata: Metadata = { title: "Privacy notice", description: "How SozoRock Health handles information across its public website and non-clinical readiness experiences." };
+export const metadata = createLegalMetadata({
+  title: "Privacy notice",
+  description:
+    "How SozoRock Health handles information across its public website and non-clinical readiness experiences.",
+  path: "/privacy",
+});
 
 export default function PrivacyPage() {
   return (

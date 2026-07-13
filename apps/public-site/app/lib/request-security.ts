@@ -7,6 +7,8 @@ export type BoundedBodyResult =
   | { ok: true; text: string }
   | { ok: false; error: BoundedBodyError };
 
+const DEFAULT_PUBLIC_ORIGIN = "https://health.sozorockfoundation.org";
+
 function values(header: string | null) {
   return (header ?? "")
     .split(",")
@@ -54,6 +56,51 @@ function localDevelopmentOrigin(origin: URL) {
       origin.hostname === "127.0.0.1" ||
       origin.hostname === "[::1]") &&
     (origin.protocol === "http:" || origin.protocol === "https:")
+  );
+}
+
+function configuredPublicOrigin(
+  value: string | undefined,
+  production: boolean,
+) {
+  if (!value?.trim()) return DEFAULT_PUBLIC_ORIGIN;
+  try {
+    const candidate = new URL(value.trim());
+    const localOrigin = localDevelopmentOrigin(candidate);
+    const localDevelopment = !production && localOrigin;
+    if (
+      (candidate.protocol !== "https:" && !localDevelopment) ||
+      (production && localOrigin) ||
+      candidate.username ||
+      candidate.password
+    ) {
+      return DEFAULT_PUBLIC_ORIGIN;
+    }
+    return candidate.origin;
+  } catch {
+    return DEFAULT_PUBLIC_ORIGIN;
+  }
+}
+
+/**
+ * Build a same-site public URL without trusting an internal compute request URL.
+ * Amplify SSR may expose localhost as request.url even for a public request.
+ */
+export function publicSiteUrl(
+  path: string,
+  configuredOrigin = process.env.PUBLIC_SITE_URL,
+  production = process.env.NODE_ENV === "production",
+) {
+  if (
+    !path.startsWith("/") ||
+    path.startsWith("//") ||
+    /[\u0000-\u001F\u007F\\]/.test(path)
+  ) {
+    throw new Error("Public redirect paths must be root-relative");
+  }
+  return new URL(
+    path,
+    `${configuredPublicOrigin(configuredOrigin, production)}/`,
   );
 }
 

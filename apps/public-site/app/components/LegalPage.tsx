@@ -1,7 +1,7 @@
 import { ArrowLeft } from "@phosphor-icons/react/dist/ssr";
 import { LogoLockup } from "./LogoLockup";
 
-export function LegalPage({ eyebrow, title, updated, children }: { eyebrow: string; title: string; updated: string; children: React.ReactNode }) {
+export function LegalPage({ eyebrow, title, titleSize = "standard", updated, children }: { eyebrow: string; title: string; titleSize?: "standard" | "compact"; updated: string; children: React.ReactNode }) {
   return (
     <div className="legal-page">
       <a className="skip-link" href="#legal-content">Skip to content</a>
@@ -12,7 +12,7 @@ export function LegalPage({ eyebrow, title, updated, children }: { eyebrow: stri
       <main id="legal-content">
         <article>
           <p className="section-label">{eyebrow}</p>
-          <h1>{title}</h1>
+          <h1 className={titleSize === "compact" ? "legal-title--compact" : undefined}>{title}</h1>
           <p className="legal-updated">Last updated <time dateTime="2026-07-11">{updated}</time></p>
           {children}
           <aside aria-labelledby="legal-contact-heading">
