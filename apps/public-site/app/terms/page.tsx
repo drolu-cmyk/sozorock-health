@@ -1,7 +1,12 @@
-import type { Metadata } from "next";
 import { LegalPage } from "../components/LegalPage";
+import { createLegalMetadata } from "../lib/legal-metadata";
 
-export const metadata: Metadata = { title: "Terms of use", description: "Terms governing the public use of SozoRock Health digital experiences." };
+export const metadata = createLegalMetadata({
+  title: "Terms of use",
+  description:
+    "Terms governing the public use of SozoRock Health digital experiences.",
+  path: "/terms",
+});
 
 export default function TermsPage() {
   return (

@@ -1,7 +1,12 @@
-import type { Metadata } from "next";
 import { LegalPage } from "../components/LegalPage";
+import { createLegalMetadata } from "../lib/legal-metadata";
 
-export const metadata: Metadata = { title: "Accessibility", description: "SozoRock Health accessibility commitment and accommodation contact." };
+export const metadata = createLegalMetadata({
+  title: "Accessibility",
+  description:
+    "SozoRock Health accessibility commitment and accommodation contact.",
+  path: "/accessibility",
+});
 
 export default function AccessibilityPage() {
   return (

@@ -9,7 +9,31 @@ export const metadata: Metadata = {
   title: "CB-CAP | County Systems Intelligence | SozoRock Health",
   description:
     "Privacy-preserving county systems intelligence for pathway visibility, Health Equity Hub and Health Access Day planning, Community Health Assessment and Community Health Improvement Plan support, workforce development, AI readiness, governance, and public-sector modernization.",
+  applicationName: "CB-CAP",
+  authors: [
+    {
+      name: "The SozoRock Foundation, Inc.",
+      url: "https://sozorockfoundation.org",
+    },
+  ],
+  creator: "The SozoRock Foundation, Inc.",
+  publisher: "The SozoRock Foundation, Inc.",
+  category: "county systems intelligence",
   alternates: { canonical: "/" },
+  icons: {
+    icon: [{ url: "/icon.png", type: "image/png", sizes: "512x512" }],
+  },
+  manifest: "/manifest.webmanifest",
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+    },
+  },
   openGraph: {
     title: "CB-CAP | County-Based Community Access Platform",
     description:
@@ -17,12 +41,21 @@ export const metadata: Metadata = {
     url: dashboardUrl,
     siteName: "CB-CAP",
     type: "website",
+    images: [
+      {
+        url: "/icon.png",
+        width: 512,
+        height: 512,
+        alt: "SozoRock wordmark",
+      },
+    ],
   },
   twitter: {
     card: "summary",
     title: "CB-CAP | County Systems Intelligence",
     description:
       "Privacy-preserving county systems intelligence for planning and readiness.",
+    images: ["/icon.png"],
   },
 };
 export const viewport: Viewport = {
