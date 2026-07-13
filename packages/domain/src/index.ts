@@ -76,7 +76,7 @@ export const disclosureControl = {
 } as const;
 
 export const cbcapSeedMetadata = {
-  source: "Illustrative SozoRock Health seed data",
+  source: "Demonstration information; not current county performance",
   status: "demonstration-only",
   refreshedAt: "July 10, 2026",
   note: "Values are synthetic and must not be used for public policy, funding, or care decisions.",
