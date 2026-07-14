@@ -30,9 +30,60 @@
       "Effect": "Allow",
       "Action": [
         "amplify:CreateDomainAssociation",
-        "amplify:GetDomainAssociation"
+        "amplify:GetDomainAssociation",
+        "amplify:UpdateDomainAssociation"
       ],
       "Resource": "arn:aws:amplify:us-east-1:791860731989:apps/d307qqji18y8il/domains/cbcap.sozorockfoundation.org"
+    },
+    {
+      "Sid": "DiscoverOnlyTheFoundationPublicHostedZone",
+      "Effect": "Allow",
+      "Action": [
+        "route53:ListHostedZones",
+        "route53:ListHostedZonesByName"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "ReadOnlyTheFoundationPublicHostedZone",
+      "Effect": "Allow",
+      "Action": [
+        "route53:GetHostedZone",
+        "route53:ListResourceRecordSets"
+      ],
+      "Resource": "arn:aws:route53:::hostedzone/Z07905293AANZWGYZ84F3"
+    },
+    {
+      "Sid": "ReconcileOnlyCbcapDnsRecords",
+      "Effect": "Allow",
+      "Action": "route53:ChangeResourceRecordSets",
+      "Resource": "arn:aws:route53:::hostedzone/Z07905293AANZWGYZ84F3",
+      "Condition": {
+        "ForAllValues:StringLike": {
+          "route53:ChangeResourceRecordSetsNormalizedRecordNames": [
+            "cbcap.sozorockfoundation.org",
+            "*.cbcap.sozorockfoundation.org"
+          ]
+        },
+        "ForAllValues:StringEquals": {
+          "route53:ChangeResourceRecordSetsRecordTypes": [
+            "A",
+            "AAAA",
+            "CNAME"
+          ],
+          "route53:ChangeResourceRecordSetsActions": [
+            "CREATE",
+            "UPSERT",
+            "DELETE"
+          ]
+        }
+      }
+    },
+    {
+      "Sid": "ReadOnlyDnsChangeStatus",
+      "Effect": "Allow",
+      "Action": "route53:GetChange",
+      "Resource": "arn:aws:route53:::change/*"
     }
   ]
 }

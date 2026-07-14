@@ -8,13 +8,13 @@
 - Canonical domain: `https://cbcap.sozorockfoundation.org`
 - Repository: `drolu-cmyk/sozorock-health`
 
-The release workflow does not modify the Foundation apex, the health website, or any sibling subdomain. It requests one exact domain association for `cbcap.sozorockfoundation.org`, disables automatic subdomains, and maps only the empty prefix of that exact name to the `main` branch. It has no DNS create, update, or delete permission.
+The release workflow does not modify the Foundation apex, the health website, or any sibling subdomain. It requests one exact domain association for `cbcap.sozorockfoundation.org`, disables automatic subdomains, and maps only the empty prefix of that exact name to the `main` branch. Its Route 53 mutation permission is restricted by hosted-zone ARN, normalized record name, and record type to the exact CB-CAP hostname and its managed-certificate validation names.
 
 ## Why the association uses the exact subdomain
 
 AWS Amplify accepts a domain name that is itself a subdomain, and its subdomain setting permits an empty prefix. This lets CB-CAP use `cbcap.sozorockfoundation.org` as its complete isolated domain association instead of claiming `sozorockfoundation.org` or changing a domain association used by another application.
 
-For a domain hosted in Route 53, Amplify performs domain verification and managed-certificate DNS validation. The deployment identity therefore needs only the exact Amplify domain-association permissions; it does not receive Route 53 mutation permissions.
+For a domain hosted in Route 53, Amplify performs domain verification and managed-certificate DNS validation automatically. AWS performs those Route 53 calls in the deployment session, so the deployment identity receives only the minimum discovery, read, change-status, and record-change permissions needed for this hosted zone. `ChangeResourceRecordSets` is constrained to `cbcap.sozorockfoundation.org` and `*.cbcap.sozorockfoundation.org`, and to A, AAAA, and CNAME records. The role cannot change the Foundation apex, health website, or any sibling name.
 
 Official references:
 
@@ -37,13 +37,13 @@ AWS notes that DNS propagation and managed-certificate issuance can take up to 2
 5. refuses an unexpected application, repository, or branch;
 6. reconciles the version-controlled CB-CAP build definition;
 7. pins the approved checkout to the protected remote `main` SHA before release, verifies that `main` did not move before or during the job, and accepts only that SHA (or Amplify's connected-repository `HEAD` marker) as the job source identity;
-8. creates the exact domain association only when absent;
+8. creates the exact domain association only when absent, or retries a failed first-time activation after the DNS boundary is in place;
 9. fails closed if an existing association has any unexpected mapping;
 10. waits for the managed certificate and verified domain;
 11. verifies public DNS and TLS through a real HTTPS request;
 12. verifies canonical-domain output, security headers, HTTPS redirection, and the 3,144-county/51-state national API contract.
 
-The workflow never calls a Route 53 mutation API and receives no Amplify update or delete permission for domain associations.
+The workflow asks Amplify to manage the exact custom-domain records. It receives no domain-delete, wildcard-domain, apex-domain, data-store, secret, IAM, or cross-product permission.
 
 ## Dedicated deployment role
 
@@ -53,12 +53,13 @@ The exact-domain statement grants only:
 
 - `amplify:CreateDomainAssociation`
 - `amplify:GetDomainAssociation`
+- `amplify:UpdateDomainAssociation`
 
 for:
 
 `arn:aws:amplify:us-east-1:791860731989:apps/d307qqji18y8il/domains/cbcap.sozorockfoundation.org`
 
-It does not grant domain update, delete, automatic-subdomain, wildcard-domain, apex-domain, Route 53, data-store, secret, IAM, or cross-product permissions. The GitHub `production` environment holds `CBCAP_AWS_DEPLOY_ROLE_ARN`; the workflow contains no long-lived AWS credential.
+The Route 53 statements allow hosted-zone discovery, read-only inspection of hosted zone `Z07905293AANZWGYZ84F3`, change-status reads, and record changes only for the exact CB-CAP name and its managed-certificate validation labels. The GitHub `production` environment holds `CBCAP_AWS_DEPLOY_ROLE_ARN`; the workflow contains no long-lived AWS credential.
 
 The dedicated WAF boundary and rollback procedure are documented in [CB-CAP production security operations](cbcap-security-operations.md).
 
