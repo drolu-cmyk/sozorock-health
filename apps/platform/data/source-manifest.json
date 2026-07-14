@@ -1,0 +1,34 @@
+{
+  "generatedAt": "2026-07-14T02:50:00.196Z",
+  "geography": {
+    "source": "U.S. Census Bureau TIGERweb",
+    "vintage": "January 1, 2025",
+    "url": "https://tigerweb.geo.census.gov/",
+    "coverage": "50 states and the District of Columbia",
+    "countyCount": 3144
+  },
+  "indicators": {
+    "source": "CDC PLACES: County Data (GIS Friendly Format), 2025 release",
+    "datasetId": "i46a-9kgh",
+    "url": "https://data.cdc.gov/500-Cities-Places/PLACES-County-Data-GIS-Friendly-Format-2025-releas/i46a-9kgh",
+    "released": "December 4, 2025",
+    "underlyingYears": "BRFSS 2023/2022, Census 2023, ACS 2019-2023/2018-2022",
+    "rowCount": 3143,
+    "matchedCountyCount": 3143,
+    "modeledEstimateNotice": "CDC PLACES values are model-based population estimates, not diagnoses or counts of individual people."
+  },
+  "demonstrationIndex": {
+    "label": "CB-CAP demonstration planning pressure",
+    "status": "planning-scenario-only",
+    "formula": "45% chronic-condition percentile + 35% pathway-barrier percentile + 20% prevention-opportunity percentile. The pathway-barrier percentile uses adult estimates for lack of health insurance, lack of reliable transportation, food insecurity, housing insecurity, utility shutoff or threat, and loneliness, and requires at least two eligible pathway-barrier measures. Disability is retained only as accessibility context and is excluded from pathway-barrier and composite calculations. At least two top-level components are required; one missing component is reweighted.",
+    "boundary": "Not a government designation, clinical risk score, funding formula, or prediction of individual health outcomes."
+  },
+  "quality": {
+    "expectedCountyEquivalents": 3144,
+    "actualCountyEquivalents": 3144,
+    "uniqueFips": 3144,
+    "unmatchedCdcRows": 0,
+    "planningIndexAvailable": 2956,
+    "sha256": "d7576653ed7f01c4c230ef673a8e8fd7adc73addc8822a7e4ffc67f96b5bd3ed"
+  }
+}

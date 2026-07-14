@@ -1,14 +1,14 @@
 import type { Metadata, Viewport } from "next";
 import { DM_Sans, Newsreader } from "next/font/google";
 import "./styles.css";
-const dashboardUrl = "https://main.d307qqji18y8il.amplifyapp.com";
+const dashboardUrl = "https://cbcap.sozorockfoundation.org";
 const dmSans = DM_Sans({ subsets: ["latin"], variable: "--font-dm-sans", display: "swap" });
 const newsreader = Newsreader({ subsets: ["latin"], variable: "--font-newsreader", display: "swap" });
 export const metadata: Metadata = {
   metadataBase: new URL(dashboardUrl),
-  title: "CB-CAP | County Systems Intelligence | SozoRock Health",
+  title: "CB-CAP | Nationwide County Systems Intelligence | SozoRock Health",
   description:
-    "Privacy-preserving county systems intelligence for pathway visibility, Health Equity Hub and Health Access Day planning, Community Health Assessment and Community Health Improvement Plan support, workforce development, AI readiness, governance, and public-sector modernization.",
+    "Explore public estimates and coverage gaps across all 3,144 U.S. county equivalents, with transparent planning scenarios, Health Equity Hub questions, and CHA/CHIP evidence support.",
   applicationName: "CB-CAP",
   authors: [
     {
@@ -18,10 +18,10 @@ export const metadata: Metadata = {
   ],
   creator: "The SozoRock Foundation, Inc.",
   publisher: "The SozoRock Foundation, Inc.",
-  category: "county systems intelligence",
+  category: "public health planning and county systems intelligence",
   alternates: { canonical: "/" },
   icons: {
-    icon: [{ url: "/icon.png", type: "image/png", sizes: "512x512" }],
+    icon: [{ url: "/icon.png", type: "image/png", sizes: "192x192" }],
   },
   manifest: "/manifest.webmanifest",
   robots: {
@@ -35,15 +35,15 @@ export const metadata: Metadata = {
     },
   },
   openGraph: {
-    title: "CB-CAP | County-Based Community Access Platform",
+    title: "CB-CAP | Nationwide County Systems Intelligence",
     description:
-      "Privacy-preserving county systems intelligence for planning, readiness, governance, and public-sector modernization.",
+      "Explore public health estimates, coverage gaps, planning scenarios, and CHA/CHIP evidence questions across all 3,144 U.S. county equivalents.",
     url: dashboardUrl,
     siteName: "CB-CAP",
     type: "website",
     images: [
       {
-        url: "/icon.png",
+        url: "/icon-512.png",
         width: 512,
         height: 512,
         alt: "SozoRock wordmark",
@@ -52,10 +52,10 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary",
-    title: "CB-CAP | County Systems Intelligence",
+    title: "CB-CAP | Nationwide County Systems Intelligence",
     description:
-      "Privacy-preserving county systems intelligence for planning and readiness.",
-    images: ["/icon.png"],
+      "Nationwide public-data intelligence for health priorities, pathway barriers, transparent scenarios, and accountable planning questions.",
+    images: ["/icon-512.png"],
   },
 };
 export const viewport: Viewport = {
@@ -72,7 +72,16 @@ const schema = {
   operatingSystem: "Any",
   url: dashboardUrl,
   description:
-    "Privacy-preserving county systems intelligence supporting Health Equity Hub planning, Health Access Day planning, CHA and CHIP support, and systems learning.",
+    "Nationwide public-data county systems intelligence supporting health-priority analysis, Health Equity Hub and Health Access Day planning questions, CHA and CHIP evidence support, workforce planning questions, and accountable systems learning.",
+  provider: {
+    "@type": "NGO",
+    name: "The SozoRock Foundation, Inc.",
+    url: "https://www.sozorockfoundation.org",
+  },
+  areaServed: {
+    "@type": "Country",
+    name: "United States",
+  },
 };
 export default function RootLayout({
   children,

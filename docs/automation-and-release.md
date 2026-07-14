@@ -33,6 +33,8 @@ Production deployment is deliberate and automated:
 
 The workflow does not currently create pull-request previews or a separate staging promotion, and it does not claim an automatic rollback. Live browser, form, publication-access, and CB-CAP smoke checks must follow deployment; the previous release remains the rollback source if a live gate fails.
 
+CB-CAP also has an isolated, manually triggered production workflow, `Deploy CB-CAP`, for changes scoped to the county platform. GitHub's protected `production` environment requires review and permits only the protected `main` source. The workflow assumes a dedicated least-privilege role, reruns the platform-specific release gates, deploys only the CB-CAP application, reconciles only `cbcap.sozorockfoundation.org`, and completes only after live DNS, TLS, exact-host redirect, canonical-domain, security-header, source-snapshot, and nationwide boundary checks pass. The general and CB-CAP workflows share one application-specific concurrency lock, so they cannot mutate `d307qqji18y8il` at the same time. Its exact domain boundary and acceptance contract are documented in [CB-CAP production-domain release](cbcap-domain-release.md); WAF controls, cost boundaries, and rollback are documented in [CB-CAP production security operations](cbcap-security-operations.md).
+
 No application or infrastructure release relies on manual file uploads, untracked console edits, or copied cloud credentials. Mobile-store delivery uses its own manually triggered, credential-gated workflow because Apple and Google signing and review are separate release authorities.
 
 ## Identity and environment security

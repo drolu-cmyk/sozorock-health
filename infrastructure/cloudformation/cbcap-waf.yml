@@ -1,0 +1,152 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  Dedicated AWS WAF protections for the CB-CAP Amplify application. This stack
+  does not create or modify any application, branch, domain, DNS record, data
+  store, secret, or IAM identity.
+
+Parameters:
+  AmplifyAppArn:
+    Type: String
+    Default: arn:aws:amplify:us-east-1:791860731989:apps/d307qqji18y8il
+    AllowedPattern: ^arn:aws:amplify:us-east-1:791860731989:apps/d307qqji18y8il$
+
+Resources:
+  CbcapWebAcl:
+    Type: AWS::WAFv2::WebACL
+    Properties:
+      Name: sozorock-health-cbcap-production
+      Description: Managed baseline protections and bounded per-IP API rate controls for CB-CAP.
+      Scope: CLOUDFRONT
+      DefaultAction:
+        Allow: {}
+      VisibilityConfig:
+        CloudWatchMetricsEnabled: true
+        MetricName: CbcapProductionWebAcl
+        SampledRequestsEnabled: true
+      Rules:
+        - Name: AWSManagedRulesAmazonIpReputationList
+          Priority: 0
+          OverrideAction:
+            None: {}
+          Statement:
+            ManagedRuleGroupStatement:
+              VendorName: AWS
+              Name: AWSManagedRulesAmazonIpReputationList
+          VisibilityConfig:
+            CloudWatchMetricsEnabled: true
+            MetricName: CbcapIpReputation
+            SampledRequestsEnabled: true
+        - Name: AWSManagedRulesKnownBadInputsRuleSet
+          Priority: 1
+          OverrideAction:
+            None: {}
+          Statement:
+            ManagedRuleGroupStatement:
+              VendorName: AWS
+              Name: AWSManagedRulesKnownBadInputsRuleSet
+          VisibilityConfig:
+            CloudWatchMetricsEnabled: true
+            MetricName: CbcapKnownBadInputs
+            SampledRequestsEnabled: true
+        - Name: AWSManagedRulesCommonRuleSet
+          Priority: 2
+          OverrideAction:
+            None: {}
+          Statement:
+            ManagedRuleGroupStatement:
+              VendorName: AWS
+              Name: AWSManagedRulesCommonRuleSet
+          VisibilityConfig:
+            CloudWatchMetricsEnabled: true
+            MetricName: CbcapCommonProtections
+            SampledRequestsEnabled: true
+        - Name: RateLimitGeographyBySourceIp
+          Priority: 10
+          Action:
+            Block: {}
+          Statement:
+            RateBasedStatement:
+              AggregateKeyType: IP
+              EvaluationWindowSec: 300
+              Limit: 300
+              ScopeDownStatement:
+                ByteMatchStatement:
+                  FieldToMatch:
+                    UriPath: {}
+                  PositionalConstraint: STARTS_WITH
+                  SearchString: /api/geography
+                  TextTransformations:
+                    - Priority: 0
+                      Type: NONE
+          VisibilityConfig:
+            CloudWatchMetricsEnabled: true
+            MetricName: CbcapGeographyRateLimit
+            SampledRequestsEnabled: true
+        - Name: RateLimitProfileBySourceIp
+          Priority: 11
+          Action:
+            Block: {}
+          Statement:
+            RateBasedStatement:
+              AggregateKeyType: IP
+              EvaluationWindowSec: 300
+              Limit: 120
+              ScopeDownStatement:
+                ByteMatchStatement:
+                  FieldToMatch:
+                    UriPath: {}
+                  PositionalConstraint: STARTS_WITH
+                  SearchString: /api/profile
+                  TextTransformations:
+                    - Priority: 0
+                      Type: NONE
+          VisibilityConfig:
+            CloudWatchMetricsEnabled: true
+            MetricName: CbcapProfileRateLimit
+            SampledRequestsEnabled: true
+        - Name: RateLimitTrendsBySourceIp
+          Priority: 12
+          Action:
+            Block: {}
+          Statement:
+            RateBasedStatement:
+              AggregateKeyType: IP
+              EvaluationWindowSec: 300
+              Limit: 120
+              ScopeDownStatement:
+                ByteMatchStatement:
+                  FieldToMatch:
+                    UriPath: {}
+                  PositionalConstraint: STARTS_WITH
+                  SearchString: /api/trends
+                  TextTransformations:
+                    - Priority: 0
+                      Type: NONE
+          VisibilityConfig:
+            CloudWatchMetricsEnabled: true
+            MetricName: CbcapTrendsRateLimit
+            SampledRequestsEnabled: true
+      Tags:
+        - Key: Application
+          Value: CB-CAP
+        - Key: Environment
+          Value: production
+        - Key: ManagedBy
+          Value: CloudFormation
+
+  CbcapWebAclAssociation:
+    Type: AWS::WAFv2::WebACLAssociation
+    Properties:
+      ResourceArn: !Ref AmplifyAppArn
+      WebACLArn: !GetAtt CbcapWebAcl.Arn
+
+Outputs:
+  WebAclArn:
+    Description: ARN of the dedicated CB-CAP web ACL.
+    Value: !GetAtt CbcapWebAcl.Arn
+  WebAclId:
+    Description: Identifier of the dedicated CB-CAP web ACL.
+    Value: !GetAtt CbcapWebAcl.Id
+  ProtectedAmplifyAppArn:
+    Description: The only application protected by this stack.
+    Value: !Ref AmplifyAppArn

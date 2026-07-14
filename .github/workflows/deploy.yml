@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: sozorock-health-production
+  group: amplify-d307qqji18y8il-production
   cancel-in-progress: false
 
 permissions:

@@ -12,7 +12,7 @@ SozoRock Health is non-clinical. Providers retain their clinical platforms and p
 | --- | --- | --- |
 | Public site | Explain the model, present health priorities and publications, and route community, funding, volunteer, and institutional interest | Public |
 | Resident app | Voice/tap readiness, language choice, hub check-in, and bounded provider-led pathways on phones and shared tablets | iOS and Android foundation |
-| CB-CAP | Filtered, downloadable, threshold-protected county access intelligence | Public demonstration; approved county access |
+| County-Based Community Access Platform (CB-CAP) | Nationwide geography, source-backed health and barrier patterns, planning scenarios, and CHA/CHIP workflow support | Public demonstration; stakeholder accounts later |
 | Provider/BYOP | State-aware provider readiness and connection management | Gated |
 
 National discovery is open. Resident-provider connections activate only after provider licensure and operating readiness are verified for the relevant state.
@@ -42,6 +42,8 @@ The AI layer is provider-neutral and feature-controlled. `gpt-live` is the SozoR
 
 Both works are authored by Oluwabiyi Adeyemo. See [product foundation](docs/product-foundation.md) and [launch story](docs/launch-story.md).
 
+CB-CAP's public data sources, calculation rules, uncertainty, scenario math, and governance boundaries are documented in the [CB-CAP data methodology](docs/cbcap-data-methodology.md).
+
 ## Requirements
 
 - Node.js 24 or newer
@@ -64,6 +66,7 @@ Validation:
 npm run typecheck
 npm run lint
 npm test
+npm run refresh:cbcap-data
 npm run build:public
 npm run build:platform
 npm audit --omit=dev --audit-level=moderate
@@ -106,14 +109,15 @@ Secrets belong in environment-managed secret stores. Never commit credentials, r
 ## Data and safety boundaries
 
 - Minimal, consented resident data only
-- Operational resident data separated from CB-CAP aggregates
-- CB-CAP cells below 11 observations suppressed in screens and exports
+- The CB-CAP public demonstration uses public, aggregate or model-based geography estimates and contains no resident records
+- Missing CB-CAP values remain missing; they are never converted to zero or manufactured for a complete-looking map
+- Any future operational aggregates remain separate from the public-source demonstration and require approved disclosure controls before release
 - No diagnosis, prescribing, clinical notes, or emergency triage
 - Provider connections gated by state licensure and readiness
 - Shared devices reset between sessions
 - Accessibility, language access, and low-connectivity behavior are release requirements
 
-See [operational policy drafts](docs/operational-policy-drafts.md), [agentic AI architecture](docs/agentic-ai-architecture.md), and [backend and release contract](docs/backend-and-release-contract.md).
+See [CB-CAP data methodology](docs/cbcap-data-methodology.md), [operational policy drafts](docs/operational-policy-drafts.md), [agentic AI architecture](docs/agentic-ai-architecture.md), and [backend and release contract](docs/backend-and-release-contract.md).
 
 ## Automated release
 
