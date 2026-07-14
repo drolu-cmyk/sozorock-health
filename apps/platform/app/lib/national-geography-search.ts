@@ -1,4 +1,16 @@
-import type { CountyPlanningRecord, GeographySuggestion } from "./types";
+import {
+  availabilityForGeography,
+  COMMITTED_GEOGRAPHY_SOURCE_FALLBACK,
+  COMMITTED_INDICATOR_SOURCE_FALLBACK,
+  identifiersForGeography,
+  TIGERWEB_CURRENT_SOURCE,
+} from "./geography-provenance.ts";
+import { repairPublicDataText } from "./text-normalization.ts";
+import type {
+  CountyPlanningRecord,
+  GeographySourceReference,
+  VerifiedGeographySuggestion,
+} from "./types";
 
 type SearchState = {
   fips: string;
@@ -6,7 +18,10 @@ type SearchState = {
   code: string;
 };
 
-type SearchCounty = Pick<CountyPlanningRecord, "fips" | "stateFips" | "state" | "county">;
+type SearchCounty = Pick<
+  CountyPlanningRecord,
+  "fips" | "stateFips" | "state" | "county" | "sourceStatus"
+>;
 
 type CensusFeature = { attributes?: Record<string, string | number | null> };
 
@@ -22,11 +37,12 @@ type RemoteLayer = {
   identifier: "GEOID" | "ZCTA5";
   label: string;
   outFields: string;
+  orderByField: "BASENAME" | "ZCTA5";
   geoidLength: 5 | 7 | 10;
 };
 
 export type NationalGeographySearchResult = {
-  results: GeographySuggestion[];
+  results: VerifiedGeographySuggestion[];
   partial: boolean;
   remoteUnavailable: boolean;
 };
@@ -41,6 +57,7 @@ const remoteLayers: RemoteLayer[] = [
     identifier: "GEOID",
     label: "Town or county subdivision",
     outFields: "BASENAME,NAME,GEOID,STATE,COUNTY,COUSUB",
+    orderByField: "BASENAME",
     geoidLength: 10,
   },
   {
@@ -49,22 +66,25 @@ const remoteLayers: RemoteLayer[] = [
     identifier: "GEOID",
     label: "Consolidated city",
     outFields: "BASENAME,NAME,GEOID,STATE,CONCITY",
+    orderByField: "BASENAME",
     geoidLength: 7,
   },
   {
     url: `${PLACE_BASE}/4/query`,
     kind: "place",
     identifier: "GEOID",
-    label: "Census place",
+    label: "Incorporated place",
     outFields: "BASENAME,NAME,GEOID,STATE,PLACE",
+    orderByField: "BASENAME",
     geoidLength: 7,
   },
   {
     url: `${PLACE_BASE}/5/query`,
     kind: "place",
     identifier: "GEOID",
-    label: "Census place",
+    label: "Census-designated place",
     outFields: "BASENAME,NAME,GEOID,STATE,PLACE",
+    orderByField: "BASENAME",
     geoidLength: 7,
   },
   {
@@ -73,13 +93,20 @@ const remoteLayers: RemoteLayer[] = [
     identifier: "ZCTA5",
     label: "Census ZCTA",
     outFields: "ZCTA5,GEOID,NAME",
+    orderByField: "ZCTA5",
     geoidLength: 5,
   },
 ];
 
 function normalizedSearchText(value: string) {
-  return value.replaceAll("''", "'").replace(/\s+/g, " ").trim().toUpperCase();
+  return value
+    .replaceAll("''", "'")
+    .replace(/[,;]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toUpperCase();
 }
+
 function stateName(states: SearchState[], stateFips: string) {
   return states.find((state) => state.fips === stateFips)?.name ?? "United States";
 }
@@ -87,7 +114,9 @@ function stateName(states: SearchState[], stateFips: string) {
 function splitStateQualifier(term: string, states: SearchState[]) {
   const normalized = normalizedSearchText(term);
   const exactState = states.find((state) => (
-    state.code.toUpperCase() === normalized || state.name.toUpperCase() === normalized
+    state.code.toUpperCase() === normalized
+    || state.name.toUpperCase() === normalized
+    || state.fips === normalized
   ));
   if (exactState) return { name: normalized, stateFips: "", exactState };
 
@@ -107,15 +136,82 @@ function splitStateQualifier(term: string, states: SearchState[]) {
     : { name: normalized, stateFips: "", exactState: null };
 }
 
+function countyRank(countyName: string, searchName: string) {
+  const withoutSuffix = countyName.replace(
+    / (COUNTY|PARISH|BOROUGH|MUNICIPIO|CENSUS AREA)$/,
+    "",
+  );
+  if (countyName === searchName || withoutSuffix === searchName) return 0;
+  if (countyName.startsWith(searchName)) return 2;
+  return 4;
+}
+
+function suggestionName(value: string) {
+  return normalizedSearchText(value)
+    .replace(/^ZIP-LINKED AREA /, "")
+    .replace(/ (CITY|TOWN|VILLAGE|BOROUGH|CDP|CCD|COUNTY|PARISH|MUNICIPIO|CENSUS AREA)$/, "");
+}
+
+function suggestionRank(
+  suggestion: VerifiedGeographySuggestion,
+  term: string,
+  states: SearchState[],
+) {
+  const normalized = normalizedSearchText(term);
+  const numeric = /^\d{2,10}$/.test(normalized);
+  if (numeric) {
+    if (suggestion.geoid === normalized) {
+      if (normalized.length === 2 && suggestion.kind === "state") return 0;
+      if (normalized.length === 5 && suggestion.kind === "zcta") return 0;
+      if (normalized.length === 5 && suggestion.kind === "county") return 1;
+      return 2;
+    }
+    return suggestion.geoid.startsWith(normalized) ? 20 : 40;
+  }
+
+  const qualified = splitStateQualifier(normalized, states);
+  const fullLabel = normalizedSearchText(suggestion.label);
+  const baseLabel = suggestionName(suggestion.label);
+  const exactName = fullLabel === qualified.name || baseLabel === qualified.name;
+  const kindRank = suggestion.kind === "place"
+    ? 0
+    : suggestion.kind === "county"
+      ? 1
+      : suggestion.kind === "locality"
+        ? 2
+        : suggestion.kind === "state"
+          ? 3
+          : 4;
+  return (exactName ? 0 : 20) + kindRank;
+}
+
+function committedProfileSource(
+  kind: "state" | "county",
+  source: GeographySourceReference,
+  hasCommittedIndicators = false,
+) {
+  if (kind === "state") {
+    return {
+      ...source,
+      method: "Population-weighted state summary derived from committed county-level CDC PLACES estimates.",
+    };
+  }
+  return hasCommittedIndicators
+    ? { ...source, method: "Exact county FIPS match in the committed CDC PLACES snapshot." }
+    : null;
+}
+
 export function searchCommittedGeographies(
   term: string,
   states: SearchState[],
   counties: SearchCounty[],
+  source: GeographySourceReference = COMMITTED_GEOGRAPHY_SOURCE_FALLBACK,
+  indicatorSource: GeographySourceReference = COMMITTED_INDICATOR_SOURCE_FALLBACK,
 ) {
   const normalized = normalizedSearchText(term);
   const numeric = /^\d{2,10}$/.test(normalized);
   const qualified = splitStateQualifier(normalized, states);
-  const results: GeographySuggestion[] = [];
+  const results: VerifiedGeographySuggestion[] = [];
 
   for (const state of states) {
     const stateMatches = numeric
@@ -132,16 +228,32 @@ export function searchCommittedGeographies(
       context: `State · FIPS ${state.fips}`,
       geoid: state.fips,
       stateFips: state.fips,
+      identifiers: identifiersForGeography("state", state.fips, state.fips),
+      dataAvailability: availabilityForGeography("state", true),
+      source,
+      profileSource: committedProfileSource("state", indicatorSource),
     });
   }
 
   if (!qualified.exactState) {
-    for (const county of counties) {
-      const countyMatches = numeric
-        ? normalized.length <= 5 && county.fips.startsWith(normalized)
-        : (!qualified.stateFips || county.stateFips === qualified.stateFips)
-          && county.county.toUpperCase().includes(qualified.name);
-      if (!countyMatches) continue;
+    const matchingCounties = counties.flatMap((county) => {
+      const name = normalizedSearchText(county.county);
+      const numericMatch = numeric && normalized.length <= 5 && county.fips.startsWith(normalized);
+      const nameMatch = !numeric
+        && (!qualified.stateFips || county.stateFips === qualified.stateFips)
+        && name.includes(qualified.name);
+      if (!numericMatch && !nameMatch) return [];
+      return [{
+        county,
+        rank: numeric ? county.fips === normalized ? 0 : 4 : countyRank(name, qualified.name),
+      }];
+    }).sort((left, right) => (
+      left.rank - right.rank
+      || left.county.state.localeCompare(right.county.state)
+      || left.county.county.localeCompare(right.county.county)
+    )).slice(0, 10);
+
+    for (const { county } of matchingCounties) {
       results.push({
         id: `county-${county.fips}`,
         kind: "county",
@@ -149,8 +261,18 @@ export function searchCommittedGeographies(
         context: `${county.state} · County FIPS ${county.fips}`,
         geoid: county.fips,
         stateFips: county.stateFips,
+        identifiers: identifiersForGeography("county", county.fips, county.stateFips),
+        dataAvailability: availabilityForGeography(
+          "county",
+          county.sourceStatus === "available",
+        ),
+        source,
+        profileSource: committedProfileSource(
+          "county",
+          indicatorSource,
+          county.sourceStatus === "available",
+        ),
       });
-      if (results.length >= 8) break;
     }
   }
 
@@ -162,6 +284,7 @@ export function remoteWhereForLayer(layer: RemoteLayer, term: string, states: Se
   const qualified = splitStateQualifier(normalized, states);
   if (qualified.exactState) return null;
   if (!/^\d{2,10}$/.test(normalized)) {
+    if (layer.kind === "zcta") return null;
     const stateRestriction = qualified.stateFips ? ` AND STATE = '${qualified.stateFips}'` : "";
     return `UPPER(BASENAME) LIKE '${qualified.name.replaceAll("'", "''")}%'${stateRestriction}`;
   }
@@ -182,7 +305,7 @@ async function queryLayer(
     outFields: layer.outFields,
     returnGeometry: "false",
     resultRecordCount: "12",
-    orderByFields: "BASENAME",
+    orderByFields: layer.orderByField,
   });
   const response = await fetcher(`${layer.url}?${params}`, {
     headers: {
@@ -202,7 +325,7 @@ function suggestionFromFeature(
   layer: RemoteLayer,
   feature: CensusFeature,
   states: SearchState[],
-): GeographySuggestion | null {
+): VerifiedGeographySuggestion | null {
   const attributes = feature.attributes ?? {};
   const geoid = String(attributes[layer.identifier] ?? attributes.GEOID ?? "")
     .padStart(layer.geoidLength, "0");
@@ -213,7 +336,7 @@ function suggestionFromFeature(
   if (layer.kind !== "zcta" && !states.some((state) => state.fips === stateFips)) return null;
   const label = layer.kind === "zcta"
     ? `ZIP-linked area ${geoid}`
-    : String(attributes.NAME ?? attributes.BASENAME ?? layer.label);
+    : repairPublicDataText(String(attributes.NAME ?? attributes.BASENAME ?? layer.label));
   const context = layer.kind === "zcta"
     ? "Census ZCTA · not a USPS delivery route"
     : `${stateName(states, stateFips)} · ${layer.label} GEOID ${geoid}`;
@@ -224,6 +347,10 @@ function suggestionFromFeature(
     context,
     geoid,
     stateFips,
+    identifiers: identifiersForGeography(layer.kind, geoid, stateFips),
+    dataAvailability: availabilityForGeography(layer.kind),
+    source: TIGERWEB_CURRENT_SOURCE,
+    profileSource: null,
   };
 }
 
@@ -231,14 +358,24 @@ export async function searchNationalGeographies({
   term,
   states,
   counties,
+  committedSource = COMMITTED_GEOGRAPHY_SOURCE_FALLBACK,
+  committedIndicatorSource = COMMITTED_INDICATOR_SOURCE_FALLBACK,
   fetcher = fetch as CensusFetch,
 }: {
   term: string;
   states: SearchState[];
   counties: SearchCounty[];
+  committedSource?: GeographySourceReference;
+  committedIndicatorSource?: GeographySourceReference;
   fetcher?: CensusFetch;
 }): Promise<NationalGeographySearchResult> {
-  const local = searchCommittedGeographies(term, states, counties);
+  const local = searchCommittedGeographies(
+    term,
+    states,
+    counties,
+    committedSource,
+    committedIndicatorSource,
+  );
   const plans = remoteLayers.flatMap((layer) => {
     const where = remoteWhereForLayer(layer, term, states);
     return where ? [{ layer, where }] : [];
@@ -258,6 +395,11 @@ export async function searchNationalGeographies({
   });
   const combined = [...local, ...remote]
     .filter((result, index, all) => all.findIndex((candidate) => candidate.id === result.id) === index)
+    .sort((left, right) => (
+      suggestionRank(left, term, states) - suggestionRank(right, term, states)
+      || left.label.localeCompare(right.label)
+      || left.geoid.localeCompare(right.geoid)
+    ))
     .slice(0, 20);
   const remoteUnavailable = plans.length > 0
     && settled.every((result) => result.status === "rejected");

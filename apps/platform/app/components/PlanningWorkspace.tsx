@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Check, Plus, ShieldCheck } from "@phosphor-icons/react";
 import { MAX_PLANNING_DRAFT_ITEMS, restorePlanningDraft } from "../saved-view";
 import { conditionMetrics, indicatorValue, planningBarrierMetrics } from "../lib/metrics";
+import { profileEstimateLabel, type ProfileProvenance } from "../lib/profile-evidence";
 import type { BenchmarkProfile, GeographyProfile, MetricDefinition } from "../lib/types";
 
 type PlanningSignal = {
@@ -24,9 +25,11 @@ function benchmarkValue(benchmark: BenchmarkProfile, metric: MetricDefinition) {
 
 export function PlanningWorkspace({
   profile,
+  provenance,
   nationalBenchmark,
 }: {
   profile: GeographyProfile | null;
+  provenance: ProfileProvenance | null;
   nationalBenchmark: BenchmarkProfile;
 }) {
   const [draft, setDraft] = useState<string[]>([]);
@@ -87,7 +90,7 @@ export function PlanningWorkspace({
       {!profile ? (
         <div className="planning-empty">
           <strong>Select a geography to generate an evidence shortlist.</strong>
-          <p>CB-CAP will separate published model-based estimates, comparisons, questions, actions, and measures.</p>
+          <p>CB-CAP will separate source-linked estimates, derived summaries, comparisons, questions, actions, and measures.</p>
         </div>
       ) : profile.sourceStatus === "not-available" ? (
         <div className="planning-empty">
@@ -108,7 +111,7 @@ export function PlanningWorkspace({
             return (
               <div className="evidence-matrix__row" role="row" key={signal.id}>
                 <div role="cell"><strong>{signal.metric.shortLabel}</strong><small>{signal.metric.group === "condition" ? "Health priority" : "Barrier"}</small></div>
-                <div role="cell"><strong>{signal.value.toFixed(1)}%</strong><small>Published model-based estimate · {signal.difference === null ? "No national comparison" : `${signal.difference >= 0 ? "+" : ""}${signal.difference.toFixed(1)} points vs national`}</small></div>
+                <div role="cell"><strong>{signal.value.toFixed(1)}%</strong><small>{profileEstimateLabel(provenance)} · {signal.difference === null ? "No national comparison" : `${signal.difference >= 0 ? "+" : ""}${signal.difference.toFixed(1)} points vs national county benchmark`}</small></div>
                 <p role="cell">{signal.question}</p>
                 <div role="cell"><p>{signal.action}</p><small>Measure: {signal.measure}</small></div>
                 <div role="cell"><button type="button" className={selected ? "is-selected" : ""} aria-pressed={selected} onClick={() => toggle(signal.id)}>{selected ? <Check size={16} aria-hidden="true" /> : <Plus size={16} aria-hidden="true" />}<span className="sr-only">{selected ? "Remove" : "Add"} {signal.metric.shortLabel} {selected ? "from" : "to"} the {profile.name} planning draft</span></button></div>
@@ -117,7 +120,7 @@ export function PlanningWorkspace({
           })}
         </div>
       )}
-      <div className="planning-sequence" aria-label="CHA and CHIP support sequence">
+      <div className="planning-sequence" role="list" aria-label="CHA and CHIP support sequence">
         {[
           ["Signals", "See the pattern and its source."],
           ["Community context", "Add lived experience and local evidence."],
@@ -125,10 +128,10 @@ export function PlanningWorkspace({
           ["Actions", "Name the owner, pathway, and resources."],
           ["Measures", "Track progress and revisit assumptions."],
         ].map(([title, copy], index) => (
-          <div key={title}><span>{String(index + 1).padStart(2, "0")}</span><strong>{title}</strong><p>{copy}</p></div>
+          <div role="listitem" key={title}><span>{String(index + 1).padStart(2, "0")}</span><strong>{title}</strong><p>{copy}</p></div>
         ))}
       </div>
-      <p className="panel-source">Displayed measures follow a fixed published order and are not a priority ranking. CB-CAP supports CHA/CHIP evidence and workflow; it does not replace community participation, health-department governance, or official priority-setting.</p>
+      <p className="panel-source">Evidence basis: {profileEstimateLabel(provenance)}. Displayed measures follow a fixed source order and are not a priority ranking. CB-CAP supports CHA/CHIP evidence and workflow; it does not replace community participation, health-department governance, or official priority-setting.</p>
     </section>
   );
 }

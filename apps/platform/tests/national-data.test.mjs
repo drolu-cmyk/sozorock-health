@@ -42,7 +42,10 @@ test("uses current Census geometry for every county data record", async () => {
     new Set(boundaries.counties.map((feature) => feature.id)),
     new Set(counties.map((county) => county.fips)),
   );
-  assert.equal(createHash("sha256").update(boundaryRaw).digest("hex"), manifest.sha256);
+  assert.equal(
+    createHash("sha256").update(boundaryRaw).digest("hex"),
+    manifest.sha256,
+  );
   for (const fips of ["02063", "02066", "09110", "09120", "09130", "09140", "09150", "09160", "09170", "09180", "09190"]) {
     assert.ok(boundaries.counties.some((feature) => feature.id === fips), `Missing current boundary ${fips}`);
   }
@@ -96,7 +99,10 @@ test("keeps estimates, intervals, percentiles, and coverage within valid ranges"
 
 test("records reproducible source lineage and the exact snapshot hash", async () => {
   const { raw, manifest } = await fixture();
-  assert.equal(createHash("sha256").update(raw).digest("hex"), manifest.quality.sha256);
+  assert.equal(
+    createHash("sha256").update(raw).digest("hex"),
+    manifest.quality.sha256,
+  );
   assert.match(manifest.geography.source, /Census Bureau TIGERweb/);
   assert.match(manifest.indicators.source, /CDC PLACES/);
   assert.match(manifest.demonstrationIndex.boundary, /Not a government designation/);

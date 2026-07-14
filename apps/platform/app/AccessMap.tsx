@@ -55,7 +55,7 @@ const MAP_HEIGHT = 610;
 const HIT_SCALE = 2;
 
 const layerLabels: Record<LayerKey, string> = {
-  planningPressure: "Planning pressure",
+  planningPressure: "Planning attention",
   chronicPercentile: "Chronic-condition pressure",
   barrierPercentile: "Barrier pressure",
   preventionOpportunityPercentile: "Prevention opportunity",
@@ -384,7 +384,7 @@ export default function AccessMap({
         United States county map showing {layerLabels[layer]}. Use geography search or the county table to select a county.
       </canvas>
       <p id="county-map-description" className="sr-only">{mapDescription}</p>
-      <div className="map-legend" aria-label={`${layerLabels[layer]} map legend`}>
+      <div className="map-legend" role="group" aria-label={`${layerLabels[layer]} map legend`}>
         <strong>{layerLabels[layer]}</strong>
         <div>
           {availableValues.length ? legendRanges.map((range, index) => (

@@ -2,7 +2,7 @@
 
 ## Purpose
 
-SozoRock Health is designed as national access infrastructure, beginning from New York State relationships but not limited to any state, county, or pilot cohort. The platform is not a clinical service and does not replace a provider's professional responsibilities. It enables better pathways into licensed care.
+SozoRock Health is designed as national non-clinical health, workforce-readiness, and systems infrastructure, beginning from New York State relationships but not limited to any state, county, or pilot cohort. The work strengthens rural and underserved health access, chronic-disease mitigation, digital navigation, AI readiness, public-sector modernization, cybersecurity readiness, and interdisciplinary workforce development. It is not a clinical service and does not replace a provider's professional responsibilities.
 
 ## Rural Equity Blueprint Series, Volume 1: Access Day
 
@@ -25,9 +25,9 @@ SozoRock Health is designed as national access infrastructure, beginning from Ne
 
 | Framework principle | CB-CAP requirement |
 | --- | --- |
-| Move from reactive reporting to foresight | Show trend changes, access-friction signals, and resource-gap indicators, with forecast features governed by explicit controls. |
+| Move from reactive reporting to foresight | Show release-to-release changes, access-friction signals, resource-gap questions, and bounded scenario ranges with transparent assumptions and controls. |
 | Make evidence actionable | Every visualization supports filters, a plain-language interpretation, and a permitted export or downloadable report. |
-| Preserve public trust | CB-CAP operates on aggregate, de-identified events with minimum-cell thresholds and role-based access. |
+| Preserve public trust | The public preview uses source-cited aggregate estimates and contains no resident records or protected health information. Any future governed local feeds require approved de-identification, minimum-cell thresholds, and role-based access before activation. |
 | Enable local ownership without fragmentation | Internal SozoRock Health operators can view national patterns; interested counties receive scoped access only after approval and activation. |
 
 ## Launch measurement model

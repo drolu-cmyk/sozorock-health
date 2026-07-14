@@ -16,6 +16,7 @@ import { checkPublicRateLimit } from "../../lib/public-api-guard";
 import { validGeoidForKind } from "../../lib/geography-validation";
 import { cdcProfileSources } from "../../lib/cdc-profile-contract";
 import { lookupCensusGeography, type CensusGeographyLookup } from "../../lib/census-geography";
+import { buildProfileProvenance } from "../../lib/profile-provenance";
 
 export const runtime = "nodejs";
 
@@ -161,21 +162,21 @@ export async function GET(request: NextRequest) {
     source: censusOnlySource
       ? {
           ...censusOnlySource,
-          released: "January 1, 2025 vintage",
+          released: "Current TIGERweb service",
           modeledEstimateNotice: "This geography is verified by the Census Bureau, but no compatible CDC PLACES profile is available in this demonstration.",
         }
       : kind === "place" || kind === "zcta"
       ? {
           label: cdcProfileSources[kind].label,
           url: cdcProfileSources[kind].url,
-          released: "December 4, 2025",
+          released: cdcProfileSources[kind].released,
           modeledEstimateNotice: "CDC PLACES values are model-based population estimates, not diagnoses or counts of individual people.",
         }
       : kind === "locality"
         ? {
             label: "U.S. Census Bureau TIGERweb geography",
             url: "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer",
-            released: "January 1, 2025 vintage",
+            released: "Current TIGERweb service",
             modeledEstimateNotice: "This searchable geography has no compatible CDC PLACES profile in this demonstration.",
           }
         : {
@@ -184,6 +185,12 @@ export async function GET(request: NextRequest) {
             released: sourceManifest.indicators.released,
             modeledEstimateNotice: sourceManifest.indicators.modeledEstimateNotice,
           },
+    provenance: buildProfileProvenance({
+      kind,
+      profile,
+      manifest: sourceManifest,
+      censusSourceUrl: verifiedCensus?.status === "found" ? verifiedCensus.sourceUrl : null,
+    }),
   };
   return NextResponse.json(response, {
     headers: { "Cache-Control": "public, s-maxage=86400, stale-while-revalidate=604800" },

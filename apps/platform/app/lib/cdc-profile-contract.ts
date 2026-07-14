@@ -5,11 +5,13 @@ export const cdcProfileSources = {
     id: "vgc8-iyc4",
     label: "CDC PLACES: Place Data (GIS Friendly Format), 2025 release",
     url: "https://data.cdc.gov/d/vgc8-iyc4",
+    released: "December 4, 2025",
   },
   zcta: {
     id: "kee5-23sr",
     label: "CDC PLACES: ZCTA Data (GIS Friendly Format), 2025 release",
     url: "https://data.cdc.gov/d/kee5-23sr",
+    released: "December 4, 2025",
   },
 } as const;
 

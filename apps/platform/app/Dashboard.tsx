@@ -28,6 +28,7 @@ import {
   planningBarrierMetrics,
 } from "./lib/metrics";
 import { inflateCountyMap } from "./lib/compact-counties";
+import { profileEvidenceLabel, profileEvidenceMethod } from "./lib/profile-evidence";
 import type {
   CountyMapPayload,
   DashboardResponse,
@@ -44,19 +45,17 @@ const AccessMap = dynamic(() => import("./AccessMap"), {
 });
 
 const navigation = [
-  ["Overview", "overview"],
-  ["Geography", "geography"],
-  ["Health priorities", "health-priorities"],
-  ["Trends", "trends"],
-  ["CHA / CHIP", "cha-chip"],
+  ["National view", "overview"],
+  ["Place profile", "geography"],
+  ["Barriers & priorities", "health-priorities"],
+  ["CHA / CHIP workspace", "cha-chip"],
   ["Scenarios", "scenarios"],
-  ["AI & workflow", "intelligence"],
-  ["Reports", "reports"],
-  ["Methods", "methods"],
+  ["Briefs & exports", "intelligence"],
+  ["Data & methods", "methods"],
 ] as const;
 
 const mapLayers: { value: LayerKey; label: string; description: string }[] = [
-  { value: "planningPressure", label: "Planning pressure", description: "CB-CAP demonstration index" },
+  { value: "planningPressure", label: "Planning attention", description: "CB-CAP demonstration index" },
   { value: "chronicPercentile", label: "Chronic-condition pressure", description: "County percentile" },
   { value: "barrierPercentile", label: "Barrier pressure", description: "County percentile" },
   { value: "preventionOpportunityPercentile", label: "Prevention opportunity", description: "County percentile" },
@@ -295,6 +294,7 @@ export default function Dashboard({ initialData: data }: { initialData: Dashboar
   };
 
   const profile = profileResponse?.profile ?? null;
+  const profileProvenance = profileResponse?.provenance ?? null;
   const stateBenchmark = profile?.kind === "state" ? null : profileResponse?.stateBenchmark ?? null;
   const filteredCounties = useMemo(() => {
     if (!countyRecords) return [];
@@ -368,7 +368,7 @@ export default function Dashboard({ initialData: data }: { initialData: Dashboar
     ]);
     const header = [
       "County FIPS", "State", "State code", "County", "Population", "Data coverage (%)",
-      "CB-CAP planning pressure (percentile)", "Chronic-condition pressure (percentile)",
+      "CB-CAP planning attention (percentile)", "Chronic-condition pressure (percentile)",
       "Barrier pressure (percentile)", "Prevention opportunity (percentile)",
       "Diagnosed diabetes (%)", "High blood pressure (%)", "Adults without insurance (%)",
       "Lack of reliable transportation (%)", "CDC PLACES release",
@@ -389,7 +389,7 @@ export default function Dashboard({ initialData: data }: { initialData: Dashboar
 
   return (
     <div className="cbcap-app">
-      <a className="skip-link" href="#main-content">Skip to county intelligence</a>
+      <a className="skip-link" href="#main-content">Skip to national systems intelligence</a>
       <header className="institutional-header">
         <BrandLockup priority />
         <div className="product-identity"><strong>CB-CAP</strong><span>County-Based Community Access Platform</span></div>
@@ -400,57 +400,40 @@ export default function Dashboard({ initialData: data }: { initialData: Dashboar
         <a className="foundation-link" href="https://www.sozorockfoundation.org" target="_blank" rel="noreferrer">The SozoRock Foundation, Inc.</a>
       </nav>
       <main id="main-content">
-        <section className="overview-hero" id="overview">
-          <div className="overview-hero__copy">
-            <span>County systems intelligence</span>
-            <h1>See where health priorities, pathway barriers, and planning choices meet.</h1>
-            <p>Explore public estimates and coverage gaps across all 3,144 U.S. county equivalents, then move from evidence to Health Equity Hub planning, Health Access Day readiness, CHA/CHIP evidence and planning questions, workforce questions, and accountable action.</p>
+        <section className="decision-room" id="overview" aria-labelledby="overview-heading">
+          <div className="decision-room__intro">
+            <span>National systems view · public demonstration</span>
+            <h1 id="overview-heading">See the pattern. Test a response. Build a fundable plan.</h1>
+            <p>Use nationwide public estimates to frame local questions, compare barriers and health priorities, and move into Health Equity Hub, Health Access Day, workforce, and CHA/CHIP planning.</p>
           </div>
-          <div className="overview-hero__actions">
+          <div className="decision-room__actions" role="group" aria-label="Dashboard actions">
+            <a href={profile ? "#intelligence" : "#geography"}>{profile ? "Build a stakeholder brief" : "Choose a place to build a brief"} <ArrowDown size={16} aria-hidden="true" /></a>
             <button type="button" onClick={() => void exportCsv()}><FileCsv size={18} aria-hidden="true" />Download county data</button>
+            <button type="button" onClick={() => void copyView()}><Copy size={18} aria-hidden="true" />Copy this view</button>
             <button type="button" onClick={() => window.print()}><Printer size={18} aria-hidden="true" />Print / save PDF</button>
-            <button type="button" onClick={() => void copyView()}><Copy size={18} aria-hidden="true" />Copy view</button>
+          </div>
+          <div className="evidence-ledger" role="list" aria-label="Evidence and capability status">
+            <div role="listitem" data-status="current"><span>Current evidence</span><strong>Census geography + CDC PLACES</strong><small>Nationwide boundaries and modeled public estimates</small></div>
+            <div role="listitem" data-status="derived"><span>Derived planning view</span><strong>Benchmarks + planning attention</strong><small>Transparent calculations, not official designations</small></div>
+            <div role="listitem" data-status="demonstration"><span>Demonstration capability</span><strong>AI-assisted briefing with human review</strong><small>Source-linked drafts and scenario ranges</small></div>
+            <div role="listitem" data-status="planned"><span>Planned governed feeds</span><strong>Local, hub + workflow data</strong><small>Not connected in this public demonstration</small></div>
           </div>
         </section>
         <div className="truth-banner">
           <Info size={18} aria-hidden="true" />
-          <p><strong>Public-data demonstration.</strong> Health estimates are modeled by CDC PLACES. The CB-CAP planning index and scenarios demonstrate planning capability; they are not government designations, clinical risk scores, or predictions of individual health outcomes.</p>
+          <p><strong>Public estimates guide questions—not diagnoses, rankings, or final county priorities.</strong> CDC PLACES measures are modeled estimates. CB-CAP planning views and scenarios demonstrate capability and require local evidence, community input, and accountable human review.</p>
           <a href="#methods">Read methods</a>
         </div>
         {toast && <div className="toast" role="status"><span>{toast}</span><button type="button" onClick={() => setToast("")} aria-label="Dismiss message">×</button></div>}
-        <section className="metric-ribbon" aria-label="Nationwide data coverage">
-          <article><span>County equivalents</span><strong>{number.format(data.coverage.countyCount)}</strong><small>50 states + D.C.</small></article>
-          <article><span>CDC PLACES profiles</span><strong>{number.format(availableCounties)}</strong><small>{number.format(data.sources.quality.planningIndexAvailable)} support the composite planning view</small></article>
-          <article><span>Population represented</span><strong>{compact.format(totalPopulation)}</strong><small>CDC source population</small></article>
-          <article><span>Public-data coverage</span><strong>{publicDataCoverage === 100 ? "100%" : `${publicDataCoverage.toFixed(2)}%`}</strong><small>county profile availability</small></article>
-          <article className="metric-ribbon__source"><span>Latest source release</span><strong>2025</strong><small>CDC PLACES · Dec. 4, 2025</small></article>
-        </section>
         <section className="geography-workspace" id="geography" aria-labelledby="geography-heading">
-          <header className="workspace-heading">
-            <div><span>Geography</span><h2 id="geography-heading">Start with a place. Keep the national picture.</h2></div>
-            <p>Search states, counties, cities and towns, Census places, ZIP-linked areas, FIPS codes, and GEOIDs. Missing measures remain missing—not zero.</p>
+          <header className="workspace-heading workspace-heading--command">
+            <div><span>Start with geography</span><h2 id="geography-heading">Choose a place or scan the country.</h2></div>
+            <p>Search every state, county equivalent, city or town, Census place, and ZIP-linked area by name, ZIP, FIPS code, or GEOID. Missing measures stay visible as missing—not zero.</p>
           </header>
           <div className="control-deck">
             <GeographySearch onSelect={(suggestion) => void loadProfile(suggestion)} />
             <label className="control-deck__select"><span>State view</span><select value={selectedState} onChange={(event) => selectState(event.target.value)}><option value="">All states + D.C.</option>{data.states.map((state) => <option key={state.fips} value={state.fips}>{state.name} ({state.countyCount})</option>)}</select><small>{selectedStateSummary ? `${selectedStateSummary.countyCount} county equivalents` : "Nationwide county map"}</small></label>
             <label className="control-deck__select"><span>Map layer</span><select value={layer} onChange={(event) => setLayer(event.target.value as LayerKey)}>{mapLayers.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select><small>{mapLayers.find((option) => option.value === layer)?.description}</small></label>
-          </div>
-          <div className="filter-deck" aria-label="County planning filters">
-            <label><span>Barrier signal</span><select value={barrierFilter} onChange={(event) => { setBarrierFilter(event.target.value as BarrierFilter); setPage(1); }}><option value="">All barrier profiles</option><option value="transportation">Transportation above national benchmark</option><option value="uninsured">Uninsured above national benchmark</option></select></label>
-            <label><span>Planning pressure</span><select value={pressureBand} onChange={(event) => { setPressureBand(event.target.value as PressureBand); setPage(1); }}><option value="">All percentiles</option>{pressureBands.map((band) => <option key={band.value} value={band.value}>{band.label}</option>)}</select></label>
-            <label><span>Evidence release</span><select value="2025" disabled aria-describedby="evidence-release-note"><option value="2025">CDC PLACES 2025</option></select><small id="evidence-release-note">Historical release comparisons appear after selecting a county.</small></label>
-            <button type="button" onClick={clearAllFilters}>Clear all</button>
-          </div>
-          <div className="active-filters" aria-label="Active filters" aria-live="polite">
-            <strong>{countyStatus === "ready" ? `${number.format(filteredCounties.length)} counties in view` : "Preparing counties in view"}</strong>
-            <div>
-              {selectedStateSummary && <button type="button" onClick={() => selectState("")} aria-label={`${selectedStateSummary.name} — remove filter`}>{selectedStateSummary.name}<span aria-hidden="true">×</span></button>}
-              {layer !== "planningPressure" && <button type="button" onClick={() => setLayer("planningPressure")} aria-label={`${mapLayers.find((option) => option.value === layer)?.label} — reset map layer`}>{mapLayers.find((option) => option.value === layer)?.label}<span aria-hidden="true">×</span></button>}
-              {barrierFilter && <button type="button" onClick={() => setBarrierFilter("")} aria-label={`${barrierFilter === "transportation" ? "Transportation above benchmark" : "Uninsured above benchmark"} — remove filter`}>{barrierFilter === "transportation" ? "Transportation above benchmark" : "Uninsured above benchmark"}<span aria-hidden="true">×</span></button>}
-              {pressureBand && <button type="button" onClick={() => setPressureBand("")} aria-label={`${pressureBands.find((band) => band.value === pressureBand)?.label} — remove filter`}>{pressureBands.find((band) => band.value === pressureBand)?.label}<span aria-hidden="true">×</span></button>}
-              {countyQuery && <button type="button" onClick={() => setCountyQuery("")} aria-label={`County search: ${countyQuery} — remove filter`}>County search: {countyQuery}<span aria-hidden="true">×</span></button>}
-              {!selectedStateSummary && layer === "planningPressure" && !barrierFilter && !pressureBand && !countyQuery && <span>Nationwide · no filters applied</span>}
-            </div>
           </div>
           {profileStatus === "loading" && <div className="profile-loading" role="status">Loading the selected geography profile…</div>}
           {profileStatus === "error" && <div className="profile-error" role="alert">The selected profile could not be loaded. Try another geography.</div>}
@@ -464,45 +447,79 @@ export default function Dashboard({ initialData: data }: { initialData: Dashboar
                 <div className="map-skeleton" role="status"><span />Preparing the national county map…</div>
               )}
               <p className="map-note"><ShieldCheck size={15} aria-hidden="true" />Every county equivalent can be selected. Use search and the county table as accessible alternatives to the map.</p>
-              <p className="panel-source"><a href={data.sources.geography.url} target="_blank" rel="noreferrer">{data.sources.geography.source}</a> · {data.sources.geography.vintage} boundaries. <a href={data.sources.indicators.url} target="_blank" rel="noreferrer">{data.sources.indicators.source}</a> · released {data.sources.indicators.released}. Planning-pressure layer status: {data.sources.demonstrationIndex.status}.</p>
+              <p className="panel-source"><a href={data.sources.geography.url} target="_blank" rel="noreferrer">{data.sources.geography.source}</a> · {data.sources.geography.vintage} boundaries. <a href={data.sources.indicators.url} target="_blank" rel="noreferrer">{data.sources.indicators.source}</a> · released {data.sources.indicators.released}. Planning-attention layer status: {data.sources.demonstrationIndex.status}.</p>
             </div>
             <aside ref={portraitRef} className="system-portrait" aria-live="polite" tabIndex={-1}>
               {profile ? (
                 <>
-                  <header><span>{profileKindLabel(profile.kind)} system portrait · {profile.sourceStatus === "available" ? "Public-data view" : "Geography-only view"}</span><h2>{profile.name}</h2><p>{profile.context}</p></header>
+                  <header><span>{profileKindLabel(profile.kind)} place profile · {profileEvidenceLabel(profileProvenance)}</span><h2>{profile.name}</h2><p>{profile.context}</p></header>
                   {profile.sourceStatus === "not-available" ? (
                     <div className="portrait-no-data"><WarningCircle size={25} aria-hidden="true" /><strong>No CDC PLACES profile is available.</strong><p>This geography is valid and searchable. CB-CAP will not turn missing coverage into a zero score.</p></div>
                   ) : (
                     <>
-                      <div className="portrait-score"><span>Planning pressure</span><strong>{formatOrdinal(profile.planning.planningPressure)}</strong><p>{planningComparator(profile.kind)}</p></div>
+                      <div className="portrait-score"><span>Planning attention</span><strong>{formatOrdinal(profile.planning.planningPressure)}</strong><p>{planningComparator(profile.kind)}</p></div>
                       <dl className="portrait-facts">
                         <div><dt>Population</dt><dd>{profile.population === null ? "Not available" : number.format(profile.population)}</dd></div>
                         <div><dt>Measure coverage</dt><dd>{profile.dataCoverage}%</dd></div>
                         <div><dt>Displayed condition comparison</dt><dd>{displayedCondition ? `${displayedCondition.metric.shortLabel} · ${displayedCondition.value.toFixed(1)}% · ${Math.abs(displayedCondition.gap).toFixed(1)} points ${displayedCondition.gap >= 0 ? "above" : "below"} national` : "Not available"}</dd></div>
                         <div><dt>Displayed pathway-barrier comparison</dt><dd>{displayedBarrier ? `${displayedBarrier.metric.shortLabel} · ${displayedBarrier.value.toFixed(1)}% · ${Math.abs(displayedBarrier.gap).toFixed(1)} points ${displayedBarrier.gap >= 0 ? "above" : "below"} national` : "Not available"}</dd></div>
                       </dl>
-                      <a className="portrait-action" href="#cha-chip">Open planning workspace <ArrowDown size={15} aria-hidden="true" /></a>
+                      <div className="portrait-next-actions">
+                        <a className="portrait-action" href="#cha-chip">Open CHA / CHIP workspace <ArrowDown size={15} aria-hidden="true" /></a>
+                        <a className="portrait-action portrait-action--quiet" href="#intelligence">Draft stakeholder brief <ArrowDown size={15} aria-hidden="true" /></a>
+                      </div>
                     </>
                   )}
                   <footer>
-                    Source profile: <a href={profileResponse?.source.url} target="_blank" rel="noreferrer">{profileResponse?.source.label}</a> · release {profileResponse?.source.released}. {profileResponse?.source.modeledEstimateNotice}
+                    Evidence method: {profileEvidenceMethod(profileProvenance)} {profileProvenance?.indicators && <><a href={profileProvenance.indicators.url} target="_blank" rel="noreferrer">Open source</a> · {profileProvenance.indicators.vintage}. </>}{profileProvenance?.limitations[0]}
                   </footer>
                 </>
               ) : (
                 <>
-                  <header><span>Nationwide view</span><h2>One country. 3,144 local systems.</h2><p>Select any county, state, Census place, or ZIP-linked area to build a local system portrait.</p></header>
+                  <header><span>Nationwide evidence frame</span><h2>One country. 3,144 local systems.</h2><p>Select any state, county equivalent, city, town, Census place, or ZIP-linked area to build a place profile without losing the national context.</p></header>
+                  <dl className="national-facts">
+                    <div><dt>Geography coverage</dt><dd>{number.format(data.coverage.countyCount)} county equivalents</dd></div>
+                    <div><dt>Public profiles</dt><dd>{number.format(availableCounties)} CDC PLACES profiles</dd></div>
+                    <div><dt>Latest release</dt><dd>2025 · modeled estimates</dd></div>
+                    <div><dt>Missing data</dt><dd>Shown as unavailable, never zero</dd></div>
+                  </dl>
                   <div className="national-capabilities">
-                    {["Health-priority patterns", "Access and social barriers", "Peer and national benchmarks", "Health Equity Hub scenarios", "CHA / CHIP evidence workflow", "Governed AI briefs"].map((item) => <div key={item}><CheckCircle size={17} weight="fill" aria-hidden="true" />{item}</div>)}
+                    {["Compare health priorities and practical barriers", "Test Health Equity Hub and workforce scenarios", "Structure CHA / CHIP evidence questions", "Prepare a source-linked planning brief"].map((item) => <div key={item}><CheckCircle size={17} weight="fill" aria-hidden="true" />{item}</div>)}
                   </div>
-                  <a className="portrait-action" href="#counties">Browse all counties <ArrowDown size={15} aria-hidden="true" /></a>
+                  <p className="human-decision-note"><strong>AI drafts. People decide.</strong><span>Any future AI-assisted output remains bounded by sources, governance, and human review.</span></p>
+                  <a className="portrait-action" href="#counties">Browse all county equivalents <ArrowDown size={15} aria-hidden="true" /></a>
                 </>
               )}
             </aside>
           </div>
+          <div className="filter-deck" role="group" aria-label="County planning filters">
+            <label><span>Barrier signal</span><select value={barrierFilter} onChange={(event) => { setBarrierFilter(event.target.value as BarrierFilter); setPage(1); }}><option value="">All barrier profiles</option><option value="transportation">Transportation above national benchmark</option><option value="uninsured">Uninsured above national benchmark</option></select></label>
+            <label><span>Planning attention</span><select value={pressureBand} onChange={(event) => { setPressureBand(event.target.value as PressureBand); setPage(1); }}><option value="">All percentiles</option>{pressureBands.map((band) => <option key={band.value} value={band.value}>{band.label}</option>)}</select></label>
+            <label><span>Evidence release</span><select value="2025" disabled aria-describedby="evidence-release-note"><option value="2025">CDC PLACES 2025</option></select><small id="evidence-release-note">Historical release comparisons appear after selecting a county.</small></label>
+            <button type="button" onClick={clearAllFilters}>Clear all</button>
+          </div>
+          <div className="active-filters" role="region" aria-label="Active filters" aria-live="polite">
+            <strong>{countyStatus === "ready" ? `${number.format(filteredCounties.length)} counties in view` : "Preparing counties in view"}</strong>
+            <div>
+              {selectedStateSummary && <button type="button" onClick={() => selectState("")} aria-label={`${selectedStateSummary.name} — remove filter`}>{selectedStateSummary.name}<span aria-hidden="true">×</span></button>}
+              {layer !== "planningPressure" && <button type="button" onClick={() => setLayer("planningPressure")} aria-label={`${mapLayers.find((option) => option.value === layer)?.label} — reset map layer`}>{mapLayers.find((option) => option.value === layer)?.label}<span aria-hidden="true">×</span></button>}
+              {barrierFilter && <button type="button" onClick={() => setBarrierFilter("")} aria-label={`${barrierFilter === "transportation" ? "Transportation above benchmark" : "Uninsured above benchmark"} — remove filter`}>{barrierFilter === "transportation" ? "Transportation above benchmark" : "Uninsured above benchmark"}<span aria-hidden="true">×</span></button>}
+              {pressureBand && <button type="button" onClick={() => setPressureBand("")} aria-label={`${pressureBands.find((band) => band.value === pressureBand)?.label} — remove filter`}>{pressureBands.find((band) => band.value === pressureBand)?.label}<span aria-hidden="true">×</span></button>}
+              {countyQuery && <button type="button" onClick={() => setCountyQuery("")} aria-label={`County search: ${countyQuery} — remove filter`}>County search: {countyQuery}<span aria-hidden="true">×</span></button>}
+              {!selectedStateSummary && layer === "planningPressure" && !barrierFilter && !pressureBand && !countyQuery && <span>Nationwide · no filters applied</span>}
+            </div>
+          </div>
+        </section>
+        <section className="metric-ribbon" aria-label="Nationwide data coverage">
+          <article><span>County equivalents</span><strong>{number.format(data.coverage.countyCount)}</strong><small>50 states + D.C.</small></article>
+          <article><span>CDC PLACES profiles</span><strong>{number.format(availableCounties)}</strong><small>{number.format(data.sources.quality.planningIndexAvailable)} support the composite planning view</small></article>
+          <article><span>Population represented</span><strong>{compact.format(totalPopulation)}</strong><small>CDC source population</small></article>
+          <article><span>Public-data coverage</span><strong>{publicDataCoverage === 100 ? "100%" : `${publicDataCoverage.toFixed(2)}%`}</strong><small>county profile availability</small></article>
+          <article className="metric-ribbon__source"><span>Latest source release</span><strong>2025</strong><small>CDC PLACES · Dec. 4, 2025</small></article>
         </section>
         <section className="analysis-layout" id="health-priorities">
-          <ComparisonBars profile={profile} stateBenchmark={stateBenchmark} nationalBenchmark={data.nationalBenchmark} metrics={conditionMetrics.slice(0, 7)} title="Health-priority pattern" description="Compare chronic-condition estimates for the selected geography with state and national county benchmarks." />
-          <ComparisonBars profile={profile} stateBenchmark={stateBenchmark} nationalBenchmark={data.nationalBenchmark} metrics={planningBarrierMetrics} title="Barriers around the pathway" description="See where practical and social barriers may need to be tested against local experience and resource capacity." />
+          <ComparisonBars profile={profile} stateBenchmark={stateBenchmark} nationalBenchmark={data.nationalBenchmark} metrics={conditionMetrics.slice(0, 7)} title="Health measures in context" description="Compare chronic-condition estimates for the selected geography with state and national county benchmarks." />
+          <ComparisonBars profile={profile} stateBenchmark={stateBenchmark} nationalBenchmark={data.nationalBenchmark} metrics={planningBarrierMetrics} title="Practical barriers that may shape access" description="See where practical and social barriers may need to be tested against local experience and resource capacity." />
         </section>
         <section className="national-patterns">
           <StateRanking states={data.states} selectedState={selectedState} onSelect={selectState} />
@@ -520,20 +537,20 @@ export default function Dashboard({ initialData: data }: { initialData: Dashboar
           </section>
         </section>
         <TrendAnalysis profile={profile} />
-        <PlanningWorkspace profile={profile} nationalBenchmark={data.nationalBenchmark} />
-        <ScenarioPlanner profile={profile} />
-        <IntelligenceBrief profile={profile} nationalBenchmark={data.nationalBenchmark} />
-        <ReportStudio profile={profile} />
+        <PlanningWorkspace profile={profile} provenance={profileProvenance} nationalBenchmark={data.nationalBenchmark} />
+        <ScenarioPlanner profile={profile} provenance={profileProvenance} />
+        <IntelligenceBrief profile={profile} provenance={profileProvenance} nationalBenchmark={data.nationalBenchmark} />
+        <ReportStudio response={profileResponse} />
         <section className="county-browser" id="counties" aria-labelledby="counties-heading">
           <header className="workspace-heading"><div><span>County explorer</span><h2 id="counties-heading">Browse every county equivalent.</h2></div><p>{countyStatus === "ready" ? `${number.format(filteredCounties.length)} geographies match this view. Select a row to update the system portrait and all comparisons.` : "The county explorer loads as this section comes into view."}</p></header>
           <div className="county-browser__controls">
             <label><span>Find county or FIPS</span><input type="search" value={countyQuery} onChange={(event) => { setCountyQuery(event.target.value); setPage(1); }} placeholder="County name or 5-digit FIPS" /></label>
-            <label><span>Sort counties</span><select value={sort} onChange={(event) => { setSort(event.target.value as typeof sort); setPage(1); }}><option value="pressure">Planning pressure</option><option value="population">Population</option><option value="name">County name</option></select></label>
+            <label><span>Sort counties</span><select value={sort} onChange={(event) => { setSort(event.target.value as typeof sort); setPage(1); }}><option value="pressure">Planning attention</option><option value="population">Population</option><option value="name">County name</option></select></label>
             <button type="button" onClick={() => void exportCsv()}><FileCsv size={18} aria-hidden="true" />Export this view</button>
           </div>
           <div className="county-table-wrap" role="region" aria-label="Scrollable county planning table" aria-busy={countyStatus !== "ready"} tabIndex={0}>
             <table>
-              <thead><tr><th scope="col">County</th><th scope="col">Population</th><th scope="col">Planning pressure</th><th scope="col">Chronic pressure</th><th scope="col">Barrier pressure</th><th scope="col">Data coverage</th><th scope="col"><span className="sr-only">Open profile</span></th></tr></thead>
+              <thead><tr><th scope="col">County</th><th scope="col">Population</th><th scope="col">Planning attention</th><th scope="col">Chronic pressure</th><th scope="col">Barrier pressure</th><th scope="col">Data coverage</th><th scope="col"><span className="sr-only">Open profile</span></th></tr></thead>
               <tbody>{tableRows.map((county) => <tr key={county.fips}><td><strong>{county.county}</strong><small>{county.state} · FIPS {county.fips}</small></td><td>{county.population === null ? "Not available" : number.format(county.population)}</td><td>{formatOrdinal(county.planningPressure)}</td><td>{formatOrdinal(county.chronicPercentile)}</td><td>{formatOrdinal(county.barrierPercentile)}</td><td>{county.dataCoverage}%</td><td><button type="button" onClick={() => selectCounty(county)}>View</button></td></tr>)}</tbody>
             </table>
           </div>
@@ -549,7 +566,7 @@ export default function Dashboard({ initialData: data }: { initialData: Dashboar
                 </header>
                 <dl>
                   <div><dt>Population</dt><dd>{county.population === null ? "Not available" : number.format(county.population)}</dd></div>
-                  <div><dt>Planning pressure</dt><dd>{formatOrdinal(county.planningPressure)}</dd></div>
+                  <div><dt>Planning attention</dt><dd>{formatOrdinal(county.planningPressure)}</dd></div>
                   <div><dt>Chronic pressure</dt><dd>{formatOrdinal(county.chronicPercentile)}</dd></div>
                   <div><dt>Barrier pressure</dt><dd>{formatOrdinal(county.barrierPercentile)}</dd></div>
                   <div><dt>Data coverage</dt><dd>{county.dataCoverage}%</dd></div>
@@ -566,7 +583,7 @@ export default function Dashboard({ initialData: data }: { initialData: Dashboar
           <div className="method-grid">
             <article><span>Geography</span><h3>{data.sources.geography.source}</h3><p>{data.sources.geography.coverage}. County boundaries and GEOIDs use the {data.sources.geography.vintage} vintage.</p><a href={data.sources.geography.url} target="_blank" rel="noreferrer">Open Census source</a></article>
             <article><span>Health estimates</span><h3>CDC PLACES 2025</h3><p>{data.sources.indicators.modeledEstimateNotice} Underlying years: {data.sources.indicators.underlyingYears}.</p><a href={data.sources.indicators.url} target="_blank" rel="noreferrer">Open CDC dataset</a></article>
-            <article><span>CB-CAP calculation</span><h3>Demonstration planning pressure</h3><p>{data.sources.demonstrationIndex.formula} County profiles use the national county distribution; state portraits show the median county percentile. Place and ZIP-linked profiles are also compared with the county distribution and are labeled accordingly.</p><strong>{data.sources.demonstrationIndex.boundary}</strong></article>
+            <article><span>CB-CAP calculation</span><h3>Demonstration planning attention</h3><p>{data.sources.demonstrationIndex.formula} County profiles use the national county distribution; state portraits show the median county percentile. Place and ZIP-linked profiles are also compared with the county distribution and are labeled accordingly.</p><strong>{data.sources.demonstrationIndex.boundary}</strong></article>
             <article><span>Quality controls</span><h3>Coverage and lineage</h3><p>{number.format(data.sources.quality.uniqueFips)} unique county FIPS values. {number.format(data.sources.indicators.matchedCountyCount)} matched PLACES profiles; {number.format(data.sources.quality.planningIndexAvailable)} meet the two-component minimum for the composite planning view. Source snapshot hash is recorded for reproducibility.</p><code>{data.sources.quality.sha256.slice(0, 16)}…</code></article>
           </div>
           <details><summary>How CB-CAP handles uncertainty and missing data</summary><div><p>Confidence intervals are preserved for individual PLACES measures and used in scenario ranges. A missing measure remains “Not available.” CB-CAP does not convert missing coverage to zero, and a scenario is disabled when the required population or measure is absent.</p><p>Census ZCTAs approximate ZIP-shaped statistical areas; they are not USPS delivery routes. Places and ZCTAs may cross county boundaries, so the platform does not silently force a one-county relationship.</p></div></details>

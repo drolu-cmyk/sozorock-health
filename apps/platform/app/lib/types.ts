@@ -83,6 +83,30 @@ export type MetricDefinition = {
 
 export type GeographyKind = "state" | "county" | "place" | "locality" | "zcta";
 
+export type GeographyDataAvailability =
+  | "derived-county-summary-available"
+  | "official-modeled-estimates-available"
+  | "official-geography-only"
+  | "checked-on-selection";
+
+export type GeographySourceReference = {
+  agency: string;
+  dataset: string;
+  vintage: string;
+  url: string;
+  method: string;
+  freshness: string;
+  refreshedAt: string | null;
+};
+
+export type GeographyIdentifiers = {
+  geoid: string;
+  stateFips: string;
+  countyFips: string | null;
+  placeFips: string | null;
+  zcta: string | null;
+};
+
 export type GeographySuggestion = {
   id: string;
   kind: GeographyKind;
@@ -90,6 +114,33 @@ export type GeographySuggestion = {
   context: string;
   geoid: string;
   stateFips: string;
+};
+
+export type VerifiedGeographySuggestion = GeographySuggestion & {
+  identifiers: GeographyIdentifiers;
+  dataAvailability: GeographyDataAvailability;
+  source: GeographySourceReference;
+  profileSource: GeographySourceReference | null;
+};
+
+export type GeographySearchResponse = {
+  query: string;
+  results: VerifiedGeographySuggestion[];
+  status: "ready" | "complete" | "partial" | "committed-only" | "unavailable";
+  source: string;
+  partial: boolean;
+  remoteUnavailable: boolean;
+  provenance: {
+    committedStateCountySnapshot: GeographySourceReference;
+    committedIndicatorSnapshot: GeographySourceReference;
+    liveSubcountyLookup: GeographySourceReference;
+    coverage: {
+      statesAndDistrictOfColumbia: number;
+      countyEquivalents: number;
+      subcountyGeographies: "Live authoritative lookup";
+    };
+    limitations: string[];
+  };
 };
 
 export type GeographyProfile = {
@@ -125,6 +176,22 @@ export type ProfileResponse = {
     url: string;
     released: string;
     modeledEstimateNotice: string;
+  };
+  provenance: {
+    evidenceStatus:
+      | "official-source-estimates"
+      | "derived-official-source-estimates"
+      | "official-geography-only";
+    geography: GeographySourceReference;
+    indicators: GeographySourceReference | null;
+    planning: {
+      classification: "demonstration-model";
+      available: boolean;
+      label: string;
+      method: string;
+      boundary: string;
+    };
+    limitations: string[];
   };
 };
 

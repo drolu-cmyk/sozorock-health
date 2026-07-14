@@ -14,11 +14,12 @@ test("ships nationwide search, planning, scenario, AI-governance, and report sur
     readFile(new URL("../app/api/trends/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/components/ReportStudio.tsx", import.meta.url), "utf8"),
   ]);
-  for (const phrase of ["Health Equity Hub planning", "Print / save PDF", "Browse every county equivalent"]) {
+  for (const phrase of ["Health Equity Hub", "Print / save PDF", "Browse all county equivalents"]) {
     assert.ok(dashboard.includes(phrase), `Missing product phrase: ${phrase}`);
   }
   assert.match(planning, /CHA \/ CHIP workspace/);
-  assert.match(intelligence, /Governed AI and automation/);
+  assert.match(intelligence, /AI-assisted briefing with human review/);
+  assert.match(intelligence, /AI drafts\. People decide\./);
   assert.match(geography, /searchNationalGeographies/);
   assert.match(geography, /counties, states/);
   assert.match(nationalSearch, /searchCommittedGeographies/);
@@ -39,9 +40,10 @@ test("ships nationwide search, planning, scenario, AI-governance, and report sur
   assert.match(report, /Open print-ready brief/);
   assert.match(report, /Save this view/);
   assert.match(report, /sourceManifest/);
-  assert.match(report, /cdcProfileSources/);
+  assert.match(report, /response\?\.provenance\.indicators/);
+  assert.match(report, /profileEvidenceLabel/);
   assert.match(report, /Source:<\/strong>/);
-  assert.match(report, /Release:/);
+  assert.match(report, /Vintage or release:/);
   assert.match(dashboard, /className="active-filters"/);
   assert.match(dashboard, /Clear all/);
 });
@@ -53,7 +55,7 @@ test("includes core accessibility structures and explicit missing-data language"
     readFile(new URL("../app/styles.css", import.meta.url), "utf8"),
   ]);
   assert.match(dashboard, /className="skip-link"/);
-  assert.match(dashboard, /Missing measures remain missing—not zero/);
+  assert.match(dashboard, /Missing measures stay visible as missing—not zero/);
   assert.match(dashboard, /role="region"/);
   assert.match(search, /role="combobox"/);
   assert.match(search, /role="listbox"/);
