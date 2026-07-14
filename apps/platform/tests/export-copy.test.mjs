@@ -14,6 +14,10 @@ test("public exports use decision-maker language and the approved legal identity
   assert.doesNotMatch(dashboard, /disclosure-safe|illustrative composite measure|seed data/i);
   assert.match(lockup, /<sup aria-hidden="true">®<\/sup>/);
   assert.match(lockup, /sozorock-wordmark-clean-v2\.png/);
+  assert.match(lockup, /priority=\{priority\}/);
+  assert.match(dashboard, /<BrandLockup priority \/>/);
+  assert.match(dashboard, /<BrandLockup compact \/>/);
+  assert.doesNotMatch(dashboard, /<BrandLockup compact priority/);
 });
 
 test("public application source contains no common UTF-8 mojibake", async () => {

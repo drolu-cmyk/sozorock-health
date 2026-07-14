@@ -391,7 +391,7 @@ export default function Dashboard({ initialData: data }: { initialData: Dashboar
     <div className="cbcap-app">
       <a className="skip-link" href="#main-content">Skip to county intelligence</a>
       <header className="institutional-header">
-        <BrandLockup />
+        <BrandLockup priority />
         <div className="product-identity"><strong>CB-CAP</strong><span>County-Based Community Access Platform</span></div>
         <div className="header-status"><i aria-hidden="true" /><span>Public demonstration</span></div>
       </header>
