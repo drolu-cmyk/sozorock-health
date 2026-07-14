@@ -23,11 +23,19 @@ export function GeographySearch({
   const [partial, setPartial] = useState(false);
   const [retryKey, setRetryKey] = useState(0);
   const [activeIndex, setActiveIndex] = useState(-1);
+  const [committedQuery, setCommittedQuery] = useState<string | null>(null);
   const listboxId = useId();
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const trimmed = query.trim();
+    if (committedQuery === trimmed) {
+      setResults([]);
+      setStatus("idle");
+      setPartial(false);
+      setActiveIndex(-1);
+      return;
+    }
     if (trimmed.length < 2) {
       setResults([]);
       setStatus("idle");
@@ -59,10 +67,11 @@ export function GeographySearch({
       window.clearTimeout(timer);
       controller.abort();
     };
-  }, [query, retryKey]);
+  }, [committedQuery, query, retryKey]);
 
   const choose = (suggestion: GeographySuggestion) => {
     onSelect(suggestion);
+    setCommittedQuery(suggestion.label);
     setQuery(suggestion.label);
     setResults([]);
     setPartial(false);
@@ -71,7 +80,9 @@ export function GeographySearch({
     inputRef.current?.focus();
   };
 
-  const expanded = query.trim().length >= 2 && (status === "loading" || status === "ready" || status === "error");
+  const expanded = committedQuery !== query.trim()
+    && query.trim().length >= 2
+    && (status === "loading" || status === "ready" || status === "error");
 
   return (
     <div className="geo-search">
@@ -90,7 +101,10 @@ export function GeographySearch({
           aria-controls={listboxId}
           aria-expanded={expanded}
           aria-activedescendant={activeIndex >= 0 ? `${listboxId}-${activeIndex}` : undefined}
-          onChange={(event) => setQuery(event.target.value)}
+          onChange={(event) => {
+            setCommittedQuery(null);
+            setQuery(event.target.value);
+          }}
           onKeyDown={(event) => {
             if (event.key === "ArrowDown" && results.length) {
               event.preventDefault();
