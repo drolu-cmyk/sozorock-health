@@ -1,0 +1,38 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "ReadAndReconcileOnlyTheCbcapApp",
+      "Effect": "Allow",
+      "Action": [
+        "amplify:GetApp",
+        "amplify:UpdateApp"
+      ],
+      "Resource": "arn:aws:amplify:us-east-1:791860731989:apps/d307qqji18y8il"
+    },
+    {
+      "Sid": "ReadOnlyTheCbcapMainBranch",
+      "Effect": "Allow",
+      "Action": "amplify:GetBranch",
+      "Resource": "arn:aws:amplify:us-east-1:791860731989:apps/d307qqji18y8il/branches/main"
+    },
+    {
+      "Sid": "ReleaseAndReadOnlyCbcapMainJobs",
+      "Effect": "Allow",
+      "Action": [
+        "amplify:StartJob",
+        "amplify:GetJob"
+      ],
+      "Resource": "arn:aws:amplify:us-east-1:791860731989:apps/d307qqji18y8il/branches/main/jobs/*"
+    },
+    {
+      "Sid": "CreateOrReadOnlyTheExactCbcapDomainAssociation",
+      "Effect": "Allow",
+      "Action": [
+        "amplify:CreateDomainAssociation",
+        "amplify:GetDomainAssociation"
+      ],
+      "Resource": "arn:aws:amplify:us-east-1:791860731989:apps/d307qqji18y8il/domains/cbcap.sozorockfoundation.org"
+    }
+  ]
+}

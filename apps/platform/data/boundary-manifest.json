@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "vintage": "January 1, 2025",
+  "source": "U.S. Census Bureau TIGERweb State and County layers",
+  "sourceUrl": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/State_County/MapServer",
+  "countyCount": 3144,
+  "stateCount": 51,
+  "sha256": "0a811a4460c5804849f5b8c0a84fd4dfa0f26e26ae7e7bca5b66846a1360f6e1"
+}

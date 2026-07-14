@@ -1,0 +1,334 @@
+name: Deploy CB-CAP
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: amplify-d307qqji18y8il-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  deploy:
+    name: Verify, release, and prove the live domain
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    environment: production
+    env:
+      AMPLIFY_BRANCH: main
+      AWS_PAGER: ""
+      CBCAP_APP_ID: d307qqji18y8il
+      CBCAP_DOMAIN: cbcap.sozorockfoundation.org
+      EXPECTED_REPOSITORY: https://github.com/drolu-cmyk/sozorock-health
+      EXPECTED_WAF_ARN: arn:aws:wafv2:us-east-1:791860731989:global/webacl/sozorock-health-cbcap-production/15608475-1d6c-4e58-9888-1cce47be8059
+    steps:
+      - name: Check out the approved production source
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          ref: main
+
+      - name: Use the supported Node.js release
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Run the CB-CAP release gates
+        run: |
+          set -euo pipefail
+          npm ci
+          npm run typecheck --workspace @sozorock/platform
+          npm exec eslint -- apps/platform --max-warnings=0
+          npm run test --workspace @sozorock/platform
+          npm run build:platform
+          npm audit --omit=dev --audit-level=moderate
+
+          # Release gates and dependency lifecycle scripts must not rewrite any
+          # approved source that the deployment steps will subsequently trust.
+          git diff --exit-code
+          test -z "$(git status --porcelain --untracked-files=no)"
+
+          approved_commit=$(git rev-parse HEAD)
+          origin_main=$(git ls-remote --exit-code "$EXPECTED_REPOSITORY.git" refs/heads/main | awk '{print $1}')
+          test -n "$origin_main"
+          test "$origin_main" = "$approved_commit"
+
+      - name: Assume the production deployment role
+        uses: aws-actions/configure-aws-credentials@7474bc4690e29a8392af63c5b98e7449536d5c3a # v4
+        with:
+          role-to-assume: ${{ vars.CBCAP_AWS_DEPLOY_ROLE_ARN }}
+          role-session-name: cbcap-production-release
+          allowed-account-ids: "791860731989"
+          aws-region: ${{ vars.AWS_REGION || 'us-east-1' }}
+
+      - name: Verify the deployment target and reconcile its build definition
+        run: |
+          set -euo pipefail
+
+          app_json=$(aws amplify get-app --app-id "$CBCAP_APP_ID" --output json)
+          repository=$(jq -r '.app.repository // ""' <<<"$app_json")
+          case "$repository" in
+            "$EXPECTED_REPOSITORY"|"$EXPECTED_REPOSITORY.git") ;;
+            *)
+              echo "Refusing to deploy: app $CBCAP_APP_ID is connected to an unexpected repository."
+              exit 1
+              ;;
+          esac
+
+          waf_arn=$(jq -r '.app.wafConfiguration.webAclArn // ""' <<<"$app_json")
+          waf_status=$(jq -r '.app.wafConfiguration.wafStatus // ""' <<<"$app_json")
+          test "$waf_arn" = "$EXPECTED_WAF_ARN"
+          test "$waf_status" = "ASSOCIATION_SUCCESS"
+
+          branch_name=$(aws amplify get-branch \
+            --app-id "$CBCAP_APP_ID" \
+            --branch-name "$AMPLIFY_BRANCH" \
+            --query 'branch.branchName' \
+            --output text)
+          test "$branch_name" = "$AMPLIFY_BRANCH"
+
+          desired_build_spec=$(git show HEAD:infrastructure/amplify/platform.yml)
+          current_build_spec=$(jq -r '.app.buildSpec // ""' <<<"$app_json")
+          desired_sha=$(printf '%s' "$desired_build_spec" | sha256sum | cut -d' ' -f1)
+          current_sha=$(printf '%s' "$current_build_spec" | sha256sum | cut -d' ' -f1)
+
+          if [[ "$desired_sha" != "$current_sha" ]]; then
+            aws amplify update-app \
+              --app-id "$CBCAP_APP_ID" \
+              --build-spec "$desired_build_spec" \
+              >/dev/null
+          fi
+
+      - name: Release the main branch and wait for a verified build
+        run: |
+          set -euo pipefail
+
+          approved_commit=$(git rev-parse HEAD)
+          origin_main_before=$(git ls-remote --exit-code "$EXPECTED_REPOSITORY.git" refs/heads/main | awk '{print $1}')
+          test -n "$origin_main_before"
+          test "$origin_main_before" = "$approved_commit"
+
+          job_id=$(aws amplify start-job \
+            --app-id "$CBCAP_APP_ID" \
+            --branch-name "$AMPLIFY_BRANCH" \
+            --job-type RELEASE \
+            --query 'jobSummary.jobId' \
+            --output text)
+
+          for attempt in $(seq 1 180); do
+            job_json=$(aws amplify get-job \
+              --app-id "$CBCAP_APP_ID" \
+              --branch-name "$AMPLIFY_BRANCH" \
+              --job-id "$job_id" \
+              --output json)
+            status=$(jq -r '.job.summary.status' <<<"$job_json")
+            case "$status" in
+              SUCCEED) break ;;
+              FAILED|CANCELLED)
+                echo "CB-CAP release $job_id ended with $status."
+                exit 1
+                ;;
+              *) sleep 20 ;;
+            esac
+
+            if [[ "$attempt" -eq 180 ]]; then
+              echo "CB-CAP release $job_id did not finish within 60 minutes."
+              exit 1
+            fi
+          done
+
+          origin_main_after=$(git ls-remote --exit-code "$EXPECTED_REPOSITORY.git" refs/heads/main | awk '{print $1}')
+          test -n "$origin_main_after"
+          if [[ "$origin_main_before" != "$approved_commit" || "$origin_main_after" != "$approved_commit" ]]; then
+            echo "The protected main branch moved during the CB-CAP release."
+            echo "Approved: $approved_commit"
+            echo "Before release: $origin_main_before"
+            echo "After release: $origin_main_after"
+            exit 1
+          fi
+
+          deployed_commit=$(jq -r '.job.summary.commitId // ""' <<<"$job_json")
+          if [[ "$deployed_commit" == "HEAD" ]]; then
+            : # Amplify reports HEAD for some connected-repository releases.
+          elif [[ "$deployed_commit" =~ ^[0-9a-f]{7,40}$ && "$approved_commit" == "$deployed_commit"* ]]; then
+            : # Accept a full or unambiguous abbreviated form of the pinned SHA.
+          else
+            echo "The completed release reports an unexpected source identity."
+            echo "Expected the pinned commit (or Amplify's HEAD marker): $approved_commit"
+            echo "Reported: $deployed_commit"
+            exit 1
+          fi
+
+      - name: Create or validate only the CB-CAP domain association
+        run: |
+          set -euo pipefail
+
+          if association_json=$(aws amplify get-domain-association \
+            --app-id "$CBCAP_APP_ID" \
+            --domain-name "$CBCAP_DOMAIN" \
+            --output json 2>domain-error.log); then
+            echo "The exact CB-CAP domain association already exists."
+          elif grep -q 'NotFoundException' domain-error.log; then
+            settings=$(jq -cn --arg branch "$AMPLIFY_BRANCH" '[{prefix:"",branchName:$branch}]')
+            association_json=$(aws amplify create-domain-association \
+              --app-id "$CBCAP_APP_ID" \
+              --domain-name "$CBCAP_DOMAIN" \
+              --no-enable-auto-sub-domain \
+              --sub-domain-settings "$settings" \
+              --certificate-settings '{"type":"AMPLIFY_MANAGED"}' \
+              --output json)
+          else
+            cat domain-error.log
+            exit 1
+          fi
+
+          domain_name=$(jq -r '.domainAssociation.domainName' <<<"$association_json")
+          auto_subdomains=$(jq -r '.domainAssociation.enableAutoSubDomain' <<<"$association_json")
+          mapping_count=$(jq '[.domainAssociation.subDomains[] | select((.subDomainSetting.prefix // "") == "" and .subDomainSetting.branchName == "main")] | length' <<<"$association_json")
+          total_mappings=$(jq '.domainAssociation.subDomains | length' <<<"$association_json")
+
+          test "$domain_name" = "$CBCAP_DOMAIN"
+          test "$auto_subdomains" = "false"
+          test "$mapping_count" = "1"
+          test "$total_mappings" = "1"
+
+      - name: Wait for managed TLS and the exact domain to become available
+        run: |
+          set -euo pipefail
+
+          for attempt in $(seq 1 90); do
+            association_json=$(aws amplify get-domain-association \
+              --app-id "$CBCAP_APP_ID" \
+              --domain-name "$CBCAP_DOMAIN" \
+              --output json)
+            status=$(jq -r '.domainAssociation.domainStatus' <<<"$association_json")
+            reason=$(jq -r '.domainAssociation.statusReason // ""' <<<"$association_json")
+
+            case "$status" in
+              AVAILABLE) break ;;
+              FAILED)
+                echo "The CB-CAP domain association failed: $reason"
+                exit 1
+                ;;
+              *) sleep 20 ;;
+            esac
+
+            if [[ "$attempt" -eq 90 ]]; then
+              echo "The CB-CAP domain is still $status after 30 minutes."
+              echo "Managed certificate and DNS activation can take longer; rerun this idempotent workflow to verify completion."
+              exit 1
+            fi
+          done
+
+          verified=$(jq -r '[.domainAssociation.subDomains[] | select((.subDomainSetting.prefix // "") == "" and .subDomainSetting.branchName == "main")][0].verified' <<<"$association_json")
+          test "$verified" = "true"
+
+      - name: Prove DNS, TLS, canonical identity, security headers, and national coverage
+        run: |
+          set -euo pipefail
+
+          live_url="https://$CBCAP_DOMAIN/"
+          effective_url=$(curl \
+            --proto '=https' \
+            --tlsv1.2 \
+            --fail \
+            --location \
+            --retry 12 \
+            --retry-delay 10 \
+            --retry-all-errors \
+            --dump-header /tmp/cbcap-headers.txt \
+            --output /tmp/cbcap-home.html \
+            --write-out '%{url_effective}' \
+            "$live_url")
+
+          case "$effective_url" in
+            "https://$CBCAP_DOMAIN"|"https://$CBCAP_DOMAIN/"*) ;;
+            *)
+              echo "The live request left the approved CB-CAP domain: $effective_url"
+              exit 1
+              ;;
+          esac
+
+          grep -qi '^content-security-policy:' /tmp/cbcap-headers.txt
+          grep -qi "^content-security-policy:.*object-src 'none'" /tmp/cbcap-headers.txt
+          grep -qi '^strict-transport-security:' /tmp/cbcap-headers.txt
+          grep -qi '^x-content-type-options: *nosniff' /tmp/cbcap-headers.txt
+          grep -q "https://$CBCAP_DOMAIN" /tmp/cbcap-home.html
+
+          curl \
+            --proto '=https' \
+            --tlsv1.2 \
+            --fail \
+            --retry 12 \
+            --retry-delay 10 \
+            --retry-all-errors \
+            --silent \
+            --show-error \
+            "https://$CBCAP_DOMAIN/api/dashboard" \
+            > /tmp/cbcap-dashboard.json
+
+          jq -e --arg expected "$(jq -r '.quality.sha256' apps/platform/data/source-manifest.json)" '
+            (.states | length) == 51 and
+            .coverage.countyCount == 3144 and
+            .coverage.availableCountyCount == 3143 and
+            .sources.quality.actualCountyEquivalents == 3144 and
+            .sources.quality.uniqueFips == 3144 and
+            .sources.quality.sha256 == $expected
+          ' /tmp/cbcap-dashboard.json >/dev/null
+
+          curl \
+            --proto '=https' \
+            --tlsv1.2 \
+            --fail \
+            --retry 12 \
+            --retry-delay 10 \
+            --retry-all-errors \
+            --silent \
+            --show-error \
+            "https://$CBCAP_DOMAIN/data/cbcap-county-map-2025.json" \
+            > /tmp/cbcap-county-map.json
+
+          jq -e --arg expected "$(jq -r '.quality.sha256' apps/platform/data/source-manifest.json)" '
+            .version == 1 and
+            .countyCount == 3144 and
+            (.records | length) == 3144 and
+            ([.records[][0]] | unique | length) == 3144 and
+            .sourceHash == $expected
+          ' /tmp/cbcap-county-map.json >/dev/null
+
+          curl \
+            --proto '=https' \
+            --tlsv1.2 \
+            --fail \
+            --retry 12 \
+            --retry-delay 10 \
+            --retry-all-errors \
+            --silent \
+            --show-error \
+            "https://$CBCAP_DOMAIN/data/cbcap-boundaries-2025.json" \
+            > /tmp/cbcap-boundaries.json
+
+          expected_boundary_sha=$(jq -r '.sha256' apps/platform/data/boundary-manifest.json)
+          actual_boundary_sha=$(sha256sum /tmp/cbcap-boundaries.json | cut -d' ' -f1)
+          test "$actual_boundary_sha" = "$expected_boundary_sha"
+
+          jq -e '
+            (.counties | length) == 3144 and
+            ([.counties[].id] | unique | length) == 3144 and
+            (.states | length) == 51 and
+            ([.counties[].id] | contains([
+              "02063", "02066", "09110", "09120", "09130", "09140",
+              "09150", "09160", "09170", "09180", "09190"
+            ]))
+          ' /tmp/cbcap-boundaries.json >/dev/null
+
+          redirect_status=$(curl --silent --show-error --max-redirs 0 --output /dev/null --dump-header /tmp/cbcap-http-headers.txt --write-out '%{http_code}' "http://$CBCAP_DOMAIN/")
+          case "$redirect_status" in 301|302|307|308) ;; *) echo "Plain HTTP returned $redirect_status instead of a redirect."; exit 1 ;; esac
+          redirect_location=$(awk 'BEGIN{IGNORECASE=1} /^location:/{sub(/^[^:]+:[[:space:]]*/, ""); sub(/\r$/, ""); print; exit}' /tmp/cbcap-http-headers.txt)
+          case "$redirect_location" in
+            "https://$CBCAP_DOMAIN"|"https://$CBCAP_DOMAIN/") ;;
+            *) echo "Plain HTTP redirected outside the exact CB-CAP host: $redirect_location"; exit 1 ;;
+          esac

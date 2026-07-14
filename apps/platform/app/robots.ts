@@ -1,6 +1,6 @@
 import type { MetadataRoute } from "next";
 
-const dashboardUrl = "https://main.d307qqji18y8il.amplifyapp.com";
+const dashboardUrl = "https://cbcap.sozorockfoundation.org";
 
 export default function robots(): MetadataRoute.Robots {
   return {
