@@ -23,6 +23,16 @@ test("pins protected main and reads deployment inputs from the approved commit",
   assert.match(workflow, /create-domain-association/);
   assert.doesNotMatch(workflow, /update-domain-association/);
   assert.doesNotMatch(workflow, /allowed-account-ids/);
+  assert.match(workflow, /Amplify reports the domain as AVAILABLE/);
+  assert.match(workflow, /The live DNS and TLS proof remains authoritative/);
+  assert.doesNotMatch(workflow, /test "\$verified" = "true"/);
+  assert.match(workflow, /--tlsv1\.2/);
+  assert.match(workflow, /effective_url/);
+  assert.match(workflow, /strict-transport-security/);
+  assert.match(workflow, /content-security-policy/);
+  assert.match(workflow, /x-content-type-options/);
+  assert.match(workflow, /redirect_status/);
+  assert.match(workflow, /http:\/\/\$CBCAP_DOMAIN\//);
   assert.match(workflow, /\.coverage\.countyCount == 3144/);
   assert.match(workflow, /cbcap-county-map-2025\.json/);
   assert.match(workflow, /\(\.records \| length\) == 3144/);
