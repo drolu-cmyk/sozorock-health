@@ -501,10 +501,10 @@ export default function Dashboard({ initialData: data }: { initialData: Dashboar
             <p>Move from public evidence to local questions, accountable owners, transparent planning scenarios, and stakeholder-ready briefs.</p>
           </div>
           <div className="decision-room__actions" role="group" aria-label="Dashboard actions">
-            <a href={profile ? "#reports" : "#geography"}>{profile ? "Build a stakeholder brief" : "Choose a place to build a brief"} <ArrowDown size={16} aria-hidden="true" /></a>
-            <button type="button" onClick={() => void exportCsv()}><FileCsv size={18} aria-hidden="true" />Download county data</button>
-            <button type="button" onClick={() => void copyView()}><Copy size={18} aria-hidden="true" />Copy this view</button>
-            <button type="button" onClick={() => window.print()}><Printer size={18} aria-hidden="true" />Print / save PDF</button>
+            <a href={profile ? "#reports" : "#geography"}><span>{profile ? "Build a stakeholder brief" : "Choose a place to build a brief"}</span><ArrowDown size={16} aria-hidden="true" /></a>
+            <button type="button" onClick={() => void exportCsv()}><FileCsv size={18} aria-hidden="true" /><span>Download county data</span></button>
+            <button type="button" onClick={() => void copyView()}><Copy size={18} aria-hidden="true" /><span>Copy this view</span></button>
+            <button type="button" onClick={() => window.print()}><Printer size={18} aria-hidden="true" /><span>Print / save PDF</span></button>
           </div>
           <div className="overview-kpis" role="list" aria-label="Nationwide evidence coverage">
             <div role="listitem"><strong>{number.format(data.coverage.countyCount)}</strong><span>county equivalents</span></div>

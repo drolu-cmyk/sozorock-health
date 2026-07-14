@@ -230,6 +230,7 @@ main { min-width: 0; }
   text-align: left;
   text-decoration: none;
 }
+.decision-room__actions span { min-width: 0; overflow-wrap: anywhere; }
 .decision-room__actions > :nth-child(2n) { border-right: 0; }
 .decision-room__actions > :nth-last-child(-n + 2) { border-bottom: 0; }
 .decision-room__actions a { background: var(--forest-deep); color: var(--white); }
@@ -794,8 +795,14 @@ td:last-child button { min-width: 54px; min-height: 44px; border: 1px solid var(
   .header-status { display: none; }
   .section-nav .foundation-link { display: none; }
   .decision-room { grid-template-columns: 1fr; gap: 18px; }
-  .decision-room__actions { grid-template-columns: repeat(4, 1fr); }
-  .decision-room__actions > * { border-right: 1px solid var(--rule); border-bottom: 0; }
+  .decision-room__actions { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .decision-room__actions > * {
+    min-width: 0;
+    border-right: 1px solid var(--rule);
+    border-bottom: 0;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
   .decision-room__actions > :last-child { border-right: 0; }
   .evidence-ledger { display: flex; overflow-x: auto; overscroll-behavior-inline: contain; scroll-snap-type: x mandatory; }
   .evidence-ledger > div { flex: 0 0 235px; border-right: 1px solid var(--rule); border-bottom: 0; scroll-snap-align: start; }
@@ -1348,6 +1355,16 @@ main section[id] { scroll-margin-top: 18px; }
   .app-sidebar .section-nav__links { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .app-sidebar .section-nav a { min-height: 50px; }
   .sidebar-foot { margin-top: 8px; }
+  .decision-room { grid-template-columns: 1fr; }
+  .decision-room__actions { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .decision-room__actions > * {
+    min-width: 0;
+    border-right: 1px solid var(--rule);
+    border-bottom: 0;
+    white-space: normal;
+  }
+  .decision-room__actions > :nth-child(2n) { border-right: 1px solid var(--rule); }
+  .decision-room__actions > :last-child { border-right: 0; }
   .workspace-heading--command,
   .map-and-portrait,
   .analysis-layout,
