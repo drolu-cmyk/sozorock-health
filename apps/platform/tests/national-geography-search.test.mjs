@@ -33,6 +33,13 @@ function response(body, status = 200) {
   });
 }
 
+function isOfficialGnisGeocoderUrl(value) {
+  const url = new URL(value);
+  return url.protocol === "https:"
+    && url.hostname === "dashboard.waterdata.usgs.gov"
+    && url.pathname === "/service/geocoder/get/location/1.0";
+}
+
 test("returns a provenance-aware committed county result when every TIGERweb layer fails", async () => {
   const result = await searchNationalGeographies({
     term: "06001",
@@ -198,7 +205,7 @@ test("falls back to the official GNIS populated-place service for Delmar, NY wit
     counties,
     fetcher: async (url) => {
       requestedUrls.push(url);
-      if (url.includes("dashboard.waterdata.usgs.gov")) {
+      if (isOfficialGnisGeocoderUrl(url)) {
         return response([
           {
             Source: "gnis",
@@ -233,7 +240,7 @@ test("falls back to the official GNIS populated-place service for Delmar, NY wit
   assert.equal(delmar.profileSource, null);
   assert.match(delmar.source.dataset, /Geographic Names Information System/);
   assert.equal(result.results.some(({ label }) => label === "Delmar Reservoir"), false);
-  const gnisUrl = new URL(requestedUrls.find((url) => url.includes("dashboard.waterdata.usgs.gov")));
+  const gnisUrl = new URL(requestedUrls.find(isOfficialGnisGeocoderUrl));
   assert.equal(gnisUrl.searchParams.get("term"), "DELMAR*");
   assert.equal(gnisUrl.searchParams.get("include"), "gnis");
   assert.equal(result.partial, false);
