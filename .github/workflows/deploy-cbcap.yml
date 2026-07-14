@@ -61,12 +61,14 @@ jobs:
         with:
           role-to-assume: ${{ vars.CBCAP_AWS_DEPLOY_ROLE_ARN }}
           role-session-name: cbcap-production-release
-          allowed-account-ids: "791860731989"
           aws-region: ${{ vars.AWS_REGION || 'us-east-1' }}
 
       - name: Verify the deployment target and reconcile its build definition
         run: |
           set -euo pipefail
+
+          account_id=$(aws sts get-caller-identity --query Account --output text)
+          test "$account_id" = "791860731989"
 
           app_json=$(aws amplify get-app --app-id "$CBCAP_APP_ID" --output json)
           repository=$(jq -r '.app.repository // ""' <<<"$app_json")
@@ -171,6 +173,18 @@ jobs:
             --domain-name "$CBCAP_DOMAIN" \
             --output json 2>domain-error.log); then
             echo "The exact CB-CAP domain association already exists."
+            association_status=$(jq -r '.domainAssociation.domainStatus' <<<"$association_json")
+            if [[ "$association_status" == "FAILED" ]]; then
+              echo "Retrying the failed first-time CB-CAP domain activation with the approved DNS boundary."
+              settings=$(jq -cn --arg branch "$AMPLIFY_BRANCH" '[{prefix:"",branchName:$branch}]')
+              association_json=$(aws amplify update-domain-association \
+                --app-id "$CBCAP_APP_ID" \
+                --domain-name "$CBCAP_DOMAIN" \
+                --no-enable-auto-sub-domain \
+                --sub-domain-settings "$settings" \
+                --certificate-settings '{"type":"AMPLIFY_MANAGED"}' \
+                --output json)
+            fi
           elif grep -q 'NotFoundException' domain-error.log; then
             settings=$(jq -cn --arg branch "$AMPLIFY_BRANCH" '[{prefix:"",branchName:$branch}]')
             association_json=$(aws amplify create-domain-association \
