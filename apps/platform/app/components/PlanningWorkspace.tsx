@@ -82,8 +82,8 @@ export function PlanningWorkspace({
       <header className="panel-heading">
         <div>
           <span>CHA / CHIP workspace</span>
-          <h2 id="planning-heading">Move from a signal to an accountable planning question.</h2>
-          <p>Build an evidence shortlist for Community Health Assessment and Community Health Improvement Plan discussions.</p>
+          <h2 id="planning-heading">Move from evidence to interpretation, a practical lever, and accountable review.</h2>
+          <p>Build a source-linked shortlist for Community Health Assessment and Community Health Improvement Plan discussions without replacing local governance or community ownership.</p>
         </div>
         <div className="draft-status"><ShieldCheck size={18} aria-hidden="true" /><strong>{currentDraftCount}</strong> saved for this geography</div>
       </header>
@@ -122,13 +122,14 @@ export function PlanningWorkspace({
       )}
       <div className="planning-sequence" role="list" aria-label="CHA and CHIP support sequence">
         {[
-          ["Signals", "See the pattern and its source."],
-          ["Community context", "Add lived experience and local evidence."],
-          ["Priorities", "Choose what matters with partners."],
-          ["Actions", "Name the owner, pathway, and resources."],
-          ["Measures", "Track progress and revisit assumptions."],
-        ].map(([title, copy], index) => (
-          <div role="listitem" key={title}><span>{String(index + 1).padStart(2, "0")}</span><strong>{title}</strong><p>{copy}</p></div>
+          ["Evidence", "See the source, coverage, value, and uncertainty."],
+          ["Interpretation", "Add community experience and local records."],
+          ["Lever", "Name a practical policy, pathway, or capacity response."],
+          ["Owner", "Assign accountable organizations and safeguards."],
+          ["Measure", "Set a baseline, objective, and review date."],
+          ["Review", "Explain results, learn, and revise together."],
+        ].map(([title, copy]) => (
+          <div role="listitem" key={title}><strong>{title}</strong><p>{copy}</p></div>
         ))}
       </div>
       <p className="panel-source">Evidence basis: {profileEstimateLabel(provenance)}. Displayed measures follow a fixed source order and are not a priority ranking. CB-CAP supports CHA/CHIP evidence and workflow; it does not replace community participation, health-department governance, or official priority-setting.</p>

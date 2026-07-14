@@ -17,11 +17,12 @@ import { validGeoidForKind } from "../../lib/geography-validation";
 import { cdcProfileSources } from "../../lib/cdc-profile-contract";
 import { lookupCensusGeography, type CensusGeographyLookup } from "../../lib/census-geography";
 import { buildProfileProvenance } from "../../lib/profile-provenance";
+import { lookupGnisCommunity } from "../../lib/gnis-geography";
 
 export const runtime = "nodejs";
 
 function safeGeoid(value: string) {
-  return /^\d{2,10}$/.test(value) ? value : "";
+  return /^\d{1,10}$/.test(value) ? value : "";
 }
 
 async function cdcProfile(kind: "place" | "zcta", geoid: string) {
@@ -57,7 +58,7 @@ export async function GET(request: NextRequest) {
   }
   const kind = request.nextUrl.searchParams.get("kind") as GeographyKind | null;
   const geoid = safeGeoid(request.nextUrl.searchParams.get("geoid") ?? "");
-  if (!kind || !["state", "county", "place", "locality", "zcta"].includes(kind) || !geoid || !validGeoidForKind(kind, geoid)) {
+  if (!kind || !["state", "county", "place", "locality", "community", "zcta"].includes(kind) || !geoid || !validGeoidForKind(kind, geoid)) {
     return NextResponse.json({ error: "A valid geography is required." }, { status: 400 });
   }
   if ((kind === "place" || kind === "locality") && !stateBenchmarks.has(geoid.slice(0, 2))) {
@@ -76,6 +77,19 @@ export async function GET(request: NextRequest) {
     if (verifiedCensus.status === "not-found" || !verifiedCensus.name) {
       return NextResponse.json({ error: "Geography not found." }, { status: 404 });
     }
+  }
+
+  const verifiedGnis = kind === "community"
+    ? await lookupGnisCommunity(geoid)
+    : null;
+  if (verifiedGnis?.status === "unavailable") {
+    return NextResponse.json(
+      { error: "This public-data profile is temporarily unavailable. Please try again." },
+      { status: 503, headers: { "Cache-Control": "no-store" } },
+    );
+  }
+  if (kind === "community" && verifiedGnis?.status !== "found") {
+    return NextResponse.json({ error: "Geography not found." }, { status: 404 });
   }
 
   let profile;
@@ -105,6 +119,23 @@ export async function GET(request: NextRequest) {
     censusOnlySource = {
       label: `U.S. Census Bureau TIGERweb: ${census.contextLabel}`,
       url: census.sourceUrl,
+    };
+  } else if (kind === "community") {
+    if (!verifiedGnis || verifiedGnis.status !== "found") {
+      return NextResponse.json({ error: "Geography not found." }, { status: 404 });
+    }
+    const state = states.find((candidate) => candidate.code === verifiedGnis.stateCode);
+    if (!state) return NextResponse.json({ error: "Geography not found." }, { status: 404 });
+    profile = emptyProfile(
+      kind,
+      geoid,
+      verifiedGnis.name,
+      `${state.name} - GNIS populated place${verifiedGnis.countyName ? ` - ${verifiedGnis.countyName} County` : ""}. Compatible PLACES estimates are not available for this community identifier.`,
+      state.fips,
+    );
+    censusOnlySource = {
+      label: "U.S. Geological Survey Geographic Names Information System (GNIS)",
+      url: verifiedGnis.sourceUrl,
     };
   } else {
     let row;
@@ -162,8 +193,10 @@ export async function GET(request: NextRequest) {
     source: censusOnlySource
       ? {
           ...censusOnlySource,
-          released: "Current TIGERweb service",
-          modeledEstimateNotice: "This geography is verified by the Census Bureau, but no compatible CDC PLACES profile is available in this demonstration.",
+          released: kind === "community" ? "Current GNIS public service" : "Current TIGERweb service",
+          modeledEstimateNotice: kind === "community"
+            ? "This named community is verified by GNIS, but no compatible CDC PLACES profile is available for the GNIS identifier."
+            : "This geography is verified by the Census Bureau, but no compatible CDC PLACES profile is available in this demonstration.",
         }
       : kind === "place" || kind === "zcta"
       ? {
@@ -179,6 +212,13 @@ export async function GET(request: NextRequest) {
             released: "Current TIGERweb service",
             modeledEstimateNotice: "This searchable geography has no compatible CDC PLACES profile in this demonstration.",
           }
+        : kind === "community"
+          ? {
+              label: "U.S. Geological Survey Geographic Names Information System (GNIS)",
+              url: verifiedGnis?.status === "found" ? verifiedGnis.sourceUrl : "https://www.usgs.gov/tools/geographic-names-information-system-gnis",
+              released: "Current GNIS public service",
+              modeledEstimateNotice: "This named community is verified by GNIS, but no compatible CDC PLACES profile is available for the GNIS identifier.",
+            }
         : {
             label: sourceManifest.indicators.source,
             url: sourceManifest.indicators.url,
@@ -190,6 +230,7 @@ export async function GET(request: NextRequest) {
       profile,
       manifest: sourceManifest,
       censusSourceUrl: verifiedCensus?.status === "found" ? verifiedCensus.sourceUrl : null,
+      gnisSourceUrl: verifiedGnis?.status === "found" ? verifiedGnis.sourceUrl : null,
     }),
   };
   return NextResponse.json(response, {

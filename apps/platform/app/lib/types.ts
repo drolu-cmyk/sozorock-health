@@ -81,7 +81,7 @@ export type MetricDefinition = {
   description: string;
 };
 
-export type GeographyKind = "state" | "county" | "place" | "locality" | "zcta";
+export type GeographyKind = "state" | "county" | "place" | "locality" | "community" | "zcta";
 
 export type GeographyDataAvailability =
   | "derived-county-summary-available"
@@ -105,6 +105,7 @@ export type GeographyIdentifiers = {
   countyFips: string | null;
   placeFips: string | null;
   zcta: string | null;
+  gnisId?: string;
 };
 
 export type GeographySuggestion = {
@@ -134,10 +135,12 @@ export type GeographySearchResponse = {
     committedStateCountySnapshot: GeographySourceReference;
     committedIndicatorSnapshot: GeographySourceReference;
     liveSubcountyLookup: GeographySourceReference;
+    namedCommunityLookup: GeographySourceReference;
     coverage: {
       statesAndDistrictOfColumbia: number;
       countyEquivalents: number;
       subcountyGeographies: "Live authoritative lookup";
+      namedCommunities: "Live authoritative lookup";
     };
     limitations: string[];
   };
@@ -292,4 +295,191 @@ export type CountyMapPayload = {
   countyCount: number;
   sourceHash: string;
   records: CompactMapCountyRecord[];
+};
+
+export type EvidenceIntegrationStatus =
+  | "integrated-snapshot"
+  | "integrated-on-demand"
+  | "official-guidance"
+  | "planned-ingestion";
+
+export type EvidenceDomain =
+  | "geography"
+  | "population-health"
+  | "community-conditions"
+  | "workforce-capacity"
+  | "shortage-designations"
+  | "digital-connectivity"
+  | "rural-context"
+  | "planning-guidance";
+
+export type EvidenceGeographyLevel =
+  | "national"
+  | "state"
+  | "county"
+  | "place"
+  | "county-subdivision"
+  | "community"
+  | "census-tract"
+  | "zcta"
+  | "address";
+
+export type EvidenceSourceRecord = {
+  id: string;
+  label: string;
+  agency: string;
+  domain: EvidenceDomain;
+  evidenceClass:
+    | "official-statistical-data"
+    | "official-geography"
+    | "official-designation"
+    | "official-guidance";
+  officialUrl: string;
+  integrationStatus: EvidenceIntegrationStatus;
+  geographyLevels: EvidenceGeographyLevel[];
+  release: string;
+  freshness: {
+    checkedAt: string;
+    cadence: string;
+    snapshotGeneratedAt: string | null;
+  };
+  coverage: {
+    scope: string;
+    status:
+      | "complete-national-snapshot"
+      | "national-on-demand"
+      | "official-reference"
+      | "planned-not-displayed";
+    numerator: number | null;
+    denominator: number | null;
+    unit: string | null;
+  };
+  purpose: string;
+  limitations: string[];
+};
+
+export type BarrierTaxonomyRecord = {
+  id: string;
+  label: string;
+  classification:
+    | "pathway-barrier"
+    | "accessibility-context"
+    | "system-capacity-context";
+  evidenceStatus: "displayed" | "planned-not-displayed";
+  measureKeys: MetricKey[];
+  sourceIds: string[];
+  planningUse: string;
+  boundary: string;
+};
+
+export type ChaChipStage = {
+  id: "assess" | "validate" | "prioritize" | "act" | "measure";
+  label: string;
+  cbcapSupport: string;
+  humanDecision: string;
+};
+
+export type WorkforceReadinessDimension = {
+  id: string;
+  label: string;
+  status: "planned-not-displayed";
+  sourceIds: string[];
+  planningQuestion: string;
+  boundary: string;
+};
+
+export type SystemIntelligenceCapability = {
+  id: string;
+  label: string;
+  status: "current-foundation" | "bounded-scenario" | "planned-not-displayed";
+  currentRelease: string;
+  nextGovernedStep: string;
+  boundary: string;
+};
+
+export type DerivedInsightTrace = {
+  id: string;
+  status: "source-estimate" | "derived-summary" | "bounded-scenario" | "planned-not-displayed";
+  sourceIds: string[];
+  method: string;
+  limitations: string[];
+  humanReview: string;
+};
+
+export type SystemsMaturityStage =
+  | "Data Capture"
+  | "Operational Execution"
+  | "Structured Integration"
+  | "Systems Intelligence"
+  | "Institutional Intelligence";
+
+export type SystemsMaturityTier = "Foundational" | "Integrative" | "Adaptive";
+
+export type EvidenceRegistry = {
+  version: string;
+  verifiedAt: string;
+  releaseBoundary: string;
+  geographySearch: {
+    statesAndDistrictOfColumbia: {
+      count: number;
+      status: "committed";
+    };
+    countyEquivalents: {
+      count: number;
+      status: "committed";
+    };
+    placesAndCities: {
+      status: "authoritative-on-demand";
+      includes: string[];
+    };
+    townsAndLocalities: {
+      status: "authoritative-on-demand";
+      includes: string[];
+    };
+    zipLinkedAreas: {
+      status: "authoritative-on-demand";
+      label: "Census ZCTA";
+      boundary: string;
+    };
+  };
+  sources: EvidenceSourceRecord[];
+  barrierTaxonomy: BarrierTaxonomyRecord[];
+  chaChipSupport: {
+    sourceId: string;
+    boundary: string;
+    stages: ChaChipStage[];
+  };
+  workforceReadiness: {
+    status: "architecture-ready-data-not-integrated";
+    boundary: string;
+    dimensions: WorkforceReadinessDimension[];
+  };
+  systemsIntelligence: {
+    framing: string;
+    boundary: string;
+    traceability: {
+      sequence: ["Evidence", "Interpretation", "Lever"];
+      rule: string;
+      requiredDerivedInsightFields: (keyof DerivedInsightTrace)[];
+    };
+    maturityModel: {
+      stages: SystemsMaturityStage[];
+      tiers: SystemsMaturityTier[];
+      currentPublicRelease: SystemsMaturityStage;
+      boundary: string;
+    };
+    operatingComponents: {
+      id: string;
+      label: string;
+      status: "current-foundation" | "bounded-scenario" | "planned-not-displayed";
+      boundary: string;
+    }[];
+    capabilities: SystemIntelligenceCapability[];
+  };
+  scenarioPolicy: {
+    classification: "bounded-planning-scenario";
+    allowed: string[];
+    prohibited: string[];
+    humanReview: string;
+  };
 };

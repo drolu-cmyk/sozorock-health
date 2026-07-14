@@ -138,7 +138,7 @@ export function restorePlanningDraft(raw: string) {
     || !candidate.every((item) => (
       typeof item === "string"
       && item.length <= 80
-      && /^(state|county|place|locality|zcta):\d{2,10}:[a-zA-Z][a-zA-Z0-9]*$/u.test(item)
+      && /^(state|county|place|locality|community|zcta):\d{1,10}:[a-zA-Z][a-zA-Z0-9]*$/u.test(item)
     ))
   ) return [];
   return [...new Set(candidate)];

@@ -4,6 +4,7 @@ import {
   COMMITTED_INDICATOR_SOURCE_FALLBACK,
   identifiersForGeography,
   TIGERWEB_CURRENT_SOURCE,
+  USGS_GNIS_SOURCE,
 } from "./geography-provenance.ts";
 import { repairPublicDataText } from "./text-normalization.ts";
 import type {
@@ -31,6 +32,15 @@ type CensusFetchInit = RequestInit & {
 
 type CensusFetch = (input: string, init?: CensusFetchInit) => Promise<Response>;
 
+type GnisSearchRecord = {
+  Source?: string;
+  Type?: string;
+  Name?: string;
+  County?: string;
+  State?: string;
+  GnisId?: number | string;
+};
+
 type RemoteLayer = {
   url: string;
   kind: "place" | "locality" | "zcta";
@@ -49,6 +59,7 @@ export type NationalGeographySearchResult = {
 
 const TIGER_BASE = "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb";
 const PLACE_BASE = `${TIGER_BASE}/Places_CouSub_ConCity_SubMCD/MapServer`;
+const GNIS_GEOCODER = "https://dashboard.waterdata.usgs.gov/service/geocoder/get/location/1.0";
 
 const remoteLayers: RemoteLayer[] = [
   {
@@ -175,13 +186,15 @@ function suggestionRank(
   const exactName = fullLabel === qualified.name || baseLabel === qualified.name;
   const kindRank = suggestion.kind === "place"
     ? 0
-    : suggestion.kind === "county"
+    : suggestion.kind === "community"
       ? 1
-      : suggestion.kind === "locality"
+      : suggestion.kind === "county"
         ? 2
-        : suggestion.kind === "state"
+        : suggestion.kind === "locality"
           ? 3
-          : 4;
+          : suggestion.kind === "state"
+            ? 4
+            : 5;
   return (exactName ? 0 : 20) + kindRank;
 }
 
@@ -354,6 +367,58 @@ function suggestionFromFeature(
   };
 }
 
+async function queryGnisCommunities(
+  term: string,
+  states: SearchState[],
+  fetcher: CensusFetch,
+) {
+  const qualified = splitStateQualifier(term, states);
+  if (qualified.exactState || /^\d+$/.test(qualified.name) || qualified.name.length < 2) return [];
+  const params = new URLSearchParams({
+    term: `${qualified.name}*`,
+    include: "gnis",
+  });
+  const response = await fetcher(`${GNIS_GEOCODER}?${params}`, {
+    headers: {
+      Accept: "application/json",
+      "User-Agent": "SozoRock-CB-CAP-GNIS-Search/1.0",
+    },
+    next: { revalidate: 604800 },
+    signal: AbortSignal.timeout(7_000),
+  });
+  if (!response.ok) throw new Error(`GNIS geography request failed with status ${response.status}`);
+  const body = await response.json() as unknown;
+  if (!Array.isArray(body)) throw new Error("GNIS geography search returned an invalid response");
+  const expectedStateCode = qualified.stateFips
+    ? states.find((state) => state.fips === qualified.stateFips)?.code.toUpperCase() ?? ""
+    : "";
+  return (body as GnisSearchRecord[]).flatMap((record) => {
+    const stateCode = String(record.State ?? "").toUpperCase();
+    const state = states.find((candidate) => candidate.code.toUpperCase() === stateCode);
+    const gnisId = String(record.GnisId ?? "");
+    const label = repairPublicDataText(String(record.Name ?? "")).trim();
+    if (record.Source !== "gnis"
+      || record.Type !== "Cities & Populated Places"
+      || !state
+      || (expectedStateCode && stateCode !== expectedStateCode)
+      || !/^\d{1,10}$/.test(gnisId)
+      || !label) return [];
+    const county = repairPublicDataText(String(record.County ?? "")).trim();
+    return [{
+      id: `community-${gnisId}`,
+      kind: "community" as const,
+      label,
+      context: `${state.name} · GNIS populated place${county ? ` · ${county}` : ""}`,
+      geoid: gnisId,
+      stateFips: state.fips,
+      identifiers: identifiersForGeography("community", gnisId, state.fips),
+      dataAvailability: availabilityForGeography("community"),
+      source: USGS_GNIS_SOURCE,
+      profileSource: null,
+    }];
+  }).slice(0, 12);
+}
+
 export async function searchNationalGeographies({
   term,
   states,
@@ -393,7 +458,15 @@ export async function searchNationalGeographies({
       return suggestion ? [suggestion] : [];
     });
   });
-  const combined = [...local, ...remote]
+  const shouldQueryGnis = !/^\d+$/.test(normalizedSearchText(term))
+    && !remote.some((result) => result.kind === "place" || result.kind === "locality");
+  const gnisSettled = shouldQueryGnis
+    ? await Promise.allSettled([queryGnisCommunities(term, states, fetcher)])
+    : [];
+  const gnis = gnisSettled.flatMap((result) => (
+    result.status === "fulfilled" ? result.value : []
+  ));
+  const combined = [...local, ...remote, ...gnis]
     .filter((result, index, all) => all.findIndex((candidate) => candidate.id === result.id) === index)
     .sort((left, right) => (
       suggestionRank(left, term, states) - suggestionRank(right, term, states)
@@ -401,11 +474,12 @@ export async function searchNationalGeographies({
       || left.geoid.localeCompare(right.geoid)
     ))
     .slice(0, 20);
-  const remoteUnavailable = plans.length > 0
-    && settled.every((result) => result.status === "rejected");
+  const attempted = [...settled, ...gnisSettled];
+  const remoteUnavailable = attempted.length > 0
+    && attempted.every((result) => result.status === "rejected");
   return {
     results: combined,
-    partial: settled.some((result) => result.status === "rejected"),
+    partial: attempted.some((result) => result.status === "rejected"),
     remoteUnavailable,
   };
 }

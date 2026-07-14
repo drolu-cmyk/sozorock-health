@@ -1,0 +1,765 @@
+{
+  "version": "2026-07-14-v1",
+  "verifiedAt": "2026-07-14",
+  "releaseBoundary": "This registry distinguishes evidence already displayed in the public CB-CAP release from official sources prepared for future governed ingestion. A listed source is not evidence that its measures are currently displayed.",
+  "geographySearch": {
+    "statesAndDistrictOfColumbia": {
+      "count": 51,
+      "status": "committed"
+    },
+    "countyEquivalents": {
+      "count": 3144,
+      "status": "committed"
+    },
+    "placesAndCities": {
+      "status": "authoritative-on-demand",
+      "includes": [
+        "incorporated places",
+        "Census-designated places",
+        "consolidated cities",
+        "GNIS populated communities when no Census place result is available"
+      ]
+    },
+    "townsAndLocalities": {
+      "status": "authoritative-on-demand",
+      "includes": [
+        "county subdivisions",
+        "towns represented as Census county subdivisions",
+        "GNIS populated communities when no Census place or subdivision result is available"
+      ]
+    },
+    "zipLinkedAreas": {
+      "status": "authoritative-on-demand",
+      "label": "Census ZCTA",
+      "boundary": "A ZIP Code Tabulation Area is a Census statistical area, not a USPS delivery route. Not every ZIP Code has a ZCTA, and a ZCTA should not be presented as a postal service area."
+    }
+  },
+  "sources": [
+    {
+      "id": "census-tigerweb-current",
+      "label": "TIGERweb current geography services",
+      "agency": "U.S. Census Bureau",
+      "domain": "geography",
+      "evidenceClass": "official-geography",
+      "officialUrl": "https://tigerweb.geo.census.gov/tigerwebmain/TIGERweb_main.html",
+      "integrationStatus": "integrated-on-demand",
+      "geographyLevels": [
+        "state",
+        "county",
+        "place",
+        "county-subdivision",
+        "zcta"
+      ],
+      "release": "Current TIGERweb service; the committed county boundary snapshot uses the January 1, 2025 vintage",
+      "freshness": {
+        "checkedAt": "2026-07-14",
+        "cadence": "On-demand lookup cached for up to seven days; committed state and county snapshot refreshed through the governed release workflow",
+        "snapshotGeneratedAt": "2026-07-14T02:50:00.196Z"
+      },
+      "coverage": {
+        "scope": "50 states, the District of Columbia, and 3,144 current county equivalents in the committed release; supported subcounty geographies are queried from TIGERweb",
+        "status": "complete-national-snapshot",
+        "numerator": 3144,
+        "denominator": 3144,
+        "unit": "county equivalents"
+      },
+      "purpose": "Authoritative names, identifiers, geography types, and boundaries for nationwide search and map joins.",
+      "limitations": [
+        "A Census place or county subdivision may differ from a postal city name or local administrative usage.",
+        "Geography verification does not establish that compatible health, workforce, broadband, or local program evidence is available."
+      ]
+    },
+    {
+      "id": "usgs-gnis-populated-places",
+      "label": "Geographic Names Information System populated places",
+      "agency": "U.S. Geological Survey",
+      "domain": "geography",
+      "evidenceClass": "official-geography",
+      "officialUrl": "https://www.usgs.gov/tools/geographic-names-information-system-gnis",
+      "integrationStatus": "integrated-on-demand",
+      "geographyLevels": [
+        "community"
+      ],
+      "release": "Current GNIS public service",
+      "freshness": {
+        "checkedAt": "2026-07-14",
+        "cadence": "Fallback name lookup cached for up to seven days when Census place and county-subdivision search returns no match",
+        "snapshotGeneratedAt": null
+      },
+      "coverage": {
+        "scope": "Federally recognized domestic populated-place names in the 50 states and District of Columbia",
+        "status": "national-on-demand",
+        "numerator": null,
+        "denominator": null,
+        "unit": null
+      },
+      "purpose": "Find named communities, including populated places that are not represented by a current Census place or county-subdivision result.",
+      "limitations": [
+        "A GNIS populated place is a named point, not a Census statistical area, municipal boundary, postal city, provider market, or service area.",
+        "The current release verifies the name and source only; it does not infer a community health profile or transfer county estimates to the community."
+      ]
+    },
+    {
+      "id": "cdc-places-county-2025",
+      "label": "PLACES County Data, GIS Friendly Format, 2025 release",
+      "agency": "Centers for Disease Control and Prevention",
+      "domain": "population-health",
+      "evidenceClass": "official-statistical-data",
+      "officialUrl": "https://data.cdc.gov/500-Cities-Places/PLACES-County-Data-GIS-Friendly-Format-2025-releas/i46a-9kgh",
+      "integrationStatus": "integrated-snapshot",
+      "geographyLevels": [
+        "county"
+      ],
+      "release": "Released December 4, 2025; source years vary by measure",
+      "freshness": {
+        "checkedAt": "2026-07-14",
+        "cadence": "Release-based governed refresh",
+        "snapshotGeneratedAt": "2026-07-14T02:50:00.196Z"
+      },
+      "coverage": {
+        "scope": "3,143 of 3,144 current county equivalents have a matched CDC PLACES row in the committed release",
+        "status": "complete-national-snapshot",
+        "numerator": 3143,
+        "denominator": 3144,
+        "unit": "county equivalents with a matched source row"
+      },
+      "purpose": "Model-based area estimates for chronic conditions, prevention, health-related social needs, and accessibility context.",
+      "limitations": [
+        "PLACES values are model-based population estimates, not diagnoses, person-level facts, observed service demand, or program results.",
+        "Measures use different eligible populations and source years and must be interpreted one measure at a time.",
+        "Missing values remain missing and are never converted to zero."
+      ]
+    },
+    {
+      "id": "cdc-places-place-2025",
+      "label": "PLACES Place Data, GIS Friendly Format, 2025 release",
+      "agency": "Centers for Disease Control and Prevention",
+      "domain": "population-health",
+      "evidenceClass": "official-statistical-data",
+      "officialUrl": "https://data.cdc.gov/d/vgc8-iyc4",
+      "integrationStatus": "integrated-on-demand",
+      "geographyLevels": [
+        "place"
+      ],
+      "release": "Released December 4, 2025; source years vary by measure",
+      "freshness": {
+        "checkedAt": "2026-07-14",
+        "cadence": "Exact place GEOID lookup cached for up to one day",
+        "snapshotGeneratedAt": null
+      },
+      "coverage": {
+        "scope": "Compatible incorporated-place and Census-designated-place estimates are checked after a verified Census place is selected",
+        "status": "national-on-demand",
+        "numerator": null,
+        "denominator": null,
+        "unit": null
+      },
+      "purpose": "On-demand place-level population-health and health-related social-needs context.",
+      "limitations": [
+        "A Census place may cross county boundaries and may differ from a postal city name.",
+        "A verified place with no compatible PLACES row remains visible as geography only."
+      ]
+    },
+    {
+      "id": "cdc-places-zcta-2025",
+      "label": "PLACES ZCTA Data, GIS Friendly Format, 2025 release",
+      "agency": "Centers for Disease Control and Prevention",
+      "domain": "population-health",
+      "evidenceClass": "official-statistical-data",
+      "officialUrl": "https://data.cdc.gov/d/kee5-23sr",
+      "integrationStatus": "integrated-on-demand",
+      "geographyLevels": [
+        "zcta"
+      ],
+      "release": "Released December 4, 2025; source years vary by measure",
+      "freshness": {
+        "checkedAt": "2026-07-14",
+        "cadence": "Exact ZCTA lookup cached for up to one day",
+        "snapshotGeneratedAt": null
+      },
+      "coverage": {
+        "scope": "Compatible Census ZCTA estimates are checked after a verified ZCTA is selected",
+        "status": "national-on-demand",
+        "numerator": null,
+        "denominator": null,
+        "unit": null
+      },
+      "purpose": "ZIP-linked population-health and health-related social-needs context where a Census ZCTA exists.",
+      "limitations": [
+        "A ZCTA is not a USPS ZIP Code delivery route and should not be presented as an exact ZIP Code boundary.",
+        "A verified ZCTA with no compatible PLACES row remains visible as geography only."
+      ]
+    },
+    {
+      "id": "census-acs5-2024",
+      "label": "American Community Survey 2024 five-year estimates",
+      "agency": "U.S. Census Bureau",
+      "domain": "community-conditions",
+      "evidenceClass": "official-statistical-data",
+      "officialUrl": "https://www.census.gov/data/developers/data-sets/acs-5year.html",
+      "integrationStatus": "planned-ingestion",
+      "geographyLevels": [
+        "state",
+        "county",
+        "place",
+        "county-subdivision",
+        "census-tract",
+        "zcta"
+      ],
+      "release": "2024 ACS five-year estimates",
+      "freshness": {
+        "checkedAt": "2026-07-14",
+        "cadence": "Annual release; not yet ingested into the public CB-CAP evidence view",
+        "snapshotGeneratedAt": null
+      },
+      "coverage": {
+        "scope": "Official national ACS five-year program; selected variables and margins of error require governed ingestion and validation",
+        "status": "planned-not-displayed",
+        "numerator": null,
+        "denominator": null,
+        "unit": null
+      },
+      "purpose": "Future local context for demographics, language, disability, broadband subscription, vehicles, income, poverty, housing, and other community conditions.",
+      "limitations": [
+        "No ACS variable is displayed from this registry entry in the current public release.",
+        "Production use must preserve margins of error, universe definitions, release years, and comparability warnings."
+      ]
+    },
+    {
+      "id": "hrsa-ahrf-2026",
+      "label": "Area Health Resources Files",
+      "agency": "Health Resources and Services Administration",
+      "domain": "workforce-capacity",
+      "evidenceClass": "official-statistical-data",
+      "officialUrl": "https://data.hrsa.gov/topics/health-workforce/nchwa/ahrf",
+      "integrationStatus": "planned-ingestion",
+      "geographyLevels": [
+        "national",
+        "state",
+        "county"
+      ],
+      "release": "HRSA dashboard data as of January 29, 2026; underlying variable years differ",
+      "freshness": {
+        "checkedAt": "2026-07-14",
+        "cadence": "Annual; not yet ingested into the public CB-CAP evidence view",
+        "snapshotGeneratedAt": null
+      },
+      "coverage": {
+        "scope": "Official county, state, and national health-workforce and health-resource files",
+        "status": "planned-not-displayed",
+        "numerator": null,
+        "denominator": null,
+        "unit": null
+      },
+      "purpose": "Future county workforce, facility, training-pipeline, resource-scarcity, and delivery-system context.",
+      "limitations": [
+        "No AHRF value is displayed in the current public release.",
+        "Underlying years, profession definitions, and county availability differ by variable and must travel with every displayed measure."
+      ]
+    },
+    {
+      "id": "hrsa-shortage-areas",
+      "label": "Health Workforce Shortage Areas",
+      "agency": "Health Resources and Services Administration",
+      "domain": "shortage-designations",
+      "evidenceClass": "official-designation",
+      "officialUrl": "https://data.hrsa.gov/data/download?titleFilter=Shortage+Areas",
+      "integrationStatus": "planned-ingestion",
+      "geographyLevels": [
+        "state",
+        "county",
+        "address"
+      ],
+      "release": "Current HRSA public designation data",
+      "freshness": {
+        "checkedAt": "2026-07-14",
+        "cadence": "Official download is refreshed daily; not yet ingested into the public CB-CAP evidence view; production ingestion must record extract date, designation status, and applicable update date",
+        "snapshotGeneratedAt": null
+      },
+      "coverage": {
+        "scope": "Official geographic, population, and facility HPSA and MUA/P designation data",
+        "status": "planned-not-displayed",
+        "numerator": null,
+        "denominator": null,
+        "unit": null
+      },
+      "purpose": "Future primary-care, dental-health, mental-health shortage and medically underserved designation context.",
+      "limitations": [
+        "No shortage designation is displayed or inferred in the current public release.",
+        "A designation applies only according to its official type, discipline, geography or population, status, and effective dates; it is not a CB-CAP score."
+      ]
+    },
+    {
+      "id": "fcc-bdc-national-broadband-map",
+      "label": "National Broadband Map and Broadband Data Collection",
+      "agency": "Federal Communications Commission",
+      "domain": "digital-connectivity",
+      "evidenceClass": "official-statistical-data",
+      "officialUrl": "https://broadbandmap.fcc.gov/",
+      "integrationStatus": "planned-ingestion",
+      "geographyLevels": [
+        "national",
+        "state",
+        "county",
+        "place",
+        "address"
+      ],
+      "release": "Current FCC Broadband Data Collection public map and downloads",
+      "freshness": {
+        "checkedAt": "2026-07-14",
+        "cadence": "Providers file availability data twice yearly; not yet ingested into the public CB-CAP evidence view",
+        "snapshotGeneratedAt": null
+      },
+      "coverage": {
+        "scope": "National fixed and mobile broadband availability reported through the FCC Broadband Data Collection",
+        "status": "planned-not-displayed",
+        "numerator": null,
+        "denominator": null,
+        "unit": null
+      },
+      "purpose": "Future digital-readiness context for telehealth preparation, low-data pathways, hub placement, and public-system planning.",
+      "limitations": [
+        "No FCC broadband value is displayed in the current public release.",
+        "Availability is reported by providers and differs from adoption, affordability, device access, digital skills, service quality, or an individual's experience."
+      ]
+    },
+    {
+      "id": "usda-rucc-2023",
+      "label": "2023 Rural-Urban Continuum Codes",
+      "agency": "U.S. Department of Agriculture, Economic Research Service",
+      "domain": "rural-context",
+      "evidenceClass": "official-statistical-data",
+      "officialUrl": "https://www.ers.usda.gov/data-products/rural-urban-continuum-codes",
+      "integrationStatus": "planned-ingestion",
+      "geographyLevels": [
+        "county"
+      ],
+      "release": "2023 Rural-Urban Continuum Codes",
+      "freshness": {
+        "checkedAt": "2026-07-14",
+        "cadence": "Periodic classification release; not yet ingested into the public CB-CAP evidence view",
+        "snapshotGeneratedAt": null
+      },
+      "coverage": {
+        "scope": "All 3,144 counties and county equivalents in the 50 states and District of Columbia in the 2023 classification",
+        "status": "planned-not-displayed",
+        "numerator": 3144,
+        "denominator": 3144,
+        "unit": "county equivalents in the source classification"
+      },
+      "purpose": "Future rural and metropolitan context for peer comparisons and place-sensitive planning.",
+      "limitations": [
+        "No Rural-Urban Continuum Code is displayed in the current public release.",
+        "County classifications do not describe every community within a county and should not replace tract-level or local context."
+      ]
+    },
+    {
+      "id": "cdc-cha-chip-guidance-2024",
+      "label": "Community planning for health assessment and health improvement planning",
+      "agency": "Centers for Disease Control and Prevention",
+      "domain": "planning-guidance",
+      "evidenceClass": "official-guidance",
+      "officialUrl": "https://www.cdc.gov/public-health-gateway/php/public-health-strategy/public-health-strategies-for-community-health-assessment-health-improvement-planning.html",
+      "integrationStatus": "official-guidance",
+      "geographyLevels": [
+        "national",
+        "state",
+        "county"
+      ],
+      "release": "CDC guidance dated May 16, 2024",
+      "freshness": {
+        "checkedAt": "2026-07-14",
+        "cadence": "Review when the official guidance changes",
+        "snapshotGeneratedAt": null
+      },
+      "coverage": {
+        "scope": "Official planning guidance; not a statistical dataset",
+        "status": "official-reference",
+        "numerator": null,
+        "denominator": null,
+        "unit": null
+      },
+      "purpose": "Frames how CB-CAP can organize secondary evidence, planning questions, accountable ownership, and measurement for CHA and CHIP discussions.",
+      "limitations": [
+        "CB-CAP does not create, approve, or replace an official CHA or CHIP.",
+        "Official planning requires community participation, local primary and administrative data, asset and resource inventories, accountable governance, and human priority-setting."
+      ]
+    }
+  ],
+  "barrierTaxonomy": [
+    {
+      "id": "coverage-and-affordability",
+      "label": "Coverage and affordability",
+      "classification": "pathway-barrier",
+      "evidenceStatus": "displayed",
+      "measureKeys": [
+        "uninsured"
+      ],
+      "sourceIds": [
+        "cdc-places-county-2025",
+        "cdc-places-place-2025",
+        "cdc-places-zcta-2025"
+      ],
+      "planningUse": "Ask where coverage, benefits understanding, eligibility, or cost may interrupt a provider-led pathway.",
+      "boundary": "The displayed measure is an area-level estimate for adults ages 18-64 without current health insurance; it is not an eligibility determination or a count of people seeking help."
+    },
+    {
+      "id": "transportation",
+      "label": "Reliable transportation",
+      "classification": "pathway-barrier",
+      "evidenceStatus": "displayed",
+      "measureKeys": [
+        "transportation"
+      ],
+      "sourceIds": [
+        "cdc-places-county-2025",
+        "cdc-places-place-2025",
+        "cdc-places-zcta-2025"
+      ],
+      "planningUse": "Test whether local schedules, distance, mobility support, remote preparation, or hub placement warrant local investigation.",
+      "boundary": "The estimate does not identify a transportation route, provider location, resident, or remedy."
+    },
+    {
+      "id": "food-stability",
+      "label": "Food stability",
+      "classification": "pathway-barrier",
+      "evidenceStatus": "displayed",
+      "measureKeys": [
+        "foodInsecurity"
+      ],
+      "sourceIds": [
+        "cdc-places-county-2025",
+        "cdc-places-place-2025",
+        "cdc-places-zcta-2025"
+      ],
+      "planningUse": "Frame questions about trusted non-clinical supports and chronic-disease education context.",
+      "boundary": "The estimate is not a household determination, service referral, or measure of program availability."
+    },
+    {
+      "id": "housing-stability",
+      "label": "Housing stability",
+      "classification": "pathway-barrier",
+      "evidenceStatus": "displayed",
+      "measureKeys": [
+        "housingInsecurity"
+      ],
+      "sourceIds": [
+        "cdc-places-county-2025",
+        "cdc-places-place-2025",
+        "cdc-places-zcta-2025"
+      ],
+      "planningUse": "Ask which community and public-system partners should validate and respond to housing-related pathway interruptions.",
+      "boundary": "The estimate does not identify housing status, eligibility, or a specific service gap."
+    },
+    {
+      "id": "utility-stability",
+      "label": "Utility stability",
+      "classification": "pathway-barrier",
+      "evidenceStatus": "displayed",
+      "measureKeys": [
+        "utilityShutoff"
+      ],
+      "sourceIds": [
+        "cdc-places-county-2025",
+        "cdc-places-place-2025",
+        "cdc-places-zcta-2025"
+      ],
+      "planningUse": "Consider how household utility instability could affect digital access, device charging, and pathway continuity.",
+      "boundary": "The estimate does not identify a household, utility account, or eligibility for support."
+    },
+    {
+      "id": "social-connection",
+      "label": "Social connection",
+      "classification": "pathway-barrier",
+      "evidenceStatus": "displayed",
+      "measureKeys": [
+        "loneliness"
+      ],
+      "sourceIds": [
+        "cdc-places-county-2025",
+        "cdc-places-zcta-2025"
+      ],
+      "planningUse": "Frame community-engagement and trusted-starting-point questions without inferring an individual's circumstances.",
+      "boundary": "This measure is not available in the integrated 2025 place profile contract and is never inferred for a place."
+    },
+    {
+      "id": "accessibility",
+      "label": "Disability and accessibility context",
+      "classification": "accessibility-context",
+      "evidenceStatus": "displayed",
+      "measureKeys": [
+        "disability"
+      ],
+      "sourceIds": [
+        "cdc-places-county-2025",
+        "cdc-places-place-2025",
+        "cdc-places-zcta-2025"
+      ],
+      "planningUse": "Plan accessible interfaces, accommodations, communication options, home-based configurations, and inclusive engagement.",
+      "boundary": "Disability and disabled people are not barriers. This measure is excluded from the pathway-barrier percentile and from the composite planning calculation."
+    },
+    {
+      "id": "digital-connectivity",
+      "label": "Digital connectivity and readiness",
+      "classification": "system-capacity-context",
+      "evidenceStatus": "planned-not-displayed",
+      "measureKeys": [],
+      "sourceIds": [
+        "census-acs5-2024",
+        "fcc-bdc-national-broadband-map"
+      ],
+      "planningUse": "Future evidence can support low-data design, telehealth preparation, hub placement, device support, and digital-readiness planning.",
+      "boundary": "The current release displays no broadband availability, subscription, affordability, device, or skills measure."
+    },
+    {
+      "id": "workforce-and-service-capacity",
+      "label": "Workforce and service capacity",
+      "classification": "system-capacity-context",
+      "evidenceStatus": "planned-not-displayed",
+      "measureKeys": [],
+      "sourceIds": [
+        "hrsa-ahrf-2026",
+        "hrsa-shortage-areas"
+      ],
+      "planningUse": "Future evidence can support provider-led pathway readiness, workforce development, partner recruitment, and shortage-context review.",
+      "boundary": "The current release displays no provider count, service capacity, HPSA, MUA/P, or workforce forecast."
+    },
+    {
+      "id": "rural-and-geographic-context",
+      "label": "Rural and geographic context",
+      "classification": "system-capacity-context",
+      "evidenceStatus": "planned-not-displayed",
+      "measureKeys": [],
+      "sourceIds": [
+        "usda-rucc-2023"
+      ],
+      "planningUse": "Future peer groups can distinguish rural and metropolitan county context without treating rurality as a deficit.",
+      "boundary": "The current release displays no rural classification, and a county classification cannot describe every community within that county."
+    }
+  ],
+  "chaChipSupport": {
+    "sourceId": "cdc-cha-chip-guidance-2024",
+    "boundary": "CB-CAP is a secondary-evidence and workflow support layer. It does not decide priorities, establish causality, allocate funding, inventory every local asset, or replace community participation, health-department governance, an official CHA, or an official CHIP.",
+    "stages": [
+      {
+        "id": "assess",
+        "label": "Assess",
+        "cbcapSupport": "Surface source-cited area estimates, comparison context, coverage, missingness, and source limitations.",
+        "humanDecision": "Choose the assessment scope and add local primary data, administrative records, community experience, assets, and resources."
+      },
+      {
+        "id": "validate",
+        "label": "Validate",
+        "cbcapSupport": "Organize questions about whether local evidence confirms, complicates, or contradicts a displayed signal.",
+        "humanDecision": "Engage affected communities, public-health leaders, providers, and partners to interpret the evidence."
+      },
+      {
+        "id": "prioritize",
+        "label": "Prioritize",
+        "cbcapSupport": "Preserve comparable measures and transparent assumptions without ranking unlike indicators as a decision.",
+        "humanDecision": "Set priorities through the community's approved governance, equity, feasibility, and accountability process."
+      },
+      {
+        "id": "act",
+        "label": "Act",
+        "cbcapSupport": "Structure actions, owners, pathway partners, safeguards, resources, and review dates.",
+        "humanDecision": "Approve and carry out actions within each organization's authority, licensure, policy, and community commitments."
+      },
+      {
+        "id": "measure",
+        "label": "Measure and learn",
+        "cbcapSupport": "Keep source versions, assumptions, measures, missingness, and review points visible over time.",
+        "humanDecision": "Evaluate implementation, explain changes responsibly, and revise the plan through accountable public governance."
+      }
+    ]
+  },
+  "workforceReadiness": {
+    "status": "architecture-ready-data-not-integrated",
+    "boundary": "These dimensions describe the governed integration plan. They are not current findings, recommendations, provider directories, capacity estimates, or promises of service availability.",
+    "dimensions": [
+      {
+        "id": "licensed-workforce",
+        "label": "Licensed workforce context",
+        "status": "planned-not-displayed",
+        "sourceIds": [
+          "hrsa-ahrf-2026"
+        ],
+        "planningQuestion": "Which workforce measures and profession definitions are current enough to support local pathway-capacity discussions?",
+        "boundary": "Counts do not prove availability, acceptance of new patients, licensure for a particular service, or participation in SozoRock Health."
+      },
+      {
+        "id": "shortage-designations",
+        "label": "Shortage designation context",
+        "status": "planned-not-displayed",
+        "sourceIds": [
+          "hrsa-shortage-areas"
+        ],
+        "planningQuestion": "Which current primary-care, dental-health, mental-health, HPSA, or MUA/P designations apply to the selected geography or population?",
+        "boundary": "Only the official HRSA designation, type, discipline, status, population, geography, and effective date may be displayed."
+      },
+      {
+        "id": "facilities-and-training",
+        "label": "Facilities and training pipeline",
+        "status": "planned-not-displayed",
+        "sourceIds": [
+          "hrsa-ahrf-2026"
+        ],
+        "planningQuestion": "What facility and training-pipeline context should be validated before a county designs a workforce response?",
+        "boundary": "A public file does not establish operational capacity, partnership interest, program quality, or a verified local asset inventory."
+      },
+      {
+        "id": "digital-readiness",
+        "label": "Digital and telehealth readiness",
+        "status": "planned-not-displayed",
+        "sourceIds": [
+          "census-acs5-2024",
+          "fcc-bdc-national-broadband-map"
+        ],
+        "planningQuestion": "Where should local partners validate broadband, affordability, device, language, literacy, privacy, and workflow readiness?",
+        "boundary": "Broadband availability or subscription alone does not measure a person's readiness, skills, privacy, trust, or ability to use a provider's platform."
+      }
+    ]
+  },
+  "systemsIntelligence": {
+    "framing": "The operating model adapts themes from Oluwabiyi Adeyemo's Rethinking Rural Governance: move from fragmented reporting toward source discipline, connected workflows, operational foresight, community transparency, accountable learning, and anticipatory planning.",
+    "boundary": "This is a conceptual product architecture, not a source for public health estimates and not evidence that a county, partner, workflow, workforce feed, or institutional learning program is active.",
+    "traceability": {
+      "sequence": [
+        "Evidence",
+        "Interpretation",
+        "Lever"
+      ],
+      "rule": "Every interpretation or planning lever must retain the source identifier, method, status, limitations, and human-review rule. A missing source or method blocks publication.",
+      "requiredDerivedInsightFields": [
+        "id",
+        "status",
+        "sourceIds",
+        "method",
+        "limitations",
+        "humanReview"
+      ]
+    },
+    "maturityModel": {
+      "stages": [
+        "Data Capture",
+        "Operational Execution",
+        "Structured Integration",
+        "Systems Intelligence",
+        "Institutional Intelligence"
+      ],
+      "tiers": [
+        "Foundational",
+        "Integrative",
+        "Adaptive"
+      ],
+      "currentPublicRelease": "Structured Integration",
+      "boundary": "The maturity path is a design and governance framework, not a score assigned to any county or institution. The current public release demonstrates structured integration foundations; it does not claim full systems or institutional intelligence."
+    },
+    "operatingComponents": [
+      {
+        "id": "governed-data-architecture",
+        "label": "Governed data architecture",
+        "status": "current-foundation",
+        "boundary": "Current means the public source contracts, lineage, release hashes, coverage, and missing-data rules are implemented; it does not mean every planned source is integrated."
+      },
+      {
+        "id": "performance-analytics",
+        "label": "Performance analytics",
+        "status": "bounded-scenario",
+        "boundary": "The current release provides population comparisons and planning scenarios, not program-performance findings or causal evaluation."
+      },
+      {
+        "id": "feedback-loop",
+        "label": "Governed feedback loop",
+        "status": "planned-not-displayed",
+        "boundary": "No county, resident, or partner feedback record is collected by the public preview."
+      },
+      {
+        "id": "workforce-capability",
+        "label": "Workforce capability",
+        "status": "planned-not-displayed",
+        "boundary": "No workforce count, availability finding, training assessment, or readiness score is displayed."
+      },
+      {
+        "id": "public-transparency",
+        "label": "Public transparency",
+        "status": "current-foundation",
+        "boundary": "Sources, methods, limitations, coverage, missingness, and export context are visible; publication does not replace community interpretation or public accountability."
+      }
+    ],
+    "capabilities": [
+      {
+        "id": "data-integration",
+        "label": "Governed data integration",
+        "status": "current-foundation",
+        "currentRelease": "Versioned Census geography, CDC PLACES evidence, source lineage, missingness, confidence intervals, and release hashes.",
+        "nextGovernedStep": "Add ACS, HRSA, FCC, USDA, local CHA/CHIP, and verified operating-model data only through versioned contracts and source review.",
+        "boundary": "A registered future source is not an integrated measure."
+      },
+      {
+        "id": "workforce-analytics",
+        "label": "Workforce analytics",
+        "status": "planned-not-displayed",
+        "currentRelease": "The source and governance contract is documented; no workforce finding or value is displayed.",
+        "nextGovernedStep": "Ingest selected HRSA AHRF measures and shortage designations with variable-level years, definitions, status, and coverage.",
+        "boundary": "Counts and designations do not prove appointment availability, provider participation, local capacity, or program performance."
+      },
+      {
+        "id": "operational-foresight",
+        "label": "Operational foresight",
+        "status": "bounded-scenario",
+        "currentRelease": "Users can inspect transparent population-equivalent planning scenarios based on displayed estimates and user-selected assumptions.",
+        "nextGovernedStep": "Add locally approved capacity inputs, review points, and scenario comparisons without presenting them as predicted demand.",
+        "boundary": "Scenarios are not forecasts of diagnoses, future cases, service demand, clinical capacity, or outcomes."
+      },
+      {
+        "id": "community-transparency",
+        "label": "Community transparency",
+        "status": "current-foundation",
+        "currentRelease": "Sources, vintages, methods, coverage, missingness, limitations, comparison context, and printable briefs remain visible.",
+        "nextGovernedStep": "Add accessible evidence drawers, local-source review status, decision records, and community feedback routes.",
+        "boundary": "Publication of a measure does not substitute for interpretation with affected communities."
+      },
+      {
+        "id": "maturity-diagnostics",
+        "label": "Maturity diagnostics",
+        "status": "planned-not-displayed",
+        "currentRelease": "No county or institution is scored for maturity.",
+        "nextGovernedStep": "Co-design a non-punitive, evidence-based readiness rubric for data, governance, workforce, cybersecurity, accessibility, workflow, and human review.",
+        "boundary": "No current dashboard value is an institutional maturity grade."
+      },
+      {
+        "id": "institutional-learning",
+        "label": "Institutional learning",
+        "status": "planned-not-displayed",
+        "currentRelease": "Saved views and planning drafts remain local to the browser; no institutional learning record is collected.",
+        "nextGovernedStep": "Add approved action ownership, review dates, measure versions, decision history, and learning cycles behind role-based access.",
+        "boundary": "The public preview is not an audit trail, case-management system, resident record, or performance-management system."
+      },
+      {
+        "id": "anticipatory-planning",
+        "label": "Anticipatory planning",
+        "status": "bounded-scenario",
+        "currentRelease": "Source-backed comparisons and bounded scenarios can help a planning group identify questions before selecting a response.",
+        "nextGovernedStep": "Connect approved local evidence, workforce, broadband, assets, operating models, and review thresholds with human-governed decision workflows.",
+        "boundary": "CB-CAP does not autonomously set priorities, allocate funds, recommend clinical action, or replace CHA/CHIP governance."
+      }
+    ]
+  },
+  "scenarioPolicy": {
+    "classification": "bounded-planning-scenario",
+    "allowed": [
+      "Apply transparent user-selected assumptions to a displayed source estimate.",
+      "Show a population-equivalent planning range when the source supplies a compatible confidence interval.",
+      "Support discussion of non-clinical readiness, hub placement, digital support, language access, workforce preparation, and provider-led pathway capacity.",
+      "Export the source, vintage, method, assumptions, geography, and limitations with the result."
+    ],
+    "prohibited": [
+      "Predict individual health outcomes, diagnoses, future cases, service demand, or clinical capacity.",
+      "Present a scenario as an observed count, causal estimate, government designation, funding formula, or recommended allocation.",
+      "Generate an uncertainty range when the source provides no compatible interval.",
+      "Turn missing or suppressed data into zero or infer a value from neighboring geographies."
+    ],
+    "humanReview": "A planning group must review source definitions, assumptions, local evidence, community priorities, governance, licensure, privacy, feasibility, and accountable ownership before acting."
+  }
+}

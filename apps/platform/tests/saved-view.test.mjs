@@ -89,7 +89,7 @@ test("rejects malformed or oversized stakeholder view collections", () => {
 });
 
 test("restores only bounded, geography-scoped planning signals", () => {
-  const valid = ["county:36025:diabetes", "place:0811810:uninsured"];
+  const valid = ["county:36025:diabetes", "place:0811810:uninsured", "community:948278:transportation"];
   assert.deepEqual(restorePlanningDraft(JSON.stringify(valid)), valid);
   assert.deepEqual(restorePlanningDraft(JSON.stringify(["diabetes"])), []);
   assert.deepEqual(restorePlanningDraft(JSON.stringify({ includes: true })), []);

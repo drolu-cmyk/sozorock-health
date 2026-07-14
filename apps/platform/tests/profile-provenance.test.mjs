@@ -90,3 +90,19 @@ test("place and ZCTA profiles cite their exact on-demand CDC datasets", () => {
   assert.match(place.limitations.join(" "), /may cross county boundaries/);
   assert.equal(place.evidenceStatus, "official-source-estimates");
 });
+
+test("GNIS communities remain geography-only and never inherit county evidence", () => {
+  const community = buildProfileProvenance({
+    kind: "community",
+    profile: profile("community", "not-available"),
+    manifest,
+    gnisSourceUrl: "https://carto.nationalmap.gov/arcgis/rest/services/geonames/MapServer/3",
+  });
+
+  assert.equal(community.evidenceStatus, "official-geography-only");
+  assert.equal(community.indicators, null);
+  assert.match(community.geography.dataset, /Geographic Names Information System/);
+  assert.match(community.geography.url, /geonames\/MapServer\/3$/);
+  assert.ok(community.limitations.some((note) => note.includes("does not define a Census statistical boundary")));
+  assert.equal(community.planning.available, false);
+});
