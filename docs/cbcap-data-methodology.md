@@ -1,10 +1,10 @@
-# CB-CAP public demonstration: data methodology and governance
+# CB-CAP stakeholder preview: data methodology and governance
 
 ## Purpose and boundary
 
-The County-Based Community Access Platform (CB-CAP) is a public, source-backed demonstration of how county, place, and ZIP-linked health indicators can support planning conversations. It is an initiative of The SozoRock Foundation, Inc.
+The County-Based Community Access Platform (CB-CAP) is a public, source-backed stakeholder preview of how county, place, and ZIP-linked health indicators can support accountable planning conversations. It is an initiative of The SozoRock Foundation, Inc. The approved public product and claims boundary is recorded in [`cbcap-stakeholder-preview-source-of-truth.md`](./cbcap-stakeholder-preview-source-of-truth.md).
 
-CB-CAP helps users compare population-level patterns, examine planning scenarios, and organize questions for Community Health Assessment (CHA) and Community Health Improvement Plan (CHIP) work. It does not diagnose, triage, recommend treatment, rank people, determine eligibility, allocate funding, or replace an official CHA or CHIP. The public demonstration contains no resident records and no protected health information.
+CB-CAP helps users compare population-level patterns, examine bounded planning scenarios, and organize questions for Community Health Assessment (CHA) and Community Health Improvement Plan (CHIP) work. It does not diagnose, triage, recommend treatment, rank people, determine eligibility, allocate funding, or replace an official CHA or CHIP. The stakeholder preview contains no resident records and no protected health information.
 
 ## What the current snapshot contains
 
@@ -102,7 +102,7 @@ population-equivalent scenario(y) =
 
 - The base uses adult population when available and otherwise uses total population.
 - The base line holds the selected PLACES rate constant and changes only the user-selected annual population assumption.
-- Low and high lines use the published lower and upper 95% confidence limits. If a point estimate exists without a parseable interval, the demonstration uses a clearly labeled scenario-only `point estimate +/- 1.5 percentage points` range.
+- Low and high lines use the published lower and upper 95% confidence limits only when the source provides a parseable interval. If a point estimate has no source interval, the demonstration shows the base arithmetic line only and explicitly states that it does not manufacture an uncertainty range.
 - The result is a population-equivalent scenario associated with a modeled rate. It is not a count of diagnosed people, future cases, service demand, or people expected to seek help.
 
 The Health Equity Hub capacity illustration is calculated separately:
@@ -111,7 +111,7 @@ The Health Equity Hub capacity illustration is calculated separately:
 planned completed pathways per year =
   hub locations
   x pathways prepared per hub per week
-  x 48 operating weeks
+  x user-selected operating weeks (24-52; default 48)
   x completion assumption
 ```
 

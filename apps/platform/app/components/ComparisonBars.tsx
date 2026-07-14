@@ -47,7 +47,7 @@ export function ComparisonBars({
           <h2 id={`${title.replaceAll(" ", "-").toLowerCase()}-heading`}>{title}</h2>
           <p>{description}</p>
         </div>
-        <div className="comparison-key" aria-label="Comparison key">
+        <div className="comparison-key" role="group" aria-label="Comparison key">
           <span><i className="selected" />{selectedLabel}</span>
           {stateBenchmark && <span><i className="state" />{stateBenchmark.name}</span>}
           {!isNationalOverview && <span><i className="national" />National benchmark</span>}

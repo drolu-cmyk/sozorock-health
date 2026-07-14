@@ -1,2 +1,7 @@
 *.pdf binary
 *.png binary
+
+# Generated CB-CAP snapshots are hashed byte-for-byte in release gates.
+# Treat the immutable release artifacts as binary so Git never rewrites them.
+apps/platform/data/county-planning.json -text
+apps/platform/public/data/cbcap-boundaries-2025.json -text

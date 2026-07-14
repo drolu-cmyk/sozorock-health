@@ -22,8 +22,8 @@ export function StateRanking({
       <header className="panel-heading">
         <div>
           <span>National comparison</span>
-          <h2 id="state-ranking-heading">Where planning pressure clusters.</h2>
-          <p>State medians summarize county demonstration-index percentiles. They are not state performance grades.</p>
+          <h2 id="state-ranking-heading">Where planning attention may be warranted.</h2>
+          <p>State medians summarize the county demonstration calculation for orientation. They are not state rankings or performance grades.</p>
         </div>
       </header>
       <div className="ranking-bars">
@@ -37,7 +37,7 @@ export function StateRanking({
             <span>{state.name}</span>
             <div aria-hidden="true"><i style={{ width: `${state.medianPlanningPressure ?? 0}%` }} /></div>
             <strong>{state.medianPlanningPressure}</strong>
-            <span className="sr-only">— median planning pressure {formatOrdinal(state.medianPlanningPressure)} percentile; show state</span>
+            <span className="sr-only">— median planning attention {formatOrdinal(state.medianPlanningPressure)} percentile; show state</span>
           </button>
         ))}
       </div>

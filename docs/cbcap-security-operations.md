@@ -15,10 +15,11 @@ The versioned trust policy is `infrastructure/iam/github-cbcap-production-trust.
 
 - reading and reconciling the one CB-CAP application build definition;
 - reading the `main` branch;
-- starting and reading `main` release jobs; and
-- creating or reading the exact CB-CAP domain association.
+- starting and reading `main` release jobs;
+- creating, deleting, and reading the exact CB-CAP domain association; and
+- discovering and reading the Foundation public hosted zone, reading DNS change status, and changing only `cbcap.sozorockfoundation.org` or its managed-certificate validation labels.
 
-It has no IAM, Secrets Manager, S3, DynamoDB, Route 53, CloudFormation, WAF, or cross-application permission. The GitHub `production` environment is restricted to the exact `main` branch, which is independently protected by the repository's active main-release ruleset. Production runs require the configured environment reviewer before an OIDC token is issued.
+It has no IAM, Secrets Manager, S3, DynamoDB, CloudFormation, WAF, cross-application, apex-domain, sibling-domain, or unrestricted Route 53 permission. Its Route 53 mutation statement is limited by hosted-zone ARN, normalized record name, record type, and action. The GitHub `production` environment is restricted to the exact `main` branch, which is independently protected by the repository's active main-release ruleset. Production runs require the configured environment reviewer before an OIDC token is issued.
 
 Official references:
 

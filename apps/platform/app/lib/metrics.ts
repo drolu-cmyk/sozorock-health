@@ -46,7 +46,7 @@ export const preventionMetrics: MetricDefinition[] = [
 ];
 
 export const planningMetrics: MetricDefinition[] = [
-  { key: "planningPressure", label: "Planning pressure", shortLabel: "Planning pressure", group: "planning", unit: "percentile", direction: "higher-is-more-need", description: "CB-CAP demonstration planning index; not a government or clinical designation." },
+  { key: "planningPressure", label: "Planning attention", shortLabel: "Planning attention", group: "planning", unit: "percentile", direction: "higher-is-more-need", description: "CB-CAP demonstration planning view; not a government designation, health-equity score, or clinical measure." },
   { key: "chronicPercentile", label: "Chronic-condition pressure", shortLabel: "Chronic pressure", group: "planning", unit: "percentile", direction: "higher-is-more-need", description: "County percentile across available chronic-condition estimates." },
   { key: "barrierPercentile", label: "Barrier pressure", shortLabel: "Barrier pressure", group: "planning", unit: "percentile", direction: "higher-is-more-need", description: "County percentile across available barrier estimates." },
   { key: "preventionOpportunityPercentile", label: "Prevention opportunity", shortLabel: "Prevention opportunity", group: "planning", unit: "percentile", direction: "higher-is-more-need", description: "County percentile across gaps in available preventive-service estimates." },

@@ -3,13 +3,16 @@ import { readdir, readFile } from "node:fs/promises";
 import test from "node:test";
 
 test("public exports use decision-maker language and the approved legal identity", async () => {
-  const [dashboard, lockup] = await Promise.all([
+  const [dashboard, lockup, report] = await Promise.all([
     readFile(new URL("../app/Dashboard.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/components/BrandLockup.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/components/ReportStudio.tsx", import.meta.url), "utf8"),
   ]);
 
   assert.match(dashboard, /The SozoRock Foundation, Inc\./);
-  assert.match(dashboard, /planning index and scenarios demonstrate planning capability/);
+  assert.match(dashboard, /Public estimates guide questions/);
+  assert.match(dashboard, /Derived planning view/);
+  assert.match(dashboard, /Demonstration capability/);
   assert.match(dashboard, /Print \/ save PDF/);
   assert.doesNotMatch(dashboard, /disclosure-safe|illustrative composite measure|seed data/i);
   assert.match(lockup, /<sup aria-hidden="true">®<\/sup>/);
@@ -18,6 +21,11 @@ test("public exports use decision-maker language and the approved legal identity
   assert.match(dashboard, /<BrandLockup priority \/>/);
   assert.match(dashboard, /<BrandLockup compact \/>/);
   assert.doesNotMatch(dashboard, /<BrandLockup compact priority/);
+  assert.match(report, /View and filter context/);
+  assert.match(report, /Privacy and suppression/);
+  assert.match(report, /source\.method/);
+  assert.match(report, /profileEvidenceLabel\(response\?\.provenance\)/);
+  assert.doesNotMatch(report, /January 1, 2025 vintage/);
 });
 
 test("public application source contains no common UTF-8 mojibake", async () => {

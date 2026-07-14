@@ -2,14 +2,25 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 import { MagnifyingGlass, SpinnerGap } from "@phosphor-icons/react";
-import type { GeographySuggestion } from "../lib/types";
+import type {
+  GeographySearchResponse,
+  GeographySuggestion,
+  VerifiedGeographySuggestion,
+} from "../lib/types";
 
-const kindLabels: Record<GeographySuggestion["kind"], string> = {
-  state: "State",
+const kindLabels: Record<VerifiedGeographySuggestion["kind"], string> = {
+  state: "State summary",
   county: "County",
-  place: "City or place",
-  locality: "Town or local area",
-  zcta: "ZIP-linked area",
+  place: "City / Census place",
+  locality: "Town / county subdivision",
+  zcta: "Census ZCTA",
+};
+
+const availabilityLabels: Record<VerifiedGeographySuggestion["dataAvailability"], string> = {
+  "derived-county-summary-available": "Derived state summary available",
+  "official-modeled-estimates-available": "CDC modeled county estimates available",
+  "official-geography-only": "Census geography verified; compatible health estimates unavailable",
+  "checked-on-selection": "Health-estimate availability checked after selection",
 };
 
 export function GeographySearch({
@@ -18,7 +29,7 @@ export function GeographySearch({
   onSelect: (suggestion: GeographySuggestion) => void;
 }) {
   const [query, setQuery] = useState("");
-  const [results, setResults] = useState<GeographySuggestion[]>([]);
+  const [results, setResults] = useState<VerifiedGeographySuggestion[]>([]);
   const [status, setStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
   const [partial, setPartial] = useState(false);
   const [retryKey, setRetryKey] = useState(0);
@@ -51,7 +62,7 @@ export function GeographySearch({
           signal: controller.signal,
         });
         if (!response.ok) throw new Error("Search unavailable");
-        const body = await response.json() as { results?: GeographySuggestion[]; partial?: boolean };
+        const body = await response.json() as GeographySearchResponse;
         setResults(body.results ?? []);
         setPartial(body.partial === true);
         setActiveIndex(-1);
@@ -69,7 +80,7 @@ export function GeographySearch({
     };
   }, [committedQuery, query, retryKey]);
 
-  const choose = (suggestion: GeographySuggestion) => {
+  const choose = (suggestion: VerifiedGeographySuggestion) => {
     onSelect(suggestion);
     setCommittedQuery(suggestion.label);
     setQuery(suggestion.label);
@@ -138,22 +149,27 @@ export function GeographySearch({
           {status === "ready" && !partial && !results.length && <p role="status">No matching geography found.</p>}
           {!!results.length && (
             <ul id={listboxId} role="listbox" aria-label="Geography suggestions">
-              {results.map((result, index) => (
-                <li
-                  id={`${listboxId}-${index}`}
-                  key={result.id}
-                  role="option"
-                  aria-selected={index === activeIndex}
-                  onPointerDown={(event) => event.preventDefault()}
-                  onClick={() => choose(result)}
-                >
-                  <span>
-                    <strong>{result.label}</strong>
-                    <small>{result.context}</small>
-                  </span>
-                  <em>{kindLabels[result.kind]}</em>
-                </li>
-              ))}
+              {results.map((result, index) => {
+                const evidenceSource = result.profileSource ?? result.source;
+                return (
+                  <li
+                    id={`${listboxId}-${index}`}
+                    key={result.id}
+                    role="option"
+                    aria-selected={index === activeIndex}
+                    onPointerDown={(event) => event.preventDefault()}
+                    onClick={() => choose(result)}
+                  >
+                    <span>
+                      <strong>{result.label}</strong>
+                      <small>{result.context}</small>
+                      <small>{availabilityLabels[result.dataAvailability]}</small>
+                      <small>Source: {evidenceSource.dataset} · {evidenceSource.vintage}</small>
+                    </span>
+                    <em>{kindLabels[result.kind]}</em>
+                  </li>
+                );
+              })}
             </ul>
           )}
         </div>

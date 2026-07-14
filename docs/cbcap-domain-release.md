@@ -39,7 +39,7 @@ AWS notes that DNS propagation and managed-certificate issuance can take up to 2
 7. pins the approved checkout to the protected remote `main` SHA before release, verifies that `main` did not move before or during the job, and accepts only that SHA (or Amplify's connected-repository `HEAD` marker) as the job source identity;
 8. creates the exact domain association only when absent; if a first-time association is `FAILED`, mapped only to `main`, unverified, and using an Amplify-managed certificate, it removes that failed object and re-adds the same exact domain after the DNS boundary is in place;
 9. fails closed if an existing association has any unexpected mapping;
-10. waits for the managed certificate and verified domain;
+10. waits for Amplify to report the managed domain as `AVAILABLE`; if Amplify's mapping verification flag is still catching up, the following live DNS and TLS proof remains authoritative;
 11. verifies public DNS and TLS through a real HTTPS request;
 12. verifies canonical-domain output, security headers, HTTPS redirection, and the 3,144-county/51-state national API contract.
 
@@ -69,7 +69,7 @@ A release is complete only when all of the following are true:
 
 - the CB-CAP release job succeeds for the approved `main` commit;
 - the exact domain association reports `AVAILABLE`;
-- its only mapping is empty prefix to `main` and that mapping reports `verified: true`;
+- its only mapping is empty prefix to `main`; when Amplify's mapping verification flag still reports `false`, the live DNS and managed-TLS checks below must succeed before the release can pass;
 - `https://cbcap.sozorockfoundation.org/` passes public DNS resolution and managed TLS validation;
 - HTTP redirects to the same host over HTTPS;
 - the final page does not redirect to an Amplify default hostname or another SozoRock property;

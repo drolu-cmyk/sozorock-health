@@ -89,19 +89,24 @@ test("disability never influences pathway-barrier or composite calculations", as
   assert.equal(manifest.quality.planningIndexAvailable, records.filter((record) => record.planning.planningPressure !== null).length);
 });
 
-test("public planning language distinguishes estimates, scenarios, and forecasts", async () => {
-  const [scenario, brief, workspace] = await Promise.all([
+test("public planning language distinguishes estimates, assumptions, and modeled planning ranges", async () => {
+  const [scenario, brief, workspace, evidence] = await Promise.all([
     readFile(new URL("../app/components/ScenarioPlanner.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/components/IntelligenceBrief.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/components/PlanningWorkspace.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/lib/profile-evidence.ts", import.meta.url), "utf8"),
   ]);
 
-  assert.match(scenario, /population-equivalent scenario/i);
-  assert.match(scenario, /not diagnosed people, future cases, observed service demand, or a forecast/i);
-  assert.doesNotMatch(scenario, /planned completed pathways\/year|Explore a need range/i);
+  assert.match(scenario, /source confidence interval only when one is available/i);
+  assert.match(scenario, /does not manufacture an uncertainty range/i);
+  assert.match(scenario, /Operating weeks\/year/i);
+  assert.match(scenario, /not a count of diagnosed people, future cases, observed service demand, or predicted demand/i);
+  assert.doesNotMatch(scenario, /prevalence - 1\.5|prevalence \+ 1\.5|planned completed pathways\/year|Explore a need range/i);
   assert.doesNotMatch(brief, /Observed estimate/);
-  assert.match(brief, /Published model-based condition estimate/);
-  assert.match(workspace, /published model-based estimate/i);
+  assert.match(brief, /profileEstimateLabel\(provenance\)/);
+  assert.match(workspace, /profileEstimateLabel\(provenance\)/);
+  assert.match(evidence, /State summary derived from county CDC estimates/);
+  assert.match(evidence, /Published CDC model-based estimates/);
 });
 
 test("public evidence displays never rank unlike measures as priorities", async () => {
@@ -119,9 +124,9 @@ test("public evidence displays never rank unlike measures as priorities", async 
   assert.doesNotMatch(report, /Largest displayed (condition|barrier) estimates/i);
   assert.doesNotMatch(dashboard, /Leading (condition|pathway-barrier) estimate/i);
   assert.doesNotMatch(brief, /largest (condition|pathway-barrier) gap/i);
-  assert.match(workspace, /fixed published order and are not a priority ranking/i);
+  assert.match(workspace, /fixed source order and are not a priority ranking/i);
   assert.match(report, /Not a priority ranking; eligible populations vary by measure/i);
-  assert.match(brief, /fixed published order/i);
+  assert.match(brief, /fixed source order/i);
   assert.match(methodology, /disability measure is retained separately as accessibility context/i);
   assert.match(methodology, /excluded from the pathway-barrier percentile and from the composite calculation/i);
 });

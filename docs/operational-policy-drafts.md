@@ -39,7 +39,7 @@ The launch build makes notice versions and consent records explicit and auditabl
 ## CB-CAP retention and disclosure control
 
 - Resident operational records and CB-CAP data are physically and logically separated.
-- The public CB-CAP release uses synthetic demonstration data only. A future data pipeline may receive only approved aggregated, de-identified events after governance review.
-- All dashboards, filters, exports, and downloads apply a minimum-cell threshold and suppression logic before results leave the service.
+- The public CB-CAP stakeholder preview uses source-cited, aggregate public estimates and transparent deterministic planning calculations. It contains no resident records or protected health information. Any future operational pipeline may receive only approved aggregated, de-identified events after governance review.
+- Public-preview dashboards and exports use already-aggregated public estimates, preserve source missingness, and contain no resident records. Minimum-cell thresholds and suppression apply before any future locally supplied event aggregates leave the governed service.
 - Downloadable reports include generation time, filter context, data-version context, privacy notice, and suppression status.
 - Retention values remain centrally configurable and cannot be made permanent by client-side code.
