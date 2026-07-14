@@ -13,6 +13,7 @@ const kindLabels: Record<VerifiedGeographySuggestion["kind"], string> = {
   county: "County",
   place: "City / Census place",
   locality: "Town / county subdivision",
+  community: "Named community",
   zcta: "Census ZCTA",
 };
 
@@ -174,7 +175,7 @@ export function GeographySearch({
           )}
         </div>
       )}
-      <p className="geo-search__hint">Search covers 50 states, D.C., 3,144 county equivalents, cities, towns, Census places, and ZCTAs.</p>
+      <p className="geo-search__hint">Search covers 50 states, D.C., 3,144 county equivalents, Census cities and towns, named communities, and ZCTAs.</p>
     </div>
   );
 }

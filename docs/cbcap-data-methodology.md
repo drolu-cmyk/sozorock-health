@@ -4,6 +4,8 @@
 
 The County-Based Community Access Platform (CB-CAP) is a public, source-backed stakeholder preview of how county, place, and ZIP-linked health indicators can support accountable planning conversations. It is an initiative of The SozoRock Foundation, Inc. The approved public product and claims boundary is recorded in [`cbcap-stakeholder-preview-source-of-truth.md`](./cbcap-stakeholder-preview-source-of-truth.md).
 
+The typed current-versus-planned source catalog, nationwide geography contract, barrier taxonomy, workforce-readiness boundary, CHA/CHIP workflow, and systems-intelligence traceability rules are recorded in [`cbcap-evidence-registry.md`](./cbcap-evidence-registry.md).
+
 CB-CAP helps users compare population-level patterns, examine bounded planning scenarios, and organize questions for Community Health Assessment (CHA) and Community Health Improvement Plan (CHIP) work. It does not diagnose, triage, recommend treatment, rank people, determine eligibility, allocate funding, or replace an official CHA or CHIP. The stakeholder preview contains no resident records and no protected health information.
 
 ## What the current snapshot contains

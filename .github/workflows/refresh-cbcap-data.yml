@@ -1,0 +1,187 @@
+name: Refresh CB-CAP public data
+
+on:
+  schedule:
+    - cron: "23 10 1 * *"
+  workflow_dispatch:
+
+concurrency:
+  group: cbcap-public-data-refresh
+  cancel-in-progress: false
+
+permissions: {}
+
+jobs:
+  refresh-to-pr:
+    name: Validate public sources and propose a reviewed refresh
+    if: github.repository == 'drolu-cmyk/sozorock-health'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: write
+      pull-requests: write
+    env:
+      AUTOMATION_BRANCH: automation/cbcap-public-data-refresh
+    steps:
+      - name: Check out the protected source branch
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Use the supported Node.js release
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install the locked dependency graph
+        run: |
+          set -euo pipefail
+          npm ci
+          git diff --exit-code
+          test -z "$(git status --porcelain)"
+
+      - name: Refresh reviewed public-data snapshots
+        run: |
+          set -euo pipefail
+          npm run refresh:cbcap-data
+          npm run refresh:cbcap-geometries
+          node scripts/validate-cbcap-refresh.mjs
+
+      - name: Remove timestamp-only refresh noise
+        run: |
+          set -euo pipefail
+          old_source_semantics=$(git show HEAD:apps/platform/data/source-manifest.json | jq -S 'del(.generatedAt)' | sha256sum | cut -d' ' -f1)
+          new_source_semantics=$(jq -S 'del(.generatedAt)' apps/platform/data/source-manifest.json | sha256sum | cut -d' ' -f1)
+          old_boundary_semantics=$(git show HEAD:apps/platform/data/boundary-manifest.json | jq -S . | sha256sum | cut -d' ' -f1)
+          new_boundary_semantics=$(jq -S . apps/platform/data/boundary-manifest.json | sha256sum | cut -d' ' -f1)
+
+          if [[ "$old_source_semantics" == "$new_source_semantics" && "$old_boundary_semantics" == "$new_boundary_semantics" ]]; then
+            git restore -- \
+              apps/platform/data/boundary-manifest.json \
+              apps/platform/data/county-planning.json \
+              apps/platform/data/dashboard-summary.json \
+              apps/platform/data/source-manifest.json \
+              apps/platform/public/data/cbcap-boundaries-2025.json \
+              apps/platform/public/data/cbcap-county-map-2025.json
+          fi
+
+      - name: Reject files outside the refresh boundary
+        run: |
+          set -euo pipefail
+          allowed=$(mktemp)
+          changed=$(mktemp)
+          unexpected=$(mktemp)
+          cat >"$allowed" <<'EOF'
+          apps/platform/data/boundary-manifest.json
+          apps/platform/data/county-planning.json
+          apps/platform/data/dashboard-summary.json
+          apps/platform/data/source-manifest.json
+          apps/platform/public/data/cbcap-boundaries-2025.json
+          apps/platform/public/data/cbcap-county-map-2025.json
+          EOF
+          {
+            git diff --name-only --diff-filter=ACDMRTUXB
+            git ls-files --others --exclude-standard
+          } | sed '/^$/d' | sort -u >"$changed"
+          sort -u "$allowed" -o "$allowed"
+          comm -23 "$changed" "$allowed" >"$unexpected"
+          if [[ -s "$unexpected" ]]; then
+            echo "The refresh attempted to change files outside the approved data boundary:"
+            cat "$unexpected"
+            exit 1
+          fi
+          git diff --check
+
+      - name: Run the CB-CAP quality gates
+        run: |
+          set -euo pipefail
+          npm run typecheck --workspace @sozorock/platform
+          npm exec eslint -- apps/platform --max-warnings=0
+          npm run test --workspace @sozorock/platform
+          npm run build:platform
+          npm audit --omit=dev --audit-level=moderate
+          node scripts/validate-cbcap-refresh.mjs
+
+      - name: Detect a substantive source change
+        id: changes
+        run: |
+          set -euo pipefail
+          if git diff --quiet && [[ -z "$(git ls-files --others --exclude-standard)" ]]; then
+            echo "changed=false" >>"$GITHUB_OUTPUT"
+            echo "The reviewed public sources have not changed. No pull request will be opened."
+          else
+            echo "changed=true" >>"$GITHUB_OUTPUT"
+          fi
+
+      - name: Commit the bounded refresh
+        if: steps.changes.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          git config user.name "sozorock-data-automation"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          gh auth setup-git
+          git switch --create "$AUTOMATION_BRANCH"
+          git add -- \
+            apps/platform/data/boundary-manifest.json \
+            apps/platform/data/county-planning.json \
+            apps/platform/data/dashboard-summary.json \
+            apps/platform/data/source-manifest.json \
+            apps/platform/public/data/cbcap-boundaries-2025.json \
+            apps/platform/public/data/cbcap-county-map-2025.json
+          git diff --cached --quiet && { echo "No approved refresh files changed."; exit 1; }
+          git commit -m "chore(cbcap): refresh reviewed public data"
+          remote_sha=$(git ls-remote --heads origin "refs/heads/$AUTOMATION_BRANCH" | awk '{print $1}')
+          if [[ -n "$remote_sha" ]]; then
+            git push \
+              --force-with-lease="refs/heads/$AUTOMATION_BRANCH:$remote_sha" \
+              origin \
+              "HEAD:refs/heads/$AUTOMATION_BRANCH"
+          else
+            git push origin "HEAD:refs/heads/$AUTOMATION_BRANCH"
+          fi
+
+      - name: Open or update the review pull request
+        if: steps.changes.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          indicator_release=$(jq -r '.indicators.released' apps/platform/data/source-manifest.json)
+          indicator_profiles=$(jq -r '.indicators.matchedCountyCount' apps/platform/data/source-manifest.json)
+          source_hash=$(jq -r '.quality.sha256' apps/platform/data/source-manifest.json)
+          boundary_hash=$(jq -r '.sha256' apps/platform/data/boundary-manifest.json)
+          body=$(mktemp)
+          {
+            echo "## Automated CB-CAP public-data refresh"
+            echo
+            echo "This pull request proposes reviewed public-data snapshots. It does not merge or deploy itself."
+            echo
+            echo "- County equivalents validated: 3,144"
+            echo "- State and District records validated: 51"
+            printf '%s\n' "- Indicator profiles: $indicator_profiles"
+            printf '%s\n' "- Indicator release: $indicator_release"
+            printf '%s\n' "- Source hash: \`$source_hash\`"
+            printf '%s\n' "- Boundary hash: \`$boundary_hash\`"
+            echo
+            echo "### Human review required"
+            echo
+            echo "- Confirm source release notes, vintage, definitions, and coverage changes."
+            echo "- Review missing values, uncertainty, modeled-estimate boundaries, and public language."
+            echo "- Confirm map and profile behavior before approving a separate production release."
+          } >"$body"
+
+          existing_pr=$(gh pr list --state open --head "$AUTOMATION_BRANCH" --base main --json number --jq '.[0].number // empty')
+          if [[ -n "$existing_pr" ]]; then
+            gh pr edit "$existing_pr" --title "chore(cbcap): refresh reviewed public data" --body-file "$body"
+          else
+            gh pr create \
+              --base main \
+              --head "$AUTOMATION_BRANCH" \
+              --title "chore(cbcap): refresh reviewed public data" \
+              --body-file "$body"
+          fi

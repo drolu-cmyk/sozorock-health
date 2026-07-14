@@ -7,6 +7,7 @@ import {
   committedCountySource,
   committedIndicatorSnapshot,
   TIGERWEB_CURRENT_SOURCE,
+  USGS_GNIS_SOURCE,
 } from "../../lib/geography-provenance";
 import type { GeographySearchResponse } from "../../lib/types";
 
@@ -14,20 +15,23 @@ export const runtime = "nodejs";
 
 const committedSource = committedCountySource(sourceManifest);
 const committedIndicatorSource = committedIndicatorSnapshot(sourceManifest);
-const sourceLabel = "Committed Census state/county snapshot + U.S. Census Bureau TIGERweb";
+const sourceLabel = "Committed Census state/county snapshot + Census TIGERweb + USGS GNIS";
 const provenance = {
   committedStateCountySnapshot: committedSource,
   committedIndicatorSnapshot: committedIndicatorSource,
   liveSubcountyLookup: TIGERWEB_CURRENT_SOURCE,
+  namedCommunityLookup: USGS_GNIS_SOURCE,
   coverage: {
     statesAndDistrictOfColumbia: states.length,
     countyEquivalents: counties.length,
     subcountyGeographies: "Live authoritative lookup" as const,
+    namedCommunities: "Live authoritative lookup" as const,
   },
   limitations: [
     "A Census place or county subdivision may not match a postal city name or local administrative usage.",
     "A ZCTA is a Census statistical area, not a USPS delivery route, and not every ZIP Code has a ZCTA.",
     "Search verifies geography only. Health indicators are loaded separately and are never inferred from a place name or identifier.",
+    "A GNIS populated place is a named point, not a Census statistical boundary, postal city, municipal boundary, or service area.",
   ],
 };
 

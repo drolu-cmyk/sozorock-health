@@ -16,6 +16,16 @@ export const TIGERWEB_CURRENT_SOURCE: GeographySourceReference = {
   refreshedAt: null,
 };
 
+export const USGS_GNIS_SOURCE: GeographySourceReference = {
+  agency: "U.S. Geological Survey",
+  dataset: "Geographic Names Information System (GNIS) populated places",
+  vintage: "Current GNIS public service",
+  url: "https://www.usgs.gov/tools/geographic-names-information-system-gnis",
+  method: "On-demand official-name lookup for populated communities not represented by a current Census place or county-subdivision result.",
+  freshness: "Queried on demand from the current USGS public service; search responses are cached for up to seven days.",
+  refreshedAt: null,
+};
+
 export const COMMITTED_GEOGRAPHY_SOURCE_FALLBACK: GeographySourceReference = {
   agency: "U.S. Census Bureau",
   dataset: "Committed TIGERweb state and county snapshot",
@@ -71,6 +81,7 @@ export function identifiersForGeography(
     countyFips: kind === "county" ? geoid.slice(2) : null,
     placeFips: kind === "place" ? geoid.slice(2) : null,
     zcta: kind === "zcta" ? geoid : null,
+    ...(kind === "community" ? { gnisId: geoid } : {}),
   };
 }
 
@@ -80,6 +91,6 @@ export function availabilityForGeography(
 ): GeographyDataAvailability {
   if (kind === "state") return "derived-county-summary-available";
   if (kind === "county" && hasCommittedIndicators) return "official-modeled-estimates-available";
-  if (kind === "county" || kind === "locality") return "official-geography-only";
+  if (kind === "county" || kind === "locality" || kind === "community") return "official-geography-only";
   return "checked-on-selection";
 }

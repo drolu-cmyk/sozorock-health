@@ -15,12 +15,14 @@ import {
 const states = [
   { fips: "06", name: "California", code: "CA" },
   { fips: "20", name: "Kansas", code: "KS" },
+  { fips: "36", name: "New York", code: "NY" },
   { fips: "53", name: "Washington", code: "WA" },
 ];
 
 const counties = [
   { fips: "06001", stateFips: "06", state: "California", county: "Alameda County", sourceStatus: "available" },
   { fips: "20173", stateFips: "20", state: "Kansas", county: "Sedgwick County", sourceStatus: "available" },
+  { fips: "36001", stateFips: "36", state: "New York", county: "Albany County", sourceStatus: "available" },
   { fips: "53033", stateFips: "53", state: "Washington", county: "King County", sourceStatus: "available" },
 ];
 
@@ -29,6 +31,13 @@ function response(body, status = 200) {
     status,
     headers: { "Content-Type": "application/json" },
   });
+}
+
+function isOfficialGnisGeocoderUrl(value) {
+  const url = new URL(value);
+  return url.protocol === "https:"
+    && url.hostname === "dashboard.waterdata.usgs.gov"
+    && url.pathname === "/service/geocoder/get/location/1.0";
 }
 
 test("returns a provenance-aware committed county result when every TIGERweb layer fails", async () => {
@@ -186,6 +195,55 @@ test("uses state-qualified Census name lookup without sending names to the ZCTA 
   assert.equal(seattle.dataAvailability, "checked-on-selection");
   assert.equal(seattle.identifiers.placeFips, "63000");
   assert.equal(seattle.profileSource, null);
+});
+
+test("falls back to the official GNIS populated-place service for Delmar, NY without inventing a health profile", async () => {
+  const requestedUrls = [];
+  const result = await searchNationalGeographies({
+    term: "Delmar, NY",
+    states,
+    counties,
+    fetcher: async (url) => {
+      requestedUrls.push(url);
+      if (isOfficialGnisGeocoderUrl(url)) {
+        return response([
+          {
+            Source: "gnis",
+            Type: "Cities & Populated Places",
+            Name: "Delmar",
+            County: "Albany County",
+            State: "NY",
+            GnisId: 948278,
+          },
+          {
+            Source: "gnis",
+            Type: "Lakes & Reservoirs",
+            Name: "Delmar Reservoir",
+            County: "Albany County",
+            State: "NY",
+            GnisId: 948279,
+          },
+        ]);
+      }
+      return response({ features: [] });
+    },
+  });
+
+  const delmar = result.results.find(({ id }) => id === "community-948278");
+  assert.ok(delmar);
+  assert.equal(delmar.kind, "community");
+  assert.equal(delmar.label, "Delmar");
+  assert.match(delmar.context, /New York.*GNIS populated place.*Albany County/);
+  assert.equal(/[\u00c2\u00c3\ufffd]/u.test(delmar.context), false);
+  assert.equal(delmar.dataAvailability, "official-geography-only");
+  assert.equal(delmar.identifiers.gnisId, "948278");
+  assert.equal(delmar.profileSource, null);
+  assert.match(delmar.source.dataset, /Geographic Names Information System/);
+  assert.equal(result.results.some(({ label }) => label === "Delmar Reservoir"), false);
+  const gnisUrl = new URL(requestedUrls.find(isOfficialGnisGeocoderUrl));
+  assert.equal(gnisUrl.searchParams.get("term"), "DELMAR*");
+  assert.equal(gnisUrl.searchParams.get("include"), "gnis");
+  assert.equal(result.partial, false);
 });
 
 test("queries an exact ZCTA with the layer's valid ordering field", async () => {

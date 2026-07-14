@@ -1,0 +1,176 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cbcap.sozorockfoundation.org/schemas/evidence-registry.schema.json",
+  "title": "CB-CAP public evidence registry",
+  "type": "object",
+  "required": [
+    "version",
+    "verifiedAt",
+    "releaseBoundary",
+    "geographySearch",
+    "sources",
+    "barrierTaxonomy",
+    "chaChipSupport",
+    "workforceReadiness",
+    "systemsIntelligence",
+    "scenarioPolicy"
+  ],
+  "properties": {
+    "version": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}-v[0-9]+$"
+    },
+    "verifiedAt": {
+      "type": "string",
+      "format": "date"
+    },
+    "releaseBoundary": {
+      "type": "string",
+      "minLength": 40
+    },
+    "geographySearch": {
+      "type": "object"
+    },
+    "sources": {
+      "type": "array",
+      "minItems": 9,
+      "items": {
+        "$ref": "#/$defs/source"
+      }
+    },
+    "barrierTaxonomy": {
+      "type": "array",
+      "minItems": 9,
+      "items": {
+        "$ref": "#/$defs/taxonomy"
+      }
+    },
+    "chaChipSupport": {
+      "type": "object"
+    },
+    "workforceReadiness": {
+      "type": "object"
+    },
+    "systemsIntelligence": {
+      "type": "object"
+    },
+    "scenarioPolicy": {
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "source": {
+      "type": "object",
+      "required": [
+        "id",
+        "label",
+        "agency",
+        "domain",
+        "evidenceClass",
+        "officialUrl",
+        "integrationStatus",
+        "geographyLevels",
+        "release",
+        "freshness",
+        "coverage",
+        "purpose",
+        "limitations"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z0-9-]+$"
+        },
+        "label": { "type": "string" },
+        "agency": { "type": "string" },
+        "domain": {
+          "enum": [
+            "geography",
+            "population-health",
+            "community-conditions",
+            "workforce-capacity",
+            "shortage-designations",
+            "digital-connectivity",
+            "rural-context",
+            "planning-guidance"
+          ]
+        },
+        "evidenceClass": {
+          "enum": [
+            "official-statistical-data",
+            "official-geography",
+            "official-designation",
+            "official-guidance"
+          ]
+        },
+        "officialUrl": {
+          "type": "string",
+          "format": "uri",
+          "pattern": "^https://"
+        },
+        "integrationStatus": {
+          "enum": [
+            "integrated-snapshot",
+            "integrated-on-demand",
+            "official-guidance",
+            "planned-ingestion"
+          ]
+        },
+        "geographyLevels": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "release": { "type": "string" },
+        "freshness": { "type": "object" },
+        "coverage": { "type": "object" },
+        "purpose": { "type": "string" },
+        "limitations": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "taxonomy": {
+      "type": "object",
+      "required": [
+        "id",
+        "label",
+        "classification",
+        "evidenceStatus",
+        "measureKeys",
+        "sourceIds",
+        "planningUse",
+        "boundary"
+      ],
+      "properties": {
+        "id": { "type": "string" },
+        "label": { "type": "string" },
+        "classification": {
+          "enum": [
+            "pathway-barrier",
+            "accessibility-context",
+            "system-capacity-context"
+          ]
+        },
+        "evidenceStatus": {
+          "enum": [
+            "displayed",
+            "planned-not-displayed"
+          ]
+        },
+        "measureKeys": { "type": "array" },
+        "sourceIds": {
+          "type": "array",
+          "minItems": 1
+        },
+        "planningUse": { "type": "string" },
+        "boundary": { "type": "string" }
+      },
+      "additionalProperties": false
+    }
+  }
+}

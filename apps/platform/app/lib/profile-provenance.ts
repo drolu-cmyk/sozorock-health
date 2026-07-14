@@ -3,6 +3,7 @@ import {
   committedIndicatorSnapshot,
   committedCountySource,
   TIGERWEB_CURRENT_SOURCE,
+  USGS_GNIS_SOURCE,
 } from "./geography-provenance.ts";
 import type {
   GeographyKind,
@@ -43,15 +44,22 @@ export function buildProfileProvenance({
   profile,
   manifest,
   censusSourceUrl,
+  gnisSourceUrl,
 }: {
   kind: GeographyKind;
   profile: GeographyProfile;
   manifest: SourceManifest;
   censusSourceUrl?: string | null;
+  gnisSourceUrl?: string | null;
 }): ProfileResponse["provenance"] {
   const geography = kind === "state" || kind === "county"
     ? committedCountySource(manifest)
-    : {
+    : kind === "community"
+      ? {
+          ...USGS_GNIS_SOURCE,
+          url: gnisSourceUrl || USGS_GNIS_SOURCE.url,
+        }
+      : {
         ...TIGERWEB_CURRENT_SOURCE,
         url: censusSourceUrl || TIGERWEB_CURRENT_SOURCE.url,
       };
@@ -76,6 +84,9 @@ export function buildProfileProvenance({
   }
   if (kind === "locality") {
     limitations.push("County subdivisions and consolidated cities are searchable geography only in the current public-data release.");
+  }
+  if (kind === "community") {
+    limitations.push("GNIS verifies an official populated-place name and point location; it does not define a Census statistical boundary or support a compatible PLACES profile in this release.");
   }
   return {
     evidenceStatus: kind === "state" && indicators
