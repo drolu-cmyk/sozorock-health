@@ -175,9 +175,43 @@ jobs:
             echo "The exact CB-CAP domain association already exists."
             association_status=$(jq -r '.domainAssociation.domainStatus' <<<"$association_json")
             if [[ "$association_status" == "FAILED" ]]; then
-              echo "Retrying the failed first-time CB-CAP domain activation with the approved DNS boundary."
+              failed_mapping_count=$(jq '[.domainAssociation.subDomains[] | select((.subDomainSetting.prefix // "") == "" and .subDomainSetting.branchName == "main")] | length' <<<"$association_json")
+              failed_total_mappings=$(jq '.domainAssociation.subDomains | length' <<<"$association_json")
+              failed_verified_count=$(jq '[.domainAssociation.subDomains[] | select(.verified == true)] | length' <<<"$association_json")
+              failed_certificate_type=$(jq -r '.domainAssociation.certificate.type // ""' <<<"$association_json")
+
+              test "$failed_mapping_count" = "1"
+              test "$failed_total_mappings" = "1"
+              test "$failed_verified_count" = "0"
+              test "$failed_certificate_type" = "AMPLIFY_MANAGED"
+
+              echo "Re-adding the failed, unverified first-time CB-CAP domain under the approved DNS boundary."
+              aws amplify delete-domain-association \
+                --app-id "$CBCAP_APP_ID" \
+                --domain-name "$CBCAP_DOMAIN" \
+                >/dev/null
+
+              for attempt in $(seq 1 30); do
+                if aws amplify get-domain-association \
+                  --app-id "$CBCAP_APP_ID" \
+                  --domain-name "$CBCAP_DOMAIN" \
+                  --output json >deleted-domain-check.json 2>deleted-domain-error.log; then
+                  sleep 5
+                elif grep -q 'NotFoundException' deleted-domain-error.log; then
+                  break
+                else
+                  cat deleted-domain-error.log
+                  exit 1
+                fi
+
+                if [[ "$attempt" -eq 30 ]]; then
+                  echo "The failed CB-CAP domain association was not removed within 150 seconds."
+                  exit 1
+                fi
+              done
+
               settings=$(jq -cn --arg branch "$AMPLIFY_BRANCH" '[{prefix:"",branchName:$branch}]')
-              association_json=$(aws amplify update-domain-association \
+              association_json=$(aws amplify create-domain-association \
                 --app-id "$CBCAP_APP_ID" \
                 --domain-name "$CBCAP_DOMAIN" \
                 --no-enable-auto-sub-domain \

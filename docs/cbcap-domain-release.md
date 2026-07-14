@@ -37,13 +37,13 @@ AWS notes that DNS propagation and managed-certificate issuance can take up to 2
 5. refuses an unexpected application, repository, or branch;
 6. reconciles the version-controlled CB-CAP build definition;
 7. pins the approved checkout to the protected remote `main` SHA before release, verifies that `main` did not move before or during the job, and accepts only that SHA (or Amplify's connected-repository `HEAD` marker) as the job source identity;
-8. creates the exact domain association only when absent, or retries a failed first-time activation after the DNS boundary is in place;
+8. creates the exact domain association only when absent; if a first-time association is `FAILED`, mapped only to `main`, unverified, and using an Amplify-managed certificate, it removes that failed object and re-adds the same exact domain after the DNS boundary is in place;
 9. fails closed if an existing association has any unexpected mapping;
 10. waits for the managed certificate and verified domain;
 11. verifies public DNS and TLS through a real HTTPS request;
 12. verifies canonical-domain output, security headers, HTTPS redirection, and the 3,144-county/51-state national API contract.
 
-The workflow asks Amplify to manage the exact custom-domain records. It receives no domain-delete, wildcard-domain, apex-domain, data-store, secret, IAM, or cross-product permission.
+The workflow asks Amplify to manage the exact custom-domain records. Delete permission is restricted to the same exact CB-CAP domain resource and is exercised only for a failed, unverified first-time association after all mapping and certificate checks pass. It receives no wildcard-domain, apex-domain, data-store, secret, IAM, or cross-product permission.
 
 ## Dedicated deployment role
 
@@ -52,8 +52,8 @@ CB-CAP uses `GitHubOIDC_SozoRockHealth_CBCAP_ProductionRole`, not the broader So
 The exact-domain statement grants only:
 
 - `amplify:CreateDomainAssociation`
+- `amplify:DeleteDomainAssociation`
 - `amplify:GetDomainAssociation`
-- `amplify:UpdateDomainAssociation`
 
 for:
 

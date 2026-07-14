@@ -26,12 +26,12 @@
       "Resource": "arn:aws:amplify:us-east-1:791860731989:apps/d307qqji18y8il/branches/main/jobs/*"
     },
     {
-      "Sid": "CreateOrReadOnlyTheExactCbcapDomainAssociation",
+      "Sid": "ManageOnlyTheExactCbcapDomainAssociation",
       "Effect": "Allow",
       "Action": [
         "amplify:CreateDomainAssociation",
-        "amplify:GetDomainAssociation",
-        "amplify:UpdateDomainAssociation"
+        "amplify:DeleteDomainAssociation",
+        "amplify:GetDomainAssociation"
       ],
       "Resource": "arn:aws:amplify:us-east-1:791860731989:apps/d307qqji18y8il/domains/cbcap.sozorockfoundation.org"
     },

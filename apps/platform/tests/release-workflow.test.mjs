@@ -17,7 +17,11 @@ test("pins protected main and reads deployment inputs from the approved commit",
   assert.match(workflow, /deployed_commit" == "HEAD"/);
   assert.match(workflow, /\^\[0-9a-f\]\{7,40\}\$/);
   assert.match(workflow, /aws sts get-caller-identity/);
-  assert.match(workflow, /update-domain-association/);
+  assert.match(workflow, /delete-domain-association/);
+  assert.match(workflow, /failed_verified_count/);
+  assert.match(workflow, /failed_certificate_type/);
+  assert.match(workflow, /create-domain-association/);
+  assert.doesNotMatch(workflow, /update-domain-association/);
   assert.doesNotMatch(workflow, /allowed-account-ids/);
   assert.match(workflow, /\.coverage\.countyCount == 3144/);
   assert.match(workflow, /cbcap-county-map-2025\.json/);
@@ -45,4 +49,13 @@ test("limits automated DNS changes to the exact CB-CAP name", async () => {
     ],
     ["cbcap.sozorockfoundation.org", "*.cbcap.sozorockfoundation.org"],
   );
+
+  const domainStatement = policy.Statement.find(
+    (statement) => statement.Sid === "ManageOnlyTheExactCbcapDomainAssociation",
+  );
+  assert.deepEqual(domainStatement.Action, [
+    "amplify:CreateDomainAssociation",
+    "amplify:DeleteDomainAssociation",
+    "amplify:GetDomainAssociation",
+  ]);
 });
