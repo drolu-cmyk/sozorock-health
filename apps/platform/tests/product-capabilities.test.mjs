@@ -58,6 +58,10 @@ test("includes core accessibility structures and explicit missing-data language"
   assert.match(search, /role="combobox"/);
   assert.match(search, /role="listbox"/);
   assert.match(search, /aria-activedescendant/);
+  assert.match(search, /committedQuery === trimmed/);
+  assert.match(search, /setCommittedQuery\(suggestion\.label\)/);
+  assert.match(search, /setCommittedQuery\(null\)/);
+  assert.match(search, /committedQuery !== query\.trim\(\)/);
   assert.match(search, /body\.partial/);
   assert.match(search, /Retry search/);
   assert.match(styles, /min-height:\s*44px/);
