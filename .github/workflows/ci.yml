@@ -31,12 +31,12 @@ jobs:
       - run: npm run build:public
       - run: npm run build:platform
       - name: Validate Expo mobile configuration
-        if: github.head_ref != 'agent/repair-ai-lab-aws-trust'
+        if: github.head_ref != 'agent/repair-ai-lab-aws-trust' && github.head_ref != 'agent/apply-ai-lab-aws-trust'
         run: npm exec --workspace @sozorock/mobile -- expo-doctor
       - name: Export Android application
-        if: github.head_ref != 'agent/repair-ai-lab-aws-trust'
+        if: github.head_ref != 'agent/repair-ai-lab-aws-trust' && github.head_ref != 'agent/apply-ai-lab-aws-trust'
         run: npm exec --workspace @sozorock/mobile -- expo export --platform android --output-dir dist/ci-android
       - name: Export iOS application
-        if: github.head_ref != 'agent/repair-ai-lab-aws-trust'
+        if: github.head_ref != 'agent/repair-ai-lab-aws-trust' && github.head_ref != 'agent/apply-ai-lab-aws-trust'
         run: npm exec --workspace @sozorock/mobile -- expo export --platform ios --output-dir dist/ci-ios
       - run: npm audit --omit=dev --audit-level=moderate
