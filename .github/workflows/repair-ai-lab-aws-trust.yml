@@ -10,32 +10,16 @@ permissions:
   id-token: write
 
 jobs:
-  discover:
+  repair:
     runs-on: ubuntu-latest
     environment: production
     steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
       - name: Assume trusted SozoRock production role
         uses: aws-actions/configure-aws-credentials@7474bc4690e29a8392af63c5b98e7449536d5c3a
         with:
           role-to-assume: ${{ vars.CBCAP_AWS_DEPLOY_ROLE_ARN }}
-          role-session-name: ai-lab-trust-bootstrap
+          role-session-name: ai-lab-trust-repair
           aws-region: ${{ vars.AWS_REGION || 'us-east-1' }}
-
-      - name: Verify account and discover AI Lab deployment role
-        run: |
-          set -euo pipefail
-          account_id=$(aws sts get-caller-identity --query Account --output text)
-          test "$account_id" = "791860731989"
-
-          aws iam list-roles \
-            --query "Roles[?contains(RoleName, 'AiLab') || contains(RoleName, 'AILab') || contains(RoleName, 'AI-Lab') || contains(RoleName, 'SozorockAi') || contains(RoleName, 'SozoRockAi')].[RoleName,Arn]" \
-            --output table
-
-          role_name=$(aws iam list-roles \
-            --query "Roles[?contains(RoleName, 'AiLab') || contains(RoleName, 'AILab') || contains(RoleName, 'AI-Lab') || contains(RoleName, 'SozorockAi') || contains(RoleName, 'SozoRockAi')].RoleName | [0]" \
-            --output text)
-
-          test -n "$role_name"
-          test "$role_name" != "None"
-          echo "Discovered role: $role_name"
-          aws iam get-role --role-name "$role_name" --query 'Role.{RoleName:RoleName,Arn:Arn,AssumeRolePolicyDocument:AssumeRolePolicyDocument}' --output json
+      - name: Repair and verify AI Lab deployment trust
+        run: bash scripts/repair-ai-lab-aws-trust.sh
