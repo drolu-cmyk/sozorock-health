@@ -8,6 +8,7 @@ on:
 permissions:
   contents: read
   id-token: write
+  issues: write
 
 jobs:
   repair:
@@ -22,4 +23,19 @@ jobs:
           role-session-name: ai-lab-trust-repair
           aws-region: ${{ vars.AWS_REGION || 'us-east-1' }}
       - name: Repair and verify AI Lab deployment trust
-        run: bash scripts/repair-ai-lab-aws-trust.sh
+        id: repair
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          bash scripts/repair-ai-lab-aws-trust.sh 2>&1 | tee /tmp/ai-lab-trust-repair.log
+      - name: Publish repair result
+        env:
+          GH_TOKEN: ${{ github.token }}
+          OUTCOME: ${{ steps.repair.outcome }}
+        run: |
+          log=$(tail -n 40 /tmp/ai-lab-trust-repair.log 2>/dev/null || true)
+          gh issue create \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "AI Lab AWS trust repair: ${OUTCOME}" \
+            --body "Outcome: **${OUTCOME}**\n\nRun: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}\n\n\`\`\`text\n${log}\n\`\`\`"
+          test "$OUTCOME" = "success"
