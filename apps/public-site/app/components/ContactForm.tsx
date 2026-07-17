@@ -91,8 +91,13 @@ const formCopy = {
 
 const interestOptions = [
   ["Partner with us", "Colaborar con nosotros"],
+  ["CB-CAP inquiry", "Consulta sobre CB-CAP"],
+  ["BYOP provider partnership", "Colaboración con proveedores BYOP"],
+  ["Health Equity Hub partnership", "Colaboración con un Centro de Equidad en Salud"],
+  ["Health Access Day partnership", "Colaboración con Health Access Day"],
   ["Fund the work", "Financiar el trabajo"],
   ["Volunteer", "Voluntariado"],
+  ["Media inquiry", "Consulta de medios"],
   ["Support research and publications", "Apoyar la investigación y las publicaciones"],
   ["Bring the model to a community", "Llevar el modelo a una comunidad"],
   ["Institutional or public-sector inquiry", "Consulta institucional o del sector público"],
@@ -141,12 +146,22 @@ function validate(form: FormData, locale: Locale): Errors {
   return errors;
 }
 
-export function ContactForm({ locale = "en" }: { locale?: Locale }) {
+export function ContactForm({
+  locale = "en",
+  initialInterest = "",
+}: {
+  locale?: Locale;
+  initialInterest?: string;
+}) {
   const copy = formCopy[locale];
   const [state, setState] = useState<"idle" | "sending" | "sent" | "error">(
     "idle",
   );
-  const [interest, setInterest] = useState("");
+  const [interest, setInterest] = useState(
+    interestOptions.some(([value]) => value === initialInterest)
+      ? initialInterest
+      : "",
+  );
   const [errors, setErrors] = useState<Errors>({});
   const [message, setMessage] = useState<string>(copy.initial);
 

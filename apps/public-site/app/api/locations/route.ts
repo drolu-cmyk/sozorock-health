@@ -22,6 +22,18 @@ const rateLimitSalt = process.env.CONTACT_RATE_LIMIT_SALT;
 const rateLimitSaltSecretArn = process.env.CONTACT_RATE_LIMIT_SALT_SECRET_ARN;
 let resolvedRateLimitSalt: Promise<string> | undefined;
 
+const stateFipsByCode: Record<string, string> = {
+  AL: "01", AK: "02", AZ: "04", AR: "05", CA: "06", CO: "08",
+  CT: "09", DE: "10", DC: "11", FL: "12", GA: "13", HI: "15",
+  ID: "16", IL: "17", IN: "18", IA: "19", KS: "20", KY: "21",
+  LA: "22", ME: "23", MD: "24", MA: "25", MI: "26", MN: "27",
+  MS: "28", MO: "29", MT: "30", NE: "31", NV: "32", NH: "33",
+  NJ: "34", NM: "35", NY: "36", NC: "37", ND: "38", OH: "39",
+  OK: "40", OR: "41", PA: "42", RI: "44", SC: "45", SD: "46",
+  TN: "47", TX: "48", UT: "49", VT: "50", VA: "51", WA: "53",
+  WV: "54", WI: "55", WY: "56",
+};
+
 type CensusFeature = { attributes?: Record<string, string | number | null> };
 
 async function getRateLimitSalt() {
@@ -97,11 +109,20 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({error:"Location search is temporarily unavailable."},{status:503});
   }
 
-  const placeWhere = `UPPER(BASENAME) LIKE '${term}%'`;
-  const countyWhere = /^\d{2,5}$/.test(term) ? `GEOID LIKE '${term}%'` : placeWhere;
+  const isNumeric = /^\d{2,5}$/.test(term);
+  const stateMatch = !isNumeric ? term.match(/\s+([A-Z]{2})$/) : null;
+  const stateFips = stateMatch ? stateFipsByCode[stateMatch[1]] : undefined;
+  const withoutState = stateMatch ? term.slice(0, stateMatch.index).trim() : term;
+  const countyPrefix = withoutState.replace(/\s+COUNTY$/, "").trim();
+  const placePrefix = withoutState.replace(/\s+(CITY|TOWN|VILLAGE|BOROUGH)$/, "").trim();
+  const stateClause = stateFips ? ` AND STATE='${stateFips}'` : "";
+  const placeWhere = `UPPER(BASENAME) LIKE '${placePrefix}%'${stateClause}`;
+  const countyWhere = isNumeric
+    ? `GEOID LIKE '${term}%'`
+    : `UPPER(BASENAME) LIKE '${countyPrefix}%'${stateClause}`;
   const placeLayers = [4, 5].map((layer) => queryLayer(`${PLACE_SERVICE}/${layer}/query`, placeWhere, "BASENAME,NAME,GEOID,STATE"));
   const countyPromise = queryLayer(COUNTY_SERVICE, countyWhere, "BASENAME,NAME,GEOID,STATE,COUNTY");
-  const zipPromise = /^\d{2,5}$/.test(term)
+  const zipPromise = isNumeric
     ? queryLayer(ZIP_SERVICE, `ZCTA5 LIKE '${term}%'`, "ZCTA5,GEOID,NAME")
     : Promise.resolve([] as CensusFeature[]);
 
@@ -123,7 +144,7 @@ export async function GET(request: NextRequest) {
   const zipResults = zips.map(({ attributes = {} }) => ({
     id: `zip-${attributes.ZCTA5 ?? attributes.GEOID}`,
     kind: "zip" as const,
-    label: `ZIP ${attributes.ZCTA5 ?? attributes.GEOID}`,
+    label: String(attributes.ZCTA5 ?? attributes.GEOID ?? ""),
     geoid: String(attributes.GEOID ?? attributes.ZCTA5 ?? ""),
     stateFips: "",
   }));

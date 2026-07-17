@@ -10,6 +10,11 @@ type RemoteResult = {
   stateFips: string;
 };
 
+type Suggestion = RemoteResult & {
+  display: string;
+  kindLabel: string;
+};
+
 const stateCodes: Record<string, string> = {
   "01": "AL", "02": "AK", "04": "AZ", "05": "AR", "06": "CA",
   "08": "CO", "09": "CT", "10": "DE", "11": "DC", "12": "FL",
@@ -23,6 +28,22 @@ const stateCodes: Record<string, string> = {
   "50": "VT", "51": "VA", "53": "WA", "54": "WV", "55": "WI",
   "56": "WY",
 };
+
+function toSuggestion(result: RemoteResult): Suggestion {
+  return {
+    ...result,
+    display:
+      result.kind === "zip"
+        ? result.label.replace(/^ZIP\s+/i, "")
+        : `${result.label}${stateCodes[result.stateFips] ? `, ${stateCodes[result.stateFips]}` : ""}`,
+    kindLabel:
+      result.kind === "county"
+        ? "County"
+        : result.kind === "zip"
+          ? "ZIP Code"
+          : "City or place",
+  };
+}
 
 export function ApprovedLocationSearch() {
   const [query, setQuery] = useState("");
@@ -68,20 +89,7 @@ export function ApprovedLocationSearch() {
   }, [query, selected]);
 
   const suggestions = useMemo(
-    () =>
-      results.slice(0, 8).map((result) => ({
-        ...result,
-        display:
-          result.kind === "zip"
-            ? result.label
-            : `${result.label}${stateCodes[result.stateFips] ? `, ${stateCodes[result.stateFips]}` : ""}`,
-        kindLabel:
-          result.kind === "county"
-            ? "County"
-            : result.kind === "zip"
-              ? "ZIP Code"
-              : "City or place",
-      })),
+    () => results.slice(0, 8).map(toSuggestion),
     [results],
   );
 
@@ -95,14 +103,37 @@ export function ApprovedLocationSearch() {
     );
   };
 
-  const submit = (event: FormEvent) => {
+  const submit = async (event: FormEvent) => {
     event.preventDefault();
     const choice = suggestions[activeIndex] ?? suggestions[0];
-    if (choice) choose(choice);
-    else if (!query.trim()) {
+    if (choice) {
+      choose(choice);
+      return;
+    }
+
+    const term = query.trim();
+    if (!term) {
       setMessage("Enter a ZIP Code, city or county to begin.");
-    } else if (!loading) {
-      setMessage("No exact match yet. Try another ZIP Code, city or county.");
+      return;
+    }
+
+    setLoading(true);
+    setMessage("");
+    try {
+      const response = await fetch(`/api/locations?q=${encodeURIComponent(term)}`);
+      if (!response.ok) throw new Error("Search unavailable");
+      const data = (await response.json()) as { results?: RemoteResult[] };
+      const immediateChoice = data.results?.[0];
+      if (immediateChoice) {
+        choose(toSuggestion(immediateChoice));
+      } else {
+        setResults([]);
+        setMessage("No exact match yet. Try another ZIP Code, city or county.");
+      }
+    } catch {
+      setMessage("Place search is temporarily unavailable. Please try again shortly.");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -159,7 +190,9 @@ export function ApprovedLocationSearch() {
                 activeIndex >= 0 ? suggestions[activeIndex]?.id : undefined
               }
             />
-            <button type="submit">Explore the place</button>
+            <button type="submit" aria-busy={loading}>
+              {loading ? "Searching…" : "Explore the place"}
+            </button>
             {suggestions.length > 0 && (
               <div
                 id={listId}

@@ -30,6 +30,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     },
     { url: `${base}/publications`, lastModified: new Date("2026-07-11"), changeFrequency: "weekly", priority: 0.8 },
     ...publicationRoutes,
+    { url: `${base}/contact`, lastModified: new Date("2026-07-17"), changeFrequency: "monthly", priority: 0.8 },
     { url: `${base}/privacy`, lastModified: new Date("2026-07-11"), changeFrequency: "yearly", priority: 0.3 },
     { url: `${base}/terms`, lastModified: new Date("2026-07-11"), changeFrequency: "yearly", priority: 0.3 },
     { url: `${base}/accessibility`, lastModified: new Date("2026-07-11"), changeFrequency: "yearly", priority: 0.4 },
