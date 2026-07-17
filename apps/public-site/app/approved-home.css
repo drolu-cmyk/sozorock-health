@@ -244,13 +244,6 @@ html[data-menu-open="true"] {
   color: var(--white);
 }
 
-@media (min-width: 901px) {
-  .approved-home .hero {
-    height: 649px;
-    min-height: 649px;
-  }
-}
-
 .approved-home .hero-image,
 .approved-home .hero-scrim {
   position: absolute;
