@@ -1,8 +1,9 @@
 import type { Metadata, Viewport } from "next";
-import { DM_Sans, Newsreader } from "next/font/google";
+import { DM_Sans, Instrument_Sans, Newsreader } from "next/font/google";
 import { headers } from "next/headers";
 import "./globals.css";
 import "./marketing.css";
+import "./approved-home.css";
 
 const siteUrl = "https://health.sozorockfoundation.org";
 
@@ -15,6 +16,12 @@ const dmSans = DM_Sans({
 const newsreader = Newsreader({
   subsets: ["latin"],
   variable: "--font-newsreader",
+  display: "swap",
+});
+
+const instrumentSans = Instrument_Sans({
+  subsets: ["latin"],
+  variable: "--font-instrument-sans",
   display: "swap",
 });
 
@@ -56,5 +63,5 @@ const structuredData = {
 
 export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   const language = (await headers()).get("x-sozorock-language") === "es" ? "es" : "en";
-  return <html lang={language}><body className={`${dmSans.variable} ${newsreader.variable}`}>{children}<script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}/></body></html>;
+  return <html lang={language}><body className={`${dmSans.variable} ${newsreader.variable} ${instrumentSans.variable}`}>{children}<script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}/></body></html>;
 }

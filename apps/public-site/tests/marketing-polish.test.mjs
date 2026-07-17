@@ -38,3 +38,20 @@ test("future media publication remains fail closed while ordinary page metadata 
   assert.match(publisher, /renderLock/);
   assert.match(publisher, /publication-manifest\.json/);
 });
+
+test("the approved marketing homepage and publication access remain locked together", () => {
+  const page = read("../app/page.tsx");
+  const homepage = read("../app/components/ApprovedMarketingHome.jsx");
+  const publicationSection = read("../app/components/ApprovedPublications.tsx");
+  const styles = read("../app/approved-home.css");
+
+  assert.match(page, /<ApprovedMarketingHome \/>/);
+  assert.match(homepage, /A clearer path to <span>Care<\/span> that already exists\./);
+  assert.match(homepage, /Care\. For every ZIP Code\./);
+  assert.match(homepage, /SozoRock<sup aria-label="registered trademark">®<\/sup>/);
+  assert.match(publicationSection, /publication\.cover/);
+  assert.match(publicationSection, /href=\{`\/publications\/\$\{publication\.slug\}`\}/);
+  assert.match(publicationSection, /Access publication/);
+  assert.match(styles, /\.approved-home \.hero-scrim/);
+  assert.match(styles, /\.approved-home \.publication-cover/);
+});
