@@ -1224,6 +1224,28 @@ html[data-menu-open="true"] {
   text-underline-offset: 4px;
 }
 
+.approved-home .footer-social {
+  display: flex;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.approved-home .footer-social a {
+  display: inline-flex;
+  width: 44px;
+  height: 44px;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.34);
+  border-radius: 50%;
+}
+
+.approved-home .footer-social a:hover {
+  border-color: var(--white);
+  text-decoration: none;
+}
+
 .approved-home .footer-legal {
   display: grid;
   grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
@@ -1666,6 +1688,178 @@ html[data-menu-open="true"] {
 
   .approved-home .workforce-copy {
     grid-column: 1;
+  }
+}
+
+/* Contact route: the approved visual system, without changing the homepage. */
+.approved-contact {
+  --ink: #111a1d;
+  --ink-soft: #1d2a2e;
+  --paper: #f4f1e9;
+  --paper-bright: #fbfaf6;
+  --line: #cfc9bb;
+  --green: #446342;
+  --signal: #f4b71b;
+  min-height: 100vh;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-instrument-sans), "Helvetica Neue", Arial, sans-serif;
+}
+
+.approved-contact,
+.approved-contact * {
+  box-sizing: border-box;
+}
+
+.approved-contact__header {
+  display: flex;
+  min-height: 96px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 28px;
+  padding: 18px clamp(20px, 3vw, 48px);
+  border-bottom: 1px solid var(--line);
+  background: var(--paper-bright);
+}
+
+.approved-contact__brand {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 4px;
+  text-decoration: none;
+}
+
+.approved-contact .brand-lockup {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.3em;
+  font-size: 28px;
+  font-weight: 650;
+  letter-spacing: -0.05em;
+  line-height: 1;
+}
+
+.approved-contact .brand-word sup {
+  margin-left: 0.04em;
+  font-size: 0.35em;
+  vertical-align: super;
+}
+
+.approved-contact .brand-health {
+  color: var(--green);
+  font-weight: 500;
+}
+
+.approved-contact__brand > span:last-child {
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.approved-contact__back,
+.approved-contact .inquiry-layout a {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.approved-contact__section {
+  padding: clamp(80px, 8vw, 132px) clamp(20px, 7vw, 110px);
+}
+
+.approved-contact__intro {
+  max-width: 920px;
+}
+
+.approved-contact .section-label {
+  margin: 0 0 24px;
+  color: var(--green);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+}
+
+.approved-contact__intro h1 {
+  max-width: 820px;
+  margin: 0 0 26px;
+  font-size: clamp(54px, 7vw, 104px);
+  font-weight: 650;
+  letter-spacing: -0.06em;
+  line-height: 0.94;
+}
+
+.approved-contact__intro > p:last-child {
+  max-width: 680px;
+  color: var(--ink-soft);
+  font-size: clamp(17px, 1.6vw, 21px);
+}
+
+.approved-contact .inquiry-layout h2 {
+  margin: 0;
+  font-size: clamp(31px, 3.5vw, 48px);
+  font-weight: 650;
+  letter-spacing: -0.04em;
+  line-height: 1;
+}
+
+.approved-contact .partner-form {
+  background: var(--paper-bright);
+  border-color: var(--line);
+}
+
+.approved-contact .partner-form > button {
+  background: var(--signal);
+  color: var(--ink);
+}
+
+.approved-contact__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 28px;
+  padding: 32px clamp(20px, 3vw, 48px);
+  background: var(--ink);
+  color: rgba(255, 255, 255, 0.76);
+  font-size: 13px;
+}
+
+.approved-contact__footer p {
+  margin: 0;
+}
+
+.approved-contact__footer nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+}
+
+.approved-contact__footer a {
+  color: inherit;
+  text-decoration: none;
+}
+
+@media (max-width: 760px) {
+  .approved-contact__header,
+  .approved-contact__footer {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .approved-contact .inquiry-layout {
+    grid-template-columns: 1fr;
+    gap: 40px;
+    margin-top: 58px;
+  }
+
+  .approved-contact .form-row {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+
+  .approved-contact .partner-form {
+    padding: 22px;
   }
 }
 

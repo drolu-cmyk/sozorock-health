@@ -13,6 +13,7 @@ import {
   GraduationCap,
   Handshake,
   House,
+  InstagramLogo,
   Keyboard,
   Books as Library,
   LinkSimple,
@@ -24,9 +25,12 @@ import {
   SpeakerHigh,
   UsersThree,
   X,
+  XLogo,
+  YoutubeLogo,
 } from "@phosphor-icons/react";
 import { ApprovedLocationSearch } from "./ApprovedLocationSearch";
 import { ApprovedPublications } from "./ApprovedPublications";
+import { ApprovedBrandLockup } from "./ApprovedBrandLockup";
 
 const voicePrompts = [
   {
@@ -54,34 +58,27 @@ const audienceDetails = {
     title: "A next step you can understand.",
     text: "Begin by voice or touch, prepare for provider-led services and use support in a familiar place.",
     action: "Explore resident access",
+    href: "/contact?interest=Bring%20the%20model%20to%20a%20community",
   },
   Providers: {
     title: "Keep the platform and clinical workflow you trust.",
     text: "SozoRock prepares people to use existing provider services without taking over records, clinical judgment or follow-up.",
     action: "Explore BYOP",
+    href: "/contact?interest=BYOP%20provider%20partnership",
   },
   Counties: {
     title: "See where pathways break before planning the response.",
     text: "Use de-identified, place-based intelligence to support Health Equity Hub planning, CHA and CHIP work.",
     action: "Explore CB-CAP",
+    href: "/contact?interest=CB-CAP%20inquiry",
   },
   Partners: {
     title: "Back infrastructure that strengthens what already exists.",
     text: "Support local implementation, research, workforce pathways and accountable public-interest technology.",
     action: "Partner with us",
+    href: "/contact?interest=Partner%20with%20us",
   },
 };
-
-function BrandLockup({ inverse = false }) {
-  return (
-    <span className={`brand-lockup${inverse ? " brand-lockup--inverse" : ""}`} aria-label="SozoRock Health">
-      <span className="brand-word">
-        SozoRock<sup aria-label="registered trademark">®</sup>
-      </span>
-      <span className="brand-health">Health</span>
-    </span>
-  );
-}
 
 function SectionLabel({ children, light = false }) {
   return <p className={`section-label${light ? " section-label--light" : ""}`}>{children}</p>;
@@ -89,10 +86,30 @@ function SectionLabel({ children, light = false }) {
 
 function ArrowLink({ href, children, className = "" }) {
   return (
-    <a className={`arrow-link ${className}`} href={href}>
+    <a
+      className={`arrow-link ${className}`}
+      href={href}
+      onClick={href.startsWith("#") ? navigateWithinPage : undefined}
+    >
       <span>{children}</span>
       <ArrowRight size={20} aria-hidden="true" />
     </a>
+  );
+}
+
+function navigateWithinPage(event) {
+  const href = event.currentTarget.getAttribute("href");
+  if (!href?.startsWith("#")) return;
+  const target = document.querySelector(href);
+  if (!target) return;
+
+  event.preventDefault();
+  const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  target.scrollIntoView({ behavior: reducedMotion ? "auto" : "smooth", block: "start" });
+  window.history.replaceState(
+    window.history.state,
+    "",
+    `${window.location.pathname}${window.location.search}`,
   );
 }
 
@@ -123,18 +140,18 @@ export function ApprovedMarketingHome() {
       <a className="skip-link" href="#main-content">Skip to main content</a>
 
       <header className="site-header" aria-label="Main navigation">
-        <a className="brand-link" href="#top" aria-label="SozoRock Health home">
-          <BrandLockup inverse />
+        <a className="brand-link" href="/" aria-label="SozoRock Health home">
+          <ApprovedBrandLockup inverse />
           <span className="brand-tagline">Care. For every ZIP Code.</span>
         </a>
 
         <nav className="desktop-nav" aria-label="Primary">
-          <a href="#what-we-do">What We Do</a>
-          <a href="#hubs">Health Equity Hubs</a>
-          <a href="#access-day">Health Access Day</a>
-          <a href="#publications">Publications</a>
-          <a href="#about">About</a>
-          <a className="header-cta" href="#get-involved">Get Involved</a>
+          <a href="#what-we-do" onClick={navigateWithinPage}>What We Do</a>
+          <a href="#hubs" onClick={navigateWithinPage}>Health Equity Hubs</a>
+          <a href="#access-day" onClick={navigateWithinPage}>Health Access Day</a>
+          <a href="#publications" onClick={navigateWithinPage}>Publications</a>
+          <a href="#about" onClick={navigateWithinPage}>About</a>
+          <a className="header-cta" href="/contact">Get Involved</a>
         </nav>
 
         <button
@@ -149,12 +166,12 @@ export function ApprovedMarketingHome() {
         </button>
 
         <nav id={menuId} className={`mobile-nav${menuOpen ? " is-open" : ""}`} aria-label="Mobile">
-          <a href="#what-we-do" onClick={closeMenu}>What We Do</a>
-          <a href="#hubs" onClick={closeMenu}>Health Equity Hubs</a>
-          <a href="#access-day" onClick={closeMenu}>Health Access Day</a>
-          <a href="#publications" onClick={closeMenu}>Publications</a>
-          <a href="#about" onClick={closeMenu}>About</a>
-          <a href="#get-involved" onClick={closeMenu}>Get Involved</a>
+          <a href="#what-we-do" onClick={(event) => { closeMenu(); navigateWithinPage(event); }}>What We Do</a>
+          <a href="#hubs" onClick={(event) => { closeMenu(); navigateWithinPage(event); }}>Health Equity Hubs</a>
+          <a href="#access-day" onClick={(event) => { closeMenu(); navigateWithinPage(event); }}>Health Access Day</a>
+          <a href="#publications" onClick={(event) => { closeMenu(); navigateWithinPage(event); }}>Publications</a>
+          <a href="#about" onClick={(event) => { closeMenu(); navigateWithinPage(event); }}>About</a>
+          <a href="/contact" onClick={closeMenu}>Get Involved</a>
         </nav>
       </header>
 
@@ -170,18 +187,17 @@ export function ApprovedMarketingHome() {
           />
           <div className="hero-scrim" aria-hidden="true" />
           <div className="hero-content">
-            <p className="hero-eyebrow">Nonprofit health-equity systems infrastructure</p>
             <h1 id="hero-title">A clearer path to <span>Care</span> that already exists.</h1>
             <p className="hero-copy">
               SozoRock Health helps people move from uncertainty to a practical next step—while licensed Care stays with licensed providers.
             </p>
             <div className="hero-actions">
-              <a className="button button--signal" href="#what-we-do">See how it works</a>
-              <a className="button button--outline" href="#place-search">Explore your area</a>
+              <a className="button button--signal" href="#what-we-do" onClick={navigateWithinPage}>See how it works</a>
+              <a className="button button--outline" href="#place-search" onClick={navigateWithinPage}>Explore your area</a>
             </div>
             <p className="boundary">Not a clinic. Not a provider. Not a telehealth platform.</p>
           </div>
-          <a className="hero-scroll" href="#problem" aria-label="Continue to the story">
+          <a className="hero-scroll" href="#problem" aria-label="Continue to the story" onClick={navigateWithinPage}>
             <span>See the barrier</span>
             <ArrowDown size={18} aria-hidden="true" />
           </a>
@@ -215,7 +231,7 @@ export function ApprovedMarketingHome() {
               <span className="sequence-arrow" aria-hidden="true"><ArrowRight size={28} /></span>
               <article className="barrier-item">
                 <div className="barrier-image barrier-image--distance">
-                  <Image src="/media/approved-home/rural-road.webp" alt="A rural road illustrating the distance between people and services." width={565} height={426} sizes="(max-width: 640px) 100vw, 33vw" />
+                  <Image src="/media/approved-home/appointment-distance.webp" alt="A rural highway sign showing that the next appointment is 112 miles away." width={1200} height={800} sizes="(max-width: 640px) 100vw, 33vw" />
                   <span className="distance-label">Care may be several communities away.</span>
                 </div>
                 <div className="barrier-caption">
@@ -345,7 +361,7 @@ export function ApprovedMarketingHome() {
               <h2 id="byop-title">Providers keep the platform they trust.</h2>
               <div>
                 <p>SozoRock prepares the person. Licensed providers retain their records, consent, clinical workflow, medical judgment, treatment and follow-up.</p>
-                <ArrowLink href="#get-involved">Explore BYOP partnership</ArrowLink>
+                <ArrowLink href="/contact?interest=BYOP%20provider%20partnership">Explore BYOP partnership</ArrowLink>
               </div>
             </div>
 
@@ -408,7 +424,7 @@ export function ApprovedMarketingHome() {
               <p>
                 CB-CAP separates individual-facing support from county-level systems intelligence. It turns de-identified pathway patterns into useful planning questions for Health Equity Hubs, Health Access Day, CHA and CHIP work.
               </p>
-              <ArrowLink href="#get-involved" className="arrow-link--light">See the CB-CAP story</ArrowLink>
+              <ArrowLink href="/contact?interest=CB-CAP%20inquiry" className="arrow-link--light">See the CB-CAP story</ArrowLink>
             </div>
             <div className="cbcap-view" aria-label="Illustrative CB-CAP planning view">
               <div className="cbcap-view__top">
@@ -445,7 +461,7 @@ export function ApprovedMarketingHome() {
             <div className="audience-detail" role="tabpanel" aria-live="polite">
               <h3>{selectedAudience.title}</h3>
               <p>{selectedAudience.text}</p>
-              <ArrowLink href="#get-involved">{selectedAudience.action}</ArrowLink>
+              <ArrowLink href={selectedAudience.href}>{selectedAudience.action}</ArrowLink>
             </div>
           </div>
         </section>
@@ -459,8 +475,8 @@ export function ApprovedMarketingHome() {
             <h2 id="closing-title">Make the path clearer in your community.</h2>
             <p>Bring a hub, Health Access Day, provider-led pathway, workforce partnership or place-intelligence conversation to your organization.</p>
             <div className="closing-actions">
-              <a className="button button--ink" href="mailto:contact@sozorockfoundation.org">Start a partnership conversation</a>
-              <a className="text-link" href="#publications">Read the ideas behind the work <ArrowRight size={18} aria-hidden="true" /></a>
+              <a className="button button--ink" href="/contact?interest=Partner%20with%20us">Start a partnership conversation</a>
+              <a className="text-link" href="#publications" onClick={navigateWithinPage}>Read the ideas behind the work <ArrowRight size={18} aria-hidden="true" /></a>
             </div>
             <p className="closing-tagline">Care. For every ZIP Code.</p>
           </div>
@@ -470,21 +486,32 @@ export function ApprovedMarketingHome() {
       <footer className="footer">
         <div className="measure-wide footer-grid">
           <div className="footer-brand">
-            <BrandLockup inverse />
+            <ApprovedBrandLockup inverse />
             <p>A nonprofit health-equity systems initiative of The SozoRock Foundation, Inc.</p>
           </div>
           <div>
             <h2>Explore</h2>
-            <a href="#what-we-do">What We Do</a>
-            <a href="#hubs">Health Equity Hubs</a>
-            <a href="#access-day">Health Access Day</a>
-            <a href="#publications">Publications</a>
+            <a href="#what-we-do" onClick={navigateWithinPage}>What We Do</a>
+            <a href="#hubs" onClick={navigateWithinPage}>Health Equity Hubs</a>
+            <a href="#access-day" onClick={navigateWithinPage}>Health Access Day</a>
+            <a href="#publications" onClick={navigateWithinPage}>Publications</a>
           </div>
           <div>
             <h2>Connect</h2>
-            <a href="#get-involved">Partner with us</a>
-            <a href="mailto:contact@sozorockfoundation.org">Contact</a>
+            <a href="/contact?interest=Partner%20with%20us">Partner with us</a>
+            <a href="/contact">Contact</a>
             <a href="https://www.sozorockfoundation.org">The SozoRock Foundation</a>
+            <div className="footer-social" aria-label="SozoRock Foundation social media">
+              <a href="https://x.com/srockfoundation" target="_blank" rel="noopener noreferrer" aria-label="SozoRock Foundation on X">
+                <XLogo size={22} aria-hidden="true" />
+              </a>
+              <a href="https://www.youtube.com/@srockfoundation" target="_blank" rel="noopener noreferrer" aria-label="SozoRock Foundation on YouTube">
+                <YoutubeLogo size={22} aria-hidden="true" />
+              </a>
+              <a href="https://www.instagram.com/srockfoundation/" target="_blank" rel="noopener noreferrer" aria-label="SozoRock Foundation on Instagram">
+                <InstagramLogo size={22} aria-hidden="true" />
+              </a>
+            </div>
           </div>
           <div>
             <h2>Public trust</h2>

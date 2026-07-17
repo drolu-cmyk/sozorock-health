@@ -42,13 +42,28 @@ test("future media publication remains fail closed while ordinary page metadata 
 test("the approved marketing homepage and publication access remain locked together", () => {
   const page = read("../app/page.tsx");
   const homepage = read("../app/components/ApprovedMarketingHome.jsx");
+  const approvedBrand = read("../app/components/ApprovedBrandLockup.jsx");
+  const locationSearch = read("../app/components/ApprovedLocationSearch.tsx");
+  const locationRoute = read("../app/api/locations/route.ts");
+  const contactForm = read("../app/components/ContactForm.tsx");
   const publicationSection = read("../app/components/ApprovedPublications.tsx");
   const styles = read("../app/approved-home.css");
 
   assert.match(page, /<ApprovedMarketingHome \/>/);
   assert.match(homepage, /A clearer path to <span>Care<\/span> that already exists\./);
   assert.match(homepage, /Care\. For every ZIP Code\./);
-  assert.match(homepage, /SozoRock<sup aria-label="registered trademark">®<\/sup>/);
+  assert.match(approvedBrand, /SozoRock<sup aria-label="registered trademark">®<\/sup>/);
+  assert.doesNotMatch(homepage, /Nonprofit health-equity systems infrastructure/);
+  assert.match(homepage, /appointment-distance\.webp/);
+  assert.match(homepage, /history\.replaceState/);
+  assert.match(homepage, /instagram\.com\/srockfoundation/);
+  assert.match(homepage, /youtube\.com\/@srockfoundation/);
+  assert.match(homepage, /x\.com\/srockfoundation/);
+  assert.match(locationSearch, /replace\(\/\^ZIP\\s\+\/i, ""\)/);
+  assert.match(locationRoute, /replace\(\/\\s\+COUNTY\$\/, ""\)/);
+  assert.match(locationRoute, /label: String\(attributes\.ZCTA5/);
+  assert.match(contactForm, /CB-CAP inquiry/);
+  assert.match(contactForm, /Media inquiry/);
   assert.match(publicationSection, /publication\.cover/);
   assert.match(publicationSection, /href=\{`\/publications\/\$\{publication\.slug\}`\}/);
   assert.match(publicationSection, /Access publication/);
