@@ -1,14 +1,18 @@
 # Public-site design QA
 
-Reference: the approved Direction 3 composition supplied by the user, with Direction 2 warmth.
+Reference: approved SozoRock Health homepage Option 1.
 
-The final 1440 x 900 implementation and the approved reference were reviewed together after the last production build. The 390 x 844 and 768 x 1024 captures were then checked for responsive continuity.
+The release build was reviewed against the approved source in one side-by-side comparison at a 1440 × 1024 viewport. Mobile and tablet continuity were then checked at 390 × 844 and 768 × 1024.
 
-- The warm editorial canvas, navy and clay palette, serif-led hierarchy, and restrained line illustration preserve the approved direction without copying its mock device framing.
-- The full-bleed hero keeps one message, one primary action, one boundary statement, and a purposeful path visual. The mobile-specific composition retains the story without forcing the desktop crop.
-- The SozoRock registered mark and Health lockup remain connected at every tested size; the mobile home link and menu meet the 44 px target requirement.
-- Navigation, language switching, search, publications, participation forms, and the legal footer are integrated as working product flows rather than decorative mock controls.
-- English and Spanish pages have one H1, correct document language, zero horizontal overflow, visible keyboard focus, and no browser console warnings or errors.
-- The complete required 11-viewport matrix passed for both languages.
+- The full-bleed tablet photograph, deep directional scrim, Instrument Sans typography, warm paper, yellow signal action, restrained green, sharp geometry, section order, copy, and visual pacing match the approved direction.
+- The registered symbol remains attached to `SozoRock` in the header and footer lockups. `Health` remains visually connected to the wordmark.
+- The approved publication section now uses the existing front covers and the existing gated `Access publication` routes. Publication verification, download analytics, consent separation, and access controls were not replaced.
+- The local place search accepts a ZIP Code, city, or county and uses the existing protected U.S. geography endpoint. Technical geography labels are not exposed in the approved interface.
+- Mobile navigation opens with a 48 px control, reports `aria-expanded`, locks background scrolling, and closes with Escape.
+- Voice examples and audience tabs update their content and accessible states. Every internal hash link resolves to an existing target.
+- The 390 px, 768 px, and 1440 px checks report zero horizontal overflow. The production browser console reports zero warnings or errors.
+- The approved source and release candidate share the same 649 px desktop hero boundary at the comparison viewport.
+
+Final evidence is stored with the approved prototype QA frames, including `comparison-deploy-candidate-1440.jpg`, `deploy-qa-mobile-390-top.png`, and `deploy-qa-tablet-768-top.png`.
 
 Result: passed.
