@@ -71,6 +71,10 @@ test("location search loads selections immediately and supports keyboard discove
   assert.match(component, /aria-activedescendant/);
   assert.match(route, /CENTLAT,CENTLON,AREALAND/);
   assert.match(route, /normalizedSearch/);
+  assert.match(route, /COUNTY\|PARISH\|BOROUGH\|CENSUS AREA\|MUNICIPIO\|MUNICIPALITY/);
+  assert.match(route, /naturalPlacePriority/);
+  assert.match(route, /PR: "72"/);
+  assert.match(route, /VI: "78"/);
 });
 
 test("the approved live homepage assets and contact path remain locked", async () => {
