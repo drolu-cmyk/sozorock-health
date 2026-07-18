@@ -46,6 +46,7 @@ test("the approved marketing homepage and publication access remain locked toget
   const locationSearch = read("../app/components/ApprovedLocationSearch.tsx");
   const locationRoute = read("../app/api/locations/route.ts");
   const contactForm = read("../app/components/ContactForm.tsx");
+  const contactPage = read("../app/contact/page.tsx");
   const publicationSection = read("../app/components/ApprovedPublications.tsx");
   const styles = read("../app/approved-home.css");
 
@@ -63,6 +64,8 @@ test("the approved marketing homepage and publication access remain locked toget
   assert.match(locationSearch, /selected\?\.display === query/);
   assert.match(locationSearch, /place-result/);
   assert.match(locationSearch, /Start a local conversation/);
+  assert.match(contactForm, /defaultValue=\{initialLocation\}/);
+  assert.match(contactPage, /initialLocation=\{initialLocation\}/);
   assert.match(homepage, /hero-community-desktop-v2\.webp/);
   assert.match(homepage, /hero-community-mobile-v2\.webp/);
   assert.match(homepage, /portal-barrier-v2\.webp/);
