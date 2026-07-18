@@ -57,9 +57,9 @@
 .searchField { position: relative; }
 .search input { width: 100%; min-height: 64px; padding: 0 20px; border: 1px solid var(--ink); border-radius: 0; background: var(--paper-bright); color: var(--ink); font: inherit; font-size: 18px; }
 .searchRow > button { display: inline-flex; min-height: 64px; align-items: center; gap: 10px; padding: 0 24px; border: 0; background: var(--signal); color: var(--ink); font: inherit; font-weight: 750; cursor: pointer; }
-.suggestions { position: absolute; z-index: 20; inset: 100% 0 auto; border: 1px solid var(--ink); background: var(--paper-bright); color: var(--ink); box-shadow: 0 22px 40px rgba(0,0,0,.22); }
+.suggestions { position: absolute; z-index: 20; inset: 100% 0 auto; max-height: 340px; overflow-y: auto; border: 1px solid var(--ink); background: var(--paper-bright); color: var(--ink); box-shadow: 0 22px 40px rgba(0,0,0,.22); }
 .suggestions button { display: flex; width: 100%; min-height: 56px; align-items: center; justify-content: space-between; gap: 16px; padding: 12px 18px; border: 0; border-bottom: 1px solid var(--line); background: transparent; color: inherit; text-align: left; cursor: pointer; }
-.suggestions button:hover { background: var(--signal); }
+.suggestions button:hover, .suggestions button.activeSuggestion { background: var(--signal); }
 .suggestions span { color: #566064; font-size: 12px; }
 .searchStatus { min-height: 24px; margin: 10px 0 0; color: #dbe3dc; font-size: 14px; }
 .coverage { display: flex; flex-wrap: wrap; gap: 24px 44px; margin-top: 30px; padding-top: 24px; border-top: 1px solid rgba(255,255,255,.25); color: #c9d4cc; font-size: 14px; }
@@ -96,6 +96,8 @@
 .controls span { margin-right: 6px; color: #b8d1b4; font-size: 12px; font-weight: 750; letter-spacing: .1em; text-transform: uppercase; }
 .controls button, .benchmark button { min-height: 40px; padding: 0 13px; border: 1px solid #5e686b; background: transparent; color: inherit; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
 .controls button.active, .benchmark button.active { border-color: var(--signal); background: var(--signal); color: var(--ink); }
+.orderControl { display: flex; align-items: center; gap: 4px; }
+.orderControl select { min-height: 40px; padding: 0 34px 0 12px; border: 1px solid #5e686b; border-radius: 0; background: var(--ink); color: #fff; font: inherit; font-size: 13px; font-weight: 700; }
 
 .evidenceGrid { display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(340px, .55fr); background: #dce4db; }
 .mapPanel { min-width: 0; margin: 0; padding: clamp(28px, 4vw, 56px); }
@@ -108,7 +110,13 @@
 .mapLegend i { display: block; width: 22px; height: 3px; }
 .boundaryKey { background: var(--clay); }
 .roadKey { background: #69736b; }
-.mapPanel svg { display: block; width: 100%; min-height: 360px; border: 1px solid #97a399; background: #edf1e9; }
+.mapControls { display: flex; gap: 6px; margin-bottom: 8px; }
+.mapControls button { display: inline-flex; min-width: 44px; min-height: 44px; align-items: center; justify-content: center; gap: 7px; padding: 0 12px; border: 1px solid #77837a; border-radius: 0; background: #f7f7f2; color: var(--ink); font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
+.mapControls button:disabled { cursor: not-allowed; opacity: .45; }
+.mapControls button.mapControlActive { border-color: var(--green); background: var(--green); color: #fff; }
+.mapViewport { overflow: hidden; border: 1px solid #97a399; background: #edf1e9; }
+.mapPanel svg { display: block; width: 100%; min-height: 360px; background: #edf1e9; }
+.mapPanel svg g { transition: transform .22s ease; }
 .mapBackground { fill: #e8ede6; }
 .mapRoad { fill: none; stroke: #737d74; stroke-width: 1.2; stroke-linecap: round; opacity: .78; vector-effect: non-scaling-stroke; }
 .mapArea { fill: rgba(68,99,66,.18); stroke: var(--clay); stroke-width: 3; vector-effect: non-scaling-stroke; }
@@ -121,6 +129,7 @@
 .keyFindings li { display: grid; grid-template-columns: 76px 1fr; gap: 18px; padding: 20px 0; border-top: 1px solid #435054; }
 .keyFindings li > span { color: var(--signal); font-size: 24px; font-weight: 750; }
 .keyFindings strong { font-size: 18px; }
+.keyFindings strong small { display: inline-block; margin-left: 6px; color: #aebbbc; font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
 .keyFindings li p { margin: 5px 0 0; color: #bdc8ca; font-size: 14px; line-height: 1.45; }
 
 .visuals, .responses, .planning, .literacy, .sources, .localPlan { padding-block: clamp(80px, 10vw, 142px); }
@@ -140,6 +149,7 @@
 .chartLegend i { display: block; width: 22px; height: 4px; }
 .localKey { background: var(--green); }
 .benchmarkKey { background: var(--clay); }
+.coverageNote, .noMeasures { margin: 36px 0 0; padding: 18px 20px; border-left: 4px solid var(--green); background: #e6ece4; color: #485355; line-height: 1.55; }
 .pattern { position: relative; min-height: 500px; border-left: 1px solid var(--ink); border-bottom: 1px solid var(--ink); background: linear-gradient(#e5e0d5 1px, transparent 1px), linear-gradient(90deg, #e5e0d5 1px, transparent 1px); background-size: 20% 20%; }
 .patternDot { position: absolute; display: grid; width: 44px; height: 44px; place-items: center; transform: translate(-50%, 50%); border: 0; background: transparent; cursor: pointer; }
 .patternDot::before { content: ""; width: 20px; height: 20px; border: 3px solid var(--paper); border-radius: 50%; background: var(--clay); box-shadow: 0 0 0 1px var(--ink); }

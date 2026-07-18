@@ -21,6 +21,11 @@ test("the evidence API uses fixed current public datasets and validated geograph
   assert.match(route, /i46a-9kgh/);
   assert.match(route, /vgc8-iyc4/);
   assert.match(route, /kee5-23sr/);
+  assert.match(route, /d3i6-k6z5/);
+  assert.match(route, /hbpe-6r8n/);
+  assert.match(route, /6jwg-4k37/);
+  assert.match(route, /previousMeasureCount/);
+  assert.match(route, /release,/);
   assert.match(route, /safeGeoid/);
   assert.match(route, /placeUnavailableMetrics/);
   assert.doesNotMatch(route, /request\.nextUrl\.searchParams\.get\("url"\)/);
@@ -51,8 +56,21 @@ test("the county map normalizes Census rings for d3 and includes major roads", a
   const component = await source("app/explore/ExploreClient.tsx");
   const geometry = await source("app/api/explore/geometry/route.ts");
   assert.match(component, /orientBoundaryForD3/);
+  assert.match(component, /Zoom in/);
+  assert.match(component, /Reset map/);
+  assert.match(component, /aria-pressed=\{showRoads\}/);
   assert.match(geometry, /outFields: "NAME,RTTYP"/);
   assert.match(geometry, /arcGisGeoJson\(`\$\{base\}\/3\/query`/);
+});
+
+test("location search loads selections immediately and supports keyboard discovery", async () => {
+  const component = await source("app/explore/ExploreClient.tsx");
+  const route = await source("app/api/locations/route.ts");
+  assert.match(component, /onSelect\(result\)/);
+  assert.match(component, /event\.key === "ArrowDown"/);
+  assert.match(component, /aria-activedescendant/);
+  assert.match(route, /CENTLAT,CENTLON,AREALAND/);
+  assert.match(route, /normalizedSearch/);
 });
 
 test("the approved live homepage assets and contact path remain locked", async () => {

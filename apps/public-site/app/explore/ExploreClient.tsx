@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { FormEvent, KeyboardEvent as ReactKeyboardEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { geoMercator, geoPath } from "d3-geo";
 import {
   ArrowLeft,
@@ -14,7 +14,10 @@ import {
   GlobeHemisphereWest,
   House,
   MapPin,
+  Minus,
+  Plus,
   RoadHorizon,
+  ArrowCounterClockwise,
   X,
 } from "@phosphor-icons/react";
 import { orientBoundaryForD3 } from "../lib/explore-map-geometry";
@@ -29,6 +32,7 @@ type Suggestion = {
   display: string;
   geoid: string;
   stateFips: string;
+  population?: number;
 };
 
 type Metric = {
@@ -43,6 +47,7 @@ type Metric = {
   state: number | null;
   difference: number;
   score: number;
+  release: "2025" | "2024";
 };
 
 type ExploreResponse = {
@@ -57,6 +62,11 @@ type ExploreResponse = {
   summary: string;
   metrics: Metric[];
   priorities: Metric[];
+  dataCoverage: {
+    measureCount: number;
+    currentMeasureCount: number;
+    previousMeasureCount: number;
+  };
   offerings: Array<{
     name: string;
     status: string;
@@ -100,6 +110,7 @@ const stateCodes: Record<string, string> = {
 const focusOptions = ["All", "Chronic conditions", "Access barriers", "Prevention"] as const;
 type Focus = (typeof focusOptions)[number];
 type View = "compare" | "pattern" | "pathways";
+type Order = "priority" | "prevalence" | "difference";
 
 function BrandLockup() {
   return (
@@ -115,9 +126,11 @@ function formatNumber(value: number) {
 }
 
 function displaySuggestion(result: Omit<Suggestion, "display">) {
-  if (result.kind === "zip") return result.geoid;
   const state = stateCodes[result.stateFips];
-  return `${result.label}${state ? `, ${state}` : ""}`;
+  const label = result.kind === "place"
+    ? result.label.replace(/\s+(city|town|village|borough|CDP)$/i, "")
+    : result.label;
+  return `${label}${state ? `, ${state}` : ""}`;
 }
 
 function LocationSearch({ onSelect }: { onSelect: (place: Suggestion) => void }) {
@@ -126,6 +139,7 @@ function LocationSearch({ onSelect }: { onSelect: (place: Suggestion) => void })
   const [selected, setSelected] = useState<Suggestion | null>(null);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
+  const [activeIndex, setActiveIndex] = useState(-1);
 
   useEffect(() => {
     const term = query.trim();
@@ -170,14 +184,39 @@ function LocationSearch({ onSelect }: { onSelect: (place: Suggestion) => void })
     setSelected(result);
     setQuery(result.display);
     setResults([]);
-    setMessage("");
+    setActiveIndex(-1);
+    setMessage(`Loading ${result.display}…`);
+    onSelect(result);
   }
 
   function submit(event: FormEvent) {
     event.preventDefault();
-    const choice = selected ?? results[0];
-    if (choice) onSelect(choice);
+    const choice = selected ?? results[activeIndex] ?? results[0];
+    if (choice) {
+      setResults([]);
+      setActiveIndex(-1);
+      setSelected(choice);
+      setQuery(choice.display);
+      setMessage(`Loading ${choice.display}…`);
+      onSelect(choice);
+    }
     else setMessage("Choose a ZIP Code, city or county from the search results.");
+  }
+
+  function onKeyDown(event: ReactKeyboardEvent<HTMLInputElement>) {
+    if (event.key === "ArrowDown" && results.length) {
+      event.preventDefault();
+      setActiveIndex((value) => Math.min(value + 1, results.length - 1));
+    } else if (event.key === "ArrowUp" && results.length) {
+      event.preventDefault();
+      setActiveIndex((value) => Math.max(value - 1, 0));
+    } else if (event.key === "Escape") {
+      setResults([]);
+      setActiveIndex(-1);
+    } else if (event.key === "Enter" && activeIndex >= 0 && results[activeIndex]) {
+      event.preventDefault();
+      choose(results[activeIndex]);
+    }
   }
 
   return (
@@ -191,23 +230,29 @@ function LocationSearch({ onSelect }: { onSelect: (place: Suggestion) => void })
             onChange={(event) => {
               setQuery(event.target.value);
               setSelected(null);
+              setActiveIndex(-1);
               setMessage("");
             }}
+            onKeyDown={onKeyDown}
             placeholder="Try 13856 or Delaware County, NY"
             autoComplete="off"
             role="combobox"
             aria-autocomplete="list"
             aria-expanded={results.length > 0}
             aria-controls="explore-suggestions"
+            aria-activedescendant={activeIndex >= 0 ? results[activeIndex]?.id : undefined}
           />
           {results.length > 0 && (
             <div id="explore-suggestions" className={styles.suggestions} role="listbox">
-              {results.map((result) => (
+              {results.map((result, index) => (
                 <button
                   type="button"
                   role="option"
                   aria-selected={selected?.id === result.id}
+                  className={activeIndex === index ? styles.activeSuggestion : ""}
                   key={result.id}
+                  id={result.id}
+                  onMouseDown={(event) => event.preventDefault()}
                   onClick={() => choose(result)}
                 >
                   <strong>{result.display}</strong>
@@ -227,6 +272,14 @@ function LocationSearch({ onSelect }: { onSelect: (place: Suggestion) => void })
 }
 
 function EvidenceMap({ geometry, label }: { geometry: GeometryResponse | null; label: string }) {
+  const [zoom, setZoom] = useState(1);
+  const [showRoads, setShowRoads] = useState(true);
+
+  useEffect(() => {
+    setZoom(1);
+    setShowRoads(true);
+  }, [geometry, label]);
+
   const paths = useMemo(() => {
     if (!geometry?.area.features.length) return null;
     const areaForD3 = {
@@ -257,15 +310,28 @@ function EvidenceMap({ geometry, label }: { geometry: GeometryResponse | null; l
         <div className={styles.mapLegend}><span><i className={styles.boundaryKey} /> Boundary</span><span><i className={styles.roadKey} /> Major roads</span></div>
       </div>
       {paths ? (
-        <svg viewBox="0 0 1000 500" role="img" aria-label={`Boundary and major-road context for ${label}`}>
-          <rect width="1000" height="500" className={styles.mapBackground} />
-          {paths.roads.map((road) => <path key={road.key} d={road.d} className={styles.mapRoad} />)}
-          {paths.area.map((area) => <path key={area.key} d={area.d} className={styles.mapArea} />)}
-        </svg>
+        <>
+          <div className={styles.mapControls} aria-label="Map controls">
+            <button type="button" onClick={() => setZoom((value) => Math.min(3, value + 0.5))} disabled={zoom >= 3} aria-label="Zoom in"><Plus size={18} /></button>
+            <button type="button" onClick={() => setZoom((value) => Math.max(1, value - 0.5))} disabled={zoom <= 1} aria-label="Zoom out"><Minus size={18} /></button>
+            <button type="button" onClick={() => setZoom(1)} disabled={zoom === 1} aria-label="Reset map"><ArrowCounterClockwise size={18} /></button>
+            <button type="button" className={showRoads ? styles.mapControlActive : ""} onClick={() => setShowRoads((value) => !value)} aria-pressed={showRoads}><RoadHorizon size={18} /> Roads</button>
+          </div>
+          <div className={styles.mapViewport}>
+            <svg viewBox="0 0 1000 500" role="img" aria-label={`Interactive boundary and major-road context for ${label}`}>
+              <title>{label}: Census boundary with major-road context</title>
+              <rect width="1000" height="500" className={styles.mapBackground} />
+              <g transform={`translate(${500 - 500 * zoom} ${250 - 250 * zoom}) scale(${zoom})`}>
+                {showRoads && paths.roads.map((road) => <path key={road.key} d={road.d} className={styles.mapRoad} />)}
+                {paths.area.map((area) => <path key={area.key} d={area.d} className={styles.mapArea} />)}
+              </g>
+            </svg>
+          </div>
+        </>
       ) : (
         <div className={styles.mapEmpty}><GlobeHemisphereWest size={58} weight="thin" aria-hidden="true" /><p>Select a place to see its boundary and major-road context.</p></div>
       )}
-      <figcaption>{geometry?.vintage ?? "U.S. geographic context"}</figcaption>
+      <figcaption>{geometry?.vintage ?? "U.S. geographic context"}{paths ? ` · ${paths.area.length} boundary feature${paths.area.length === 1 ? "" : "s"} · ${paths.roads.length} major-road segment${paths.roads.length === 1 ? "" : "s"}` : ""}</figcaption>
     </figure>
   );
 }
@@ -441,6 +507,7 @@ export function ExploreClient() {
   const [focus, setFocus] = useState<Focus>("All");
   const [view, setView] = useState<View>("compare");
   const [benchmark, setBenchmark] = useState<"national" | "state">("national");
+  const [order, setOrder] = useState<Order>("priority");
   const [downloadOpen, setDownloadOpen] = useState(false);
 
   const loadPlace = useCallback(async (place: Pick<Suggestion, "kind" | "geoid">) => {
@@ -460,7 +527,7 @@ export function ExploreClient() {
       const map = (await geometryResponse.json().catch(() => null)) as GeometryResponse | null;
       setData(payload);
       setGeometry(map);
-      setBenchmark(payload.location.state ? "state" : "national");
+      setBenchmark(payload.metrics.some((metric) => metric.state !== null) ? "state" : "national");
       window.requestAnimationFrame(() =>
         document.getElementById("local-results")?.scrollIntoView({ behavior: "smooth", block: "start" }),
       );
@@ -483,8 +550,12 @@ export function ExploreClient() {
   const filtered = useMemo(() => {
     if (!data) return [];
     const metrics = focus === "All" ? data.metrics : data.metrics.filter((metric) => metric.category === focus);
-    return [...metrics].sort((a, b) => b.score - a.score);
-  }, [data, focus]);
+    return [...metrics].sort((a, b) => {
+      if (order === "prevalence") return b.value - a.value;
+      if (order === "difference") return b.difference - a.difference;
+      return b.score - a.score;
+    });
+  }, [data, focus, order]);
   const partnershipHref = `/contact?interest=${encodeURIComponent("Partner with us")}${data ? `&location=${encodeURIComponent(data.location.label)}` : ""}`;
 
   return (
@@ -537,13 +608,13 @@ export function ExploreClient() {
               <div className={styles.placeFacts}>
                 <span><strong>{formatNumber(data.location.population)}</strong> population</span>
                 {data.priorities[0] && <span><strong>{data.priorities[0].value.toFixed(1)}%</strong> {data.priorities[0].label}</span>}
-                <span><strong>Dec. 2025</strong> current PLACES release</span>
+                <span><strong>{data.dataCoverage.measureCount}</strong> measures available</span>
               </div>
             </section>
 
             <section className={styles.controls} aria-label="Evidence controls">
               <div><Funnel size={18} aria-hidden="true" /><span>Focus</span>{focusOptions.map((option) => <button type="button" key={option} className={focus === option ? styles.active : ""} onClick={() => setFocus(option)}>{option}</button>)}</div>
-              <div><span>View</span><button type="button" className={view === "compare" ? styles.active : ""} onClick={() => setView("compare")}>Compare</button><button type="button" className={view === "pattern" ? styles.active : ""} onClick={() => setView("pattern")}>Pattern</button><button type="button" className={view === "pathways" ? styles.active : ""} onClick={() => setView("pathways")}>Pathways</button></div>
+              <div><label className={styles.orderControl}><span>Order</span><select value={order} onChange={(event) => setOrder(event.target.value as Order)}><option value="priority">Priority</option><option value="prevalence">Prevalence</option><option value="difference">Difference</option></select></label><span>View</span><button type="button" className={view === "compare" ? styles.active : ""} onClick={() => setView("compare")}>Compare</button><button type="button" className={view === "pattern" ? styles.active : ""} onClick={() => setView("pattern")}>Pattern</button><button type="button" className={view === "pathways" ? styles.active : ""} onClick={() => setView("pathways")}>Pathways</button></div>
             </section>
 
             <section className={styles.evidenceGrid}>
@@ -551,15 +622,17 @@ export function ExploreClient() {
               <article className={styles.keyFindings}>
                 <p className={styles.kicker}>What the data shows</p>
                 <h2>Priority signals</h2>
-                <ol>{data.priorities.slice(0, 4).map((metric) => <li key={metric.key}><span>{metric.value.toFixed(1)}%</span><div><strong>{metric.label}</strong><p>{metric.difference > 0 ? `${metric.difference.toFixed(1)} points above` : `${Math.abs(metric.difference).toFixed(1)} points below`} the national geographic average.</p></div></li>)}</ol>
+                <ol>{data.priorities.slice(0, 4).map((metric) => <li key={metric.key}><span>{metric.value.toFixed(1)}%</span><div><strong>{metric.label} <small>{metric.release} release</small></strong><p>{metric.difference > 0 ? `${metric.difference.toFixed(1)} points above` : `${Math.abs(metric.difference).toFixed(1)} points below`} the national geographic average.</p></div></li>)}</ol>
               </article>
             </section>
 
             <section className={styles.visuals} aria-labelledby="visual-title">
-              <div className={styles.sectionHeading}><div><p className={styles.kicker}>Explore the pattern</p><h2 id="visual-title">Different views. One evidence base.</h2></div>{view === "compare" && data.location.state && <div className={styles.benchmark}><button type="button" className={benchmark === "state" ? styles.active : ""} onClick={() => setBenchmark("state")}>State</button><button type="button" className={benchmark === "national" ? styles.active : ""} onClick={() => setBenchmark("national")}>National</button></div>}</div>
+              <div className={styles.sectionHeading}><div><p className={styles.kicker}>Explore the pattern</p><h2 id="visual-title">Different views. One evidence base.</h2></div>{view === "compare" && data.metrics.some((metric) => metric.state !== null) && <div className={styles.benchmark}><button type="button" className={benchmark === "state" ? styles.active : ""} onClick={() => setBenchmark("state")}>State</button><button type="button" className={benchmark === "national" ? styles.active : ""} onClick={() => setBenchmark("national")}>National</button></div>}</div>
               {view === "compare" && <CompareView metrics={filtered.slice(0, 8)} benchmark={benchmark} />}
               {view === "pattern" && <PatternView metrics={filtered.slice(0, 9)} />}
               {view === "pathways" && <PathwayView priorities={data.priorities} />}
+              {view !== "pathways" && filtered.length === 0 && <p className={styles.noMeasures}>No measures are available for this filter. Choose another focus.</p>}
+              {data.dataCoverage.previousMeasureCount > 0 && <p className={styles.coverageNote}>This view uses {data.dataCoverage.currentMeasureCount} measure{data.dataCoverage.currentMeasureCount === 1 ? "" : "s"} from the 2025 release and {data.dataCoverage.previousMeasureCount} from the 2024 release where the latest release has no estimate. Each comparison uses the same release as the local measure.</p>}
             </section>
 
             {data.localPlan && (
