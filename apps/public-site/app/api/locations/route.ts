@@ -201,7 +201,13 @@ export async function GET(request: NextRequest) {
     .filter((result, index, all) => all.findIndex((item) => item.id === result.id) === index)
     .sort((a, b) => score(b) - score(a))
     .slice(0, 8)
-    .map(({ rankArea: _rankArea, ...result }) => result);
+    .map((result) => ({
+      id: result.id,
+      kind: result.kind,
+      label: result.label,
+      geoid: result.geoid,
+      stateFips: result.stateFips,
+    }));
   return NextResponse.json({ results: unique, source: "U.S. Census Bureau TIGERweb" }, {
     headers: { "Cache-Control": "public, s-maxage=86400, stale-while-revalidate=604800" },
   });
