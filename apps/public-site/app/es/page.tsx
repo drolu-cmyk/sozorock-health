@@ -32,7 +32,7 @@ export const metadata: Metadata = {
     locale: "es_US",
     alternateLocale: ["en_US"],
     images: [{
-      url: "/social/sozorock-health-og.jpg",
+      url: "/social/sozorock-health-social-2026-07.jpg",
       width: 1200,
       height: 630,
       alt: "Un camino ilustrado avanza desde la incertidumbre hacia apoyo local bajo el mensaje de SozoRock Health",
@@ -42,7 +42,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "SozoRock Health | Un camino más claro hacia la atención",
     description: "Infraestructura de interés público para el acceso no clínico a la salud, la preparación comunitaria y sistemas públicos más sólidos.",
-    images: ["/social/sozorock-health-og.jpg"],
+    images: ["/social/sozorock-health-social-2026-07.jpg"],
   },
 };
 

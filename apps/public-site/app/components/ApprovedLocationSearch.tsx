@@ -1,6 +1,13 @@
 "use client";
 
-import { FormEvent, KeyboardEvent, useEffect, useMemo, useState } from "react";
+import {
+  FormEvent,
+  KeyboardEvent,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
 type RemoteResult = {
   id: string;
@@ -30,12 +37,17 @@ const stateCodes: Record<string, string> = {
 };
 
 function toSuggestion(result: RemoteResult): Suggestion {
+  const cleanPlaceName =
+    result.kind === "place"
+      ? result.label.replace(/\s+(city|town|village|borough|CDP)$/i, "")
+      : result.label;
+
   return {
     ...result,
     display:
       result.kind === "zip"
         ? result.label.replace(/^ZIP\s+/i, "")
-        : `${result.label}${stateCodes[result.stateFips] ? `, ${stateCodes[result.stateFips]}` : ""}`,
+        : `${cleanPlaceName}${stateCodes[result.stateFips] ? `, ${stateCodes[result.stateFips]}` : ""}`,
     kindLabel:
       result.kind === "county"
         ? "County"
@@ -49,14 +61,15 @@ export function ApprovedLocationSearch() {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<RemoteResult[]>([]);
   const [loading, setLoading] = useState(false);
-  const [selected, setSelected] = useState<RemoteResult | null>(null);
+  const [selected, setSelected] = useState<Suggestion | null>(null);
   const [activeIndex, setActiveIndex] = useState(-1);
   const [message, setMessage] = useState("");
+  const resultRef = useRef<HTMLDivElement>(null);
   const listId = "approved-place-suggestions";
 
   useEffect(() => {
     const term = query.trim();
-    if (term.length < 2 || selected?.label === query) {
+    if (term.length < 2 || selected?.display === query) {
       setResults([]);
       return;
     }
@@ -101,10 +114,18 @@ export function ApprovedLocationSearch() {
     setMessage(
       `${result.display} is open for a SozoRock Health readiness or partnership conversation.`,
     );
+    window.requestAnimationFrame(() => resultRef.current?.focus());
   };
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
+    if (selected?.display === query.trim()) {
+      setMessage(
+        `${selected.display} is open for a SozoRock Health readiness or partnership conversation.`,
+      );
+      window.requestAnimationFrame(() => resultRef.current?.focus());
+      return;
+    }
     const choice = suggestions[activeIndex] ?? suggestions[0];
     if (choice) {
       choose(choice);
@@ -221,6 +242,25 @@ export function ApprovedLocationSearch() {
           <p className="place-status" aria-live="polite">
             {loading ? "Looking across U.S. communities…" : message}
           </p>
+          {selected && (
+            <div
+              ref={resultRef}
+              className="place-result"
+              tabIndex={-1}
+              aria-label={`Selected place: ${selected.display}`}
+            >
+              <div>
+                <span>{selected.kindLabel}</span>
+                <strong>{selected.display}</strong>
+                <p>Available for a readiness or partnership conversation.</p>
+              </div>
+              <a
+                href={`/contact?interest=${encodeURIComponent("Bring the model to a community")}&location=${encodeURIComponent(selected.display)}`}
+              >
+                Start a local conversation
+              </a>
+            </div>
+          )}
         </form>
       </div>
     </section>

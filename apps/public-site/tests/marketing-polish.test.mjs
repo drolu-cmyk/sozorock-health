@@ -60,6 +60,12 @@ test("the approved marketing homepage and publication access remain locked toget
   assert.match(homepage, /youtube\.com\/@srockfoundation/);
   assert.match(homepage, /x\.com\/srockfoundation/);
   assert.match(locationSearch, /replace\(\/\^ZIP\\s\+\/i, ""\)/);
+  assert.match(locationSearch, /selected\?\.display === query/);
+  assert.match(locationSearch, /place-result/);
+  assert.match(locationSearch, /Start a local conversation/);
+  assert.match(homepage, /hero-community-desktop-v2\.webp/);
+  assert.match(homepage, /hero-community-mobile-v2\.webp/);
+  assert.match(homepage, /portal-barrier-v2\.webp/);
   assert.match(locationRoute, /replace\(\/\\s\+COUNTY\$\/, ""\)/);
   assert.match(locationRoute, /label: String\(attributes\.ZCTA5/);
   assert.match(contactForm, /CB-CAP inquiry/);
