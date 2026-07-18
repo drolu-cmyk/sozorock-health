@@ -28,6 +28,9 @@ test("the evidence API uses fixed current public datasets and validated geograph
   assert.match(route, /release,/);
   assert.match(route, /safeGeoid/);
   assert.match(route, /placeUnavailableMetrics/);
+  assert.match(route, /censusAreaContext/);
+  assert.match(route, /where: `GEOID='\$\{geoid\}'`/);
+  assert.match(route, /label: `\$\{areaContext\.name\}/);
   assert.doesNotMatch(route, /request\.nextUrl\.searchParams\.get\("url"\)/);
 });
 

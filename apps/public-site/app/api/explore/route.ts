@@ -158,6 +158,39 @@ async function zipPlaceContext(row: SourceRow) {
   };
 }
 
+async function censusAreaContext(kind: Exclude<ExploreKind, "zip">, geoid: string) {
+  const countyUrl = "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/State_County/MapServer/9/query";
+  const placeBase = "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer";
+  const urls = kind === "county"
+    ? [countyUrl]
+    : [`${placeBase}/4/query`, `${placeBase}/5/query`];
+  const parameters = new URLSearchParams({
+    f: "json",
+    where: `GEOID='${geoid}'`,
+    outFields: "NAME,STATE",
+    returnGeometry: "false",
+    resultRecordCount: "1",
+  });
+  const responses = await Promise.all(urls.map(async (url) => {
+    const response = await fetch(`${url}?${parameters}`, {
+      headers: { Accept: "application/json", "User-Agent": "SozoRock-Health-Place-Evidence/1.0" },
+      next: { revalidate: 86_400 },
+    });
+    if (!response.ok) return [] as Array<{ attributes?: Record<string, string | number> }>;
+    const payload = await response.json() as { features?: Array<{ attributes?: Record<string, string | number> }> };
+    return payload.features ?? [];
+  }));
+  const context = responses.flat()[0]?.attributes;
+  if (!context) return null;
+  const officialName = String(context.NAME ?? "");
+  return {
+    name: kind === "place"
+      ? officialName.replace(/\s+(city|town|village|borough|CDP|comunidad|zona urbana)$/i, "")
+      : officialName,
+    state: stateCodes[String(context.STATE ?? "").padStart(2, "0")] ?? "",
+  };
+}
+
 function sourceForRelease(kind: ExploreKind, release: "2025" | "2024") {
   const dataset = release === "2025" ? currentDatasets[kind] : previousDatasets[kind];
   return {
@@ -303,14 +336,23 @@ export async function GET(request: NextRequest) {
       .slice(0, 5);
     const localPlan = kind === "county" ? localPlans[geoid] ?? null : null;
     const baseLocation = makeLocation(kind, geoid, row);
-    const zipContext = kind === "zip" ? await zipPlaceContext(row) : null;
+    const [zipContext, areaContext] = await Promise.all([
+      kind === "zip" ? zipPlaceContext(row) : null,
+      kind === "zip" ? null : censusAreaContext(kind, geoid),
+    ]);
     const location = zipContext
       ? {
           ...baseLocation,
           label: `${geoid} · ${zipContext.name}${zipContext.state ? `, ${zipContext.state}` : ""}`,
           state: zipContext.state,
         }
-      : baseLocation;
+      : areaContext
+        ? {
+            ...baseLocation,
+            label: `${areaContext.name}${areaContext.state ? `, ${areaContext.state}` : ""}`,
+            state: areaContext.state,
+          }
+        : baseLocation;
     const top = priorities[0];
     const currentMeasureCount = metrics.filter((metric) => metric.release === "2025").length;
     const previousMeasureCount = metrics.length - currentMeasureCount;
