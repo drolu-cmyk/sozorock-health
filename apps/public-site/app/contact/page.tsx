@@ -17,7 +17,10 @@ export const metadata: Metadata = {
 };
 
 type ContactPageProps = {
-  searchParams: Promise<{ interest?: string | string[] }>;
+  searchParams: Promise<{
+    interest?: string | string[];
+    location?: string | string[];
+  }>;
 };
 
 export default async function ContactPage({ searchParams }: ContactPageProps) {
@@ -25,6 +28,11 @@ export default async function ContactPage({ searchParams }: ContactPageProps) {
   const initialInterest = Array.isArray(params.interest)
     ? params.interest[0]
     : params.interest ?? "";
+  const initialLocation = (
+    Array.isArray(params.location) ? params.location[0] : params.location ?? ""
+  )
+    .trim()
+    .slice(0, 120);
 
   return (
     <div className="approved-contact">
@@ -65,7 +73,10 @@ export default async function ContactPage({ searchParams }: ContactPageProps) {
                 contact@sozorockfoundation.org
               </a>
             </div>
-            <ContactForm initialInterest={initialInterest} />
+            <ContactForm
+              initialInterest={initialInterest}
+              initialLocation={initialLocation}
+            />
           </div>
         </section>
       </main>

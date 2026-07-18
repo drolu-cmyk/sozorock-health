@@ -149,9 +149,11 @@ function validate(form: FormData, locale: Locale): Errors {
 export function ContactForm({
   locale = "en",
   initialInterest = "",
+  initialLocation = "",
 }: {
   locale?: Locale;
   initialInterest?: string;
+  initialLocation?: string;
 }) {
   const copy = formCopy[locale];
   const [state, setState] = useState<"idle" | "sending" | "sent" | "error">(
@@ -348,6 +350,7 @@ export function ContactForm({
           id="contact-location"
           required
           name="location"
+          defaultValue={initialLocation}
           autoComplete="address-level1"
           aria-invalid={Boolean(errors.location)}
           aria-describedby={errors.location ? "location-error" : undefined}
