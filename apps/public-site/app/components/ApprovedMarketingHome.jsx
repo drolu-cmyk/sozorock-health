@@ -178,12 +178,20 @@ export function ApprovedMarketingHome() {
       <main id="main-content">
         <section id="top" className="hero" aria-labelledby="hero-title">
           <Image
-            className="hero-image"
-            src="/media/approved-home/hero-tablet.webp"
-            alt="Two people working together with a tablet in a community setting."
+            className="hero-image hero-image--desktop"
+            src="/media/approved-home/hero-community-desktop-v2.webp"
+            alt="A Black man and a White woman use a tablet together in a community library."
             fill
             priority
-            sizes="100vw"
+            sizes="(max-width: 900px) 1px, 100vw"
+          />
+          <Image
+            className="hero-image hero-image--mobile"
+            src="/media/approved-home/hero-community-mobile-v2.webp"
+            alt="A Black man and a White woman use a tablet together in a community library."
+            fill
+            priority
+            sizes="(max-width: 900px) 100vw, 1px"
           />
           <div className="hero-scrim" aria-hidden="true" />
           <div className="hero-content">
@@ -211,7 +219,7 @@ export function ApprovedMarketingHome() {
             <div className="barrier-sequence" aria-label="Examples of practical barriers">
               <article className="barrier-item">
                 <div className="barrier-image barrier-image--road">
-                  <Image src="/media/approved-home/rural-road.webp" alt="A long rural road leading toward a small community." width={565} height={426} sizes="(max-width: 640px) 100vw, 33vw" />
+                  <Image src="/media/approved-home/ride-barrier-v2.webp" alt="A person waits beside a rural road after a ride falls through." width={1400} height={1050} sizes="(max-width: 640px) 100vw, 33vw" />
                 </div>
                 <div className="barrier-caption">
                   <Bus size={26} weight="regular" aria-hidden="true" />
@@ -221,7 +229,7 @@ export function ApprovedMarketingHome() {
               <span className="sequence-arrow" aria-hidden="true"><ArrowRight size={28} /></span>
               <article className="barrier-item">
                 <div className="barrier-image barrier-image--tablet">
-                  <Image src="/media/approved-home/hero-tablet.webp" alt="Hands using a tablet in a community setting." width={1800} height={1200} sizes="(max-width: 640px) 100vw, 33vw" />
+                  <Image src="/media/approved-home/portal-barrier-v2.webp" alt="A person encounters a loading screen while trying to use an online portal." width={1400} height={1050} sizes="(max-width: 640px) 100vw, 33vw" />
                 </div>
                 <div className="barrier-caption">
                   <Monitor size={26} weight="regular" aria-hidden="true" />
@@ -293,7 +301,7 @@ export function ApprovedMarketingHome() {
           </div>
 
           <div className="hub-stage measure-wide">
-            <Image src="/media/approved-home/library-hub.webp" alt="The interior of a community-built rural library." width={1400} height={1867} sizes="(max-width: 640px) 100vw, 45vw" />
+            <Image src="/media/approved-home/library-hub-v2.webp" alt="A welcoming rural library with shared tablets ready for community use." width={1200} height={1600} sizes="(max-width: 640px) 100vw, 45vw" />
             <div className="hub-list">
               <article>
                 <Library size={38} weight="regular" aria-hidden="true" />

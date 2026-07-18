@@ -74,7 +74,7 @@ export const metadata: Metadata = {
     siteName: "SozoRock Health",
     type: "website",
     locale: "en_US",
-    images: [{ url: "/social/sozorock-health-og.jpg", width: 1200, height: 630, alt: "An illustrated path moves from uncertainty toward local support beneath the SozoRock Health message" }],
+    images: [{ url: "/social/sozorock-health-social-2026-07.jpg", width: 1200, height: 630, alt: "Two people use a tablet together in a community library" }],
   },
   twitter: {
     card: "summary_large_image",
@@ -82,7 +82,7 @@ export const metadata: Metadata = {
     creator: "@srockfoundation",
     title: "SozoRock Health | Care. For every ZIP Code.",
     description: "Health-equity systems infrastructure for practical access, community readiness, provider-led pathways, and stronger public systems.",
-    images: ["/social/sozorock-health-og.jpg"],
+    images: ["/social/sozorock-health-social-2026-07.jpg"],
   },
   robots: { index: true, follow: true, googleBot: { index: true, follow: true, "max-image-preview": "large", "max-snippet": -1, "max-video-preview": -1 } },
   verification: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION
@@ -159,7 +159,7 @@ const structuredData = {
       about: { "@id": `${siteUrl}/#sozorock-health` },
       primaryImageOfPage: {
         "@type": "ImageObject",
-        url: `${siteUrl}/social/sozorock-health-og.jpg`,
+        url: `${siteUrl}/social/sozorock-health-social-2026-07.jpg`,
         width: 1200,
         height: 630,
       },

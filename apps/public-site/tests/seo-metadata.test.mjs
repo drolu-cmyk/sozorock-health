@@ -70,4 +70,5 @@ test("the public metadata identifies SozoRock Health, its leadership, and social
   assert.match(layout, /"@type": "WebPage"/);
   assert.match(layout, /site: "@srockfoundation"/);
   assert.match(layout, /NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION/);
+  assert.match(layout, /sozorock-health-social-2026-07\.jpg/);
 });
