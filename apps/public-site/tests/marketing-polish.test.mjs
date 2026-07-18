@@ -71,7 +71,8 @@ test("the approved marketing homepage and publication access remain locked toget
   assert.match(homepage, /hero-community-mobile-v2\.webp/);
   assert.match(homepage, /portal-barrier-v2\.webp/);
   assert.match(locationRoute, /replace\(\/\\s\+COUNTY\$\/, ""\)/);
-  assert.match(locationRoute, /label: String\(attributes\.ZCTA5/);
+  assert.match(locationRoute, /queryPointLayer/);
+  assert.match(locationRoute, /label: placeName \? `\$\{geoid\} · \$\{placeName\}` : geoid/);
   assert.match(contactForm, /CB-CAP inquiry/);
   assert.match(contactForm, /Media inquiry/);
   assert.match(publicationSection, /publication\.cover/);

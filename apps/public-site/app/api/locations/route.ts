@@ -54,14 +54,34 @@ function safePrefix(value: string) {
   return value.replace(/[^a-zA-Z0-9 .'-]/g, "").trim().slice(0, 64).toUpperCase().replaceAll("'", "''");
 }
 
-async function queryLayer(url: string, where: string, outFields: string) {
+async function queryLayer(url: string, where: string, outFields: string, orderByFields = "BASENAME") {
   const params = new URLSearchParams({
     f: "json",
     where,
     outFields,
     returnGeometry: "false",
     resultRecordCount: "6",
-    orderByFields: "BASENAME",
+    orderByFields,
+  });
+  const response = await fetch(`${url}?${params}`, {
+    headers: { Accept: "application/json", "User-Agent": "SozoRock-Health-Public-Site/1.0" },
+    next: { revalidate: 86_400 },
+  });
+  if (!response.ok) return [] as CensusFeature[];
+  const data = await response.json() as { features?: CensusFeature[] };
+  return data.features ?? [];
+}
+
+async function queryPointLayer(url: string, longitude: number, latitude: number, outFields: string) {
+  const params = new URLSearchParams({
+    f: "json",
+    geometry: JSON.stringify({ x: longitude, y: latitude, spatialReference: { wkid: 4326 } }),
+    geometryType: "esriGeometryPoint",
+    inSR: "4326",
+    spatialRel: "esriSpatialRelIntersects",
+    outFields,
+    returnGeometry: "false",
+    resultRecordCount: "3",
   });
   const response = await fetch(`${url}?${params}`, {
     headers: { Accept: "application/json", "User-Agent": "SozoRock-Health-Public-Site/1.0" },
@@ -120,10 +140,10 @@ export async function GET(request: NextRequest) {
   const countyWhere = isNumeric
     ? `GEOID LIKE '${term}%'`
     : `UPPER(BASENAME) LIKE '${countyPrefix}%'${stateClause}`;
-  const placeLayers = [4, 5].map((layer) => queryLayer(`${PLACE_SERVICE}/${layer}/query`, placeWhere, "BASENAME,NAME,GEOID,STATE"));
-  const countyPromise = queryLayer(COUNTY_SERVICE, countyWhere, "BASENAME,NAME,GEOID,STATE,COUNTY");
+  const placeLayers = [4, 5].map((layer) => queryLayer(`${PLACE_SERVICE}/${layer}/query`, placeWhere, "BASENAME,NAME,GEOID,STATE,AREALAND"));
+  const countyPromise = queryLayer(COUNTY_SERVICE, countyWhere, "BASENAME,NAME,GEOID,STATE,COUNTY,AREALAND");
   const zipPromise = isNumeric
-    ? queryLayer(ZIP_SERVICE, `ZCTA5 LIKE '${term}%'`, "ZCTA5,GEOID,NAME")
+    ? queryLayer(ZIP_SERVICE, `ZCTA5 LIKE '${term}%'`, "ZCTA5,GEOID,NAME,CENTLAT,CENTLON,AREALAND", "ZCTA5")
     : Promise.resolve([] as CensusFeature[]);
 
   const [incorporated, censusDesignated, counties, zips] = await Promise.all([...placeLayers, countyPromise, zipPromise]);
@@ -133,6 +153,7 @@ export async function GET(request: NextRequest) {
     label: String(attributes.NAME ?? attributes.BASENAME ?? "U.S. county"),
     geoid: String(attributes.GEOID ?? ""),
     stateFips: String(attributes.STATE ?? "").padStart(2, "0"),
+    rankArea: Number(attributes.AREALAND ?? 0),
   }));
   const places = [...incorporated, ...censusDesignated].map(({ attributes = {} }) => ({
     id: `place-${attributes.GEOID}`,
@@ -140,16 +161,53 @@ export async function GET(request: NextRequest) {
     label: String(attributes.NAME ?? attributes.BASENAME ?? "U.S. place"),
     geoid: String(attributes.GEOID ?? ""),
     stateFips: String(attributes.STATE ?? "").padStart(2, "0"),
+    rankArea: Number(attributes.AREALAND ?? 0),
   }));
-  const zipResults = zips.map(({ attributes = {} }) => ({
-    id: `zip-${attributes.ZCTA5 ?? attributes.GEOID}`,
-    kind: "zip" as const,
-    label: String(attributes.ZCTA5 ?? attributes.GEOID ?? ""),
-    geoid: String(attributes.GEOID ?? attributes.ZCTA5 ?? ""),
-    stateFips: "",
+  const zipResults = await Promise.all(zips.map(async ({ attributes = {} }) => {
+    const geoid = String(attributes.GEOID ?? attributes.ZCTA5 ?? "");
+    const longitude = Number(attributes.CENTLON);
+    const latitude = Number(attributes.CENTLAT);
+    let placeName = "";
+    let containingState = "";
+    if (/^\d{5}$/.test(term) && Number.isFinite(longitude) && Number.isFinite(latitude)) {
+      const [incorporatedAtPoint, designatedAtPoint, countyAtPoint] = await Promise.all([
+        queryPointLayer(`${PLACE_SERVICE}/4/query`, longitude, latitude, "BASENAME,NAME,STATE"),
+        queryPointLayer(`${PLACE_SERVICE}/5/query`, longitude, latitude, "BASENAME,NAME,STATE"),
+        queryPointLayer(COUNTY_SERVICE, longitude, latitude, "BASENAME,NAME,STATE"),
+      ]);
+      const containingPlace = [...incorporatedAtPoint, ...designatedAtPoint][0];
+      const containingCounty = countyAtPoint[0];
+      const context = containingPlace?.attributes ?? containingCounty?.attributes;
+      placeName = String(context?.BASENAME ?? context?.NAME ?? "").replace(/\s+County$/i, "");
+      containingState = String(context?.STATE ?? "").padStart(2, "0");
+    }
+    return {
+      id: `zip-${geoid}`,
+      kind: "zip" as const,
+      label: placeName ? `${geoid} · ${placeName}` : geoid,
+      geoid,
+      stateFips: containingState,
+      rankArea: Number(attributes.AREALAND ?? 0),
+    };
   }));
 
-  const unique = [...countyResults, ...places, ...zipResults].filter((result, index, all) => all.findIndex((item) => item.id === result.id) === index).slice(0, 8);
+  const normalizedSearch = withoutState.replace(/\s+(COUNTY|CITY|TOWN|VILLAGE|BOROUGH)$/i, "").trim().toUpperCase();
+  const score = (result: { label: string; geoid: string; rankArea: number }) => {
+    const normalizedLabel = result.label.replace(/\s+(COUNTY|CITY|TOWN|VILLAGE|BOROUGH|CDP)$/i, "").trim().toUpperCase();
+    const exact = result.geoid === term || normalizedLabel === normalizedSearch ? 1_000_000_000 : 0;
+    return exact + Math.log10(Math.max(1, result.rankArea));
+  };
+  const unique = [...countyResults, ...places, ...zipResults]
+    .filter((result, index, all) => all.findIndex((item) => item.id === result.id) === index)
+    .sort((a, b) => score(b) - score(a))
+    .slice(0, 8)
+    .map((result) => ({
+      id: result.id,
+      kind: result.kind,
+      label: result.label,
+      geoid: result.geoid,
+      stateFips: result.stateFips,
+    }));
   return NextResponse.json({ results: unique, source: "U.S. Census Bureau TIGERweb" }, {
     headers: { "Cache-Control": "public, s-maxage=86400, stale-while-revalidate=604800" },
   });

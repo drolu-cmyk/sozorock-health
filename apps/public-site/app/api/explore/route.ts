@@ -11,10 +11,16 @@ import {
 
 export const runtime = "nodejs";
 
-const datasets: Record<ExploreKind, string> = {
+const currentDatasets: Record<ExploreKind, string> = {
   county: "i46a-9kgh",
   place: "vgc8-iyc4",
   zip: "kee5-23sr",
+};
+
+const previousDatasets: Record<ExploreKind, string> = {
+  county: "d3i6-k6z5",
+  place: "hbpe-6r8n",
+  zip: "6jwg-4k37",
 };
 
 const idFields: Record<ExploreKind, string> = {
@@ -25,6 +31,10 @@ const idFields: Record<ExploreKind, string> = {
 
 type SourceRow = Record<string, string | { coordinates?: number[] } | undefined>;
 
+const stateCodes: Record<string, string> = {
+  "01": "AL", "02": "AK", "04": "AZ", "05": "AR", "06": "CA", "08": "CO", "09": "CT", "10": "DE", "11": "DC", "12": "FL", "13": "GA", "15": "HI", "16": "ID", "17": "IL", "18": "IN", "19": "IA", "20": "KS", "21": "KY", "22": "LA", "23": "ME", "24": "MD", "25": "MA", "26": "MI", "27": "MN", "28": "MS", "29": "MO", "30": "MT", "31": "NE", "32": "NV", "33": "NH", "34": "NJ", "35": "NM", "36": "NY", "37": "NC", "38": "ND", "39": "OH", "40": "OK", "41": "OR", "42": "PA", "44": "RI", "45": "SC", "46": "SD", "47": "TN", "48": "TX", "49": "UT", "50": "VT", "51": "VA", "53": "WA", "54": "WV", "55": "WI", "56": "WY",
+};
+
 const baseFields: Record<ExploreKind, string[]> = {
   county: ["countyfips", "stateabbr", "statedesc", "countyname", "totalpopulation", "totalpop18plus", "geolocation"],
   place: ["placefips", "stateabbr", "statedesc", "placename", "locationname", "totalpopulation", "totalpop18plus", "geolocation"],
@@ -32,6 +42,7 @@ const baseFields: Record<ExploreKind, string[]> = {
 };
 
 const placeUnavailableMetrics = new Set(["lacktrpt", "foodinsecu", "loneliness"]);
+const previousReleaseUnavailableMetrics = new Set(["lacktrpt", "foodinsecu", "loneliness"]);
 
 function metricsForKind(kind: ExploreKind) {
   return kind === "place"
@@ -44,8 +55,8 @@ function asNumber(value: unknown) {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
-function averageSelect(kind: ExploreKind) {
-  return metricsForKind(kind)
+function averageSelect(kind: ExploreKind, release: "2025" | "2024") {
+  return metricsForRelease(kind, release)
     .map((metric) => {
       const field = fieldFor(kind, metric.field);
       return `avg(${field}) as ${field}`;
@@ -68,7 +79,10 @@ async function cdcQuery(
     },
     next: { revalidate: 86_400 },
   });
-  if (!response.ok) throw new Error(`CDC PLACES request failed: ${response.status}`);
+  if (!response.ok) {
+    const detail = (await response.text()).replace(/\s+/g, " ").slice(0, 220);
+    throw new Error(`CDC PLACES ${dataset} request failed: ${response.status} ${detail}`);
+  }
   return (await response.json()) as SourceRow[];
 }
 
@@ -96,6 +110,69 @@ function makeLocation(kind: ExploreKind, geoid: string, row: SourceRow) {
 
 function metricValue(row: SourceRow | undefined, field: string) {
   return row ? asNumber(row[field]) : 0;
+}
+
+function metricsForRelease(kind: ExploreKind, release: "2025" | "2024") {
+  const metrics = metricsForKind(kind);
+  return release === "2024"
+    ? metrics.filter((metric) => !previousReleaseUnavailableMetrics.has(metric.key))
+    : metrics;
+}
+
+async function zipPlaceContext(row: SourceRow) {
+  const coordinates = typeof row.geolocation === "object" ? row.geolocation?.coordinates : undefined;
+  if (!coordinates || coordinates.length < 2) return null;
+  const [longitude, latitude] = coordinates;
+  const query = async (url: string) => {
+    const parameters = new URLSearchParams({
+      f: "json",
+      geometry: JSON.stringify({ x: longitude, y: latitude, spatialReference: { wkid: 4326 } }),
+      geometryType: "esriGeometryPoint",
+      inSR: "4326",
+      spatialRel: "esriSpatialRelIntersects",
+      outFields: "BASENAME,NAME,STATE",
+      returnGeometry: "false",
+      resultRecordCount: "3",
+    });
+    const response = await fetch(`${url}?${parameters}`, {
+      headers: { Accept: "application/json", "User-Agent": "SozoRock-Health-Place-Evidence/1.0" },
+      next: { revalidate: 86_400 },
+    });
+    if (!response.ok) return [] as Array<{ attributes?: Record<string, string | number> }>;
+    const payload = await response.json() as { features?: Array<{ attributes?: Record<string, string | number> }> };
+    return payload.features ?? [];
+  };
+  const placeBase = "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer";
+  const countyUrl = "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/State_County/MapServer/9/query";
+  const [incorporated, designated, counties] = await Promise.all([
+    query(`${placeBase}/4/query`),
+    query(`${placeBase}/5/query`),
+    query(countyUrl),
+  ]);
+  const place = [...incorporated, ...designated][0];
+  const context = place?.attributes ?? counties[0]?.attributes;
+  if (!context) return null;
+  return {
+    name: String(context.BASENAME ?? context.NAME ?? "").replace(/\s+County$/i, ""),
+    state: stateCodes[String(context.STATE ?? "").padStart(2, "0")] ?? "",
+  };
+}
+
+function sourceForRelease(kind: ExploreKind, release: "2025" | "2024") {
+  const dataset = release === "2025" ? currentDatasets[kind] : previousDatasets[kind];
+  return {
+    name: `CDC PLACES, ${release} release`,
+    url: `https://data.cdc.gov/d/${dataset}`,
+    release: release === "2025" ? "December 4, 2025" : "September 11, 2025",
+    period:
+      release === "2025"
+        ? "BRFSS 2023 and 2022; ACS 2019–2023 and 2018–2022"
+        : "BRFSS 2022 and 2021; ACS 2018–2022",
+    note:
+      kind === "zip"
+        ? "Crude prevalence estimates"
+        : "Age-adjusted prevalence estimates",
+  };
 }
 
 function buildOfferings(
@@ -153,60 +230,70 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Choose a valid U.S. place." }, { status: 400 });
   }
 
-  const dataset = datasets[kind];
-  const fieldList = [
+  const dataset = currentDatasets[kind];
+  const fieldList = (release: "2025" | "2024") => [
     ...baseFields[kind],
-    ...metricsForKind(kind).flatMap((metric) => [
+    ...metricsForRelease(kind, release).flatMap((metric) => [
       fieldFor(kind, metric.field),
       confidenceFieldFor(kind, metric.field),
     ]),
   ];
 
   try {
-    const rows = await cdcQuery(dataset, {
-      "$select": fieldList.join(","),
+    const locationParameters = (release: "2025" | "2024") => ({
+      "$select": fieldList(release).join(","),
       "$where": `${idFields[kind]}='${geoid}'`,
       "$limit": "1",
     });
-    const row = rows[0];
+    const [currentRows, previousRows] = await Promise.all([
+      cdcQuery(currentDatasets[kind], locationParameters("2025")),
+      cdcQuery(previousDatasets[kind], locationParameters("2024")),
+    ]);
+    const currentRow = currentRows[0];
+    const previousRow = previousRows[0];
+    const row = currentRow ?? previousRow;
     if (!row) {
       return NextResponse.json({ error: "No current PLACES estimate was found for this location." }, { status: 404 });
     }
 
-    const nationalPromise = cdcQuery(dataset, {
-      "$select": averageSelect(kind),
-      "$limit": "1",
-    });
+    const averageParameters = (release: "2025" | "2024") => ({ "$select": averageSelect(kind, release), "$limit": "1" });
     const state = String(row.stateabbr ?? "");
-    const statePromise =
-      state && kind !== "zip"
-        ? cdcQuery(dataset, {
-            "$select": averageSelect(kind),
-            "$where": `stateabbr='${state.replace(/[^A-Z]/g, "")}'`,
-            "$limit": "1",
-          })
-        : Promise.resolve([] as SourceRow[]);
-    const [nationalRows, stateRows] = await Promise.all([
-      nationalPromise,
-      statePromise,
+    const stateParameters = (release: "2025" | "2024") => state && kind !== "zip"
+      ? {
+          "$select": averageSelect(kind, release),
+          "$where": `stateabbr='${state.replace(/[^A-Z]/g, "")}'`,
+          "$limit": "1",
+        }
+      : null;
+    const currentStateParameters = stateParameters("2025");
+    const previousStateParameters = stateParameters("2024");
+    const [currentNationalRows, previousNationalRows, currentStateRows, previousStateRows] = await Promise.all([
+      cdcQuery(currentDatasets[kind], averageParameters("2025")),
+      cdcQuery(previousDatasets[kind], averageParameters("2024")),
+      currentStateParameters ? cdcQuery(currentDatasets[kind], currentStateParameters) : Promise.resolve([] as SourceRow[]),
+      previousStateParameters ? cdcQuery(previousDatasets[kind], previousStateParameters) : Promise.resolve([] as SourceRow[]),
     ]);
-    const national = nationalRows[0];
-    const stateAverage = stateRows[0];
 
     const metrics = metricsForKind(kind)
       .map((definition) => {
         const field = fieldFor(kind, definition.field);
-        const value = metricValue(row, field);
-        const nationalValue = metricValue(national, field);
-        const stateValue = metricValue(stateAverage, field);
+        const currentValue = metricValue(currentRow, field);
+        const release = currentValue > 0 ? "2025" as const : "2024" as const;
+        const releaseRow = release === "2025" ? currentRow : previousRow;
+        const releaseNational = release === "2025" ? currentNationalRows[0] : previousNationalRows[0];
+        const releaseState = release === "2025" ? currentStateRows[0] : previousStateRows[0];
+        const value = metricValue(releaseRow, field);
+        const nationalValue = metricValue(releaseNational, field);
+        const stateValue = metricValue(releaseState, field);
         return {
           ...definition,
           value,
-          confidence: String(row[confidenceFieldFor(kind, definition.field)] ?? ""),
+          confidence: String(releaseRow?.[confidenceFieldFor(kind, definition.field)] ?? ""),
           national: nationalValue,
           state: stateValue || null,
           difference: Number((value - nationalValue).toFixed(1)),
           score: scoreMetric(value, nationalValue),
+          release,
         };
       })
       .filter((metric) => metric.value > 0 && metric.national > 0);
@@ -215,8 +302,18 @@ export async function GET(request: NextRequest) {
       .sort((a, b) => b.score - a.score)
       .slice(0, 5);
     const localPlan = kind === "county" ? localPlans[geoid] ?? null : null;
-    const location = makeLocation(kind, geoid, row);
+    const baseLocation = makeLocation(kind, geoid, row);
+    const zipContext = kind === "zip" ? await zipPlaceContext(row) : null;
+    const location = zipContext
+      ? {
+          ...baseLocation,
+          label: `${geoid} · ${zipContext.name}${zipContext.state ? `, ${zipContext.state}` : ""}`,
+          state: zipContext.state,
+        }
+      : baseLocation;
     const top = priorities[0];
+    const currentMeasureCount = metrics.filter((metric) => metric.release === "2025").length;
+    const previousMeasureCount = metrics.length - currentMeasureCount;
 
     return NextResponse.json(
       {
@@ -226,6 +323,11 @@ export async function GET(request: NextRequest) {
           : `Current public data is available for ${location.label}.`,
         metrics,
         priorities,
+        dataCoverage: {
+          measureCount: metrics.length,
+          currentMeasureCount,
+          previousMeasureCount,
+        },
         offerings: buildOfferings(priorities, Boolean(localPlan)),
         localPlan,
         sources: [
@@ -236,6 +338,7 @@ export async function GET(request: NextRequest) {
             period: kind === "zip" ? "BRFSS 2023 and 2022; ACS 2019–2023 and 2018–2022" : "BRFSS 2023 and 2022; ACS 2019–2023 and 2018–2022",
             note: kind === "zip" ? "Crude prevalence estimates" : "Age-adjusted prevalence estimates",
           },
+          ...(previousMeasureCount > 0 ? [sourceForRelease(kind, "2024")] : []),
           {
             name: "HRSA Health Workforce Shortage Areas",
             url: "https://data.hrsa.gov/topics/health-workforce/shortage-areas/dashboard",
@@ -272,6 +375,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error("explore-health-data-failed", {
       name: (error as { name?: string }).name ?? "UnknownError",
+      message: String((error as { message?: string }).message ?? "Source request failed").slice(0, 160),
     });
     return NextResponse.json(
       { error: "Current public data could not be loaded. Please try again shortly." },
