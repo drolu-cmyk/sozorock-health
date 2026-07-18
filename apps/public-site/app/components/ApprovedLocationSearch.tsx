@@ -34,13 +34,14 @@ const stateCodes: Record<string, string> = {
   "39": "OH", "40": "OK", "41": "OR", "42": "PA", "44": "RI",
   "45": "SC", "46": "SD", "47": "TN", "48": "TX", "49": "UT",
   "50": "VT", "51": "VA", "53": "WA", "54": "WV", "55": "WI",
-  "56": "WY",
+  "56": "WY", "60": "AS", "66": "GU", "69": "MP", "72": "PR",
+  "78": "VI",
 };
 
 function toSuggestion(result: RemoteResult): Suggestion {
   const cleanPlaceName =
     result.kind === "place"
-      ? result.label.replace(/\s+(city|town|village|borough|CDP)$/i, "")
+      ? result.label.replace(/\s+(city|town|village|borough|CDP|comunidad|zona urbana)$/i, "")
       : result.label;
 
   return {

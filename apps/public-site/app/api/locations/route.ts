@@ -31,8 +31,13 @@ const stateFipsByCode: Record<string, string> = {
   NJ: "34", NM: "35", NY: "36", NC: "37", ND: "38", OH: "39",
   OK: "40", OR: "41", PA: "42", RI: "44", SC: "45", SD: "46",
   TN: "47", TX: "48", UT: "49", VT: "50", VA: "51", WA: "53",
-  WV: "54", WI: "55", WY: "56",
+  WV: "54", WI: "55", WY: "56", AS: "60", GU: "66", MP: "69",
+  PR: "72", VI: "78",
 };
+
+const countyDesignation = /\s+(COUNTY|PARISH|BOROUGH|CENSUS AREA|MUNICIPIO|MUNICIPALITY)$/i;
+const placeDesignation = /\s+(CITY|TOWN|VILLAGE|BOROUGH|CDP|COMUNIDAD|ZONA URBANA)$/i;
+const anyDesignation = /\s+(COUNTY|PARISH|BOROUGH|CENSUS AREA|MUNICIPIO|MUNICIPALITY|CITY|TOWN|VILLAGE|CDP|COMUNIDAD|ZONA URBANA)$/i;
 
 type CensusFeature = { attributes?: Record<string, string | number | null> };
 
@@ -133,10 +138,10 @@ export async function GET(request: NextRequest) {
   const stateMatch = !isNumeric ? term.match(/\s+([A-Z]{2})$/) : null;
   const stateFips = stateMatch ? stateFipsByCode[stateMatch[1]] : undefined;
   const withoutState = stateMatch ? term.slice(0, stateMatch.index).trim() : term;
-  const countyPrefix = withoutState.replace(/\s+COUNTY$/, "").trim();
-  const placePrefix = withoutState.replace(/\s+(CITY|TOWN|VILLAGE|BOROUGH)$/, "").trim();
+  const countyPrefix = withoutState.replace(countyDesignation, "").trim();
+  const placePrefix = withoutState.replace(placeDesignation, "").trim();
   const stateClause = stateFips ? ` AND STATE='${stateFips}'` : "";
-  const placeWhere = `UPPER(BASENAME) LIKE '${placePrefix}%'${stateClause}`;
+  const placeWhere = `(UPPER(BASENAME) LIKE '${placePrefix}%' OR UPPER(BASENAME) LIKE '% ${placePrefix}%')${stateClause}`;
   const countyWhere = isNumeric
     ? `GEOID LIKE '${term}%'`
     : `UPPER(BASENAME) LIKE '${countyPrefix}%'${stateClause}`;
@@ -191,11 +196,22 @@ export async function GET(request: NextRequest) {
     };
   }));
 
-  const normalizedSearch = withoutState.replace(/\s+(COUNTY|CITY|TOWN|VILLAGE|BOROUGH)$/i, "").trim().toUpperCase();
-  const score = (result: { label: string; geoid: string; rankArea: number }) => {
-    const normalizedLabel = result.label.replace(/\s+(COUNTY|CITY|TOWN|VILLAGE|BOROUGH|CDP)$/i, "").trim().toUpperCase();
-    const exact = result.geoid === term || normalizedLabel === normalizedSearch ? 1_000_000_000 : 0;
-    return exact + Math.log10(Math.max(1, result.rankArea));
+  const normalizedSearch = withoutState.replace(anyDesignation, "").trim().toUpperCase();
+  const fullSearch = withoutState.trim().toUpperCase();
+  const asksForCounty = countyDesignation.test(withoutState) && !placeDesignation.test(withoutState);
+  const asksForPlace = placeDesignation.test(withoutState) && !countyDesignation.test(withoutState);
+  const score = (result: { kind: "county" | "place" | "zip"; label: string; geoid: string; rankArea: number }) => {
+    const fullLabel = result.label.trim().toUpperCase();
+    const normalizedLabel = result.label.replace(anyDesignation, "").trim().toUpperCase();
+    const exactGeoid = result.geoid === term ? 3_000_000_000 : 0;
+    const exactFullName = fullLabel === fullSearch ? 2_000_000_000 : 0;
+    const exactBaseName = normalizedLabel === normalizedSearch ? 1_000_000_000 : 0;
+    const requestedKind =
+      (asksForCounty && result.kind === "county") || (asksForPlace && result.kind === "place")
+        ? 100_000_000
+        : 0;
+    const naturalPlacePriority = !asksForCounty && !asksForPlace && result.kind === "place" ? 1_500_000_000 : 0;
+    return exactGeoid + exactFullName + exactBaseName + requestedKind + naturalPlacePriority + Math.log10(Math.max(1, result.rankArea));
   };
   const unique = [...countyResults, ...places, ...zipResults]
     .filter((result, index, all) => all.findIndex((item) => item.id === result.id) === index)

@@ -104,7 +104,8 @@ const stateCodes: Record<string, string> = {
   "34": "NJ", "35": "NM", "36": "NY", "37": "NC", "38": "ND", "39": "OH",
   "40": "OK", "41": "OR", "42": "PA", "44": "RI", "45": "SC", "46": "SD",
   "47": "TN", "48": "TX", "49": "UT", "50": "VT", "51": "VA", "53": "WA",
-  "54": "WV", "55": "WI", "56": "WY",
+  "54": "WV", "55": "WI", "56": "WY", "60": "AS", "66": "GU",
+  "69": "MP", "72": "PR", "78": "VI",
 };
 
 const focusOptions = ["All", "Chronic conditions", "Access barriers", "Prevention"] as const;
