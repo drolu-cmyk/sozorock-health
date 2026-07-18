@@ -63,7 +63,8 @@ test("the approved marketing homepage and publication access remain locked toget
   assert.match(locationSearch, /replace\(\/\^ZIP\\s\+\/i, ""\)/);
   assert.match(locationSearch, /selected\?\.display === query/);
   assert.match(locationSearch, /place-result/);
-  assert.match(locationSearch, /Start a local conversation/);
+  assert.match(locationSearch, /Explore local priorities/);
+  assert.match(locationSearch, /\/explore\?kind=/);
   assert.match(contactForm, /defaultValue=\{initialLocation\}/);
   assert.match(contactPage, /initialLocation=\{initialLocation\}/);
   assert.match(homepage, /hero-community-desktop-v2\.webp/);
