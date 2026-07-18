@@ -8,6 +8,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { useRouter } from "next/navigation";
 
 type RemoteResult = {
   id: string;
@@ -58,6 +59,7 @@ function toSuggestion(result: RemoteResult): Suggestion {
 }
 
 export function ApprovedLocationSearch() {
+  const router = useRouter();
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<RemoteResult[]>([]);
   const [loading, setLoading] = useState(false);
@@ -111,24 +113,23 @@ export function ApprovedLocationSearch() {
     setQuery(result.display);
     setResults([]);
     setActiveIndex(-1);
-    setMessage(
-      `${result.display} is open for a SozoRock Health readiness or partnership conversation.`,
-    );
+    setMessage(`${result.display} is ready to explore.`);
     window.requestAnimationFrame(() => resultRef.current?.focus());
   };
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     if (selected?.display === query.trim()) {
-      setMessage(
-        `${selected.display} is open for a SozoRock Health readiness or partnership conversation.`,
+      router.push(
+        `/explore?kind=${encodeURIComponent(selected.kind)}&geoid=${encodeURIComponent(selected.geoid)}`,
       );
-      window.requestAnimationFrame(() => resultRef.current?.focus());
       return;
     }
     const choice = suggestions[activeIndex] ?? suggestions[0];
     if (choice) {
-      choose(choice);
+      router.push(
+        `/explore?kind=${encodeURIComponent(choice.kind)}&geoid=${encodeURIComponent(choice.geoid)}`,
+      );
       return;
     }
 
@@ -146,7 +147,9 @@ export function ApprovedLocationSearch() {
       const data = (await response.json()) as { results?: RemoteResult[] };
       const immediateChoice = data.results?.[0];
       if (immediateChoice) {
-        choose(toSuggestion(immediateChoice));
+        router.push(
+          `/explore?kind=${encodeURIComponent(immediateChoice.kind)}&geoid=${encodeURIComponent(immediateChoice.geoid)}`,
+        );
       } else {
         setResults([]);
         setMessage("No exact match yet. Try another ZIP Code, city or county.");
@@ -252,12 +255,12 @@ export function ApprovedLocationSearch() {
               <div>
                 <span>{selected.kindLabel}</span>
                 <strong>{selected.display}</strong>
-                <p>Available for a readiness or partnership conversation.</p>
+                <p>Open the current public data for this place.</p>
               </div>
               <a
-                href={`/contact?interest=${encodeURIComponent("Bring the model to a community")}&location=${encodeURIComponent(selected.display)}`}
+                href={`/explore?kind=${encodeURIComponent(selected.kind)}&geoid=${encodeURIComponent(selected.geoid)}`}
               >
-                Start a local conversation
+                Explore local priorities
               </a>
             </div>
           )}
