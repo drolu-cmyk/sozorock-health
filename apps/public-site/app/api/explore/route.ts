@@ -8,6 +8,7 @@ import {
   scoreMetric,
   type ExploreKind,
 } from "../../lib/explore-health";
+import { buildPlaceIntelligence } from "../../lib/place-intelligence";
 
 export const runtime = "nodejs";
 
@@ -356,6 +357,12 @@ export async function GET(request: NextRequest) {
     const top = priorities[0];
     const currentMeasureCount = metrics.filter((metric) => metric.release === "2025").length;
     const previousMeasureCount = metrics.length - currentMeasureCount;
+    const intelligence = buildPlaceIntelligence({
+      location,
+      metrics,
+      priorities,
+      localPlan,
+    });
 
     return NextResponse.json(
       {
@@ -371,6 +378,7 @@ export async function GET(request: NextRequest) {
           previousMeasureCount,
         },
         offerings: buildOfferings(priorities, Boolean(localPlan)),
+        intelligence,
         localPlan,
         sources: [
           {
