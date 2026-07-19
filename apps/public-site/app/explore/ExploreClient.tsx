@@ -7,16 +7,19 @@ import {
   ArrowRight,
   Buildings,
   ChartBar,
+  ChatCircleText,
   CheckCircle,
   DownloadSimple,
   FileText,
   Funnel,
   GlobeHemisphereWest,
   House,
+  Info,
   MapPin,
   Minus,
   Plus,
   RoadHorizon,
+  ShieldCheck,
   ArrowCounterClockwise,
   X,
 } from "@phosphor-icons/react";
@@ -73,6 +76,56 @@ type ExploreResponse = {
     evidence: string;
     text: string;
   }>;
+  intelligence: {
+    generatedAt: string;
+    evidenceBasis: string;
+    locationSummary: string;
+    keyFindings: Array<{
+      title: string;
+      statement: string;
+      source: string;
+      status: EvidenceStatus;
+    }>;
+    healthAccessDay: {
+      status: EvidenceStatus;
+      statement: string;
+      reasons: string[];
+    };
+    priorityIssues: Array<{
+      key: string;
+      title: string;
+      category: Metric["category"];
+      localValue: number;
+      benchmarkValue: number;
+      difference: number;
+      source: string;
+      status: EvidenceStatus;
+    }>;
+    practicalBarriers: Array<{
+      title: string;
+      statement: string;
+      status: EvidenceStatus;
+      source: string;
+    }>;
+    placeBasedResponses: Array<{
+      name: string;
+      status: EvidenceStatus;
+      reason: string;
+      evidence: string;
+    }>;
+    geospatialInsights: Array<{
+      title: string;
+      statement: string;
+      layer: string;
+      status: EvidenceStatus;
+    }>;
+    questions: Array<{
+      id: string;
+      prompt: string;
+      answer: string;
+    }>;
+    limitations: string[];
+  };
   localPlan: null | {
     title: string;
     period: string;
@@ -88,6 +141,11 @@ type ExploreResponse = {
     note: string;
   }>;
 };
+
+type EvidenceStatus =
+  | "Supported"
+  | "Potentially supported"
+  | "Insufficient evidence";
 
 type GeometryResponse = {
   area: { type: "FeatureCollection"; features: Array<Record<string, unknown>> };
@@ -272,9 +330,25 @@ function LocationSearch({ onSelect }: { onSelect: (place: Suggestion) => void })
   );
 }
 
-function EvidenceMap({ geometry, label }: { geometry: GeometryResponse | null; label: string }) {
+function EvidenceMap({
+  geometry,
+  label,
+  metrics,
+  activeMetricKey,
+  onMetricChange,
+}: {
+  geometry: GeometryResponse | null;
+  label: string;
+  metrics: Metric[];
+  activeMetricKey: string;
+  onMetricChange: (metricKey: string) => void;
+}) {
   const [zoom, setZoom] = useState(1);
   const [showRoads, setShowRoads] = useState(true);
+  const activeMetric = metrics.find((metric) => metric.key === activeMetricKey) ?? metrics[0];
+  const evidenceOpacity = activeMetric
+    ? Math.min(0.72, Math.max(0.2, 0.3 + activeMetric.difference / 30))
+    : 0.2;
 
   useEffect(() => {
     setZoom(1);
@@ -307,7 +381,7 @@ function EvidenceMap({ geometry, label }: { geometry: GeometryResponse | null; l
   return (
     <figure className={styles.mapPanel}>
       <div className={styles.mapHeading}>
-        <div><span>Place view</span><strong>{label}</strong></div>
+        <div><span>Place view</span><strong>{label}</strong>{activeMetric && <small>{activeMetric.label}: {activeMetric.value.toFixed(1)}% here</small>}</div>
         <div className={styles.mapLegend}><span><i className={styles.boundaryKey} /> Boundary</span><span><i className={styles.roadKey} /> Major roads</span></div>
       </div>
       {paths ? (
@@ -317,6 +391,13 @@ function EvidenceMap({ geometry, label }: { geometry: GeometryResponse | null; l
             <button type="button" onClick={() => setZoom((value) => Math.max(1, value - 0.5))} disabled={zoom <= 1} aria-label="Zoom out"><Minus size={18} /></button>
             <button type="button" onClick={() => setZoom(1)} disabled={zoom === 1} aria-label="Reset map"><ArrowCounterClockwise size={18} /></button>
             <button type="button" className={showRoads ? styles.mapControlActive : ""} onClick={() => setShowRoads((value) => !value)} aria-pressed={showRoads}><RoadHorizon size={18} /> Roads</button>
+            <label className={styles.mapLayerSelect}>
+              <ChartBar size={18} aria-hidden="true" />
+              <span>Evidence layer</span>
+              <select value={activeMetric?.key ?? ""} onChange={(event) => onMetricChange(event.target.value)}>
+                {metrics.map((metric) => <option key={metric.key} value={metric.key}>{metric.label}</option>)}
+              </select>
+            </label>
           </div>
           <div className={styles.mapViewport}>
             <svg viewBox="0 0 1000 500" role="img" aria-label={`Interactive boundary and major-road context for ${label}`}>
@@ -324,7 +405,7 @@ function EvidenceMap({ geometry, label }: { geometry: GeometryResponse | null; l
               <rect width="1000" height="500" className={styles.mapBackground} />
               <g transform={`translate(${500 - 500 * zoom} ${250 - 250 * zoom}) scale(${zoom})`}>
                 {showRoads && paths.roads.map((road) => <path key={road.key} d={road.d} className={styles.mapRoad} />)}
-                {paths.area.map((area) => <path key={area.key} d={area.d} className={styles.mapArea} />)}
+                {paths.area.map((area) => <path key={area.key} d={area.d} className={styles.mapArea} style={{ fillOpacity: evidenceOpacity }} />)}
               </g>
             </svg>
           </div>
@@ -401,6 +482,151 @@ function PathwayView({ priorities }: { priorities: Metric[] }) {
   );
 }
 
+function EvidenceStatusBadge({ status }: { status: EvidenceStatus }) {
+  const className = status === "Supported"
+    ? styles.statusSupported
+    : status === "Potentially supported"
+      ? styles.statusPotential
+      : styles.statusInsufficient;
+  return <span className={`${styles.evidenceStatus} ${className}`}>{status}</span>;
+}
+
+function PlaceIntelligenceNarrative({ data }: { data: ExploreResponse }) {
+  const intelligence = data.intelligence;
+  return (
+    <section className={styles.intelligence} aria-labelledby="place-intelligence-title">
+      <header className={styles.intelligenceHeader}>
+        <div>
+          <p className={styles.kicker}>SozoRock Place Intelligence</p>
+          <h2 id="place-intelligence-title">A source-traceable case for local action.</h2>
+        </div>
+        <p><ShieldCheck size={20} aria-hidden="true" /> {intelligence.evidenceBasis}</p>
+      </header>
+
+      <div className={styles.narrativeGrid}>
+        <article className={styles.narrativeLead}>
+          <h3>Location Summary</h3>
+          <p>{intelligence.locationSummary}</p>
+        </article>
+
+        <article>
+          <h3>Key Findings from Current Data</h3>
+          <ul className={styles.findingList}>
+            {intelligence.keyFindings.slice(0, 4).map((finding) => (
+              <li key={finding.title}>
+                <div><strong>{finding.title}</strong><EvidenceStatusBadge status={finding.status} /></div>
+                <p>{finding.statement}</p>
+                <small>{finding.source}</small>
+              </li>
+            ))}
+          </ul>
+        </article>
+
+        <article className={styles.healthAccessDayCase}>
+          <div><h3>Data-Backed Justification for Health Access Day</h3><EvidenceStatusBadge status={intelligence.healthAccessDay.status} /></div>
+          <p>{intelligence.healthAccessDay.statement}</p>
+          <ul>{intelligence.healthAccessDay.reasons.map((reason) => <li key={reason}>{reason}</li>)}</ul>
+        </article>
+
+        <article>
+          <h3>Priority Issues &amp; Practical Barriers</h3>
+          <ul className={styles.barrierList}>
+            {intelligence.practicalBarriers.map((barrier) => (
+              <li key={barrier.title}>
+                <div><strong>{barrier.title}</strong><EvidenceStatusBadge status={barrier.status} /></div>
+                <p>{barrier.statement}</p>
+                <small>{barrier.source}</small>
+              </li>
+            ))}
+          </ul>
+        </article>
+
+        <article>
+          <h3>Recommended Place-Based Responses</h3>
+          <ul className={styles.responseReasoning}>
+            {intelligence.placeBasedResponses.map((response) => (
+              <li key={response.name}>
+                <div><strong>{response.name}</strong><EvidenceStatusBadge status={response.status} /></div>
+                <p>{response.reason}</p>
+                <small>{response.evidence}</small>
+              </li>
+            ))}
+          </ul>
+        </article>
+
+        <article>
+          <h3>Geospatial &amp; Mapping Insights</h3>
+          <ul className={styles.geospatialList}>
+            {intelligence.geospatialInsights.map((insight) => (
+              <li key={insight.title}>
+                <MapPin size={19} aria-hidden="true" />
+                <div><strong>{insight.title}</strong><p>{insight.statement}</p><small>{insight.layer}</small></div>
+              </li>
+            ))}
+          </ul>
+        </article>
+      </div>
+
+      <aside className={styles.evidenceLimits}>
+        <Info size={22} aria-hidden="true" />
+        <div><strong>What this view does not assume</strong><ul>{intelligence.limitations.map((item) => <li key={item}>{item}</li>)}</ul></div>
+      </aside>
+    </section>
+  );
+}
+
+function AskPlaceIntelligence({ data }: { data: ExploreResponse }) {
+  const [query, setQuery] = useState("");
+  const [answer, setAnswer] = useState(data.intelligence.questions[0]?.answer ?? "");
+
+  useEffect(() => {
+    setQuery("");
+    setAnswer(data.intelligence.questions[0]?.answer ?? "");
+  }, [data]);
+
+  function selectQuestion(id: string) {
+    const question = data.intelligence.questions.find((item) => item.id === id);
+    if (!question) return;
+    setQuery(question.prompt);
+    setAnswer(question.answer);
+  }
+
+  function submit(event: FormEvent) {
+    event.preventDefault();
+    const normalized = query.toLowerCase();
+    const id = normalized.includes("access day")
+      ? "health-access-day"
+      : normalized.includes("barrier") || normalized.includes("transport")
+        ? "practical-barriers"
+        : normalized.includes("missing") || normalized.includes("limit")
+          ? "missing-evidence"
+          : normalized.includes("prevent")
+            ? "prevention-opportunity"
+            : "strongest-signal";
+    selectQuestion(id);
+  }
+
+  return (
+    <section className={styles.askPanel} aria-labelledby="ask-place-title">
+      <div>
+        <p className={styles.kicker}>Ask about this place</p>
+        <h2 id="ask-place-title">Follow the evidence, not a generic answer.</h2>
+        <p>Ask a planning question. The response uses only the measures, comparisons and source coverage shown for {data.location.label}.</p>
+      </div>
+      <div className={styles.askWorkspace}>
+        <div className={styles.questionChips} aria-label="Suggested questions">
+          {data.intelligence.questions.map((question) => <button type="button" key={question.id} onClick={() => selectQuestion(question.id)}>{question.prompt}</button>)}
+        </div>
+        <form onSubmit={submit} className={styles.askForm}>
+          <label htmlFor="place-question">Question about {data.location.label}</label>
+          <div><input id="place-question" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="What evidence is still missing?" /><button type="submit"><ChatCircleText size={19} /> Ask</button></div>
+        </form>
+        <article className={styles.answer} aria-live="polite"><span>SozoRock Place Intelligence</span><p>{answer}</p></article>
+      </div>
+    </section>
+  );
+}
+
 function DownloadDialog({ data, onClose }: { data: ExploreResponse; onClose: () => void }) {
   const [state, setState] = useState<"idle" | "sending" | "sent" | "error">("idle");
   const [message, setMessage] = useState("");
@@ -460,6 +686,20 @@ function DownloadDialog({ data, onClose }: { data: ExploreResponse; onClose: () 
       const result = (await response.json().catch(() => ({}))) as { error?: string };
       if (!response.ok) throw new Error(result.error ?? "The brief could not be prepared.");
       const rows = [
+        ["SozoRock Place Intelligence", data.location.label],
+        ["Location Summary", data.intelligence.locationSummary],
+        ["Health Access Day evidence status", data.intelligence.healthAccessDay.status],
+        ["Health Access Day evidence statement", data.intelligence.healthAccessDay.statement],
+        ...data.intelligence.placeBasedResponses.map((response) => [
+          "Place-based response",
+          response.name,
+          response.status,
+          response.reason,
+          response.evidence,
+        ]),
+        ["Sources and data notes"],
+        ...data.sources.map((source) => [source.name, source.release, source.period, source.url]),
+        ["Measures"],
         ["Location", data.location.label],
         ["Measure", "Local estimate", "National geographic average", "Difference"],
         ...data.metrics.map((metric) => [metric.label, metric.value, metric.national, metric.difference]),
@@ -509,6 +749,7 @@ export function ExploreClient() {
   const [view, setView] = useState<View>("compare");
   const [benchmark, setBenchmark] = useState<"national" | "state">("national");
   const [order, setOrder] = useState<Order>("priority");
+  const [mapMetricKey, setMapMetricKey] = useState("");
   const [downloadOpen, setDownloadOpen] = useState(false);
 
   const loadPlace = useCallback(async (place: Pick<Suggestion, "kind" | "geoid">) => {
@@ -528,6 +769,7 @@ export function ExploreClient() {
       const map = (await geometryResponse.json().catch(() => null)) as GeometryResponse | null;
       setData(payload);
       setGeometry(map);
+      setMapMetricKey(payload.priorities[0]?.key ?? payload.metrics[0]?.key ?? "");
       setBenchmark(payload.metrics.some((metric) => metric.state !== null) ? "state" : "national");
       window.requestAnimationFrame(() =>
         document.getElementById("local-results")?.scrollIntoView({ behavior: "smooth", block: "start" }),
@@ -570,7 +812,7 @@ export function ExploreClient() {
       <main id="explore-main">
         <section className={styles.hero}>
           <div className={styles.heroCopy}>
-            <p className={styles.kicker}>U.S. place evidence</p>
+            <p className={styles.kicker}>SozoRock Place Intelligence</p>
             <h1>See what is shaping health in this place.</h1>
             <p>Search any U.S. ZIP Code, city or county. Current public data becomes a clear view of local conditions, priorities and ways to respond.</p>
           </div>
@@ -619,13 +861,17 @@ export function ExploreClient() {
             </section>
 
             <section className={styles.evidenceGrid}>
-              <EvidenceMap geometry={geometry} label={data.location.label} />
+              <EvidenceMap geometry={geometry} label={data.location.label} metrics={data.metrics} activeMetricKey={mapMetricKey} onMetricChange={setMapMetricKey} />
               <article className={styles.keyFindings}>
                 <p className={styles.kicker}>What the data shows</p>
                 <h2>Priority signals</h2>
                 <ol>{data.priorities.slice(0, 4).map((metric) => <li key={metric.key}><span>{metric.value.toFixed(1)}%</span><div><strong>{metric.label} <small>{metric.release} release</small></strong><p>{metric.difference > 0 ? `${metric.difference.toFixed(1)} points above` : `${Math.abs(metric.difference).toFixed(1)} points below`} the national geographic average.</p></div></li>)}</ol>
               </article>
             </section>
+
+            <PlaceIntelligenceNarrative data={data} />
+
+            <AskPlaceIntelligence data={data} />
 
             <section className={styles.visuals} aria-labelledby="visual-title">
               <div className={styles.sectionHeading}><div><p className={styles.kicker}>Explore the pattern</p><h2 id="visual-title">Different views. One evidence base.</h2></div>{view === "compare" && data.metrics.some((metric) => metric.state !== null) && <div className={styles.benchmark}><button type="button" className={benchmark === "state" ? styles.active : ""} onClick={() => setBenchmark("state")}>State</button><button type="button" className={benchmark === "national" ? styles.active : ""} onClick={() => setBenchmark("national")}>National</button></div>}</div>

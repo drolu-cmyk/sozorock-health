@@ -25,6 +25,7 @@ test("the evidence API uses fixed current public datasets and validated geograph
   assert.match(route, /hbpe-6r8n/);
   assert.match(route, /6jwg-4k37/);
   assert.match(route, /previousMeasureCount/);
+  assert.match(route, /buildPlaceIntelligence/);
   assert.match(route, /release,/);
   assert.match(route, /safeGeoid/);
   assert.match(route, /placeUnavailableMetrics/);
@@ -46,6 +47,24 @@ test("the public route avoids internal product language", async () => {
   ]) {
     assert.equal(component.includes(phrase), false, `public copy contains: ${phrase}`);
   }
+});
+
+test("the public explorer exposes the approved Place Intelligence sections and evidence states", async () => {
+  const component = await source("app/explore/ExploreClient.tsx");
+  const rules = await source("app/lib/place-intelligence.ts");
+  for (const heading of [
+    "SozoRock Place Intelligence",
+    "Location Summary",
+    "Key Findings from Current Data",
+    "Data-Backed Justification for Health Access Day",
+    "Priority Issues &amp; Practical Barriers",
+    "Recommended Place-Based Responses",
+    "Geospatial &amp; Mapping Insights",
+  ]) assert.equal(component.includes(heading), true, `missing public section: ${heading}`);
+  assert.match(rules, /"Supported"/);
+  assert.match(rules, /"Potentially supported"/);
+  assert.match(rules, /"Insufficient evidence"/);
+  assert.doesNotMatch(component.toLowerCase(), /sozorock codex/);
 });
 
 test("the explore route is discoverable", async () => {
