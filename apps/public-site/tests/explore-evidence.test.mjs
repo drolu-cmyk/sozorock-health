@@ -64,6 +64,8 @@ test("the public explorer exposes the approved Place Intelligence sections and e
   assert.match(rules, /"Supported"/);
   assert.match(rules, /"Potentially supported"/);
   assert.match(rules, /"Insufficient evidence"/);
+  assert.match(component, /schema.*place-intelligence-v1/);
+  assert.match(component, /!payload\.dataCoverage \|\| !payload\.intelligence/);
   assert.doesNotMatch(component.toLowerCase(), /sozorock codex/);
 });
 

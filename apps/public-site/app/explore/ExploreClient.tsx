@@ -758,14 +758,19 @@ export function ExploreClient() {
     setData(null);
     setGeometry(null);
     const params = new URLSearchParams({ kind: place.kind, geoid: place.geoid });
+    const dataParams = new URLSearchParams(params);
+    dataParams.set("schema", "place-intelligence-v1");
     window.history.replaceState({}, "", `/explore?${params.toString()}`);
     try {
       const [dataResponse, geometryResponse] = await Promise.all([
-        fetch(`/api/explore?${params.toString()}`),
+        fetch(`/api/explore?${dataParams.toString()}`),
         fetch(`/api/explore/geometry?${params.toString()}`),
       ]);
       const payload = (await dataResponse.json().catch(() => ({}))) as ExploreResponse & { error?: string };
       if (!dataResponse.ok) throw new Error(payload.error ?? "Current public data could not be loaded.");
+      if (!payload.dataCoverage || !payload.intelligence) {
+        throw new Error("This place view is refreshing. Please try again.");
+      }
       const map = (await geometryResponse.json().catch(() => null)) as GeometryResponse | null;
       setData(payload);
       setGeometry(map);
