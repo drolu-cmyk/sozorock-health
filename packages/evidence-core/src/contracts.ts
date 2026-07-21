@@ -40,6 +40,27 @@ export const METRIC_DIRECTIONS = [
 
 export type MetricDirection = (typeof METRIC_DIRECTIONS)[number];
 
+export const HIGHER_VALUE_MEANINGS = [
+  "favorable",
+  "adverse",
+  "neutral",
+  "context_dependent",
+] as const;
+
+export type HigherValueMeaning = (typeof HIGHER_VALUE_MEANINGS)[number];
+
+export const OBSERVATION_GEOGRAPHY_LEVELS = [
+  ...GEOGRAPHY_KINDS,
+  "census_tract",
+  "county_subdivision",
+  "population_group",
+  "facility",
+  "source_designation",
+] as const;
+
+export type ObservationGeographyLevel =
+  (typeof OBSERVATION_GEOGRAPHY_LEVELS)[number];
+
 export type Geography = {
   id: string;
   kind: GeographyKind;
@@ -140,6 +161,7 @@ export type MeasureDefinition = {
   name: string;
   description: string;
   direction: MetricDirection;
+  higherValueMeaning: HigherValueMeaning;
   unit: "percent" | "count" | "rate" | "ratio" | "index" | "designation";
   universe: string;
   adjustment: "crude" | "age_adjusted" | "modeled" | "not_applicable";
@@ -152,6 +174,9 @@ export type MetricObservation = {
   measureDefinitionId: string;
   geographyId: string;
   sourceVersionId: string;
+  sourceRecordId: string;
+  sourceUrl: string;
+  geographyLevel: ObservationGeographyLevel;
   value: number | string | boolean | null;
   numericValue: number | null;
   confidenceLow: number | null;
@@ -163,6 +188,40 @@ export type MetricObservation = {
   retrievedAt: string;
   reviewStatus: ReviewStatus;
   suppressionReason: string | null;
+  sourceMetadata: Record<string, string | number | boolean | null>;
+};
+
+export const SOURCE_IMPORT_STATUSES = [
+  "running",
+  "available",
+  "stale",
+  "unavailable",
+  "failed",
+] as const;
+
+export type SourceImportStatus = (typeof SOURCE_IMPORT_STATUSES)[number];
+
+export type SourceImportState = {
+  id: string;
+  adapterId: string;
+  sourceId: string;
+  sourceVersionId: string | null;
+  idempotencyKey: string;
+  status: SourceImportStatus;
+  attemptedAt: string;
+  successfulImportAt: string | null;
+  failedAt: string | null;
+  failureCode: string | null;
+  failureMessage: string | null;
+  sourceReleaseLabel: string | null;
+  sourceReleaseDate: string | null;
+  sourceDataPeriodStart: string | null;
+  sourceDataPeriodEnd: string | null;
+  recordsRead: number;
+  recordsAccepted: number;
+  recordsRejected: number;
+  observationsPublished: number;
+  cacheDisposition: "miss" | "hit" | "revalidated" | "stale_fallback" | null;
 };
 
 export type PlanningDocument = {

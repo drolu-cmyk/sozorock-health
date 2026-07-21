@@ -77,11 +77,23 @@ export function interpretMetricComparison(
 ): ComparisonInterpretation {
   if (observation === null || benchmark === null) return { status: "missing", difference: null, rankable: false };
   const difference = observation - benchmark;
+  if (definition.higherValueMeaning === "context_dependent") {
+    return { status: "context_only", difference, rankable: false };
+  }
+  if (definition.higherValueMeaning === "neutral") {
+    return { status: "not_rankable", difference, rankable: false };
+  }
+  if (difference === 0) return { status: "equal", difference, rankable: true };
+  if (definition.higherValueMeaning === "adverse") {
+    return { status: difference > 0 ? "adverse_signal" : "favorable_signal", difference, rankable: true };
+  }
+  if (definition.higherValueMeaning === "favorable") {
+    return { status: difference < 0 ? "adverse_signal" : "favorable_signal", difference, rankable: true };
+  }
   if (definition.direction === "contextual") return { status: "context_only", difference, rankable: false };
   if (definition.direction === "unknown" || definition.comparisonPolicy === "not_rankable") {
     return { status: "not_rankable", difference, rankable: false };
   }
-  if (difference === 0) return { status: "equal", difference, rankable: true };
   if (definition.direction === "adverse") {
     return { status: difference > 0 ? "adverse_signal" : "favorable_signal", difference, rankable: true };
   }
@@ -96,6 +108,12 @@ export function validateObservation(
   const errors: string[] = [];
   if (observation.measureDefinitionId !== definition.id) errors.push("Observation measure definition does not match.");
   if (observation.sourceVersionId !== source.id) errors.push("Observation source version does not match.");
+  if (!observation.sourceRecordId.trim()) errors.push("Observation requires the original source record identifier.");
+  try {
+    if (new URL(observation.sourceUrl).protocol !== "https:") errors.push("Observation source URL must use HTTPS.");
+  } catch {
+    errors.push("Observation source URL is invalid.");
+  }
   if (observation.confidenceLow !== null && observation.confidenceHigh !== null
     && observation.confidenceLow > observation.confidenceHigh) errors.push("Confidence interval lower bound exceeds upper bound.");
   if (observation.numericValue !== null && !Number.isFinite(observation.numericValue)) errors.push("Observation numeric value must be finite.");

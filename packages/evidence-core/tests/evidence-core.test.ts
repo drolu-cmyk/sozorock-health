@@ -109,6 +109,7 @@ const adverse: MeasureDefinition = {
   name: "Diagnosed diabetes",
   description: "Modeled prevalence among adults.",
   direction: "adverse",
+  higherValueMeaning: "adverse",
   unit: "percent",
   universe: "Adults age 18 years and older",
   adjustment: "modeled",
@@ -122,6 +123,7 @@ const protective: MeasureDefinition = {
   sourceMeasureId: "SCREENING",
   name: "Recommended screening use",
   direction: "protective",
+  higherValueMeaning: "favorable",
   comparisonPolicy: "lower_is_concern",
 };
 
@@ -130,7 +132,7 @@ test("does not rank a positive measure as a problem merely because its value is 
   assert.equal(interpretMetricComparison(protective, 80, 70).status, "favorable_signal");
   assert.equal(interpretMetricComparison(protective, 60, 70).status, "adverse_signal");
   assert.equal(
-    interpretMetricComparison({ ...protective, direction: "contextual", comparisonPolicy: "context_only" }, 80, 70).rankable,
+    interpretMetricComparison({ ...protective, direction: "contextual", higherValueMeaning: "context_dependent", comparisonPolicy: "context_only" }, 80, 70).rankable,
     false,
   );
 });
