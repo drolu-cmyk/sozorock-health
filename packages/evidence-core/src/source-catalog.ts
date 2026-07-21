@@ -1,0 +1,105 @@
+import type { SourceCatalogRecord } from "./contracts.ts";
+
+export const SOURCE_CATALOG: SourceCatalogRecord[] = [
+  {
+    id: "census-geography",
+    family: "census_geography",
+    publisher: "U.S. Census Bureau",
+    title: "TIGER/Line, TIGERweb, Gazetteer, and geographic relationship products",
+    officialUrl: "https://www.census.gov/geographies/mapping-files/time-series/geo/tiger-line-file.html",
+    hostPolicy: "fixed_allowlist",
+    allowedHosts: ["census.gov"],
+    refreshCadence: "annual",
+    geographyKinds: ["state", "county", "census_place", "zcta", "planning_region"],
+    reviewStatus: "verified",
+    limitations: [
+      "A Census ZCTA is a statistical approximation and is not a USPS ZIP Code delivery route.",
+      "Places, ZCTAs, and planning regions do not share one universal containment hierarchy.",
+    ],
+  },
+  {
+    id: "cdc-places",
+    family: "cdc_places",
+    publisher: "Centers for Disease Control and Prevention",
+    title: "PLACES: Local Data for Better Health",
+    officialUrl: "https://www.cdc.gov/places/",
+    hostPolicy: "fixed_allowlist",
+    allowedHosts: ["cdc.gov"],
+    refreshCadence: "release_based",
+    geographyKinds: ["county", "census_place", "zcta"],
+    reviewStatus: "verified",
+    limitations: [
+      "PLACES values are modeled area estimates, not diagnoses, patient-level data, or direct local counts.",
+      "Measures can have different eligible populations and source periods.",
+    ],
+  },
+  {
+    id: "census-acs5",
+    family: "acs",
+    publisher: "U.S. Census Bureau",
+    title: "American Community Survey five-year estimates",
+    officialUrl: "https://www.census.gov/programs-surveys/acs/data.html",
+    hostPolicy: "fixed_allowlist",
+    allowedHosts: ["census.gov"],
+    refreshCadence: "annual",
+    geographyKinds: ["state", "county", "census_place", "zcta", "planning_region"],
+    reviewStatus: "verified",
+    limitations: [
+      "Every estimate must preserve its universe, vintage, and margin of error.",
+      "Custom planning-region values require a documented aggregation method.",
+    ],
+  },
+  {
+    id: "hrsa-workforce",
+    family: "hrsa",
+    publisher: "Health Resources and Services Administration",
+    title: "Health workforce, HPSA, MUA/P, and Area Health Resources Files",
+    officialUrl: "https://data.hrsa.gov/",
+    hostPolicy: "fixed_allowlist",
+    allowedHosts: ["hrsa.gov"],
+    refreshCadence: "daily",
+    geographyKinds: ["state", "county", "census_place", "planning_region"],
+    reviewStatus: "verified",
+    limitations: [
+      "Designation coverage can represent a geography, population group, or facility and must not be silently converted to a whole-county finding.",
+      "Provider counts do not prove appointment availability or participation in SozoRock Health.",
+    ],
+  },
+  {
+    id: "ahrq-clh",
+    family: "ahrq_clh",
+    publisher: "Agency for Healthcare Research and Quality",
+    title: "Community-Level Health Database",
+    officialUrl: "https://www.ahrq.gov/data/innovations/clh-data.html",
+    hostPolicy: "fixed_allowlist",
+    allowedHosts: ["ahrq.gov", "hhs.gov"],
+    refreshCadence: "release_based",
+    geographyKinds: ["county", "zcta"],
+    reviewStatus: "verified",
+    limitations: [
+      "Variable years differ and must be preserved at the observation level.",
+      "Updated CLH releases must not be combined with incompatible predecessor database versions without review.",
+    ],
+  },
+  {
+    id: "local-planning-documents",
+    family: "local_planning_document",
+    publisher: "Verified state, local, regional, or hospital planning publisher",
+    title: "CHA, CHIP, CHNA, CSP, implementation strategy, and supporting reports",
+    officialUrl: "https://www.cdc.gov/public-health-gateway/php/public-health-strategy/public-health-strategies-for-community-health-assessment-health-improvement-planning.html",
+    hostPolicy: "reviewer_approved_per_document",
+    allowedHosts: [],
+    refreshCadence: "monthly_review",
+    geographyKinds: ["state", "county", "census_place", "planning_region"],
+    reviewStatus: "provisional",
+    limitations: [
+      "Each document publisher and official URL must be approved before retrieval.",
+      "A hospital CHNA or regional report does not automatically become a county CHA or CHIP.",
+      "No discovered document can support a public claim until human verification is complete.",
+    ],
+  },
+];
+
+export function sourceCatalogById(id: string) {
+  return SOURCE_CATALOG.find((source) => source.id === id) ?? null;
+}

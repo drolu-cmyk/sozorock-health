@@ -1,0 +1,240 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://health.sozorockfoundation.org/schemas/explore-place-brief.v1.schema.json",
+  "title": "SozoRock Explore Place Brief v1",
+  "type": "object",
+  "required": [
+    "contractVersion",
+    "generatedAt",
+    "evidenceSnapshotId",
+    "policyVersion",
+    "query",
+    "resolution",
+    "localPlanningEvidence",
+    "publicData",
+    "evidenceAssessment",
+    "citations",
+    "safety"
+  ],
+  "properties": {
+    "contractVersion": { "const": "explore.place-brief.v1" },
+    "generatedAt": { "type": "string", "format": "date-time" },
+    "evidenceSnapshotId": { "type": "string", "minLength": 1 },
+    "policyVersion": { "type": "string", "minLength": 1 },
+    "query": {
+      "type": "object",
+      "required": ["raw", "kind"],
+      "properties": {
+        "raw": { "type": "string" },
+        "kind": { "enum": ["zip_input", "zcta", "place", "county_fips", "state", "planning_region"] }
+      },
+      "additionalProperties": false
+    },
+    "resolution": {
+      "type": "object",
+      "required": ["status", "selected", "evidenceGeographies", "overlappingCounties", "caveats"],
+      "properties": {
+        "status": { "enum": ["resolved", "ambiguous", "not_found", "unsupported"] },
+        "selected": { "oneOf": [{ "$ref": "#/$defs/geography" }, { "type": "null" }] },
+        "evidenceGeographies": { "type": "array", "items": { "$ref": "#/$defs/geography" } },
+        "overlappingCounties": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/overlapGeography" }
+        },
+        "caveats": { "type": "array", "items": { "type": "string" } }
+      },
+      "additionalProperties": false
+    },
+    "localPlanningEvidence": {
+      "type": "object",
+      "required": ["status", "documents", "claims"],
+      "properties": {
+        "status": { "enum": ["verified", "not_yet_verified", "stale", "unavailable"] },
+        "documents": { "type": "array", "items": { "$ref": "#/$defs/document" } },
+        "claims": { "type": "array", "items": { "$ref": "#/$defs/claim" } }
+      },
+      "additionalProperties": false
+    },
+    "publicData": {
+      "type": "object",
+      "required": ["observations", "sources"],
+      "properties": {
+        "observations": { "type": "array", "items": { "$ref": "#/$defs/observation" } },
+        "sources": { "type": "array", "items": { "$ref": "#/$defs/source" } }
+      },
+      "additionalProperties": false
+    },
+    "evidenceAssessment": {
+      "type": "object",
+      "required": ["known", "missing", "requiresLocalReview", "responseFits"],
+      "properties": {
+        "known": { "type": "array", "items": { "type": "string" } },
+        "missing": { "type": "array", "items": { "type": "string" } },
+        "requiresLocalReview": { "type": "array", "items": { "type": "string" } },
+        "responseFits": { "type": "array", "items": { "$ref": "#/$defs/responseFit" } }
+      },
+      "additionalProperties": false
+    },
+    "citations": { "type": "array", "items": { "$ref": "#/$defs/citation" } },
+    "safety": {
+      "type": "object",
+      "required": ["classification", "containsPhi", "limitations"],
+      "properties": {
+        "classification": { "const": "non_clinical_place_evidence" },
+        "containsPhi": { "const": false },
+        "limitations": { "type": "array", "minItems": 1, "items": { "type": "string" } }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "reviewStatus": { "enum": ["verified", "provisional", "stale", "unavailable", "rejected"] },
+    "geography": {
+      "type": "object",
+      "required": ["id", "kind", "authority", "authorityId", "displayName", "vintage", "reviewStatus"],
+      "properties": {
+        "id": { "type": "string" },
+        "kind": { "enum": ["state", "county", "census_place", "zcta", "postal_zip", "planning_region"] },
+        "authority": { "type": "string" },
+        "authorityId": { "type": "string" },
+        "displayName": { "type": "string" },
+        "vintage": { "type": "string" },
+        "reviewStatus": { "$ref": "#/$defs/reviewStatus" }
+      },
+      "additionalProperties": false
+    },
+    "overlapGeography": {
+      "type": "object",
+      "required": ["id", "kind", "authority", "authorityId", "displayName", "vintage", "reviewStatus", "overlapAreaPercent", "overlapPopulationPercent"],
+      "properties": {
+        "id": { "type": "string" },
+        "kind": { "enum": ["state", "county", "census_place", "zcta", "postal_zip", "planning_region"] },
+        "authority": { "type": "string" },
+        "authorityId": { "type": "string" },
+        "displayName": { "type": "string" },
+        "vintage": { "type": "string" },
+        "reviewStatus": { "$ref": "#/$defs/reviewStatus" },
+        "overlapAreaPercent": { "type": ["number", "null"], "minimum": 0, "maximum": 100 },
+        "overlapPopulationPercent": { "type": ["number", "null"], "minimum": 0, "maximum": 100 }
+      },
+      "additionalProperties": false
+    },
+    "period": {
+      "type": "object",
+      "required": ["start", "end"],
+      "properties": {
+        "start": { "type": ["string", "null"] },
+        "end": { "type": ["string", "null"] }
+      },
+      "additionalProperties": false
+    },
+    "document": {
+      "type": "object",
+      "required": ["id", "type", "title", "publisher", "officialUrl", "publishedAt", "period", "reviewStatus"],
+      "properties": {
+        "id": { "type": "string" },
+        "type": { "enum": ["cha", "chip", "chna", "csp", "implementation_strategy", "supporting_report"] },
+        "title": { "type": "string" },
+        "publisher": { "type": "string" },
+        "officialUrl": { "type": "string", "format": "uri" },
+        "publishedAt": { "type": ["string", "null"] },
+        "period": { "$ref": "#/$defs/period" },
+        "reviewStatus": { "$ref": "#/$defs/reviewStatus" }
+      },
+      "additionalProperties": false
+    },
+    "claim": {
+      "type": "object",
+      "required": ["id", "documentId", "type", "statement", "confidence", "reviewStatus", "citationIds"],
+      "properties": {
+        "id": { "type": "string" },
+        "documentId": { "type": "string" },
+        "type": { "enum": ["priority", "finding", "barrier", "asset", "action", "data_gap"] },
+        "statement": { "type": "string" },
+        "confidence": { "enum": ["high", "moderate", "low"] },
+        "reviewStatus": { "$ref": "#/$defs/reviewStatus" },
+        "citationIds": { "type": "array", "minItems": 1, "items": { "type": "string" } }
+      },
+      "additionalProperties": false
+    },
+    "observation": {
+      "type": "object",
+      "required": ["id", "measureDefinitionId", "label", "direction", "unit", "universe", "adjustment", "value", "confidence", "geographyId", "sourceVersionId", "releaseDate", "dataPeriod", "reviewStatus", "interpretation", "benchmarkObservationId", "citationIds"],
+      "properties": {
+        "id": { "type": "string" },
+        "measureDefinitionId": { "type": "string" },
+        "label": { "type": "string" },
+        "direction": { "enum": ["adverse", "protective", "contextual", "unknown"] },
+        "unit": { "type": "string" },
+        "universe": { "type": "string" },
+        "adjustment": { "type": "string" },
+        "value": { "type": ["number", "string", "boolean", "null"] },
+        "confidence": {
+          "type": "object",
+          "required": ["low", "high", "marginOfError"],
+          "properties": {
+            "low": { "type": ["number", "null"] },
+            "high": { "type": ["number", "null"] },
+            "marginOfError": { "type": ["number", "null"] }
+          },
+          "additionalProperties": false
+        },
+        "geographyId": { "type": "string" },
+        "sourceVersionId": { "type": "string" },
+        "releaseDate": { "type": "string" },
+        "dataPeriod": { "$ref": "#/$defs/period" },
+        "reviewStatus": { "$ref": "#/$defs/reviewStatus" },
+        "interpretation": { "enum": ["adverse_signal", "favorable_signal", "context_only", "not_rankable", "missing", "equal"] },
+        "benchmarkObservationId": { "type": ["string", "null"] },
+        "citationIds": { "type": "array", "items": { "type": "string" } }
+      },
+      "additionalProperties": false
+    },
+    "source": {
+      "type": "object",
+      "required": ["sourceId", "sourceVersionId", "publisher", "title", "officialUrl", "releaseDate", "dataPeriod", "retrievedAt", "reviewStatus"],
+      "properties": {
+        "sourceId": { "type": "string" },
+        "sourceVersionId": { "type": "string" },
+        "publisher": { "type": "string" },
+        "title": { "type": "string" },
+        "officialUrl": { "type": "string", "format": "uri" },
+        "releaseDate": { "type": "string" },
+        "dataPeriod": { "$ref": "#/$defs/period" },
+        "retrievedAt": { "type": "string" },
+        "reviewStatus": { "$ref": "#/$defs/reviewStatus" }
+      },
+      "additionalProperties": false
+    },
+    "citation": {
+      "type": "object",
+      "required": ["id", "sourceVersionId", "documentId", "officialUrl", "pageNumber", "section", "sourceField", "quotedText", "reviewStatus"],
+      "properties": {
+        "id": { "type": "string" },
+        "sourceVersionId": { "type": "string" },
+        "documentId": { "type": ["string", "null"] },
+        "officialUrl": { "type": "string", "format": "uri" },
+        "pageNumber": { "type": ["integer", "null"], "minimum": 1 },
+        "section": { "type": ["string", "null"] },
+        "sourceField": { "type": ["string", "null"] },
+        "quotedText": { "type": ["string", "null"] },
+        "reviewStatus": { "$ref": "#/$defs/reviewStatus" }
+      },
+      "additionalProperties": false
+    },
+    "responseFit": {
+      "type": "object",
+      "required": ["response", "status", "explanation", "evidenceIds", "missingEvidence", "requiresHumanReview"],
+      "properties": {
+        "response": { "enum": ["health_equity_hub", "health_access_day", "provider_led_pathway", "workforce_conversation", "no_recommendation_yet"] },
+        "status": { "enum": ["fit_for_local_review", "insufficient_evidence", "not_applicable"] },
+        "explanation": { "type": "string" },
+        "evidenceIds": { "type": "array", "items": { "type": "string" } },
+        "missingEvidence": { "type": "array", "items": { "type": "string" } },
+        "requiresHumanReview": { "const": true }
+      },
+      "additionalProperties": false
+    }
+  }
+}
