@@ -224,6 +224,55 @@ export type SourceImportState = {
   cacheDisposition: "miss" | "hit" | "revalidated" | "stale_fallback" | null;
 };
 
+export const PLANNING_SOURCE_FAMILIES = [
+  "state_clearinghouse",
+  "county_local_health_department",
+  "regional_planning_collaborative",
+  "hospital_chna_csp_page",
+] as const;
+
+export type PlanningSourceFamily = (typeof PLANNING_SOURCE_FAMILIES)[number];
+
+export const PLANNING_DOCUMENT_SCOPES = [
+  "county_specific",
+  "regional",
+  "hospital_specific",
+  "state_level",
+] as const;
+
+export type PlanningDocumentScope = (typeof PLANNING_DOCUMENT_SCOPES)[number];
+
+export const CURRENT_PLAN_STATUSES = [
+  "verified_current",
+  "not_yet_verified",
+  "superseded",
+  "not_applicable",
+] as const;
+
+export type CurrentPlanStatus = (typeof CURRENT_PLAN_STATUSES)[number];
+
+export type PlanningDocumentCandidate = {
+  id: string;
+  sourceFamily: PlanningSourceFamily;
+  publisher: string;
+  approvedHosts: string[];
+  sourcePageUrl: string;
+  artifactUrl: string;
+  documentType: PlanningDocument["documentType"];
+  title: string;
+  coveredGeographyIds: string[];
+  coverageScope: PlanningDocumentScope;
+  publicationDate: string | null;
+  publicationDatePrecision: "day" | "month" | "year" | "unknown";
+  planCycleStart: string | null;
+  planCycleEnd: string | null;
+  retrievedAt: string;
+  candidateConfidence: "high" | "moderate" | "low";
+  candidateConfidenceScore: number;
+  confidenceReasons: string[];
+  reviewStatus: ReviewStatus;
+};
+
 export type PlanningDocument = {
   id: string;
   sourceVersionId: string;
@@ -237,6 +286,8 @@ export type PlanningDocument = {
   geographyIds: string[];
   contentHash: string;
   pageCount: number | null;
+  coverageScope: PlanningDocumentScope;
+  currentPlanStatus: CurrentPlanStatus;
   reviewStatus: ReviewStatus;
   reviewedBy: string | null;
   reviewedAt: string | null;
@@ -246,7 +297,19 @@ export type EvidenceClaim = {
   id: string;
   documentId: string;
   geographyIds: string[];
-  claimType: "priority" | "finding" | "barrier" | "asset" | "action" | "data_gap";
+  claimType:
+    | "priority"
+    | "finding"
+    | "disparity"
+    | "barrier"
+    | "objective"
+    | "intervention"
+    | "responsible_partner"
+    | "target_population"
+    | "evaluation_measure"
+    | "asset"
+    | "action"
+    | "data_gap";
   statement: string;
   exactExcerpt: string;
   extractionMethod: "human" | "ocr" | "structured_parser" | "model_assisted";
@@ -256,12 +319,43 @@ export type EvidenceClaim = {
   reviewedAt: string | null;
 };
 
+export type PlanningReviewReason =
+  | "candidate_source_not_approved"
+  | "candidate_confidence_below_threshold"
+  | "document_scope_ambiguous"
+  | "covered_geography_ambiguous"
+  | "publication_date_missing"
+  | "plan_cycle_missing"
+  | "current_plan_not_verified"
+  | "citation_locator_missing"
+  | "citation_text_mismatch"
+  | "claim_not_explicit"
+  | "extraction_confidence_low"
+  | "formal_verification_required";
+
+export type PlanningReviewTask = {
+  id: string;
+  candidateId: string;
+  documentId: string | null;
+  claimId: string | null;
+  reason: PlanningReviewReason;
+  status: "open" | "in_review" | "approved" | "rejected";
+  severity: "blocking" | "review_required";
+  summary: string;
+  createdAt: string;
+  assignedTo: string | null;
+  decidedBy: string | null;
+  decidedAt: string | null;
+  decisionNote: string | null;
+};
+
 export type EvidenceCitation = {
   id: string;
   claimId: string;
   documentId: string;
   sourceVersionId: string;
   pageNumber: number | null;
+  artifactPageIndex?: number | null;
   section: string | null;
   paragraph: string | null;
   sourceField: string | null;

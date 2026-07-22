@@ -1,0 +1,938 @@
+{
+  "schemaVersion": "planning-evidence-review.v1",
+  "generatedAt": "2026-07-21T23:45:00Z",
+  "publicEligibility": false,
+  "notice": "Internal review artifact. No claim or current-plan designation may be published until its review status is verified by a named human reviewer.",
+  "bundles": [
+    {
+      "schemaVersion": "planning-evidence-review.v1",
+      "generatedAt": "2026-07-21T23:45:00Z",
+      "candidate": {
+        "id": "candidate:albany-capital-region-chna-2025",
+        "sourceFamily": "regional_planning_collaborative",
+        "publisher": "Healthy Capital District",
+        "approvedHosts": [
+          "albanycountyny.gov",
+          "healthycapitaldistrict.org"
+        ],
+        "sourcePageUrl": "https://www.albanycountyny.gov/departments/health/data-statistics",
+        "artifactUrl": "https://www.healthycapitaldistrict.org/content/sites/hcdi/CHNA2025/CHNA_HCDI_2025.pdf",
+        "documentType": "chna",
+        "title": "2025 Capital Region Community Health Needs Assessment",
+        "coveredGeographyIds": [
+          "planning-region:capital-region-ny"
+        ],
+        "coverageScope": "regional",
+        "publicationDate": "2025-10-01",
+        "publicationDatePrecision": "month",
+        "planCycleStart": null,
+        "planCycleEnd": null,
+        "retrievedAt": "2026-07-21T23:45:00Z",
+        "candidateConfidence": "high",
+        "candidateConfidenceScore": 0.98,
+        "confidenceReasons": [
+          "Albany County's official data page links the artifact as the 2025 Capital Region CHNA.",
+          "The artifact identifies Healthy Capital District and six covered Capital Region counties.",
+          "The exact publication day is not stated; October 2025 is retained at month precision."
+        ],
+        "reviewStatus": "provisional"
+      },
+      "sourceVersion": {
+        "id": "source-version:capital-region-chna-2025",
+        "sourceId": "local-planning-documents",
+        "releaseLabel": "2025 Capital Region Community Health Needs Assessment",
+        "releaseDate": "2025-10-01",
+        "dataPeriodStart": null,
+        "dataPeriodEnd": null,
+        "retrievedAt": "2026-07-21T23:45:00Z",
+        "staleAfter": "2027-07-21T23:45:00Z",
+        "officialUrl": "https://www.healthycapitaldistrict.org/content/sites/hcdi/CHNA2025/CHNA_HCDI_2025.pdf",
+        "contentHash": "sha256:01bb9394d210010b2c87fe188b3dbbb3885983b8bb2825bcec0b9a3b3b04796c",
+        "schemaVersion": "planning-document-artifact.v1",
+        "reviewStatus": "provisional",
+        "reviewedBy": null,
+        "reviewedAt": null
+      },
+      "document": {
+        "id": "document:candidate:albany-capital-region-chna-2025",
+        "sourceVersionId": "source-version:capital-region-chna-2025",
+        "documentType": "chna",
+        "title": "2025 Capital Region Community Health Needs Assessment",
+        "publisher": "Healthy Capital District",
+        "officialUrl": "https://www.healthycapitaldistrict.org/content/sites/hcdi/CHNA2025/CHNA_HCDI_2025.pdf",
+        "publishedAt": "2025-10-01",
+        "periodStart": null,
+        "periodEnd": null,
+        "geographyIds": [
+          "planning-region:capital-region-ny"
+        ],
+        "contentHash": "sha256:01bb9394d210010b2c87fe188b3dbbb3885983b8bb2825bcec0b9a3b3b04796c",
+        "pageCount": 319,
+        "coverageScope": "regional",
+        "currentPlanStatus": "not_yet_verified",
+        "reviewStatus": "provisional",
+        "reviewedBy": null,
+        "reviewedAt": null
+      },
+      "acceptedClaims": [
+        {
+          "id": "claim:albany-cost-barrier",
+          "documentId": "document:candidate:albany-capital-region-chna-2025",
+          "geographyIds": [
+            "county:36001"
+          ],
+          "claimType": "finding",
+          "statement": "The regional assessment identifies cost-related forgone medical care as Albany County's highest rate in the Capital Region for the cited period.",
+          "exactExcerpt": "Albany County had the highest rate in the Capital Region of adults who did not receive medical care due to cost in 2021, although the rate ranked in the top half of NYS counties and was lower than NYS, excluding NYC rate (BRFSS)",
+          "extractionMethod": "structured_parser",
+          "confidence": "high",
+          "reviewStatus": "provisional",
+          "reviewedBy": null,
+          "reviewedAt": null
+        },
+        {
+          "id": "claim:albany-diabetes-disparity",
+          "documentId": "document:candidate:albany-capital-region-chna-2025",
+          "geographyIds": [
+            "county:36001"
+          ],
+          "claimType": "disparity",
+          "statement": "The assessment reports a large racial disparity in diabetes hospitalizations in Albany County.",
+          "exactExcerpt": "Albany County’s 2020-2022 rate of diabetes hospitalizations was 3.9 times higher among Black non-Hispanic residents than White non-Hispanic residents (NYS CHIRE)",
+          "extractionMethod": "structured_parser",
+          "confidence": "high",
+          "reviewStatus": "provisional",
+          "reviewedBy": null,
+          "reviewedAt": null
+        }
+      ],
+      "acceptedCitations": [
+        {
+          "id": "citation:albany-cost-barrier",
+          "claimId": "claim:albany-cost-barrier",
+          "documentId": "document:candidate:albany-capital-region-chna-2025",
+          "sourceVersionId": "source-version:capital-region-chna-2025",
+          "pageNumber": 17,
+          "artifactPageIndex": 18,
+          "section": "Albany County - General Health Status",
+          "paragraph": null,
+          "sourceField": null,
+          "quotedText": "Albany County had the highest rate in the Capital Region of adults who did not receive medical care due to cost in 2021, although the rate ranked in the top half of NYS counties and was lower than NYS, excluding NYC rate (BRFSS)",
+          "quotedTextHash": "sha256:38e214b90e255faf968d9643ab98920b4e3712e7900abfb6e865166543fbc2e1",
+          "locatorBoundingBox": null,
+          "reviewStatus": "provisional"
+        },
+        {
+          "id": "citation:albany-diabetes-disparity",
+          "claimId": "claim:albany-diabetes-disparity",
+          "documentId": "document:candidate:albany-capital-region-chna-2025",
+          "sourceVersionId": "source-version:capital-region-chna-2025",
+          "pageNumber": 17,
+          "artifactPageIndex": 18,
+          "section": "Albany County - Chronic Disease",
+          "paragraph": null,
+          "sourceField": null,
+          "quotedText": "Albany County’s 2020-2022 rate of diabetes hospitalizations was 3.9 times higher among Black non-Hispanic residents than White non-Hispanic residents (NYS CHIRE)",
+          "quotedTextHash": "sha256:9cfe6e25407ede6194f59e1b758a09b1a0d65f768f978a86bcf8c9abd71b5041",
+          "locatorBoundingBox": null,
+          "reviewStatus": "provisional"
+        }
+      ],
+      "quarantinedClaims": [],
+      "reviewTasks": [
+        {
+          "id": "review:candidate:albany-capital-region-chna-2025:formal_verification_required:claim:albany-cost-barrier",
+          "candidateId": "candidate:albany-capital-region-chna-2025",
+          "documentId": "document:candidate:albany-capital-region-chna-2025",
+          "claimId": "claim:albany-cost-barrier",
+          "reason": "formal_verification_required",
+          "status": "open",
+          "severity": "review_required",
+          "summary": "The exact citation matched the extracted page or section; a named human reviewer must verify the claim before public use.",
+          "createdAt": "2026-07-21T23:45:00Z",
+          "assignedTo": null,
+          "decidedBy": null,
+          "decidedAt": null,
+          "decisionNote": null
+        },
+        {
+          "id": "review:candidate:albany-capital-region-chna-2025:formal_verification_required:claim:albany-diabetes-disparity",
+          "candidateId": "candidate:albany-capital-region-chna-2025",
+          "documentId": "document:candidate:albany-capital-region-chna-2025",
+          "claimId": "claim:albany-diabetes-disparity",
+          "reason": "formal_verification_required",
+          "status": "open",
+          "severity": "review_required",
+          "summary": "The exact citation matched the extracted page or section; a named human reviewer must verify the claim before public use.",
+          "createdAt": "2026-07-21T23:45:00Z",
+          "assignedTo": null,
+          "decidedBy": null,
+          "decidedAt": null,
+          "decisionNote": null
+        }
+      ],
+      "publicEligibility": false
+    },
+    {
+      "schemaVersion": "planning-evidence-review.v1",
+      "generatedAt": "2026-07-21T23:45:00Z",
+      "candidate": {
+        "id": "candidate:schenectady-capital-region-chna-2025",
+        "sourceFamily": "regional_planning_collaborative",
+        "publisher": "Healthy Capital District",
+        "approvedHosts": [
+          "albanycountyny.gov",
+          "healthycapitaldistrict.org"
+        ],
+        "sourcePageUrl": "https://www.healthycapitaldistrict.org/tiles/index/display?alias=hcdireports",
+        "artifactUrl": "https://www.healthycapitaldistrict.org/content/sites/hcdi/CHNA2025/CHNA_HCDI_2025.pdf",
+        "documentType": "chna",
+        "title": "2025 Capital Region Community Health Needs Assessment",
+        "coveredGeographyIds": [
+          "planning-region:capital-region-ny"
+        ],
+        "coverageScope": "regional",
+        "publicationDate": "2025-10-01",
+        "publicationDatePrecision": "month",
+        "planCycleStart": null,
+        "planCycleEnd": null,
+        "retrievedAt": "2026-07-21T23:45:00Z",
+        "candidateConfidence": "high",
+        "candidateConfidenceScore": 0.98,
+        "confidenceReasons": [
+          "Albany County's official data page links the artifact as the 2025 Capital Region CHNA.",
+          "The artifact identifies Healthy Capital District and six covered Capital Region counties.",
+          "The exact publication day is not stated; October 2025 is retained at month precision."
+        ],
+        "reviewStatus": "provisional"
+      },
+      "sourceVersion": {
+        "id": "source-version:capital-region-chna-2025",
+        "sourceId": "local-planning-documents",
+        "releaseLabel": "2025 Capital Region Community Health Needs Assessment",
+        "releaseDate": "2025-10-01",
+        "dataPeriodStart": null,
+        "dataPeriodEnd": null,
+        "retrievedAt": "2026-07-21T23:45:00Z",
+        "staleAfter": "2027-07-21T23:45:00Z",
+        "officialUrl": "https://www.healthycapitaldistrict.org/content/sites/hcdi/CHNA2025/CHNA_HCDI_2025.pdf",
+        "contentHash": "sha256:01bb9394d210010b2c87fe188b3dbbb3885983b8bb2825bcec0b9a3b3b04796c",
+        "schemaVersion": "planning-document-artifact.v1",
+        "reviewStatus": "provisional",
+        "reviewedBy": null,
+        "reviewedAt": null
+      },
+      "document": {
+        "id": "document:candidate:schenectady-capital-region-chna-2025",
+        "sourceVersionId": "source-version:capital-region-chna-2025",
+        "documentType": "chna",
+        "title": "2025 Capital Region Community Health Needs Assessment",
+        "publisher": "Healthy Capital District",
+        "officialUrl": "https://www.healthycapitaldistrict.org/content/sites/hcdi/CHNA2025/CHNA_HCDI_2025.pdf",
+        "publishedAt": "2025-10-01",
+        "periodStart": null,
+        "periodEnd": null,
+        "geographyIds": [
+          "planning-region:capital-region-ny"
+        ],
+        "contentHash": "sha256:01bb9394d210010b2c87fe188b3dbbb3885983b8bb2825bcec0b9a3b3b04796c",
+        "pageCount": 319,
+        "coverageScope": "regional",
+        "currentPlanStatus": "not_yet_verified",
+        "reviewStatus": "provisional",
+        "reviewedBy": null,
+        "reviewedAt": null
+      },
+      "acceptedClaims": [
+        {
+          "id": "claim:schenectady-social-vulnerability",
+          "documentId": "document:candidate:schenectady-capital-region-chna-2025",
+          "geographyIds": [
+            "county:36093"
+          ],
+          "claimType": "finding",
+          "statement": "The assessment identifies Schenectady County as having the Capital Region's highest overall Social Vulnerability Index.",
+          "exactExcerpt": "Schenectady County had the highest overall Social Vulnerability Index (SVI) in the Capital Region (CDC)",
+          "extractionMethod": "structured_parser",
+          "confidence": "high",
+          "reviewStatus": "provisional",
+          "reviewedBy": null,
+          "reviewedAt": null
+        },
+        {
+          "id": "claim:schenectady-prenatal-disparity",
+          "documentId": "document:candidate:schenectady-capital-region-chna-2025",
+          "geographyIds": [
+            "county:36093"
+          ],
+          "claimType": "disparity",
+          "statement": "The assessment reports the region's largest Hispanic-to-White disparity in early prenatal care in Schenectady County.",
+          "exactExcerpt": "Schenectady County had the largest disparity in the Capital Region for percent of births with early prenatal care in 2020-2022, between Hispanic and White non-Hispanic residents (NYS Vital Statistics)",
+          "extractionMethod": "structured_parser",
+          "confidence": "high",
+          "reviewStatus": "provisional",
+          "reviewedBy": null,
+          "reviewedAt": null
+        }
+      ],
+      "acceptedCitations": [
+        {
+          "id": "citation:schenectady-social-vulnerability",
+          "claimId": "claim:schenectady-social-vulnerability",
+          "documentId": "document:candidate:schenectady-capital-region-chna-2025",
+          "sourceVersionId": "source-version:capital-region-chna-2025",
+          "pageNumber": 25,
+          "artifactPageIndex": 26,
+          "section": "Schenectady County - Sociodemographic",
+          "paragraph": null,
+          "sourceField": null,
+          "quotedText": "Schenectady County had the highest overall Social Vulnerability Index (SVI) in the Capital Region (CDC)",
+          "quotedTextHash": "sha256:0aace59336bdacc4ce2654300d49797cbfcb902e5d246032f261618e4a2904fc",
+          "locatorBoundingBox": null,
+          "reviewStatus": "provisional"
+        },
+        {
+          "id": "citation:schenectady-prenatal-disparity",
+          "claimId": "claim:schenectady-prenatal-disparity",
+          "documentId": "document:candidate:schenectady-capital-region-chna-2025",
+          "sourceVersionId": "source-version:capital-region-chna-2025",
+          "pageNumber": 26,
+          "artifactPageIndex": 27,
+          "section": "Schenectady County - Infant and Maternal Health",
+          "paragraph": null,
+          "sourceField": null,
+          "quotedText": "Schenectady County had the largest disparity in the Capital Region for percent of births with early prenatal care in 2020-2022, between Hispanic and White non-Hispanic residents (NYS Vital Statistics)",
+          "quotedTextHash": "sha256:280e3b56f796f6584acf88e983c16b9e28b0a67e06c3bb3dfedd3a3fb0be2ba1",
+          "locatorBoundingBox": null,
+          "reviewStatus": "provisional"
+        }
+      ],
+      "quarantinedClaims": [],
+      "reviewTasks": [
+        {
+          "id": "review:candidate:schenectady-capital-region-chna-2025:formal_verification_required:claim:schenectady-social-vulnerability",
+          "candidateId": "candidate:schenectady-capital-region-chna-2025",
+          "documentId": "document:candidate:schenectady-capital-region-chna-2025",
+          "claimId": "claim:schenectady-social-vulnerability",
+          "reason": "formal_verification_required",
+          "status": "open",
+          "severity": "review_required",
+          "summary": "The exact citation matched the extracted page or section; a named human reviewer must verify the claim before public use.",
+          "createdAt": "2026-07-21T23:45:00Z",
+          "assignedTo": null,
+          "decidedBy": null,
+          "decidedAt": null,
+          "decisionNote": null
+        },
+        {
+          "id": "review:candidate:schenectady-capital-region-chna-2025:formal_verification_required:claim:schenectady-prenatal-disparity",
+          "candidateId": "candidate:schenectady-capital-region-chna-2025",
+          "documentId": "document:candidate:schenectady-capital-region-chna-2025",
+          "claimId": "claim:schenectady-prenatal-disparity",
+          "reason": "formal_verification_required",
+          "status": "open",
+          "severity": "review_required",
+          "summary": "The exact citation matched the extracted page or section; a named human reviewer must verify the claim before public use.",
+          "createdAt": "2026-07-21T23:45:00Z",
+          "assignedTo": null,
+          "decidedBy": null,
+          "decidedAt": null,
+          "decisionNote": null
+        }
+      ],
+      "publicEligibility": false
+    },
+    {
+      "schemaVersion": "planning-evidence-review.v1",
+      "generatedAt": "2026-07-21T23:45:00Z",
+      "candidate": {
+        "id": "candidate:st-marys-chna-2024",
+        "sourceFamily": "hospital_chna_csp_page",
+        "publisher": "St. Mary's Healthcare",
+        "approvedHosts": [
+          "smha.org"
+        ],
+        "sourcePageUrl": "https://www.smha.org/aboutus/continuous-improvement/",
+        "artifactUrl": "https://www.smha.org/wp-content/uploads/2025/05/2024-PRC-CHNA-Report-St-Marys-Healthcare-Amsterdam_compressed-2.pdf",
+        "documentType": "chna",
+        "title": "2024 St. Mary's Healthcare Community Health Needs Assessment",
+        "coveredGeographyIds": [
+          "planning-region:st-marys-fulton-montgomery"
+        ],
+        "coverageScope": "hospital_specific",
+        "publicationDate": "2024-08-01",
+        "publicationDatePrecision": "month",
+        "planCycleStart": null,
+        "planCycleEnd": null,
+        "retrievedAt": "2026-07-21T23:45:00Z",
+        "candidateConfidence": "high",
+        "candidateConfidenceScore": 0.96,
+        "confidenceReasons": [
+          "The hospital's official continuous-improvement page links the artifact.",
+          "The assessment explicitly covers the St. Mary's service area spanning Fulton and Montgomery Counties.",
+          "It is hospital-specific evidence and is not designated as Montgomery County's current plan."
+        ],
+        "reviewStatus": "provisional"
+      },
+      "sourceVersion": {
+        "id": "source-version:st-marys-chna-2024",
+        "sourceId": "local-planning-documents",
+        "releaseLabel": "2024 St. Mary's Healthcare Community Health Needs Assessment",
+        "releaseDate": "2024-08-01",
+        "dataPeriodStart": null,
+        "dataPeriodEnd": null,
+        "retrievedAt": "2026-07-21T23:45:00Z",
+        "staleAfter": "2027-07-21T23:45:00Z",
+        "officialUrl": "https://www.smha.org/wp-content/uploads/2025/05/2024-PRC-CHNA-Report-St-Marys-Healthcare-Amsterdam_compressed-2.pdf",
+        "contentHash": "sha256:5449348fa9d46a97cba3d9cc6400c9a18df83ccca946b29380e19fbb55e88d34",
+        "schemaVersion": "planning-document-artifact.v1",
+        "reviewStatus": "provisional",
+        "reviewedBy": null,
+        "reviewedAt": null
+      },
+      "document": {
+        "id": "document:candidate:st-marys-chna-2024",
+        "sourceVersionId": "source-version:st-marys-chna-2024",
+        "documentType": "chna",
+        "title": "2024 St. Mary's Healthcare Community Health Needs Assessment",
+        "publisher": "St. Mary's Healthcare",
+        "officialUrl": "https://www.smha.org/wp-content/uploads/2025/05/2024-PRC-CHNA-Report-St-Marys-Healthcare-Amsterdam_compressed-2.pdf",
+        "publishedAt": "2024-08-01",
+        "periodStart": null,
+        "periodEnd": null,
+        "geographyIds": [
+          "planning-region:st-marys-fulton-montgomery"
+        ],
+        "contentHash": "sha256:5449348fa9d46a97cba3d9cc6400c9a18df83ccca946b29380e19fbb55e88d34",
+        "pageCount": 183,
+        "coverageScope": "hospital_specific",
+        "currentPlanStatus": "not_applicable",
+        "reviewStatus": "provisional",
+        "reviewedBy": null,
+        "reviewedAt": null
+      },
+      "acceptedClaims": [
+        {
+          "id": "claim:montgomery-service-area-priorities",
+          "documentId": "document:candidate:st-marys-chna-2024",
+          "geographyIds": [
+            "planning-region:st-marys-fulton-montgomery"
+          ],
+          "claimType": "priority",
+          "statement": "Community leaders ranked mental health, substance use, and nutrition, physical activity and weight as the service area's top three needs.",
+          "exactExcerpt": "1. Mental Health 2. Substance Use 3. Nutrition, Physical Activity & Weight",
+          "extractionMethod": "structured_parser",
+          "confidence": "high",
+          "reviewStatus": "provisional",
+          "reviewedBy": null,
+          "reviewedAt": null
+        },
+        {
+          "id": "claim:montgomery-cross-cutting-housing",
+          "documentId": "document:candidate:st-marys-chna-2024",
+          "geographyIds": [
+            "planning-region:st-marys-fulton-montgomery"
+          ],
+          "claimType": "barrier",
+          "statement": "The assessment explicitly identifies social determinants, including housing, as a cross-cutting concern.",
+          "exactExcerpt": "It is also important to note that the Social Determinants of Health (including Housing) are a cross-cutting issue that impact all of the above and also ranked highly among key informants' concerns.",
+          "extractionMethod": "structured_parser",
+          "confidence": "high",
+          "reviewStatus": "provisional",
+          "reviewedBy": null,
+          "reviewedAt": null
+        }
+      ],
+      "acceptedCitations": [
+        {
+          "id": "citation:montgomery-service-area-priorities",
+          "claimId": "claim:montgomery-service-area-priorities",
+          "documentId": "document:candidate:st-marys-chna-2024",
+          "sourceVersionId": "source-version:st-marys-chna-2024",
+          "pageNumber": 15,
+          "artifactPageIndex": 15,
+          "section": "Community Feedback on Prioritization of Health Needs",
+          "paragraph": null,
+          "sourceField": null,
+          "quotedText": "1. Mental Health 2. Substance Use 3. Nutrition, Physical Activity & Weight",
+          "quotedTextHash": "sha256:ee8cbc7d7910caa4dbfb383d3c40bed27e486fd949436db6e5757948ee732b6b",
+          "locatorBoundingBox": null,
+          "reviewStatus": "provisional"
+        },
+        {
+          "id": "citation:montgomery-cross-cutting-housing",
+          "claimId": "claim:montgomery-cross-cutting-housing",
+          "documentId": "document:candidate:st-marys-chna-2024",
+          "sourceVersionId": "source-version:st-marys-chna-2024",
+          "pageNumber": 15,
+          "artifactPageIndex": 15,
+          "section": "Community Feedback on Prioritization of Health Needs",
+          "paragraph": null,
+          "sourceField": null,
+          "quotedText": "It is also important to note that the Social Determinants of Health (including Housing) are a cross-cutting issue that impact all of the above and also ranked highly among key informants' concerns.",
+          "quotedTextHash": "sha256:575c6e6006d8cd014f19b9449ad556818066f3c85ba71001dc89648cd1ad4215",
+          "locatorBoundingBox": null,
+          "reviewStatus": "provisional"
+        }
+      ],
+      "quarantinedClaims": [],
+      "reviewTasks": [
+        {
+          "id": "review:candidate:st-marys-chna-2024:formal_verification_required:claim:montgomery-service-area-priorities",
+          "candidateId": "candidate:st-marys-chna-2024",
+          "documentId": "document:candidate:st-marys-chna-2024",
+          "claimId": "claim:montgomery-service-area-priorities",
+          "reason": "formal_verification_required",
+          "status": "open",
+          "severity": "review_required",
+          "summary": "The exact citation matched the extracted page or section; a named human reviewer must verify the claim before public use.",
+          "createdAt": "2026-07-21T23:45:00Z",
+          "assignedTo": null,
+          "decidedBy": null,
+          "decidedAt": null,
+          "decisionNote": null
+        },
+        {
+          "id": "review:candidate:st-marys-chna-2024:formal_verification_required:claim:montgomery-cross-cutting-housing",
+          "candidateId": "candidate:st-marys-chna-2024",
+          "documentId": "document:candidate:st-marys-chna-2024",
+          "claimId": "claim:montgomery-cross-cutting-housing",
+          "reason": "formal_verification_required",
+          "status": "open",
+          "severity": "review_required",
+          "summary": "The exact citation matched the extracted page or section; a named human reviewer must verify the claim before public use.",
+          "createdAt": "2026-07-21T23:45:00Z",
+          "assignedTo": null,
+          "decidedBy": null,
+          "decidedAt": null,
+          "decisionNote": null
+        }
+      ],
+      "publicEligibility": false
+    },
+    {
+      "schemaVersion": "planning-evidence-review.v1",
+      "generatedAt": "2026-07-21T23:45:00Z",
+      "candidate": {
+        "id": "candidate:chester-county-cha-2025",
+        "sourceFamily": "county_local_health_department",
+        "publisher": "Chester County Health Department",
+        "approvedHosts": [
+          "chesco.org"
+        ],
+        "sourcePageUrl": "https://www.chesco.org/5772/2025-Community-Health-Assessment",
+        "artifactUrl": "https://www.chesco.org/DocumentCenter/View/79811/Chester-County-CHA--2025",
+        "documentType": "cha",
+        "title": "2025 Chester County Community Health Assessment",
+        "coveredGeographyIds": [
+          "county:42029"
+        ],
+        "coverageScope": "county_specific",
+        "publicationDate": "2025-05-27",
+        "publicationDatePrecision": "day",
+        "planCycleStart": null,
+        "planCycleEnd": null,
+        "retrievedAt": "2026-07-21T23:45:00Z",
+        "candidateConfidence": "high",
+        "candidateConfidenceScore": 0.99,
+        "confidenceReasons": [
+          "The official county health department page links the assessment.",
+          "The county release dates publication to May 27, 2025 and describes the forthcoming CHIP as a separate next step."
+        ],
+        "reviewStatus": "provisional"
+      },
+      "sourceVersion": {
+        "id": "source-version:chester-cha-2025",
+        "sourceId": "local-planning-documents",
+        "releaseLabel": "2025 Chester County Community Health Assessment",
+        "releaseDate": "2025-05-27",
+        "dataPeriodStart": null,
+        "dataPeriodEnd": null,
+        "retrievedAt": "2026-07-21T23:45:00Z",
+        "staleAfter": "2027-07-21T23:45:00Z",
+        "officialUrl": "https://www.chesco.org/DocumentCenter/View/79811/Chester-County-CHA--2025",
+        "contentHash": "sha256:d8625e890c6caa05e4da765090f054b906ee31c39846ef57d2ca40daab22c2d4",
+        "schemaVersion": "planning-document-artifact.v1",
+        "reviewStatus": "provisional",
+        "reviewedBy": null,
+        "reviewedAt": null
+      },
+      "document": {
+        "id": "document:candidate:chester-county-cha-2025",
+        "sourceVersionId": "source-version:chester-cha-2025",
+        "documentType": "cha",
+        "title": "2025 Chester County Community Health Assessment",
+        "publisher": "Chester County Health Department",
+        "officialUrl": "https://www.chesco.org/DocumentCenter/View/79811/Chester-County-CHA--2025",
+        "publishedAt": "2025-05-27",
+        "periodStart": null,
+        "periodEnd": null,
+        "geographyIds": [
+          "county:42029"
+        ],
+        "contentHash": "sha256:d8625e890c6caa05e4da765090f054b906ee31c39846ef57d2ca40daab22c2d4",
+        "pageCount": 121,
+        "coverageScope": "county_specific",
+        "currentPlanStatus": "not_yet_verified",
+        "reviewStatus": "provisional",
+        "reviewedBy": null,
+        "reviewedAt": null
+      },
+      "acceptedClaims": [
+        {
+          "id": "claim:chester-disparities",
+          "documentId": "document:candidate:chester-county-cha-2025",
+          "geographyIds": [
+            "county:42029"
+          ],
+          "claimType": "disparity",
+          "statement": "The county reports widening disparities in chronic disease outcomes and maternal and child health.",
+          "exactExcerpt": "The assessment also highlighted demographic shifts and several key issues, including growing mental health concerns, the shortage of affordable housing and high cost of living, and persistent health and economic disparities, particularly among Black residents.",
+          "extractionMethod": "structured_parser",
+          "confidence": "high",
+          "reviewStatus": "provisional",
+          "reviewedBy": null,
+          "reviewedAt": null
+        },
+        {
+          "id": "claim:chester-cost-housing-barrier",
+          "documentId": "document:candidate:chester-county-cha-2025",
+          "geographyIds": [
+            "county:42029"
+          ],
+          "claimType": "barrier",
+          "statement": "Community survey participants identified cost of living and affordable housing as major concerns.",
+          "exactExcerpt": "Nearly 2 out of 3 (62%) survey respondents said “cost of living” and half (50%) of respondents said “lack of affordable, quality housing” were top community issues.",
+          "extractionMethod": "structured_parser",
+          "confidence": "high",
+          "reviewStatus": "provisional",
+          "reviewedBy": null,
+          "reviewedAt": null
+        }
+      ],
+      "acceptedCitations": [
+        {
+          "id": "citation:chester-disparities",
+          "claimId": "claim:chester-disparities",
+          "documentId": "document:candidate:chester-county-cha-2025",
+          "sourceVersionId": "source-version:chester-cha-2025",
+          "pageNumber": 11,
+          "artifactPageIndex": 10,
+          "section": "Key Findings",
+          "paragraph": null,
+          "sourceField": null,
+          "quotedText": "The assessment also highlighted demographic shifts and several key issues, including growing mental health concerns, the shortage of affordable housing and high cost of living, and persistent health and economic disparities, particularly among Black residents.",
+          "quotedTextHash": "sha256:3752fd4f95d85c2996ab7d7057e5a14c5c75facd7bad7c74b8c3176c0c451bc5",
+          "locatorBoundingBox": null,
+          "reviewStatus": "provisional"
+        },
+        {
+          "id": "citation:chester-cost-housing-barrier",
+          "claimId": "claim:chester-cost-housing-barrier",
+          "documentId": "document:candidate:chester-county-cha-2025",
+          "sourceVersionId": "source-version:chester-cha-2025",
+          "pageNumber": 13,
+          "artifactPageIndex": 12,
+          "section": "Housing Affordability and Cost of Living",
+          "paragraph": null,
+          "sourceField": null,
+          "quotedText": "Nearly 2 out of 3 (62%) survey respondents said “cost of living” and half (50%) of respondents said “lack of affordable, quality housing” were top community issues.",
+          "quotedTextHash": "sha256:1efb2f880bf12c179243ccdc2930c79a66707dbcda8ba03efbd869556f86beda",
+          "locatorBoundingBox": null,
+          "reviewStatus": "provisional"
+        }
+      ],
+      "quarantinedClaims": [],
+      "reviewTasks": [
+        {
+          "id": "review:candidate:chester-county-cha-2025:formal_verification_required:claim:chester-disparities",
+          "candidateId": "candidate:chester-county-cha-2025",
+          "documentId": "document:candidate:chester-county-cha-2025",
+          "claimId": "claim:chester-disparities",
+          "reason": "formal_verification_required",
+          "status": "open",
+          "severity": "review_required",
+          "summary": "The exact citation matched the extracted page or section; a named human reviewer must verify the claim before public use.",
+          "createdAt": "2026-07-21T23:45:00Z",
+          "assignedTo": null,
+          "decidedBy": null,
+          "decidedAt": null,
+          "decisionNote": null
+        },
+        {
+          "id": "review:candidate:chester-county-cha-2025:formal_verification_required:claim:chester-cost-housing-barrier",
+          "candidateId": "candidate:chester-county-cha-2025",
+          "documentId": "document:candidate:chester-county-cha-2025",
+          "claimId": "claim:chester-cost-housing-barrier",
+          "reason": "formal_verification_required",
+          "status": "open",
+          "severity": "review_required",
+          "summary": "The exact citation matched the extracted page or section; a named human reviewer must verify the claim before public use.",
+          "createdAt": "2026-07-21T23:45:00Z",
+          "assignedTo": null,
+          "decidedBy": null,
+          "decidedAt": null,
+          "decisionNote": null
+        }
+      ],
+      "publicEligibility": false
+    },
+    {
+      "schemaVersion": "planning-evidence-review.v1",
+      "generatedAt": "2026-07-21T23:45:00Z",
+      "candidate": {
+        "id": "candidate:university-health-bexar-implementation-2026",
+        "sourceFamily": "hospital_chna_csp_page",
+        "publisher": "University Health",
+        "approvedHosts": [
+          "universityhealth.com"
+        ],
+        "sourcePageUrl": "https://www.universityhealth.com/about-us/community-health-needs-assessment",
+        "artifactUrl": "https://www.universityhealth.com/-/media/Files/About-Us/Community-Health-Needs-Assessment/Community-Health-Needs-Implementation-Strategy-2026.ashx",
+        "documentType": "implementation_strategy",
+        "title": "University Health Community Health Needs Assessment and Implementation Strategy for Bexar County, 2026-2028",
+        "coveredGeographyIds": [
+          "county:48029"
+        ],
+        "coverageScope": "hospital_specific",
+        "publicationDate": "2026-03-01",
+        "publicationDatePrecision": "month",
+        "planCycleStart": "2026-01-01",
+        "planCycleEnd": "2028-12-31",
+        "retrievedAt": "2026-07-21T23:45:00Z",
+        "candidateConfidence": "high",
+        "candidateConfidenceScore": 0.99,
+        "confidenceReasons": [
+          "The official University Health page links the board-approved 2026-2028 implementation strategy.",
+          "The artifact summarizes the 2025 Bexar County CHNA but remains University Health's hospital-specific strategy."
+        ],
+        "reviewStatus": "provisional"
+      },
+      "sourceVersion": {
+        "id": "source-version:university-health-bexar-implementation-2026",
+        "sourceId": "local-planning-documents",
+        "releaseLabel": "University Health Community Health Needs Assessment and Implementation Strategy for Bexar County, 2026-2028",
+        "releaseDate": "2026-03-01",
+        "dataPeriodStart": null,
+        "dataPeriodEnd": null,
+        "retrievedAt": "2026-07-21T23:45:00Z",
+        "staleAfter": "2027-07-21T23:45:00Z",
+        "officialUrl": "https://www.universityhealth.com/-/media/Files/About-Us/Community-Health-Needs-Assessment/Community-Health-Needs-Implementation-Strategy-2026.ashx",
+        "contentHash": "sha256:9926e1570fd26db6c60707a806def2e8207240d3105006a03f19fe020117b8e0",
+        "schemaVersion": "planning-document-artifact.v1",
+        "reviewStatus": "provisional",
+        "reviewedBy": null,
+        "reviewedAt": null
+      },
+      "document": {
+        "id": "document:candidate:university-health-bexar-implementation-2026",
+        "sourceVersionId": "source-version:university-health-bexar-implementation-2026",
+        "documentType": "implementation_strategy",
+        "title": "University Health Community Health Needs Assessment and Implementation Strategy for Bexar County, 2026-2028",
+        "publisher": "University Health",
+        "officialUrl": "https://www.universityhealth.com/-/media/Files/About-Us/Community-Health-Needs-Assessment/Community-Health-Needs-Implementation-Strategy-2026.ashx",
+        "publishedAt": "2026-03-01",
+        "periodStart": "2026-01-01",
+        "periodEnd": "2028-12-31",
+        "geographyIds": [
+          "county:48029"
+        ],
+        "contentHash": "sha256:9926e1570fd26db6c60707a806def2e8207240d3105006a03f19fe020117b8e0",
+        "pageCount": 29,
+        "coverageScope": "hospital_specific",
+        "currentPlanStatus": "not_applicable",
+        "reviewStatus": "provisional",
+        "reviewedBy": null,
+        "reviewedAt": null
+      },
+      "acceptedClaims": [
+        {
+          "id": "claim:bexar-priority-categories",
+          "documentId": "document:candidate:university-health-bexar-implementation-2026",
+          "geographyIds": [
+            "county:48029"
+          ],
+          "claimType": "priority",
+          "statement": "The 2025 Bexar CHNA organizes identified needs into three explicit priority categories.",
+          "exactExcerpt": "The data are disaggregated to identify and describe health disparities and are grouped into three categories of priorities: • What We Need for Health • How We are Taking Care of Ourselves • How We are Faring",
+          "extractionMethod": "structured_parser",
+          "confidence": "high",
+          "reviewStatus": "provisional",
+          "reviewedBy": null,
+          "reviewedAt": null
+        },
+        {
+          "id": "claim:bexar-geographic-digital-barriers",
+          "documentId": "document:candidate:university-health-bexar-implementation-2026",
+          "geographyIds": [
+            "county:48029"
+          ],
+          "claimType": "barrier",
+          "statement": "The assessment identifies rural, South Side, and West Side access disparities, including digital and transportation barriers.",
+          "exactExcerpt": "For rural areas, in particular, there was discussion about digital equity and access",
+          "extractionMethod": "structured_parser",
+          "confidence": "high",
+          "reviewStatus": "provisional",
+          "reviewedBy": null,
+          "reviewedAt": null
+        },
+        {
+          "id": "claim:bexar-access-objective",
+          "documentId": "document:candidate:university-health-bexar-implementation-2026",
+          "geographyIds": [
+            "county:48029"
+          ],
+          "claimType": "objective",
+          "statement": "University Health's strategy explicitly aims to improve prevention, disease-management, and well-being access.",
+          "exactExcerpt": "Improve access to care & services that promote prevention, disease management & overall well-being",
+          "extractionMethod": "structured_parser",
+          "confidence": "high",
+          "reviewStatus": "provisional",
+          "reviewedBy": null,
+          "reviewedAt": null
+        },
+        {
+          "id": "claim:bexar-sdoh-evaluation",
+          "documentId": "document:candidate:university-health-bexar-implementation-2026",
+          "geographyIds": [
+            "county:48029"
+          ],
+          "claimType": "evaluation_measure",
+          "statement": "The strategy reports a concrete screening measure for adult inpatients.",
+          "exactExcerpt": "In 2025, 76% of admitted adult patients were screened for SDOH.",
+          "extractionMethod": "structured_parser",
+          "confidence": "high",
+          "reviewStatus": "provisional",
+          "reviewedBy": null,
+          "reviewedAt": null
+        }
+      ],
+      "acceptedCitations": [
+        {
+          "id": "citation:bexar-priority-categories",
+          "claimId": "claim:bexar-priority-categories",
+          "documentId": "document:candidate:university-health-bexar-implementation-2026",
+          "sourceVersionId": "source-version:university-health-bexar-implementation-2026",
+          "pageNumber": 2,
+          "artifactPageIndex": 1,
+          "section": "Executive Summary",
+          "paragraph": null,
+          "sourceField": null,
+          "quotedText": "The data are disaggregated to identify and describe health disparities and are grouped into three categories of priorities: • What We Need for Health • How We are Taking Care of Ourselves • How We are Faring",
+          "quotedTextHash": "sha256:a9f8210f2dee5183a5200a9107164ed692d820325a9c6f42e819c5e8077c1d3b",
+          "locatorBoundingBox": null,
+          "reviewStatus": "provisional"
+        },
+        {
+          "id": "citation:bexar-geographic-digital-barriers",
+          "claimId": "claim:bexar-geographic-digital-barriers",
+          "documentId": "document:candidate:university-health-bexar-implementation-2026",
+          "sourceVersionId": "source-version:university-health-bexar-implementation-2026",
+          "pageNumber": 8,
+          "artifactPageIndex": 7,
+          "section": "Geographic disparities",
+          "paragraph": null,
+          "sourceField": null,
+          "quotedText": "For rural areas, in particular, there was discussion about digital equity and access",
+          "quotedTextHash": "sha256:19286ac1453914ba8e9ab9d48d73991ed21cfc61af195446f85c1faf268a152e",
+          "locatorBoundingBox": null,
+          "reviewStatus": "provisional"
+        },
+        {
+          "id": "citation:bexar-access-objective",
+          "claimId": "claim:bexar-access-objective",
+          "documentId": "document:candidate:university-health-bexar-implementation-2026",
+          "sourceVersionId": "source-version:university-health-bexar-implementation-2026",
+          "pageNumber": 15,
+          "artifactPageIndex": 14,
+          "section": "How We are Taking Care of Ourselves",
+          "paragraph": null,
+          "sourceField": null,
+          "quotedText": "Improve access to care & services that promote prevention, disease management & overall well-being",
+          "quotedTextHash": "sha256:db660395ac28c4a83dc7745f61dd0c2922523ed7f1e1e82f1dc6cc0ddc7fa2e2",
+          "locatorBoundingBox": null,
+          "reviewStatus": "provisional"
+        },
+        {
+          "id": "citation:bexar-sdoh-evaluation",
+          "claimId": "claim:bexar-sdoh-evaluation",
+          "documentId": "document:candidate:university-health-bexar-implementation-2026",
+          "sourceVersionId": "source-version:university-health-bexar-implementation-2026",
+          "pageNumber": 9,
+          "artifactPageIndex": 8,
+          "section": "Impact Evaluation",
+          "paragraph": null,
+          "sourceField": null,
+          "quotedText": "In 2025, 76% of admitted adult patients were screened for SDOH.",
+          "quotedTextHash": "sha256:738d87942082ecd174161e5de322898cd590c1246c70233fa79aa934a1b15738",
+          "locatorBoundingBox": null,
+          "reviewStatus": "provisional"
+        }
+      ],
+      "quarantinedClaims": [],
+      "reviewTasks": [
+        {
+          "id": "review:candidate:university-health-bexar-implementation-2026:formal_verification_required:claim:bexar-priority-categories",
+          "candidateId": "candidate:university-health-bexar-implementation-2026",
+          "documentId": "document:candidate:university-health-bexar-implementation-2026",
+          "claimId": "claim:bexar-priority-categories",
+          "reason": "formal_verification_required",
+          "status": "open",
+          "severity": "review_required",
+          "summary": "The exact citation matched the extracted page or section; a named human reviewer must verify the claim before public use.",
+          "createdAt": "2026-07-21T23:45:00Z",
+          "assignedTo": null,
+          "decidedBy": null,
+          "decidedAt": null,
+          "decisionNote": null
+        },
+        {
+          "id": "review:candidate:university-health-bexar-implementation-2026:formal_verification_required:claim:bexar-geographic-digital-barriers",
+          "candidateId": "candidate:university-health-bexar-implementation-2026",
+          "documentId": "document:candidate:university-health-bexar-implementation-2026",
+          "claimId": "claim:bexar-geographic-digital-barriers",
+          "reason": "formal_verification_required",
+          "status": "open",
+          "severity": "review_required",
+          "summary": "The exact citation matched the extracted page or section; a named human reviewer must verify the claim before public use.",
+          "createdAt": "2026-07-21T23:45:00Z",
+          "assignedTo": null,
+          "decidedBy": null,
+          "decidedAt": null,
+          "decisionNote": null
+        },
+        {
+          "id": "review:candidate:university-health-bexar-implementation-2026:formal_verification_required:claim:bexar-access-objective",
+          "candidateId": "candidate:university-health-bexar-implementation-2026",
+          "documentId": "document:candidate:university-health-bexar-implementation-2026",
+          "claimId": "claim:bexar-access-objective",
+          "reason": "formal_verification_required",
+          "status": "open",
+          "severity": "review_required",
+          "summary": "The exact citation matched the extracted page or section; a named human reviewer must verify the claim before public use.",
+          "createdAt": "2026-07-21T23:45:00Z",
+          "assignedTo": null,
+          "decidedBy": null,
+          "decidedAt": null,
+          "decisionNote": null
+        },
+        {
+          "id": "review:candidate:university-health-bexar-implementation-2026:formal_verification_required:claim:bexar-sdoh-evaluation",
+          "candidateId": "candidate:university-health-bexar-implementation-2026",
+          "documentId": "document:candidate:university-health-bexar-implementation-2026",
+          "claimId": "claim:bexar-sdoh-evaluation",
+          "reason": "formal_verification_required",
+          "status": "open",
+          "severity": "review_required",
+          "summary": "The exact citation matched the extracted page or section; a named human reviewer must verify the claim before public use.",
+          "createdAt": "2026-07-21T23:45:00Z",
+          "assignedTo": null,
+          "decidedBy": null,
+          "decidedAt": null,
+          "decisionNote": null
+        }
+      ],
+      "publicEligibility": false
+    }
+  ]
+}
