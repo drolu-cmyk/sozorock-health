@@ -7,3 +7,4 @@ export * from "./adapters/index.ts";
 export * from "./ingestion/index.ts";
 export * from "./planning/index.ts";
 export * from "./agent/index.ts";
+export * from "./decision-support/index.ts";

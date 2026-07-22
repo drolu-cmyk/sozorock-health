@@ -32,6 +32,7 @@
     "refresh:cbcap-data": "node scripts/refresh-cbcap-data.mjs && node scripts/build-cbcap-runtime-data.mjs",
     "build:cbcap-runtime-data": "node scripts/build-cbcap-runtime-data.mjs",
     "refresh:cbcap-geometries": "node scripts/refresh-cbcap-geometries.mjs",
+    "build:partner-evidence-review": "npm run build:partner-evidence-review --workspace @sozorock/evidence-core",
     "start:mobile": "npm exec --workspace @sozorock/mobile -- expo start",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "lint": "eslint apps packages --max-warnings=0",

@@ -10,6 +10,7 @@ tmp/
 output/
 apps/media/exports/
 apps/media/public/gpt-live-campaign/
+apps/public-site/review-assets/
 artifacts/
 .playwright-cli/
 .playwright-output/

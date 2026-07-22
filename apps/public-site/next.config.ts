@@ -33,6 +33,13 @@ const nextConfig: NextConfig = {
     PUBLICATION_HASH_SALT_SECRET_ARN: process.env.PUBLICATION_HASH_SALT_SECRET_ARN,
     PUBLICATION_ALLOWED_HOSTS: process.env.PUBLICATION_ALLOWED_HOSTS,
     PUBLIC_SITE_URL: process.env.PUBLIC_SITE_URL,
+    PARTNER_EVIDENCE_REVIEW_ENABLED:
+      process.env.PARTNER_EVIDENCE_REVIEW_ENABLED,
+  },
+  outputFileTracingIncludes: {
+    "/review/partner-evidence/download/*": [
+      "../../output/pdf/milestone-6/*.pdf",
+    ],
   },
   async redirects() {
     return [
