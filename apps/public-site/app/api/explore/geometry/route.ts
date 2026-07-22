@@ -83,43 +83,25 @@ async function areaGeometry(kind: ExploreKind, geoid: string) {
   });
 }
 
-async function roadGeometry(extent: number[] | null) {
-  if (!extent) return emptyCollection;
-  const envelope = extent.join(",");
-  const shared = {
-    where: "1=1",
-    outFields: "NAME,RTTYP",
-    geometry: envelope,
-    geometryType: "esriGeometryEnvelope",
-    inSR: "4326",
-    spatialRel: "esriSpatialRelIntersects",
-    resultRecordCount: "700",
-    maxAllowableOffset: "0.001",
-  };
-  const base = "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer";
-  const [interstates, highways] = await Promise.all([
-    arcGisGeoJson(`${base}/0/query`, shared),
-    arcGisGeoJson(`${base}/3/query`, shared),
-  ]);
-  return {
-    type: "FeatureCollection" as const,
-    features: [...interstates.features, ...highways.features],
-  };
-}
-
 export async function GET(request: NextRequest) {
   const kindValue = request.nextUrl.searchParams.get("kind");
   const kind =
     kindValue === "county" || kindValue === "place" || kindValue === "zip"
       ? kindValue
       : null;
-  if (!kind) return NextResponse.json({ area: emptyCollection, roads: emptyCollection });
+  if (!kind) return NextResponse.json({ area: emptyCollection, verifiedResources: emptyCollection });
   const geoid = safeGeoid(kind, request.nextUrl.searchParams.get("geoid") ?? "");
-  if (!geoid) return NextResponse.json({ area: emptyCollection, roads: emptyCollection });
+  if (!geoid) return NextResponse.json({ area: emptyCollection, verifiedResources: emptyCollection });
   const area = await areaGeometry(kind, geoid);
-  const roads = await roadGeometry(bounds(area));
   return NextResponse.json(
-    { area, roads, vintage: "U.S. Census Bureau TIGERweb, January 1, 2025" },
+    {
+      area,
+      bounds: bounds(area),
+      verifiedResources: emptyCollection,
+      vintage: "U.S. Census Bureau TIGERweb, January 1, 2025",
+      sourceUrl: "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/",
+      resourceNote: "No verified SozoRock or community resource markers are published for this geography.",
+    },
     { headers: { "Cache-Control": "public, s-maxage=604800, stale-while-revalidate=2592000" } },
   );
 }

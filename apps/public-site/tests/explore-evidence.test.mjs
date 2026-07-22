@@ -49,23 +49,23 @@ test("the public route avoids internal product language", async () => {
   }
 });
 
-test("the public explorer exposes the approved Place Intelligence sections and evidence states", async () => {
+test("the public explorer exposes only the approved Brief, Map and Action workspace", async () => {
   const component = await source("app/explore/ExploreClient.tsx");
   const rules = await source("app/lib/place-intelligence.ts");
   for (const heading of [
     "SozoRock Place Intelligence",
-    "Location Summary",
-    "Key Findings from Current Data",
-    "Data-Backed Justification for Health Access Day",
-    "Priority Issues &amp; Practical Barriers",
-    "Recommended Place-Based Responses",
-    "Geospatial &amp; Mapping Insights",
+    "What the local plan says",
+    "What the comparable data shows",
+    "From evidence to accountable action",
+    "No recommendation yet",
   ]) assert.equal(component.includes(heading), true, `missing public section: ${heading}`);
+  assert.match(component, /type WorkspaceView = "brief" \| "map" \| "action"/);
+  assert.match(component, /role="tablist"/);
+  assert.match(component, /role="tabpanel"/);
+  assert.match(component, /Not yet verified/);
   assert.match(rules, /"Supported"/);
   assert.match(rules, /"Potentially supported"/);
   assert.match(rules, /"Insufficient evidence"/);
-  assert.match(component, /schema.*place-intelligence-v1/);
-  assert.match(component, /!payload\.dataCoverage \|\| !payload\.intelligence/);
   assert.doesNotMatch(component.toLowerCase(), /sozorock codex/);
 });
 
@@ -76,15 +76,38 @@ test("the explore route is discoverable", async () => {
   assert.match(page, /canonical: "\/explore"/);
 });
 
-test("the county map normalizes Census rings for d3 and includes major roads", async () => {
+test("the public map uses MapLibre with official boundaries and no decorative roads", async () => {
   const component = await source("app/explore/ExploreClient.tsx");
   const geometry = await source("app/api/explore/geometry/route.ts");
-  assert.match(component, /orientBoundaryForD3/);
-  assert.match(component, /Zoom in/);
-  assert.match(component, /Reset map/);
-  assert.match(component, /aria-pressed=\{showRoads\}/);
-  assert.match(geometry, /outFields: "NAME,RTTYP"/);
-  assert.match(geometry, /arcGisGeoJson\(`\$\{base\}\/3\/query`/);
+  assert.match(component, /import\("maplibre-gl"\)/);
+  assert.match(component, /official-boundary/);
+  assert.match(component, /verifiedResources/);
+  assert.match(component, /The shaded value applies to the selected geography as a whole/);
+  assert.doesNotMatch(geometry, /Transportation\/MapServer/);
+  assert.doesNotMatch(component, /Major roads|showRoads|heatmap/i);
+});
+
+test("directionality and geography are explicit in the public evidence response", async () => {
+  const route = await source("app/api/explore/route.ts");
+  const metrics = await source("app/lib/explore-health.ts");
+  assert.match(route, /interpretationFor/);
+  assert.match(route, /trendFor/);
+  assert.match(route, /geographyLevel:/);
+  assert.match(route, /Census ZIP Code Tabulation Area/);
+  assert.match(route, /can overlap more than one county/);
+  assert.match(metrics, /higherValueMeaning: "favorable"/);
+  assert.match(route, /metric\.interpretation === "adverse_signal"/);
+});
+
+test("unverified planning claims remain unavailable to the public Explore view", async () => {
+  const route = await source("app/api/explore/route.ts");
+  const planning = await source("app/lib/explore-planning-evidence.ts");
+  assert.match(route, /claims: \[\]/);
+  assert.match(planning, /public-safe metadata only/i);
+  assert.match(planning, /not_yet_verified/);
+  for (const fips of ["36001", "36093", "36057", "42029", "48029"]) {
+    assert.match(planning, new RegExp(`"${fips}"`));
+  }
 });
 
 test("location search loads selections immediately and supports keyboard discovery", async () => {
@@ -92,6 +115,8 @@ test("location search loads selections immediately and supports keyboard discove
   const route = await source("app/api/locations/route.ts");
   assert.match(component, /onSelect\(result\)/);
   assert.match(component, /event\.key === "ArrowDown"/);
+  assert.match(component, /event\.key === "ArrowRight"/);
+  assert.match(component, /event\.key === "ArrowLeft"/);
   assert.match(component, /aria-activedescendant/);
   assert.match(route, /CENTLAT,CENTLON,AREALAND/);
   assert.match(route, /normalizedSearch/);
@@ -99,6 +124,13 @@ test("location search loads selections immediately and supports keyboard discove
   assert.match(route, /naturalPlacePriority/);
   assert.match(route, /PR: "72"/);
   assert.match(route, /VI: "78"/);
+});
+
+test("the map worker is allowed without weakening the production script policy", async () => {
+  const config = await source("next.config.ts");
+  assert.match(config, /worker-src 'self' blob:/);
+  assert.match(config, /process\.env\.NODE_ENV === "development"/);
+  assert.match(config, /: "script-src 'self' 'unsafe-inline'"/);
 });
 
 test("the approved live homepage assets and contact path remain locked", async () => {

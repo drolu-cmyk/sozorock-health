@@ -3,12 +3,12 @@ import {
   confidenceFieldFor,
   exploreMetrics,
   fieldFor,
-  localPlans,
   safeGeoid,
   scoreMetric,
   type ExploreKind,
 } from "../../lib/explore-health";
 import { buildPlaceIntelligence } from "../../lib/place-intelligence";
+import { planningDocumentsByCounty } from "../../lib/explore-planning-evidence";
 
 export const runtime = "nodejs";
 
@@ -106,7 +106,39 @@ function makeLocation(kind: ExploreKind, geoid: string, row: SourceRow) {
     state,
     population: asNumber(row.totalpopulation),
     coordinates,
+    geographyLabel: kind === "county" ? "Official county geography" : kind === "place" ? "Official Census place geography" : "Census ZIP Code Tabulation Area",
+    geographyAuthority: "U.S. Census Bureau",
+    evidenceGeography: kind === "county" ? "county" : kind === "place" ? "census_place" : "zcta",
+    caveats: kind === "zip"
+      ? ["This selection uses a Census ZIP Code Tabulation Area (ZCTA). ZIP Codes are mail routes; ZCTAs approximate them and can overlap more than one county."]
+      : kind === "place"
+        ? ["The evidence shown is for this Census place. It is not county-level evidence and should not be generalized beyond the place boundary."]
+        : ["County-level evidence describes the county as a whole. It should not be presented as specific to every ZIP Code, city or neighborhood inside the county."],
   };
+}
+
+function interpretationFor(
+  higherValueMeaning: "adverse" | "favorable" | "context_dependent",
+  difference: number,
+) {
+  if (higherValueMeaning === "context_dependent") return "context_only" as const;
+  if (Math.abs(difference) < 2) return "equal" as const;
+  if (higherValueMeaning === "adverse") {
+    return difference > 0 ? "adverse_signal" as const : "favorable_signal" as const;
+  }
+  return difference < 0 ? "adverse_signal" as const : "favorable_signal" as const;
+}
+
+function trendFor(
+  higherValueMeaning: "adverse" | "favorable" | "context_dependent",
+  current: number,
+  previous: number | null,
+) {
+  if (previous === null || higherValueMeaning === "context_dependent") return "unavailable" as const;
+  const change = Number((current - previous).toFixed(1));
+  if (Math.abs(change) < 0.5) return "stable" as const;
+  if (higherValueMeaning === "adverse") return change < 0 ? "improving" as const : "worsening" as const;
+  return change > 0 ? "improving" as const : "worsening" as const;
 }
 
 function metricValue(row: SourceRow | undefined, field: string) {
@@ -319,23 +351,44 @@ export async function GET(request: NextRequest) {
         const value = metricValue(releaseRow, field);
         const nationalValue = metricValue(releaseNational, field);
         const stateValue = metricValue(releaseState, field);
+        const previousValue = release === "2025" ? metricValue(previousRow, field) || null : null;
+        const difference = Number((value - nationalValue).toFixed(1));
         return {
           ...definition,
           value,
           confidence: String(releaseRow?.[confidenceFieldFor(kind, definition.field)] ?? ""),
           national: nationalValue,
           state: stateValue || null,
-          difference: Number((value - nationalValue).toFixed(1)),
-          score: scoreMetric(value, nationalValue),
+          difference,
+          score: scoreMetric(value, nationalValue, definition.higherValueMeaning),
           release,
+          previousValue,
+          trendDifference: previousValue === null ? null : Number((value - previousValue).toFixed(1)),
+          trend: trendFor(definition.higherValueMeaning, value, previousValue),
+          interpretation: interpretationFor(definition.higherValueMeaning, difference),
+          geographyLevel: kind === "zip" ? "zcta" : kind === "place" ? "census_place" : "county",
         };
       })
       .filter((metric) => metric.value > 0 && metric.national > 0);
 
-    const priorities = [...metrics]
+    const priorities = metrics
+      .filter((metric) => metric.interpretation === "adverse_signal")
       .sort((a, b) => b.score - a.score)
       .slice(0, 5);
-    const localPlan = kind === "county" ? localPlans[geoid] ?? null : null;
+    const planningDocument = kind === "county" ? planningDocumentsByCounty[geoid] ?? null : null;
+    const localPlan = planningDocument
+      ? {
+          status: planningDocument.status,
+          documents: [planningDocument],
+          claims: [],
+          note: "A current local planning document has been found, but its claims are not yet verified for public use.",
+        }
+      : {
+          status: "unavailable" as const,
+          documents: [],
+          claims: [],
+          note: "A current local CHA, CHIP or CHNA has not yet been verified for this geography.",
+        };
     const baseLocation = makeLocation(kind, geoid, row);
     const [zipContext, areaContext] = await Promise.all([
       kind === "zip" ? zipPlaceContext(row) : null,
@@ -361,7 +414,7 @@ export async function GET(request: NextRequest) {
       location,
       metrics,
       priorities,
-      localPlan,
+      localPlan: null,
     });
 
     return NextResponse.json(
@@ -377,7 +430,7 @@ export async function GET(request: NextRequest) {
           currentMeasureCount,
           previousMeasureCount,
         },
-        offerings: buildOfferings(priorities, Boolean(localPlan)),
+        offerings: buildOfferings(priorities, false),
         intelligence,
         localPlan,
         sources: [
@@ -387,33 +440,26 @@ export async function GET(request: NextRequest) {
             release: "December 4, 2025",
             period: kind === "zip" ? "BRFSS 2023 and 2022; ACS 2019–2023 and 2018–2022" : "BRFSS 2023 and 2022; ACS 2019–2023 and 2018–2022",
             note: kind === "zip" ? "Crude prevalence estimates" : "Age-adjusted prevalence estimates",
+            status: "verified",
+            geography: kind === "zip" ? "ZCTA" : kind === "place" ? "Census place" : "County",
+            retrievedAt: new Date().toISOString(),
           },
-          ...(previousMeasureCount > 0 ? [sourceForRelease(kind, "2024")] : []),
-          {
-            name: "HRSA Health Workforce Shortage Areas",
-            url: "https://data.hrsa.gov/topics/health-workforce/shortage-areas/dashboard",
-            release: "Updated July 16, 2026",
-            period: "Daily designation data",
-            note: "Workforce and shortage-area planning source",
-          },
-          {
-            name: "AHRQ Community-Level Health Database",
-            url: "https://www.ahrq.gov/data/innovations/clh-data.html",
-            release: "September 2025 release; page reviewed May 2026",
-            period: "Data through 2023",
-            note: "County, ZIP Code, tract and block-group context",
-          },
-          ...(localPlan
-            ? [
-                {
-                  name: localPlan.title,
-                  url: localPlan.url,
-                  release: localPlan.published,
-                  period: localPlan.period,
-                  note: "Local CHA/CHIP source",
-                },
-              ]
-            : []),
+          ...(previousMeasureCount > 0 ? [{
+            ...sourceForRelease(kind, "2024"),
+            status: "verified",
+            geography: kind === "zip" ? "ZCTA" : kind === "place" ? "Census place" : "County",
+            retrievedAt: new Date().toISOString(),
+          }] : []),
+          ...localPlan.documents.map((document) => ({
+            name: document.title,
+            url: document.officialUrl,
+            release: document.publishedAt,
+            period: document.coverage,
+            note: "Candidate local planning source; claims are not yet verified for public use",
+            status: document.reviewStatus,
+            geography: document.coverage,
+            retrievedAt: "2026-07-21",
+          })),
         ],
       },
       {

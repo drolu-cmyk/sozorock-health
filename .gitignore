@@ -12,6 +12,8 @@ apps/media/exports/
 apps/media/public/gpt-live-campaign/
 artifacts/
 .playwright-cli/
+.playwright-output/
+.playwright-browsers/
 
 # Environment and local secrets
 .env
