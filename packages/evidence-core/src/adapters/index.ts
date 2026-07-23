@@ -4,6 +4,7 @@ export * from "./cdc-places.ts";
 export * from "./acs.ts";
 export * from "./hrsa.ts";
 export * from "./ahrq-clh.ts";
+export * from "./ahrq-xlsx.ts";
 export * from "./cha-chip.ts";
 export * from "./csv.ts";
 export * from "./runtime-utils.ts";

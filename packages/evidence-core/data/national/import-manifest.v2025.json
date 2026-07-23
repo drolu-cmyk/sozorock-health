@@ -1,0 +1,43 @@
+{
+  "schemaVersion": "sozorock.import-manifest.v1",
+  "generatedAt": "2026-07-23T16:01:33.720Z",
+  "contentSha256": "99366c87facff6faa6912844afac64e932b59e69dbe4b94c167fe324dbe9bd3f",
+  "authoritativePrimaryCountyCount": 3144,
+  "sources": [
+    {
+      "id": "states",
+      "url": "https://www2.census.gov/geo/docs/maps-data/data/gazetteer/2025_Gazetteer/2025_Gaz_state_national.zip",
+      "sha256": "5c0bb56f4824af366538d73bffd229e790d301356624302eeca24d09cf27ba30",
+      "byteLength": 2863
+    },
+    {
+      "id": "counties",
+      "url": "https://www2.census.gov/geo/docs/maps-data/data/gazetteer/2025_Gazetteer/2025_Gaz_counties_national.zip",
+      "sha256": "4c90d0f805779923b5958ab13d0c1e9b99fe4932b786bfcf75dd739bb2dcb4ea",
+      "byteLength": 138993
+    },
+    {
+      "id": "places",
+      "url": "https://www2.census.gov/geo/docs/maps-data/data/gazetteer/2025_Gazetteer/2025_Gaz_place_national.zip",
+      "sha256": "49644173a453469d9bd77fb7a493b027f87567e209edaf2078aac7543ac2ee29",
+      "byteLength": 1214053
+    },
+    {
+      "id": "zctas",
+      "url": "https://www2.census.gov/geo/docs/maps-data/data/gazetteer/2025_Gazetteer/2025_Gaz_zcta_national.zip",
+      "sha256": "51516a4283bab5cd2376eec75609ddc4b363a18297e8adeeaac7b03cf7c84dbe",
+      "byteLength": 952026
+    },
+    {
+      "id": "zctaCountyRelationships",
+      "url": "https://www2.census.gov/geo/docs/maps-data/data/rel2020/zcta520/tab20_zcta520_county20_natl.txt",
+      "sha256": "3ed41278d637dc249e0323306f68be8a6c234e3090f4de88ef328dee71aeaaaf",
+      "byteLength": 6821287
+    }
+  ],
+  "artifacts": {
+    "catalog": "national-geography.v2025.json.gz",
+    "countyIndex": "county-index.v2025.json",
+    "coverageReport": "national-geography-coverage.v2025.json"
+  }
+}

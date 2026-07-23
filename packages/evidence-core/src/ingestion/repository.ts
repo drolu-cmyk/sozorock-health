@@ -44,3 +44,5 @@ export class InMemoryIngestionRepository implements IngestionRepository {
     });
   }
 }
+
+export { PostgresIngestionRepository } from "./repository-postgres.ts";

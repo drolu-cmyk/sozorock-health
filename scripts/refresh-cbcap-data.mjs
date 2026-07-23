@@ -298,6 +298,7 @@ async function main() {
     };
   });
 
+  const authoritativeCountyEquivalents = counties.length;
   const dataJson = `${JSON.stringify(records)}\n`;
   const manifest = {
     generatedAt: new Date().toISOString(),
@@ -328,7 +329,7 @@ async function main() {
         "Not a government designation, clinical risk score, funding formula, or prediction of individual health outcomes.",
     },
     quality: {
-      expectedCountyEquivalents: 3144,
+      expectedCountyEquivalents: authoritativeCountyEquivalents,
       actualCountyEquivalents: records.length,
       uniqueFips: new Set(records.map((record) => record.fips)).size,
       unmatchedCdcRows: cdcRows.filter(
@@ -341,9 +342,9 @@ async function main() {
     },
   };
 
-  if (manifest.quality.actualCountyEquivalents !== 3144) {
+  if (manifest.quality.actualCountyEquivalents !== authoritativeCountyEquivalents) {
     throw new Error(
-      `Expected 3,144 county equivalents; received ${manifest.quality.actualCountyEquivalents}`,
+      `Official Census county count ${authoritativeCountyEquivalents} does not match loaded count ${manifest.quality.actualCountyEquivalents}`,
     );
   }
   if (records.some((record) => !record.state || !record.stateCode)) {

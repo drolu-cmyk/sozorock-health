@@ -16,22 +16,24 @@ test("the homepage place search opens the nationwide explore route", async () =>
   assert.match(component, /encodeURIComponent\(immediateChoice\.geoid\)/);
 });
 
-test("the evidence API uses fixed current public datasets and validated geography", async () => {
+test("the evidence API uses the approved versioned snapshot and validated geography", async () => {
   const route = await source("app/api/explore/route.ts");
-  assert.match(route, /i46a-9kgh/);
-  assert.match(route, /vgc8-iyc4/);
-  assert.match(route, /kee5-23sr/);
-  assert.match(route, /d3i6-k6z5/);
-  assert.match(route, /hbpe-6r8n/);
-  assert.match(route, /6jwg-4k37/);
+  const approvedSnapshot = await source("app/lib/approved-evidence-snapshot.ts");
+  const versionedRoute = await source("app/api/evidence/v1/place-brief/route.ts");
+  assert.match(route, /getApprovedCountyBrief/);
+  assert.match(route, /sourceCoverage/);
   assert.match(route, /previousMeasureCount/);
   assert.match(route, /buildPlaceIntelligence/);
-  assert.match(route, /release,/);
   assert.match(route, /safeGeoid/);
-  assert.match(route, /placeUnavailableMetrics/);
-  assert.match(route, /censusAreaContext/);
-  assert.match(route, /where: `GEOID='\$\{geoid\}'`/);
-  assert.match(route, /label: `\$\{areaContext\.name\}/);
+  assert.match(route, /incompatible_geography/);
+  assert.match(route, /X-Evidence-Snapshot/);
+  assert.match(approvedSnapshot, /county-evidence-snapshot\.v1\.json/);
+  assert.match(approvedSnapshot, /buildCountyPlaceBrief/);
+  assert.match(versionedRoute, /getApprovedCountyBrief/);
+  for (const datasetId of ["i46a-9kgh", "vgc8-iyc4", "kee5-23sr", "d3i6-k6z5", "hbpe-6r8n", "6jwg-4k37"]) {
+    assert.doesNotMatch(route, new RegExp(datasetId));
+  }
+  assert.doesNotMatch(route, /fetch\(/);
   assert.doesNotMatch(route, /request\.nextUrl\.searchParams\.get\("url"\)/);
 });
 
@@ -90,19 +92,25 @@ test("the public map uses MapLibre with official boundaries and no decorative ro
 test("directionality and geography are explicit in the public evidence response", async () => {
   const route = await source("app/api/explore/route.ts");
   const metrics = await source("app/lib/explore-health.ts");
-  assert.match(route, /interpretationFor/);
-  assert.match(route, /trendFor/);
+  const brief = await source("../../packages/evidence-core/src/national/county-brief.ts");
+  assert.match(route, /function interpretation/);
   assert.match(route, /geographyLevel:/);
-  assert.match(route, /Census ZIP Code Tabulation Area/);
-  assert.match(route, /can overlap more than one county/);
+  assert.match(route, /kind !== "county"/);
+  assert.match(brief, /County evidence describes the county as a whole/);
+  assert.match(brief, /modeled area estimates/);
   assert.match(metrics, /higherValueMeaning: "favorable"/);
   assert.match(route, /metric\.interpretation === "adverse_signal"/);
 });
 
 test("unverified planning claims remain unavailable to the public Explore view", async () => {
   const route = await source("app/api/explore/route.ts");
+  const brief = await source("../../packages/evidence-core/src/national/county-brief.ts");
   const planning = await source("app/lib/explore-planning-evidence.ts");
-  assert.match(route, /claims: \[\]/);
+  assert.match(route, /claims: brief\.localPlanningEvidence\.claims/);
+  assert.match(brief, /localPlanningEvidence:/);
+  assert.match(brief, /status: "not_yet_verified"/);
+  assert.match(brief, /documents: \[\]/);
+  assert.match(brief, /claims: \[\]/);
   assert.match(planning, /public-safe metadata only/i);
   assert.match(planning, /not_yet_verified/);
   for (const fips of ["36001", "36093", "36057", "42029", "48029"]) {

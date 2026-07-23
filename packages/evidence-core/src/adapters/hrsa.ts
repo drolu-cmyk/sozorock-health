@@ -86,6 +86,23 @@ function isWholeCountyGeographicDesignation(value: string) {
   return normalized === "geographic hpsa" || normalized === "geographic area" || normalized === "county";
 }
 
+function designationGeographyLevel(
+  designationType: string,
+  componentType: string,
+  geographyId: string,
+  countyFips: string,
+) {
+  const normalized = `${designationType} ${componentType}`.toLowerCase();
+  if (isWholeCountyGeographicDesignation(designationType)
+    && componentType.trim().toLowerCase() === "single county"
+    && geographyId === countyFips) return "county" as const;
+  if (normalized.includes("population")) return "population_group" as const;
+  if (normalized.includes("facility") || normalized.includes("federally qualified") || normalized.includes("correctional")) {
+    return "facility" as const;
+  }
+  return "source_designation" as const;
+}
+
 export class HrsaHpsaIngestionAdapter implements PublicDataAdapter {
   readonly id = "hrsa-hpsa-v2";
   readonly sourceId = "hrsa-workforce";
@@ -143,18 +160,14 @@ export class HrsaHpsaIngestionAdapter implements PublicDataAdapter {
     });
     const observations = [];
     let rejected = 0;
-    let nonCountyRows = 0;
+    let scopedRows = 0;
     for (const row of rows) {
       if (row[this.config.columns.countyFips]?.padStart(5, "0") !== query.geography.authorityId) continue;
       const designationType = row[this.config.columns.designationType] ?? "";
       const componentType = row[this.config.columns.componentTypeDescription] ?? "";
       const geographyId = row[this.config.columns.geographyIdentificationNumber]?.padStart(5, "0") ?? "";
       const includedStatuses = this.config.includedStatuses ?? ["Designated", "Proposed For Withdrawal", "Proposed for Withdrawal"];
-      if (!isWholeCountyGeographicDesignation(designationType)
-        || componentType.trim().toLowerCase() !== "single county"
-        || geographyId !== query.geography.authorityId
-        || !includedStatuses.includes(row[this.config.columns.status] ?? "")) {
-        nonCountyRows += 1;
+      if (!includedStatuses.includes(row[this.config.columns.status] ?? "")) {
         continue;
       }
       const designationId = row[this.config.columns.designationId]?.trim();
@@ -162,7 +175,15 @@ export class HrsaHpsaIngestionAdapter implements PublicDataAdapter {
         rejected += 1;
         continue;
       }
-      observations.push(buildObservation({
+      const geographyLevel = designationGeographyLevel(
+        designationType,
+        componentType,
+        geographyId,
+        query.geography.authorityId,
+      );
+      if (geographyLevel !== "county") scopedRows += 1;
+      observations.push({
+        ...buildObservation({
         measure,
         geography: query.geography,
         sourceVersion,
@@ -179,9 +200,12 @@ export class HrsaHpsaIngestionAdapter implements PublicDataAdapter {
           discipline: row[this.config.columns.discipline] ?? null,
           designationStatus: row[this.config.columns.status] ?? null,
           lastUpdateDate: this.config.columns.lastUpdateDate ? normalizeDate(row[this.config.columns.lastUpdateDate]) : null,
-          wholeCountyGeographicDesignation: true,
+          wholeCountyGeographicDesignation: geographyLevel === "county",
+          sourceGeographyIdentificationNumber: geographyId,
         },
-      }));
+        }),
+        geographyLevel,
+      });
     }
     return {
       adapterId: this.id,
@@ -194,8 +218,8 @@ export class HrsaHpsaIngestionAdapter implements PublicDataAdapter {
       recordsRead: rows.length,
       recordsAccepted: observations.length,
       recordsRejected: rejected,
-      warnings: nonCountyRows
-        ? [`${nonCountyRows} matching population-group or facility designation rows were retained outside the county-observation set; they were not converted into county findings.`]
+      warnings: scopedRows
+        ? [`${scopedRows} population-group, facility, or subcounty designation rows retain their source scope and must not be presented as whole-county findings.`]
         : [],
       cacheDisposition: fetched.disposition,
     };

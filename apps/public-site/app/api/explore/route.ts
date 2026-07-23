@@ -1,481 +1,164 @@
 import { NextRequest, NextResponse } from "next/server";
-import {
-  confidenceFieldFor,
-  exploreMetrics,
-  fieldFor,
-  safeGeoid,
-  scoreMetric,
-  type ExploreKind,
-} from "../../lib/explore-health";
 import { buildPlaceIntelligence } from "../../lib/place-intelligence";
-import { planningDocumentsByCounty } from "../../lib/explore-planning-evidence";
+import {
+  countyRecordByFips,
+  getApprovedCountyBrief,
+  nationalCountyBenchmark,
+  stateCountyBenchmark,
+} from "../../lib/approved-evidence-snapshot";
+import { exploreMetrics, safeGeoid, scoreMetric, type ExploreKind } from "../../lib/explore-health";
+import { enforceEvidenceRateLimit } from "../../lib/evidence-rate-limit";
 
 export const runtime = "nodejs";
 
-const currentDatasets: Record<ExploreKind, string> = {
-  county: "i46a-9kgh",
-  place: "vgc8-iyc4",
-  zip: "kee5-23sr",
+const paths: Record<string, { group: "conditions" | "barriers" | "prevention"; field: string }> = {
+  bphigh: { group: "conditions", field: "highBloodPressure" },
+  diabetes: { group: "conditions", field: "diabetes" },
+  obesity: { group: "conditions", field: "obesity" },
+  depression: { group: "conditions", field: "depression" },
+  copd: { group: "conditions", field: "copd" },
+  colon_screen: { group: "prevention", field: "colorectalScreening" },
+  mammouse: { group: "prevention", field: "mammography" },
+  dental: { group: "prevention", field: "dentalVisit" },
+  access2: { group: "barriers", field: "uninsured" },
+  lacktrpt: { group: "barriers", field: "transportation" },
+  foodinsecu: { group: "barriers", field: "foodInsecurity" },
+  disability: { group: "barriers", field: "disability" },
+  loneliness: { group: "barriers", field: "loneliness" },
 };
 
-const previousDatasets: Record<ExploreKind, string> = {
-  county: "d3i6-k6z5",
-  place: "hbpe-6r8n",
-  zip: "6jwg-4k37",
-};
-
-const idFields: Record<ExploreKind, string> = {
-  county: "countyfips",
-  place: "placefips",
-  zip: "zcta5",
-};
-
-type SourceRow = Record<string, string | { coordinates?: number[] } | undefined>;
-
-const stateCodes: Record<string, string> = {
-  "01": "AL", "02": "AK", "04": "AZ", "05": "AR", "06": "CA", "08": "CO", "09": "CT", "10": "DE", "11": "DC", "12": "FL", "13": "GA", "15": "HI", "16": "ID", "17": "IL", "18": "IN", "19": "IA", "20": "KS", "21": "KY", "22": "LA", "23": "ME", "24": "MD", "25": "MA", "26": "MI", "27": "MN", "28": "MS", "29": "MO", "30": "MT", "31": "NE", "32": "NV", "33": "NH", "34": "NJ", "35": "NM", "36": "NY", "37": "NC", "38": "ND", "39": "OH", "40": "OK", "41": "OR", "42": "PA", "44": "RI", "45": "SC", "46": "SD", "47": "TN", "48": "TX", "49": "UT", "50": "VT", "51": "VA", "53": "WA", "54": "WV", "55": "WI", "56": "WY", "60": "AS", "66": "GU", "69": "MP", "72": "PR", "78": "VI",
-};
-
-const baseFields: Record<ExploreKind, string[]> = {
-  county: ["countyfips", "stateabbr", "statedesc", "countyname", "totalpopulation", "totalpop18plus", "geolocation"],
-  place: ["placefips", "stateabbr", "statedesc", "placename", "locationname", "totalpopulation", "totalpop18plus", "geolocation"],
-  zip: ["zcta5", "totalpopulation", "totalpop18plus", "geolocation"],
-};
-
-const placeUnavailableMetrics = new Set(["lacktrpt", "foodinsecu", "loneliness"]);
-const previousReleaseUnavailableMetrics = new Set(["lacktrpt", "foodinsecu", "loneliness"]);
-
-function metricsForKind(kind: ExploreKind) {
-  return kind === "place"
-    ? exploreMetrics.filter((metric) => !placeUnavailableMetrics.has(metric.key))
-    : exploreMetrics;
-}
-
-function asNumber(value: unknown) {
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : 0;
-}
-
-function averageSelect(kind: ExploreKind, release: "2025" | "2024") {
-  return metricsForRelease(kind, release)
-    .map((metric) => {
-      const field = fieldFor(kind, metric.field);
-      return `avg(${field}) as ${field}`;
-    })
-    .join(",");
-}
-
-async function cdcQuery(
-  dataset: string,
-  parameters: Record<string, string>,
-) {
-  const url = new URL(`https://data.cdc.gov/resource/${dataset}.json`);
-  Object.entries(parameters).forEach(([key, value]) =>
-    url.searchParams.set(key, value),
-  );
-  const response = await fetch(url, {
-    headers: {
-      Accept: "application/json",
-      "User-Agent": "SozoRock-Health-Place-Evidence/1.0",
-    },
-    next: { revalidate: 86_400 },
-  });
-  if (!response.ok) {
-    const detail = (await response.text()).replace(/\s+/g, " ").slice(0, 220);
-    throw new Error(`CDC PLACES ${dataset} request failed: ${response.status} ${detail}`);
-  }
-  return (await response.json()) as SourceRow[];
-}
-
-function makeLocation(kind: ExploreKind, geoid: string, row: SourceRow) {
-  const state = String(row.stateabbr ?? "");
-  const base =
-    kind === "county"
-      ? `${String(row.countyname ?? "County")} County${state ? `, ${state}` : ""}`
-      : kind === "place"
-        ? `${String(row.locationname ?? row.placename ?? "U.S. place")}${state ? `, ${state}` : ""}`
-        : geoid;
-  const coordinates =
-    typeof row.geolocation === "object" && row.geolocation?.coordinates
-      ? row.geolocation.coordinates
-      : [];
-  return {
-    kind,
-    geoid,
-    label: base,
-    state,
-    population: asNumber(row.totalpopulation),
-    coordinates,
-    geographyLabel: kind === "county" ? "Official county geography" : kind === "place" ? "Official Census place geography" : "Census ZIP Code Tabulation Area",
-    geographyAuthority: "U.S. Census Bureau",
-    evidenceGeography: kind === "county" ? "county" : kind === "place" ? "census_place" : "zcta",
-    caveats: kind === "zip"
-      ? ["This selection uses a Census ZIP Code Tabulation Area (ZCTA). ZIP Codes are mail routes; ZCTAs approximate them and can overlap more than one county."]
-      : kind === "place"
-        ? ["The evidence shown is for this Census place. It is not county-level evidence and should not be generalized beyond the place boundary."]
-        : ["County-level evidence describes the county as a whole. It should not be presented as specific to every ZIP Code, city or neighborhood inside the county."],
-  };
-}
-
-function interpretationFor(
+function interpretation(
   higherValueMeaning: "adverse" | "favorable" | "context_dependent",
   difference: number,
 ) {
   if (higherValueMeaning === "context_dependent") return "context_only" as const;
   if (Math.abs(difference) < 2) return "equal" as const;
-  if (higherValueMeaning === "adverse") {
-    return difference > 0 ? "adverse_signal" as const : "favorable_signal" as const;
-  }
-  return difference < 0 ? "adverse_signal" as const : "favorable_signal" as const;
-}
-
-function trendFor(
-  higherValueMeaning: "adverse" | "favorable" | "context_dependent",
-  current: number,
-  previous: number | null,
-) {
-  if (previous === null || higherValueMeaning === "context_dependent") return "unavailable" as const;
-  const change = Number((current - previous).toFixed(1));
-  if (Math.abs(change) < 0.5) return "stable" as const;
-  if (higherValueMeaning === "adverse") return change < 0 ? "improving" as const : "worsening" as const;
-  return change > 0 ? "improving" as const : "worsening" as const;
-}
-
-function metricValue(row: SourceRow | undefined, field: string) {
-  return row ? asNumber(row[field]) : 0;
-}
-
-function metricsForRelease(kind: ExploreKind, release: "2025" | "2024") {
-  const metrics = metricsForKind(kind);
-  return release === "2024"
-    ? metrics.filter((metric) => !previousReleaseUnavailableMetrics.has(metric.key))
-    : metrics;
-}
-
-async function zipPlaceContext(row: SourceRow) {
-  const coordinates = typeof row.geolocation === "object" ? row.geolocation?.coordinates : undefined;
-  if (!coordinates || coordinates.length < 2) return null;
-  const [longitude, latitude] = coordinates;
-  const query = async (url: string) => {
-    const parameters = new URLSearchParams({
-      f: "json",
-      geometry: JSON.stringify({ x: longitude, y: latitude, spatialReference: { wkid: 4326 } }),
-      geometryType: "esriGeometryPoint",
-      inSR: "4326",
-      spatialRel: "esriSpatialRelIntersects",
-      outFields: "BASENAME,NAME,STATE",
-      returnGeometry: "false",
-      resultRecordCount: "3",
-    });
-    const response = await fetch(`${url}?${parameters}`, {
-      headers: { Accept: "application/json", "User-Agent": "SozoRock-Health-Place-Evidence/1.0" },
-      next: { revalidate: 86_400 },
-    });
-    if (!response.ok) return [] as Array<{ attributes?: Record<string, string | number> }>;
-    const payload = await response.json() as { features?: Array<{ attributes?: Record<string, string | number> }> };
-    return payload.features ?? [];
-  };
-  const placeBase = "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer";
-  const countyUrl = "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/State_County/MapServer/9/query";
-  const [incorporated, designated, counties] = await Promise.all([
-    query(`${placeBase}/4/query`),
-    query(`${placeBase}/5/query`),
-    query(countyUrl),
-  ]);
-  const place = [...incorporated, ...designated][0];
-  const context = place?.attributes ?? counties[0]?.attributes;
-  if (!context) return null;
-  return {
-    name: String(context.BASENAME ?? context.NAME ?? "").replace(/\s+County$/i, ""),
-    state: stateCodes[String(context.STATE ?? "").padStart(2, "0")] ?? "",
-  };
-}
-
-async function censusAreaContext(kind: Exclude<ExploreKind, "zip">, geoid: string) {
-  const countyUrl = "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/State_County/MapServer/9/query";
-  const placeBase = "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer";
-  const urls = kind === "county"
-    ? [countyUrl]
-    : [`${placeBase}/4/query`, `${placeBase}/5/query`];
-  const parameters = new URLSearchParams({
-    f: "json",
-    where: `GEOID='${geoid}'`,
-    outFields: "NAME,STATE",
-    returnGeometry: "false",
-    resultRecordCount: "1",
-  });
-  const responses = await Promise.all(urls.map(async (url) => {
-    const response = await fetch(`${url}?${parameters}`, {
-      headers: { Accept: "application/json", "User-Agent": "SozoRock-Health-Place-Evidence/1.0" },
-      next: { revalidate: 86_400 },
-    });
-    if (!response.ok) return [] as Array<{ attributes?: Record<string, string | number> }>;
-    const payload = await response.json() as { features?: Array<{ attributes?: Record<string, string | number> }> };
-    return payload.features ?? [];
-  }));
-  const context = responses.flat()[0]?.attributes;
-  if (!context) return null;
-  const officialName = String(context.NAME ?? "");
-  return {
-    name: kind === "place"
-      ? officialName.replace(/\s+(city|town|village|borough|CDP|comunidad|zona urbana)$/i, "")
-      : officialName,
-    state: stateCodes[String(context.STATE ?? "").padStart(2, "0")] ?? "",
-  };
-}
-
-function sourceForRelease(kind: ExploreKind, release: "2025" | "2024") {
-  const dataset = release === "2025" ? currentDatasets[kind] : previousDatasets[kind];
-  return {
-    name: `CDC PLACES, ${release} release`,
-    url: `https://data.cdc.gov/d/${dataset}`,
-    release: release === "2025" ? "December 4, 2025" : "September 11, 2025",
-    period:
-      release === "2025"
-        ? "BRFSS 2023 and 2022; ACS 2019–2023 and 2018–2022"
-        : "BRFSS 2022 and 2021; ACS 2018–2022",
-    note:
-      kind === "zip"
-        ? "Crude prevalence estimates"
-        : "Age-adjusted prevalence estimates",
-  };
-}
-
-function buildOfferings(
-  priorities: Array<{ key: string; label: string; value: number }>,
-  hasLocalPlan: boolean,
-) {
-  const find = (...keys: string[]) =>
-    priorities.find((metric) => keys.includes(metric.key));
-  const chronic = find("diabetes", "bphigh", "obesity", "copd", "csmoking");
-  const access = find("lacktrpt", "mobility", "disability", "access2");
-  const connection = find("depression", "loneliness", "foodinsecu");
-  return [
-    {
-      name: "Health Access Day",
-      status: "Open for partnership",
-      evidence: chronic?.label ?? priorities[0]?.label ?? "Local health priorities",
-      text: chronic
-        ? `${chronic.label} is one of the stronger local signals. A targeted event can bring health literacy, prevention, digital readiness and licensed professionals together around the needs shown in the data.`
-        : "A targeted event can connect public education, prevention and digital readiness to the priorities shown in local data.",
-    },
-    {
-      name: "Health Equity Hub formats",
-      status: "Open for partnership",
-      evidence: access?.label ?? connection?.label ?? "Place-based barriers",
-      text: access
-        ? `${access.label} supports considering library, community or home-based access formats that bring practical support closer to where people live.`
-        : "Library, community and home-based formats can be considered where distance, technology or mobility complicate the next step.",
-    },
-    {
-      name: "Provider-led pathways",
-      status: "Open for partnership",
-      evidence: find("access2", "lacktrpt")?.label ?? "Readiness for existing services",
-      text: "The Bring Your Own Platform model helps people prepare for existing licensed services while providers retain their platforms, records, clinical judgment and follow-up.",
-    },
-    {
-      name: "Community health planning",
-      status: hasLocalPlan ? "Current local plan included" : "National public data included",
-      evidence: hasLocalPlan ? "CHA/CHIP priorities" : "CDC PLACES measures",
-      text: "The evidence view can support CHA/CHIP priority setting, partnership design, implementation planning and measurable follow-through without using individual medical records.",
-    },
-  ];
+  return higherValueMeaning === "adverse"
+    ? difference > 0 ? "adverse_signal" as const : "favorable_signal" as const
+    : difference < 0 ? "adverse_signal" as const : "favorable_signal" as const;
 }
 
 export async function GET(request: NextRequest) {
-  const kindValue = request.nextUrl.searchParams.get("kind");
-  const kind =
-    kindValue === "county" || kindValue === "place" || kindValue === "zip"
-      ? kindValue
-      : null;
-  if (!kind) {
-    return NextResponse.json({ error: "Choose a ZIP Code, city or county." }, { status: 400 });
-  }
-  const geoid = safeGeoid(kind, request.nextUrl.searchParams.get("geoid") ?? "");
-  if (!geoid) {
-    return NextResponse.json({ error: "Choose a valid U.S. place." }, { status: 400 });
-  }
-
-  const dataset = currentDatasets[kind];
-  const fieldList = (release: "2025" | "2024") => [
-    ...baseFields[kind],
-    ...metricsForRelease(kind, release).flatMap((metric) => [
-      fieldFor(kind, metric.field),
-      confidenceFieldFor(kind, metric.field),
-    ]),
-  ];
-
   try {
-    const locationParameters = (release: "2025" | "2024") => ({
-      "$select": fieldList(release).join(","),
-      "$where": `${idFields[kind]}='${geoid}'`,
-      "$limit": "1",
-    });
-    const [currentRows, previousRows] = await Promise.all([
-      cdcQuery(currentDatasets[kind], locationParameters("2025")),
-      cdcQuery(previousDatasets[kind], locationParameters("2024")),
-    ]);
-    const currentRow = currentRows[0];
-    const previousRow = previousRows[0];
-    const row = currentRow ?? previousRow;
-    if (!row) {
-      return NextResponse.json({ error: "No current PLACES estimate was found for this location." }, { status: 404 });
+    const rate = await enforceEvidenceRateLimit(request);
+    if (!rate.allowed) {
+      return NextResponse.json(
+        { error: rate.retryAfter ? "Please wait before requesting more evidence." : "Evidence service configuration is incomplete." },
+        { status: rate.retryAfter ? 429 : 503, headers: rate.retryAfter ? { "Retry-After": String(rate.retryAfter) } : undefined },
+      );
     }
-
-    const averageParameters = (release: "2025" | "2024") => ({ "$select": averageSelect(kind, release), "$limit": "1" });
-    const state = String(row.stateabbr ?? "");
-    const stateParameters = (release: "2025" | "2024") => state && kind !== "zip"
-      ? {
-          "$select": averageSelect(kind, release),
-          "$where": `stateabbr='${state.replace(/[^A-Z]/g, "")}'`,
-          "$limit": "1",
-        }
-      : null;
-    const currentStateParameters = stateParameters("2025");
-    const previousStateParameters = stateParameters("2024");
-    const [currentNationalRows, previousNationalRows, currentStateRows, previousStateRows] = await Promise.all([
-      cdcQuery(currentDatasets[kind], averageParameters("2025")),
-      cdcQuery(previousDatasets[kind], averageParameters("2024")),
-      currentStateParameters ? cdcQuery(currentDatasets[kind], currentStateParameters) : Promise.resolve([] as SourceRow[]),
-      previousStateParameters ? cdcQuery(previousDatasets[kind], previousStateParameters) : Promise.resolve([] as SourceRow[]),
-    ]);
-
-    const metrics = metricsForKind(kind)
-      .map((definition) => {
-        const field = fieldFor(kind, definition.field);
-        const currentValue = metricValue(currentRow, field);
-        const release = currentValue > 0 ? "2025" as const : "2024" as const;
-        const releaseRow = release === "2025" ? currentRow : previousRow;
-        const releaseNational = release === "2025" ? currentNationalRows[0] : previousNationalRows[0];
-        const releaseState = release === "2025" ? currentStateRows[0] : previousStateRows[0];
-        const value = metricValue(releaseRow, field);
-        const nationalValue = metricValue(releaseNational, field);
-        const stateValue = metricValue(releaseState, field);
-        const previousValue = release === "2025" ? metricValue(previousRow, field) || null : null;
-        const difference = Number((value - nationalValue).toFixed(1));
-        return {
-          ...definition,
-          value,
-          confidence: String(releaseRow?.[confidenceFieldFor(kind, definition.field)] ?? ""),
-          national: nationalValue,
-          state: stateValue || null,
-          difference,
-          score: scoreMetric(value, nationalValue, definition.higherValueMeaning),
-          release,
-          previousValue,
-          trendDifference: previousValue === null ? null : Number((value - previousValue).toFixed(1)),
-          trend: trendFor(definition.higherValueMeaning, value, previousValue),
-          interpretation: interpretationFor(definition.higherValueMeaning, difference),
-          geographyLevel: kind === "zip" ? "zcta" : kind === "place" ? "census_place" : "county",
-        };
-      })
-      .filter((metric) => metric.value > 0 && metric.national > 0);
-
-    const priorities = metrics
-      .filter((metric) => metric.interpretation === "adverse_signal")
-      .sort((a, b) => b.score - a.score)
-      .slice(0, 5);
-    const planningDocument = kind === "county" ? planningDocumentsByCounty[geoid] ?? null : null;
-    const localPlan = planningDocument
-      ? {
-          status: planningDocument.status,
-          documents: [planningDocument],
-          claims: [],
-          note: "A current local planning document has been found, but its claims are not yet verified for public use.",
-        }
-      : {
-          status: "unavailable" as const,
-          documents: [],
-          claims: [],
-          note: "A current local CHA, CHIP or CHNA has not yet been verified for this geography.",
-        };
-    const baseLocation = makeLocation(kind, geoid, row);
-    const [zipContext, areaContext] = await Promise.all([
-      kind === "zip" ? zipPlaceContext(row) : null,
-      kind === "zip" ? null : censusAreaContext(kind, geoid),
-    ]);
-    const location = zipContext
-      ? {
-          ...baseLocation,
-          label: `${geoid} · ${zipContext.name}${zipContext.state ? `, ${zipContext.state}` : ""}`,
-          state: zipContext.state,
-        }
-      : areaContext
-        ? {
-            ...baseLocation,
-            label: `${areaContext.name}${areaContext.state ? `, ${areaContext.state}` : ""}`,
-            state: areaContext.state,
-          }
-        : baseLocation;
-    const top = priorities[0];
-    const currentMeasureCount = metrics.filter((metric) => metric.release === "2025").length;
-    const previousMeasureCount = metrics.length - currentMeasureCount;
-    const intelligence = buildPlaceIntelligence({
-      location,
-      metrics,
-      priorities,
-      localPlan: null,
-    });
-
-    return NextResponse.json(
-      {
-        location,
-        summary: top
-          ? `${top.label} is one of the strongest signals in the current public data for ${location.label}. Compare it with other local conditions before setting priorities or choosing a response.`
-          : `Current public data is available for ${location.label}.`,
-        metrics,
-        priorities,
-        dataCoverage: {
-          measureCount: metrics.length,
-          currentMeasureCount,
-          previousMeasureCount,
-        },
-        offerings: buildOfferings(priorities, false),
-        intelligence,
-        localPlan,
-        sources: [
-          {
-            name: "CDC PLACES, 2025 release",
-            url: `https://data.cdc.gov/d/${dataset}`,
-            release: "December 4, 2025",
-            period: kind === "zip" ? "BRFSS 2023 and 2022; ACS 2019–2023 and 2018–2022" : "BRFSS 2023 and 2022; ACS 2019–2023 and 2018–2022",
-            note: kind === "zip" ? "Crude prevalence estimates" : "Age-adjusted prevalence estimates",
-            status: "verified",
-            geography: kind === "zip" ? "ZCTA" : kind === "place" ? "Census place" : "County",
-            retrievedAt: new Date().toISOString(),
-          },
-          ...(previousMeasureCount > 0 ? [{
-            ...sourceForRelease(kind, "2024"),
-            status: "verified",
-            geography: kind === "zip" ? "ZCTA" : kind === "place" ? "Census place" : "County",
-            retrievedAt: new Date().toISOString(),
-          }] : []),
-          ...localPlan.documents.map((document) => ({
-            name: document.title,
-            url: document.officialUrl,
-            release: document.publishedAt,
-            period: document.coverage,
-            note: "Candidate local planning source; claims are not yet verified for public use",
-            status: document.reviewStatus,
-            geography: document.coverage,
-            retrievedAt: "2026-07-21",
-          })),
-        ],
-      },
-      {
-        headers: {
-          "Cache-Control": "public, s-maxage=86400, stale-while-revalidate=604800",
-        },
-      },
-    );
   } catch (error) {
-    console.error("explore-health-data-failed", {
-      name: (error as { name?: string }).name ?? "UnknownError",
-      message: String((error as { message?: string }).message ?? "Source request failed").slice(0, 160),
-    });
-    return NextResponse.json(
-      { error: "Current public data could not be loaded. Please try again shortly." },
-      { status: 503 },
-    );
+    console.error("evidence-rate-limit-failed", { name: (error as { name?: string }).name ?? "UnknownError" });
+    return NextResponse.json({ error: "Evidence service is temporarily unavailable." }, { status: 503 });
   }
+  const kindValue = request.nextUrl.searchParams.get("kind");
+  const kind = kindValue === "county" || kindValue === "place" || kindValue === "zip"
+    ? kindValue as ExploreKind
+    : null;
+  if (!kind) return NextResponse.json({ error: "Choose a ZIP Code, city or county." }, { status: 400 });
+  const geoid = safeGeoid(kind, request.nextUrl.searchParams.get("geoid") ?? "");
+  if (!geoid) return NextResponse.json({ error: "Choose a valid U.S. place." }, { status: 400 });
+  if (kind !== "county") {
+    return NextResponse.json({
+      error: "This release validates county evidence only. ZIP Codes, ZCTAs and Census places remain distinct and are not being converted to county evidence.",
+      sourceCoverageStatus: "incompatible_geography",
+    }, { status: 409 });
+  }
+  const record = countyRecordByFips.get(geoid);
+  if (!record) return NextResponse.json({ error: "No current Census county or county equivalent matched that GEOID." }, { status: 404 });
+  const brief = getApprovedCountyBrief(geoid);
+  if (!brief) return NextResponse.json({ error: "The approved evidence snapshot is temporarily unavailable." }, { status: 503 });
+  const stateBenchmark = stateCountyBenchmark(record.stateCode);
+
+  const metrics = exploreMetrics.flatMap((definition) => {
+    const path = paths[definition.key];
+    if (!path) return [];
+    const metric = record[path.group][path.field];
+    const national = nationalCountyBenchmark[path.group][path.field] ?? null;
+    const state = stateBenchmark[path.group][path.field] ?? null;
+    if (!metric || metric.value === null || national === null) return [];
+    const difference = Number((metric.value - national).toFixed(1));
+    return [{
+      ...definition,
+      value: metric.value,
+      confidence: metric.ci ? `${metric.ci[0]}–${metric.ci[1]}` : "",
+      national,
+      state,
+      difference,
+      score: scoreMetric(metric.value, national, definition.higherValueMeaning),
+      release: "2025" as const,
+      previousValue: null,
+      trendDifference: null,
+      trend: "unavailable" as const,
+      interpretation: interpretation(definition.higherValueMeaning, difference),
+      geographyLevel: "county" as const,
+    }];
+  });
+  const priorities = metrics
+    .filter((metric) => metric.interpretation === "adverse_signal")
+    .sort((left, right) => right.score - left.score)
+    .slice(0, 5);
+  const location = {
+    kind: "county" as const,
+    geoid,
+    label: `${record.county}, ${record.stateCode}`,
+    state: record.stateCode,
+    population: record.population ?? 0,
+    coordinates: [record.centroid.lon, record.centroid.lat],
+    geographyLabel: "Official county or county-equivalent geography",
+    geographyAuthority: "U.S. Census Bureau",
+    evidenceGeography: "county" as const,
+    caveats: brief.resolution.caveats,
+  };
+  const intelligence = buildPlaceIntelligence({
+    location,
+    metrics,
+    priorities,
+    localPlan: null,
+  });
+  const cdcCoverage = brief.publicData.sourceCoverage.find((item) => item.sourceId === "cdc-places");
+  return NextResponse.json({
+    location,
+    summary: priorities[0]
+      ? `${priorities[0].label} is one of the strongest comparable signals in the approved county snapshot. It is modeled public data, not a verified local planning priority.`
+      : `Compatible modeled county evidence is available for ${location.label}; local priorities still require verified planning evidence and partner review.`,
+    metrics,
+    priorities,
+    dataCoverage: {
+      measureCount: metrics.length,
+      currentMeasureCount: metrics.length,
+      previousMeasureCount: 0,
+    },
+    offerings: [],
+    intelligence,
+    localPlan: {
+      status: brief.localPlanningEvidence.status,
+      documents: brief.localPlanningEvidence.documents,
+      claims: brief.localPlanningEvidence.claims,
+      note: "Current local planning evidence: not yet verified.",
+    },
+    sources: brief.publicData.sources.map((source) => ({
+      name: source.title,
+      url: source.officialUrl,
+      release: source.releaseDate,
+      period: [source.dataPeriod.start, source.dataPeriod.end].filter(Boolean).join("–"),
+      note: cdcCoverage?.reason ?? "Approved evidence snapshot",
+      status: source.reviewStatus,
+      geography: "County",
+      retrievedAt: source.retrievedAt,
+    })),
+    sourceCoverage: brief.publicData.sourceCoverage,
+    evidenceContract: {
+      contractVersion: brief.contractVersion,
+      evidenceSnapshotId: brief.evidenceSnapshotId,
+      policyVersion: brief.policyVersion,
+      cacheKey: `${brief.contractVersion}:${brief.evidenceSnapshotId}:${brief.policyVersion}:${geoid}`,
+    },
+  }, {
+    headers: {
+      "Cache-Control": "public, s-maxage=86400, stale-while-revalidate=604800",
+      "X-Evidence-Snapshot": brief.evidenceSnapshotId,
+      "X-Evidence-Contract": brief.contractVersion,
+    },
+  });
 }

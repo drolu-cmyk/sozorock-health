@@ -57,10 +57,11 @@
     },
     "publicData": {
       "type": "object",
-      "required": ["observations", "sources"],
+      "required": ["observations", "sources", "sourceCoverage"],
       "properties": {
         "observations": { "type": "array", "items": { "$ref": "#/$defs/observation" } },
-        "sources": { "type": "array", "items": { "$ref": "#/$defs/source" } }
+        "sources": { "type": "array", "items": { "$ref": "#/$defs/source" } },
+        "sourceCoverage": { "type": "array", "minItems": 6, "items": { "$ref": "#/$defs/sourceCoverage" } }
       },
       "additionalProperties": false
     },
@@ -204,6 +205,22 @@
         "dataPeriod": { "$ref": "#/$defs/period" },
         "retrievedAt": { "type": "string" },
         "reviewStatus": { "$ref": "#/$defs/reviewStatus" }
+      },
+      "additionalProperties": false
+    },
+    "sourceCoverage": {
+      "type": "object",
+      "required": ["sourceId", "status", "reason", "sourceVersionId", "geographyKind", "observationCount", "releaseDate", "dataPeriod", "retrievedAt"],
+      "properties": {
+        "sourceId": { "enum": ["census-geography", "cdc-places", "census-acs5", "hrsa-workforce", "ahrq-clh", "local-planning-documents"] },
+        "status": { "enum": ["available", "partially_available", "unavailable_from_source", "credential_blocked", "ingestion_failed", "stale", "incompatible_geography", "awaiting_human_review", "not_yet_verified"] },
+        "reason": { "type": "string", "minLength": 1 },
+        "sourceVersionId": { "type": ["string", "null"] },
+        "geographyKind": { "enum": ["state", "county", "census_place", "zcta", "postal_zip", "planning_region", "population_group", "facility", "source_designation"] },
+        "observationCount": { "type": "integer", "minimum": 0 },
+        "releaseDate": { "type": ["string", "null"] },
+        "dataPeriod": { "$ref": "#/$defs/period" },
+        "retrievedAt": { "type": ["string", "null"] }
       },
       "additionalProperties": false
     },

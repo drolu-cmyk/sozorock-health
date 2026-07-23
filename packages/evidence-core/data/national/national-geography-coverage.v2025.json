@@ -1,0 +1,311 @@
+{
+  "valid": true,
+  "authoritativePrimaryCountyCount": 3144,
+  "searchablePrimaryCountyCount": 3144,
+  "duplicateCountyGeoids": [],
+  "invalidCountyGeoids": [],
+  "orphanCounties": [],
+  "missingGeometryMetadata": [],
+  "crossCountyZctaCount": 10186,
+  "counts": {
+    "statesAndDc": 51,
+    "extendedJurisdictions": 5,
+    "countiesAndEquivalents": 3144,
+    "censusPlaces": 32058,
+    "zctas": 33354,
+    "relationships": 82532
+  },
+  "jurisdictions": {
+    "primary": [
+      {
+        "geoid": "01",
+        "postalCode": "AL",
+        "name": "Alabama"
+      },
+      {
+        "geoid": "02",
+        "postalCode": "AK",
+        "name": "Alaska"
+      },
+      {
+        "geoid": "04",
+        "postalCode": "AZ",
+        "name": "Arizona"
+      },
+      {
+        "geoid": "05",
+        "postalCode": "AR",
+        "name": "Arkansas"
+      },
+      {
+        "geoid": "06",
+        "postalCode": "CA",
+        "name": "California"
+      },
+      {
+        "geoid": "08",
+        "postalCode": "CO",
+        "name": "Colorado"
+      },
+      {
+        "geoid": "09",
+        "postalCode": "CT",
+        "name": "Connecticut"
+      },
+      {
+        "geoid": "10",
+        "postalCode": "DE",
+        "name": "Delaware"
+      },
+      {
+        "geoid": "11",
+        "postalCode": "DC",
+        "name": "District of Columbia"
+      },
+      {
+        "geoid": "12",
+        "postalCode": "FL",
+        "name": "Florida"
+      },
+      {
+        "geoid": "13",
+        "postalCode": "GA",
+        "name": "Georgia"
+      },
+      {
+        "geoid": "15",
+        "postalCode": "HI",
+        "name": "Hawaii"
+      },
+      {
+        "geoid": "16",
+        "postalCode": "ID",
+        "name": "Idaho"
+      },
+      {
+        "geoid": "17",
+        "postalCode": "IL",
+        "name": "Illinois"
+      },
+      {
+        "geoid": "18",
+        "postalCode": "IN",
+        "name": "Indiana"
+      },
+      {
+        "geoid": "19",
+        "postalCode": "IA",
+        "name": "Iowa"
+      },
+      {
+        "geoid": "20",
+        "postalCode": "KS",
+        "name": "Kansas"
+      },
+      {
+        "geoid": "21",
+        "postalCode": "KY",
+        "name": "Kentucky"
+      },
+      {
+        "geoid": "22",
+        "postalCode": "LA",
+        "name": "Louisiana"
+      },
+      {
+        "geoid": "23",
+        "postalCode": "ME",
+        "name": "Maine"
+      },
+      {
+        "geoid": "24",
+        "postalCode": "MD",
+        "name": "Maryland"
+      },
+      {
+        "geoid": "25",
+        "postalCode": "MA",
+        "name": "Massachusetts"
+      },
+      {
+        "geoid": "26",
+        "postalCode": "MI",
+        "name": "Michigan"
+      },
+      {
+        "geoid": "27",
+        "postalCode": "MN",
+        "name": "Minnesota"
+      },
+      {
+        "geoid": "28",
+        "postalCode": "MS",
+        "name": "Mississippi"
+      },
+      {
+        "geoid": "29",
+        "postalCode": "MO",
+        "name": "Missouri"
+      },
+      {
+        "geoid": "30",
+        "postalCode": "MT",
+        "name": "Montana"
+      },
+      {
+        "geoid": "31",
+        "postalCode": "NE",
+        "name": "Nebraska"
+      },
+      {
+        "geoid": "32",
+        "postalCode": "NV",
+        "name": "Nevada"
+      },
+      {
+        "geoid": "33",
+        "postalCode": "NH",
+        "name": "New Hampshire"
+      },
+      {
+        "geoid": "34",
+        "postalCode": "NJ",
+        "name": "New Jersey"
+      },
+      {
+        "geoid": "35",
+        "postalCode": "NM",
+        "name": "New Mexico"
+      },
+      {
+        "geoid": "36",
+        "postalCode": "NY",
+        "name": "New York"
+      },
+      {
+        "geoid": "37",
+        "postalCode": "NC",
+        "name": "North Carolina"
+      },
+      {
+        "geoid": "38",
+        "postalCode": "ND",
+        "name": "North Dakota"
+      },
+      {
+        "geoid": "39",
+        "postalCode": "OH",
+        "name": "Ohio"
+      },
+      {
+        "geoid": "40",
+        "postalCode": "OK",
+        "name": "Oklahoma"
+      },
+      {
+        "geoid": "41",
+        "postalCode": "OR",
+        "name": "Oregon"
+      },
+      {
+        "geoid": "42",
+        "postalCode": "PA",
+        "name": "Pennsylvania"
+      },
+      {
+        "geoid": "44",
+        "postalCode": "RI",
+        "name": "Rhode Island"
+      },
+      {
+        "geoid": "45",
+        "postalCode": "SC",
+        "name": "South Carolina"
+      },
+      {
+        "geoid": "46",
+        "postalCode": "SD",
+        "name": "South Dakota"
+      },
+      {
+        "geoid": "47",
+        "postalCode": "TN",
+        "name": "Tennessee"
+      },
+      {
+        "geoid": "48",
+        "postalCode": "TX",
+        "name": "Texas"
+      },
+      {
+        "geoid": "49",
+        "postalCode": "UT",
+        "name": "Utah"
+      },
+      {
+        "geoid": "50",
+        "postalCode": "VT",
+        "name": "Vermont"
+      },
+      {
+        "geoid": "51",
+        "postalCode": "VA",
+        "name": "Virginia"
+      },
+      {
+        "geoid": "53",
+        "postalCode": "WA",
+        "name": "Washington"
+      },
+      {
+        "geoid": "54",
+        "postalCode": "WV",
+        "name": "West Virginia"
+      },
+      {
+        "geoid": "55",
+        "postalCode": "WI",
+        "name": "Wisconsin"
+      },
+      {
+        "geoid": "56",
+        "postalCode": "WY",
+        "name": "Wyoming"
+      }
+    ],
+    "extended": [
+      {
+        "geoid": "72",
+        "postalCode": "PR",
+        "name": "Puerto Rico",
+        "status": "extended_coverage_inventory"
+      }
+    ],
+    "islandAreas": [
+      {
+        "geoid": "60",
+        "postalCode": "AS",
+        "name": "American Samoa",
+        "status": "extended_coverage_not_in_2025_national_gazetteer"
+      },
+      {
+        "geoid": "66",
+        "postalCode": "GU",
+        "name": "Guam",
+        "status": "extended_coverage_not_in_2025_national_gazetteer"
+      },
+      {
+        "geoid": "69",
+        "postalCode": "MP",
+        "name": "Commonwealth of the Northern Mariana Islands",
+        "status": "extended_coverage_not_in_2025_national_gazetteer"
+      },
+      {
+        "geoid": "78",
+        "postalCode": "VI",
+        "name": "U.S. Virgin Islands",
+        "status": "extended_coverage_not_in_2025_national_gazetteer"
+      }
+    ]
+  }
+}

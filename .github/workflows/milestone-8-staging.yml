@@ -1,0 +1,67 @@
+name: Milestone 8 staging acceptance
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - codex/milestone-8-nationwide-evidence-activation
+
+permissions:
+  contents: read
+
+concurrency:
+  group: milestone-8-staging-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  postgis-and-acceptance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    services:
+      postgres:
+        image: postgis/postgis:17-3.5
+        env:
+          POSTGRES_DB: evidence_test
+          POSTGRES_USER: evidence
+          POSTGRES_PASSWORD: evidence_test_only
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U evidence -d evidence_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      EVIDENCE_DATABASE_URL: postgresql://evidence:evidence_test_only@localhost:5432/evidence_test
+      EVIDENCE_DATABASE_SSL: disable
+      EVIDENCE_MIGRATION_TEST_DISPOSABLE: "true"
+      NATIONAL_SNAPSHOT_DATE: "2026-07-23T00:00:00.000Z"
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "24"
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - name: Apply, rollback, and reapply migrations
+        run: npm run test:migrations --workspace @sozorock/evidence-core
+      - name: Rebuild official national geography
+        run: npm run build:national-geography --workspace @sozorock/evidence-core
+      - name: Validate nationwide place briefs
+        run: npm run build:national-coverage --workspace @sozorock/evidence-core
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Lint
+        run: npm run lint
+      - name: Repository tests
+        run: npm test
+      - name: Clean public production build
+        run: npm run build:public
+      - name: Upload coverage and migration evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: milestone-8-staging-evidence
+          path: |
+            packages/evidence-core/data/national/national-geography-coverage.v2025.json
+            packages/evidence-core/data/national/national-coverage-report.v1.json
+            packages/evidence-core/data/national/national-coverage-report.v1.md

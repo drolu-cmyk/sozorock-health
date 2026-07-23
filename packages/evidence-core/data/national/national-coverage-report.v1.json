@@ -1,0 +1,615 @@
+{
+  "schemaVersion": "sozorock.national-coverage-report.v1",
+  "generatedAt": "2026-07-23T00:00:00.000Z",
+  "snapshotId": "snapshot:1ca229a06b3368ccb33a9ea46f4f5671b67678c5679f5edb36cd475e6b970f8a",
+  "authoritativeCountyCount": 3144,
+  "loadedCountyCount": 3144,
+  "searchableCountyCount": 3144,
+  "validPlaceBriefCount": 3144,
+  "sourceCoverageCounts": {
+    "census-geography": {
+      "available": 3144
+    },
+    "cdc-places": {
+      "available": 2299,
+      "partially_available": 844,
+      "unavailable_from_source": 1
+    },
+    "census-acs5": {
+      "credential_blocked": 3144
+    },
+    "hrsa-workforce": {
+      "not_yet_verified": 3144
+    },
+    "ahrq-clh": {
+      "awaiting_human_review": 3144
+    },
+    "local-planning-documents": {
+      "not_yet_verified": 3144
+    }
+  },
+  "geographyQuality": {
+    "duplicates": 0,
+    "orphans": 0,
+    "invalidFips": 0,
+    "missingGeometryMetadata": 0
+  },
+  "territories": {
+    "primary": [
+      {
+        "geoid": "01",
+        "postalCode": "AL",
+        "name": "Alabama"
+      },
+      {
+        "geoid": "02",
+        "postalCode": "AK",
+        "name": "Alaska"
+      },
+      {
+        "geoid": "04",
+        "postalCode": "AZ",
+        "name": "Arizona"
+      },
+      {
+        "geoid": "05",
+        "postalCode": "AR",
+        "name": "Arkansas"
+      },
+      {
+        "geoid": "06",
+        "postalCode": "CA",
+        "name": "California"
+      },
+      {
+        "geoid": "08",
+        "postalCode": "CO",
+        "name": "Colorado"
+      },
+      {
+        "geoid": "09",
+        "postalCode": "CT",
+        "name": "Connecticut"
+      },
+      {
+        "geoid": "10",
+        "postalCode": "DE",
+        "name": "Delaware"
+      },
+      {
+        "geoid": "11",
+        "postalCode": "DC",
+        "name": "District of Columbia"
+      },
+      {
+        "geoid": "12",
+        "postalCode": "FL",
+        "name": "Florida"
+      },
+      {
+        "geoid": "13",
+        "postalCode": "GA",
+        "name": "Georgia"
+      },
+      {
+        "geoid": "15",
+        "postalCode": "HI",
+        "name": "Hawaii"
+      },
+      {
+        "geoid": "16",
+        "postalCode": "ID",
+        "name": "Idaho"
+      },
+      {
+        "geoid": "17",
+        "postalCode": "IL",
+        "name": "Illinois"
+      },
+      {
+        "geoid": "18",
+        "postalCode": "IN",
+        "name": "Indiana"
+      },
+      {
+        "geoid": "19",
+        "postalCode": "IA",
+        "name": "Iowa"
+      },
+      {
+        "geoid": "20",
+        "postalCode": "KS",
+        "name": "Kansas"
+      },
+      {
+        "geoid": "21",
+        "postalCode": "KY",
+        "name": "Kentucky"
+      },
+      {
+        "geoid": "22",
+        "postalCode": "LA",
+        "name": "Louisiana"
+      },
+      {
+        "geoid": "23",
+        "postalCode": "ME",
+        "name": "Maine"
+      },
+      {
+        "geoid": "24",
+        "postalCode": "MD",
+        "name": "Maryland"
+      },
+      {
+        "geoid": "25",
+        "postalCode": "MA",
+        "name": "Massachusetts"
+      },
+      {
+        "geoid": "26",
+        "postalCode": "MI",
+        "name": "Michigan"
+      },
+      {
+        "geoid": "27",
+        "postalCode": "MN",
+        "name": "Minnesota"
+      },
+      {
+        "geoid": "28",
+        "postalCode": "MS",
+        "name": "Mississippi"
+      },
+      {
+        "geoid": "29",
+        "postalCode": "MO",
+        "name": "Missouri"
+      },
+      {
+        "geoid": "30",
+        "postalCode": "MT",
+        "name": "Montana"
+      },
+      {
+        "geoid": "31",
+        "postalCode": "NE",
+        "name": "Nebraska"
+      },
+      {
+        "geoid": "32",
+        "postalCode": "NV",
+        "name": "Nevada"
+      },
+      {
+        "geoid": "33",
+        "postalCode": "NH",
+        "name": "New Hampshire"
+      },
+      {
+        "geoid": "34",
+        "postalCode": "NJ",
+        "name": "New Jersey"
+      },
+      {
+        "geoid": "35",
+        "postalCode": "NM",
+        "name": "New Mexico"
+      },
+      {
+        "geoid": "36",
+        "postalCode": "NY",
+        "name": "New York"
+      },
+      {
+        "geoid": "37",
+        "postalCode": "NC",
+        "name": "North Carolina"
+      },
+      {
+        "geoid": "38",
+        "postalCode": "ND",
+        "name": "North Dakota"
+      },
+      {
+        "geoid": "39",
+        "postalCode": "OH",
+        "name": "Ohio"
+      },
+      {
+        "geoid": "40",
+        "postalCode": "OK",
+        "name": "Oklahoma"
+      },
+      {
+        "geoid": "41",
+        "postalCode": "OR",
+        "name": "Oregon"
+      },
+      {
+        "geoid": "42",
+        "postalCode": "PA",
+        "name": "Pennsylvania"
+      },
+      {
+        "geoid": "44",
+        "postalCode": "RI",
+        "name": "Rhode Island"
+      },
+      {
+        "geoid": "45",
+        "postalCode": "SC",
+        "name": "South Carolina"
+      },
+      {
+        "geoid": "46",
+        "postalCode": "SD",
+        "name": "South Dakota"
+      },
+      {
+        "geoid": "47",
+        "postalCode": "TN",
+        "name": "Tennessee"
+      },
+      {
+        "geoid": "48",
+        "postalCode": "TX",
+        "name": "Texas"
+      },
+      {
+        "geoid": "49",
+        "postalCode": "UT",
+        "name": "Utah"
+      },
+      {
+        "geoid": "50",
+        "postalCode": "VT",
+        "name": "Vermont"
+      },
+      {
+        "geoid": "51",
+        "postalCode": "VA",
+        "name": "Virginia"
+      },
+      {
+        "geoid": "53",
+        "postalCode": "WA",
+        "name": "Washington"
+      },
+      {
+        "geoid": "54",
+        "postalCode": "WV",
+        "name": "West Virginia"
+      },
+      {
+        "geoid": "55",
+        "postalCode": "WI",
+        "name": "Wisconsin"
+      },
+      {
+        "geoid": "56",
+        "postalCode": "WY",
+        "name": "Wyoming"
+      }
+    ],
+    "extended": [
+      {
+        "geoid": "72",
+        "postalCode": "PR",
+        "name": "Puerto Rico",
+        "status": "extended_coverage_inventory"
+      }
+    ],
+    "islandAreas": [
+      {
+        "geoid": "60",
+        "postalCode": "AS",
+        "name": "American Samoa",
+        "status": "extended_coverage_not_in_2025_national_gazetteer"
+      },
+      {
+        "geoid": "66",
+        "postalCode": "GU",
+        "name": "Guam",
+        "status": "extended_coverage_not_in_2025_national_gazetteer"
+      },
+      {
+        "geoid": "69",
+        "postalCode": "MP",
+        "name": "Commonwealth of the Northern Mariana Islands",
+        "status": "extended_coverage_not_in_2025_national_gazetteer"
+      },
+      {
+        "geoid": "78",
+        "postalCode": "VI",
+        "name": "U.S. Virgin Islands",
+        "status": "extended_coverage_not_in_2025_national_gazetteer"
+      }
+    ]
+  },
+  "evaluationPlaces": [
+    {
+      "geoid": "36001",
+      "found": true,
+      "briefValid": true
+    },
+    {
+      "geoid": "36093",
+      "found": true,
+      "briefValid": true
+    },
+    {
+      "geoid": "36057",
+      "found": true,
+      "briefValid": true
+    },
+    {
+      "geoid": "42029",
+      "found": true,
+      "briefValid": true
+    },
+    {
+      "geoid": "48029",
+      "found": true,
+      "briefValid": true
+    }
+  ],
+  "randomStateSample": [
+    {
+      "state": "AL",
+      "geoid": "01109",
+      "name": "Pike County"
+    },
+    {
+      "state": "AK",
+      "geoid": "02198",
+      "name": "Prince of Wales-Hyder Census Area"
+    },
+    {
+      "state": "AZ",
+      "geoid": "04017",
+      "name": "Navajo County"
+    },
+    {
+      "state": "AR",
+      "geoid": "05109",
+      "name": "Pike County"
+    },
+    {
+      "state": "CA",
+      "geoid": "06093",
+      "name": "Siskiyou County"
+    },
+    {
+      "state": "CO",
+      "geoid": "08051",
+      "name": "Gunnison County"
+    },
+    {
+      "state": "CT",
+      "geoid": "09150",
+      "name": "Northeastern Connecticut Planning Region"
+    },
+    {
+      "state": "DE",
+      "geoid": "10001",
+      "name": "Kent County"
+    },
+    {
+      "state": "DC",
+      "geoid": "11001",
+      "name": "District of Columbia"
+    },
+    {
+      "state": "FL",
+      "geoid": "12021",
+      "name": "Collier County"
+    },
+    {
+      "state": "GA",
+      "geoid": "13035",
+      "name": "Butts County"
+    },
+    {
+      "state": "HI",
+      "geoid": "15003",
+      "name": "Honolulu County"
+    },
+    {
+      "state": "ID",
+      "geoid": "16029",
+      "name": "Caribou County"
+    },
+    {
+      "state": "IL",
+      "geoid": "17181",
+      "name": "Union County"
+    },
+    {
+      "state": "IN",
+      "geoid": "18049",
+      "name": "Fulton County"
+    },
+    {
+      "state": "IA",
+      "geoid": "19143",
+      "name": "Osceola County"
+    },
+    {
+      "state": "KS",
+      "geoid": "20039",
+      "name": "Decatur County"
+    },
+    {
+      "state": "KY",
+      "geoid": "21103",
+      "name": "Henry County"
+    },
+    {
+      "state": "LA",
+      "geoid": "22039",
+      "name": "Evangeline Parish"
+    },
+    {
+      "state": "ME",
+      "geoid": "23011",
+      "name": "Kennebec County"
+    },
+    {
+      "state": "MD",
+      "geoid": "24023",
+      "name": "Garrett County"
+    },
+    {
+      "state": "MA",
+      "geoid": "25011",
+      "name": "Franklin County"
+    },
+    {
+      "state": "MI",
+      "geoid": "26161",
+      "name": "Washtenaw County"
+    },
+    {
+      "state": "MN",
+      "geoid": "27053",
+      "name": "Hennepin County"
+    },
+    {
+      "state": "MS",
+      "geoid": "28061",
+      "name": "Jasper County"
+    },
+    {
+      "state": "MO",
+      "geoid": "29179",
+      "name": "Reynolds County"
+    },
+    {
+      "state": "MT",
+      "geoid": "30063",
+      "name": "Missoula County"
+    },
+    {
+      "state": "NE",
+      "geoid": "31123",
+      "name": "Morrill County"
+    },
+    {
+      "state": "NV",
+      "geoid": "32033",
+      "name": "White Pine County"
+    },
+    {
+      "state": "NH",
+      "geoid": "33003",
+      "name": "Carroll County"
+    },
+    {
+      "state": "NJ",
+      "geoid": "34035",
+      "name": "Somerset County"
+    },
+    {
+      "state": "NM",
+      "geoid": "35013",
+      "name": "Doña Ana County"
+    },
+    {
+      "state": "NY",
+      "geoid": "36007",
+      "name": "Broome County"
+    },
+    {
+      "state": "NC",
+      "geoid": "37145",
+      "name": "Person County"
+    },
+    {
+      "state": "ND",
+      "geoid": "38035",
+      "name": "Grand Forks County"
+    },
+    {
+      "state": "OH",
+      "geoid": "39083",
+      "name": "Knox County"
+    },
+    {
+      "state": "OK",
+      "geoid": "40139",
+      "name": "Texas County"
+    },
+    {
+      "state": "OR",
+      "geoid": "41019",
+      "name": "Douglas County"
+    },
+    {
+      "state": "PA",
+      "geoid": "42103",
+      "name": "Pike County"
+    },
+    {
+      "state": "RI",
+      "geoid": "44009",
+      "name": "Washington County"
+    },
+    {
+      "state": "SC",
+      "geoid": "45035",
+      "name": "Dorchester County"
+    },
+    {
+      "state": "SD",
+      "geoid": "46003",
+      "name": "Aurora County"
+    },
+    {
+      "state": "TN",
+      "geoid": "47093",
+      "name": "Knox County"
+    },
+    {
+      "state": "TX",
+      "geoid": "48255",
+      "name": "Karnes County"
+    },
+    {
+      "state": "UT",
+      "geoid": "49017",
+      "name": "Garfield County"
+    },
+    {
+      "state": "VT",
+      "geoid": "50003",
+      "name": "Bennington County"
+    },
+    {
+      "state": "VA",
+      "geoid": "51067",
+      "name": "Franklin County"
+    },
+    {
+      "state": "WA",
+      "geoid": "53055",
+      "name": "San Juan County"
+    },
+    {
+      "state": "WV",
+      "geoid": "54047",
+      "name": "McDowell County"
+    },
+    {
+      "state": "WI",
+      "geoid": "55135",
+      "name": "Waupaca County"
+    },
+    {
+      "state": "WY",
+      "geoid": "56007",
+      "name": "Carbon County"
+    }
+  ],
+  "failures": []
+}

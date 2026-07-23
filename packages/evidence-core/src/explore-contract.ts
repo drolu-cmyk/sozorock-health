@@ -79,6 +79,32 @@ export type ExploreResponseFit = {
   requiresHumanReview: true;
 };
 
+export const SOURCE_COVERAGE_STATUSES = [
+  "available",
+  "partially_available",
+  "unavailable_from_source",
+  "credential_blocked",
+  "ingestion_failed",
+  "stale",
+  "incompatible_geography",
+  "awaiting_human_review",
+  "not_yet_verified",
+] as const;
+
+export type ExploreSourceCoverageStatus = (typeof SOURCE_COVERAGE_STATUSES)[number];
+
+export type ExploreSourceCoverage = {
+  sourceId: "census-geography" | "cdc-places" | "census-acs5" | "hrsa-workforce" | "ahrq-clh" | "local-planning-documents";
+  status: ExploreSourceCoverageStatus;
+  reason: string;
+  sourceVersionId: string | null;
+  geographyKind: GeographyKind | "population_group" | "facility" | "source_designation";
+  observationCount: number;
+  releaseDate: string | null;
+  dataPeriod: { start: string | null; end: string | null };
+  retrievedAt: string | null;
+};
+
 export type ExplorePlaceBriefV1 = {
   contractVersion: typeof EXPLORE_PLACE_BRIEF_VERSION;
   generatedAt: string;
@@ -115,6 +141,7 @@ export type ExplorePlaceBriefV1 = {
   publicData: {
     observations: ExploreObservation[];
     sources: ExploreSourceReference[];
+    sourceCoverage: ExploreSourceCoverage[];
   };
   evidenceAssessment: {
     known: string[];
@@ -135,6 +162,22 @@ export function validateExplorePlaceBriefV1(brief: ExplorePlaceBriefV1) {
   if (brief.contractVersion !== EXPLORE_PLACE_BRIEF_VERSION) errors.push("Unsupported Explore contract version.");
   const citationIds = new Set(brief.citations.map((citation) => citation.id));
   const sourceVersionIds = new Set(brief.publicData.sources.map((source) => source.sourceVersionId));
+  const requiredCoverage = new Set([
+    "census-geography",
+    "cdc-places",
+    "census-acs5",
+    "hrsa-workforce",
+    "ahrq-clh",
+    "local-planning-documents",
+  ]);
+  for (const coverage of brief.publicData.sourceCoverage) {
+    requiredCoverage.delete(coverage.sourceId);
+    if (coverage.observationCount < 0) errors.push(`Coverage ${coverage.sourceId} has an invalid observation count.`);
+    if (["available", "partially_available"].includes(coverage.status) && !coverage.sourceVersionId) {
+      errors.push(`Coverage ${coverage.sourceId} requires a source version for ${coverage.status} status.`);
+    }
+  }
+  if (requiredCoverage.size) errors.push(`Missing source coverage: ${[...requiredCoverage].join(", ")}.`);
   for (const observation of brief.publicData.observations) {
     if (!sourceVersionIds.has(observation.sourceVersionId)) errors.push(`Observation ${observation.id} has no source version reference.`);
     for (const citationId of observation.citationIds) {

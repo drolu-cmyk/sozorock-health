@@ -93,8 +93,9 @@ async function main() {
   const countyData = JSON.parse(await readFile(path.join(DATA_DIR, "county-planning.json"), "utf8"));
   const expectedFips = new Set(countyData.map((county) => county.fips));
   const geometryFips = new Set(counties.map((feature) => feature.id));
-  if (counties.length !== 3144 || geometryFips.size !== 3144) {
-    throw new Error(`Expected 3,144 unique county geometries; received ${counties.length}/${geometryFips.size}`);
+  const authoritativeCountyCount = expectedFips.size;
+  if (counties.length !== authoritativeCountyCount || geometryFips.size !== authoritativeCountyCount) {
+    throw new Error(`Expected ${authoritativeCountyCount.toLocaleString("en-US")} unique county geometries from the official county data; received ${counties.length}/${geometryFips.size}`);
   }
   const missing = [...expectedFips].filter((fips) => !geometryFips.has(fips));
   const unexpected = [...geometryFips].filter((fips) => !expectedFips.has(fips));

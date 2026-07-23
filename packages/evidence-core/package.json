@@ -12,10 +12,19 @@
     "evaluate:place-agent": "node --experimental-strip-types scripts/evaluate-place-agent.ts",
     "build:planning-review": "node --experimental-strip-types scripts/build-planning-review.ts",
     "build:partner-evidence-review": "node --experimental-strip-types scripts/build-partner-evidence-review.ts",
-    "evaluate:national-operations": "node --experimental-strip-types scripts/evaluate-national-operations.ts"
+    "evaluate:national-operations": "node --experimental-strip-types scripts/evaluate-national-operations.ts",
+    "build:national-geography": "node --experimental-strip-types scripts/build-national-geography.ts",
+    "build:national-coverage": "node --experimental-strip-types scripts/build-national-coverage.ts",
+    "test:migrations": "node --experimental-strip-types scripts/test-migrations.ts"
+  },
+  "dependencies": {
+    "fflate": "^0.8.2",
+    "pg": "^8.16.3",
+    "read-excel-file": "8.0.2"
   },
   "devDependencies": {
     "@playwright/test": "^1.61.1",
+    "@types/pg": "^8.15.5",
     "typescript": "5.8.3"
   }
 }

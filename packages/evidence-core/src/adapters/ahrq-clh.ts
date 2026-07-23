@@ -8,6 +8,11 @@ export type AhrqClhReleaseInput = {
   reviewedDownloadUrls: string[];
 };
 
+export const AHRQ_CLH_2023_COUNTY_ARTIFACT =
+  "https://www.ahrq.gov/sites/default/files/wysiwyg/sdoh/clh_2023_county_2_0.xlsx";
+export const AHRQ_CLH_2023_CODEBOOK =
+  "https://www.ahrq.gov/sites/default/files/wysiwyg/sdoh/clh_2023_codebook_2_0.xlsx";
+
 export const ahrqClhAdapter: SourceAdapter<AhrqClhReleaseInput> = {
   id: "ahrq-clh-v1",
   family: "ahrq_clh",

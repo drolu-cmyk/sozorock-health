@@ -1,8 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { zipSync, strToU8 } from "fflate";
 import {
   AcsIngestionAdapter,
   AhrqClhIngestionAdapter,
+  createAhrqXlsxReader,
   CdcPlacesIngestionAdapter,
   HrsaHpsaIngestionAdapter,
   InMemoryHttpCache,
@@ -182,7 +184,7 @@ test("scheduled import jobs are idempotent for the same adapter release and geog
   assert.equal(seenUrls.length, 1);
 });
 
-test("HRSA population and facility designations are not converted to county findings", async () => {
+test("HRSA population and facility designations are retained without being converted to county findings", async () => {
   const csv = [
     "HPSA ID,HPSA Name,Designation Type,Discipline,Status,County FIPS,Geography ID,Component Type,Component ID,HPSA Score,Designation Date,Last Update,Record Create",
     "A1,Albany Geographic,Geographic HPSA,Primary Care,Designated,36001,36001,Single County,C1,15,01/01/2024,07/19/2026,07/20/2026",
@@ -213,11 +215,12 @@ test("HRSA population and facility designations are not converted to county find
     { geography: albany },
     { fetcher: staticFetcher(csv), cache: new InMemoryHttpCache(), now: "2026-07-20T12:00:00Z" },
   );
-  assert.equal(batch.observations.length, 1);
+  assert.equal(batch.observations.length, 3);
   assert.equal(batch.observations[0].sourceRecordId, "A1:C1");
+  assert.deepEqual(batch.observations.map((item) => item.geographyLevel), ["county", "population_group", "facility"]);
   assert.equal(batch.sourceVersion?.releaseDate, "2026-07-20");
   assert.equal(batch.observations[0].dataPeriodStart, "2024-01-01");
-  assert.match(batch.warnings[0], /2 matching population-group or facility/i);
+  assert.match(batch.warnings[0], /2 population-group, facility, or subcounty/i);
 });
 
 test("AHRQ CLH reports unavailable rather than parsing an unapproved XLSX release", async () => {
@@ -235,6 +238,71 @@ test("AHRQ CLH reports unavailable rather than parsing an unapproved XLSX releas
   );
   assert.equal(batch.status, "unavailable");
   assert.match(batch.statusReason ?? "", /approved XLSX reader/i);
+});
+
+test("AHRQ CLH XLSX reader validates approved variables against the matching codebook", async () => {
+  function fixtureXlsx(sheetName: string, rows: Array<Array<string | number>>) {
+    const escape = (value: string) => value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
+    const column = (index: number) => String.fromCharCode(65 + index);
+    const sheetRows = rows.map((row, rowIndex) =>
+      `<row r="${rowIndex + 1}">${row.map((value, columnIndex) => typeof value === "number"
+        ? `<c r="${column(columnIndex)}${rowIndex + 1}"><v>${value}</v></c>`
+        : `<c r="${column(columnIndex)}${rowIndex + 1}" t="inlineStr"><is><t>${escape(value)}</t></is></c>`).join("")}</row>`).join("");
+    return Buffer.from(zipSync({
+      "[Content_Types].xml": strToU8('<?xml version="1.0"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/></Types>'),
+      "_rels/.rels": strToU8('<?xml version="1.0"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>'),
+      "xl/workbook.xml": strToU8(`<?xml version="1.0"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="${sheetName}" sheetId="1" r:id="rId1"/></sheets></workbook>`),
+      "xl/_rels/workbook.xml.rels": strToU8('<?xml version="1.0"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/></Relationships>'),
+      "xl/worksheets/sheet1.xml": strToU8(`<?xml version="1.0"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>${sheetRows}</sheetData></worksheet>`),
+    }));
+  }
+  const dataBytes = fixtureXlsx("Data", [
+    ["YEAR", "COUNTYFIPS", "ACS_PCT_HH_NO_INTERNET"],
+    [2023, "36001", 7.4],
+  ]);
+  const codebookBytes = fixtureXlsx("County", [
+    ["Domain", "Topic", "Variable Name", "Variable Label"],
+    ["Physical infrastructure", "Internet", "ACS_PCT_HH_NO_INTERNET", "Households with no internet"],
+  ]);
+  const fetcher: FetchLike = async (url) => {
+    const bytes = url.includes("codebook") ? codebookBytes : dataBytes;
+    return {
+      status: 200,
+      ok: true,
+      headers: { get: () => "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" },
+      async text() { return ""; },
+      async arrayBuffer() { return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength); },
+    };
+  };
+  const reader = createAhrqXlsxReader({
+    dataWorksheet: "Data",
+    codebookReleaseLabel: "AHRQ CLH September 2025 / 2023 data",
+    codebookUrl: "https://www.ahrq.gov/sites/default/files/wysiwyg/sdoh/clh_2023_codebook_2_0.xlsx",
+    approvedVariables: [{ variableId: "ACS_PCT_HH_NO_INTERNET", geographyKinds: ["county"] }],
+  });
+  const adapter = new AhrqClhIngestionAdapter({
+    releaseLabel: "September 2025 release",
+    releaseDate: "2025-09-01",
+    artifactUrl: "https://www.ahrq.gov/sites/default/files/wysiwyg/sdoh/clh_2023_county_2_0.xlsx",
+    geographyKind: "county",
+    geographyIdField: "COUNTYFIPS",
+    variables: [{
+      sourceMeasureId: "ACS_PCT_HH_NO_INTERNET",
+      name: "Households with no internet access",
+      description: "AHRQ CLH variable validated against the 2023 county codebook.",
+      universe: "Households",
+      unit: "percent",
+      higherValueMeaning: "adverse",
+    }],
+    reader,
+  });
+  const batch = await adapter.fetch(
+    { geography: albany },
+    { fetcher, cache: new InMemoryHttpCache(), now: "2026-07-23T00:00:00Z" },
+  );
+  assert.equal(batch.status, "available");
+  assert.equal(batch.observations.length, 1);
+  assert.equal(batch.observations[0].numericValue, 7.4);
 });
 
 test("runtime artifact adapters reject unapproved hosts before any network request", async () => {
