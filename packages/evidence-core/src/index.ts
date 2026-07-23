@@ -8,3 +8,4 @@ export * from "./ingestion/index.ts";
 export * from "./planning/index.ts";
 export * from "./agent/index.ts";
 export * from "./decision-support/index.ts";
+export * from "./operations/index.ts";

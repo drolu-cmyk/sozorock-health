@@ -1,0 +1,94 @@
+name: Place evidence operations review
+
+on:
+  schedule:
+    - cron: "17 7 * * 1"
+    - cron: "43 8 1 * *"
+  workflow_dispatch:
+
+concurrency:
+  group: place-evidence-operations-review
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  source-health:
+    name: Check five-place source health without publishing
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      CENSUS_API_KEY: ${{ secrets.CENSUS_API_KEY }}
+    steps:
+      - name: Check out the reviewed source
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
+
+      - name: Use the supported Node.js release
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install the locked dependency graph
+        run: npm ci
+
+      - name: Run evidence policy and safety tests
+        run: npm run test --workspace @sozorock/evidence-core
+
+      - name: Record official-source health for the evaluation places
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p output/place-evidence-operations
+          npm run evaluate:five-places --workspace @sozorock/evidence-core -- --include-hrsa \
+            | tee output/place-evidence-operations/five-place-source-health.json
+
+      - name: Record release-gate status
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run evaluate:national-operations --workspace @sozorock/evidence-core \
+            | tee output/place-evidence-operations/release-gates.json
+
+      - name: Upload internal review evidence
+        uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4
+        with:
+          name: place-evidence-source-health-${{ github.run_id }}
+          path: output/place-evidence-operations
+          retention-days: 30
+
+  monthly-planning-review:
+    name: Rebuild the controlled planning review queue
+    if: github.event_name == 'workflow_dispatch' || github.event.schedule == '43 8 1 * *'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out the reviewed source
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
+
+      - name: Use the supported Node.js release
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install the locked dependency graph
+        run: npm ci
+
+      - name: Rebuild deterministic review artifacts
+        run: npm run build:planning-review --workspace @sozorock/evidence-core
+
+      - name: Verify no unreviewed source drift
+        run: git diff --exit-code
+
+      - name: Upload the internal review queue
+        uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4
+        with:
+          name: planning-review-queue-${{ github.run_id }}
+          path: packages/evidence-core/review/milestone-3-pilot-evidence-review.json
+          retention-days: 30
