@@ -1,6 +1,6 @@
 # National Geography Coverage — Census 2025
 
-- Generated: 2026-07-23T16:01:33.720Z
+- Generated: 2026-07-23T18:25:59.651Z
 - Primary release scope: 50 states and the District of Columbia
 - Authoritative counties and county equivalents: 3,144
 - Census places: 32,058

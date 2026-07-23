@@ -58,3 +58,52 @@ export async function enforceEvidenceRateLimit(request: NextRequest) {
     throw error;
   }
 }
+
+export async function enforceAgentRateLimit(request: NextRequest) {
+  if (process.env.NODE_ENV !== "production" && !tableName) return { allowed: true as const, retryAfter: null };
+  if (!tableName) return { allowed: false as const, retryAfter: null };
+  const epoch = Math.floor(Date.now() / 1000);
+  const hour = Math.floor(epoch / 3600);
+  const day = Math.floor(epoch / 86400);
+  const clientHash = createHash("sha256")
+    .update(`${await salt()}:place-agent:${clientNetworkAddress(request.headers)}`)
+    .digest("hex");
+  const perNetworkPerHour = Number(process.env.PLACE_AGENT_MAX_PER_NETWORK_HOUR || "12");
+  const globalPerDay = Number(process.env.PLACE_AGENT_MAX_GLOBAL_DAY || "2000");
+  if (!Number.isInteger(perNetworkPerHour) || perNetworkPerHour < 1
+    || !Number.isInteger(globalPerDay) || globalPerDay < 1) {
+    return { allowed: false as const, retryAfter: null };
+  }
+  try {
+    await dynamo.send(new UpdateCommand({
+      TableName: tableName,
+      Key: { submissionId: `place-agent-global#${day}` },
+      UpdateExpression: "ADD requestCount :one SET expiresAt = :expiresAt, recordType = :recordType",
+      ConditionExpression: "attribute_not_exists(requestCount) OR requestCount < :maximum",
+      ExpressionAttributeValues: {
+        ":one": 1,
+        ":maximum": globalPerDay,
+        ":expiresAt": epoch + 172800,
+        ":recordType": "place-agent-global-cost-limit",
+      },
+    }));
+    await dynamo.send(new UpdateCommand({
+      TableName: tableName,
+      Key: { submissionId: `place-agent-rate#${clientHash}#${hour}` },
+      UpdateExpression: "ADD requestCount :one SET expiresAt = :expiresAt, recordType = :recordType",
+      ConditionExpression: "attribute_not_exists(requestCount) OR requestCount < :maximum",
+      ExpressionAttributeValues: {
+        ":one": 1,
+        ":maximum": perNetworkPerHour,
+        ":expiresAt": epoch + 7200,
+        ":recordType": "place-agent-rate-limit",
+      },
+    }));
+    return { allowed: true as const, retryAfter: null };
+  } catch (error) {
+    if ((error as { name?: string }).name === "ConditionalCheckFailedException") {
+      return { allowed: false as const, retryAfter: 3600 };
+    }
+    throw error;
+  }
+}

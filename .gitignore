@@ -15,6 +15,8 @@ artifacts/
 .playwright-cli/
 .playwright-output/
 .playwright-browsers/
+.npm-cache/
+scratch-sharp-override/
 
 # Environment and local secrets
 .env

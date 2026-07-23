@@ -92,6 +92,14 @@ try {
   if (rolledBack.rows[0].table_name !== null) throw new Error("Migration 0004 rollback did not remove its source-coverage table.");
   const migration0004 = await readFile(path.join(migrationsDir, "0004_nationwide_evidence_activation.sql"), "utf8");
   await client.query(migration0004);
+  const migration0005 = await readFile(path.join(migrationsDir, "0005_source_supersession_status.sql"), "utf8");
+  await client.query(migration0005);
+  const sourceStatuses = await client.query(
+    "SELECT enumlabel FROM pg_enum WHERE enumtypid='evidence.source_coverage_status'::regtype ORDER BY enumsortorder",
+  );
+  if (!sourceStatuses.rows.some((row) => row.enumlabel === "superseded")) {
+    throw new Error("Migration 0005 did not restore the superseded source status.");
+  }
 
   console.log(JSON.stringify({
     migrations: await migrationFiles(),
@@ -100,6 +108,7 @@ try {
     immutableGuardPassed,
     rollback0004Passed: true,
     reapply0004Passed: true,
+    reapply0005Passed: true,
   }, null, 2));
 } finally {
   await client.end();

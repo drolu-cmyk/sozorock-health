@@ -9,6 +9,7 @@
         "amplify:UpdateApp",
         "amplify:StartJob",
         "amplify:GetJob",
+        "amplify:ListJobs",
         "amplify:GetBranch"
       ],
       "Resource": [
@@ -36,9 +37,166 @@
       "Resource": [
         "arn:aws:cloudformation:us-east-1:791860731989:stack/sozorock-health-contact/*",
         "arn:aws:cloudformation:us-east-1:791860731989:stack/sozorock-health-publication-access/*",
+        "arn:aws:cloudformation:us-east-1:791860731989:stack/sozorock-health-evidence-production/*",
         "arn:aws:cloudformation:us-east-1:791860731989:changeSet/*/*",
         "arn:aws:cloudformation:us-east-1:aws:transform/Serverless-2016-10-31"
       ]
+    },
+    {
+      "Sid": "DiscoverEvidenceNetwork",
+      "Effect": "Allow",
+      "Action": [
+        "ec2:DescribeVpcs",
+        "ec2:DescribeSubnets",
+        "ec2:DescribeAvailabilityZones",
+        "ec2:DescribeSecurityGroups"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "ProvisionEvidenceNetworkBoundary",
+      "Effect": "Allow",
+      "Action": [
+        "ec2:CreateSecurityGroup",
+        "ec2:DeleteSecurityGroup",
+        "ec2:AuthorizeSecurityGroupEgress",
+        "ec2:RevokeSecurityGroupEgress",
+        "ec2:CreateTags",
+        "ec2:DeleteTags"
+      ],
+      "Resource": [
+        "arn:aws:ec2:us-east-1:791860731989:security-group/*",
+        "arn:aws:ec2:us-east-1:791860731989:vpc/*"
+      ],
+      "Condition": {
+        "StringEqualsIfExists": {
+          "aws:RequestTag/sozorock:system": "evidence-core"
+        }
+      }
+    },
+    {
+      "Sid": "ProvisionEvidenceAurora",
+      "Effect": "Allow",
+      "Action": [
+        "rds:AddTagsToResource",
+        "rds:CreateDBCluster",
+        "rds:CreateDBClusterSnapshot",
+        "rds:CreateDBInstance",
+        "rds:CreateDBSubnetGroup",
+        "rds:DeleteDBInstance",
+        "rds:DeleteDBSubnetGroup",
+        "rds:DescribeDBClusters",
+        "rds:DescribeDBClusterSnapshots",
+        "rds:DescribeDBInstances",
+        "rds:DescribeDBSubnetGroups",
+        "rds:ModifyDBCluster",
+        "rds:ModifyDBInstance",
+        "rds:RemoveTagsFromResource"
+      ],
+      "Resource": [
+        "arn:aws:rds:us-east-1:791860731989:cluster:sozorock-evidence-*",
+        "arn:aws:rds:us-east-1:791860731989:db:sozorock-evidence-*",
+        "arn:aws:rds:us-east-1:791860731989:cluster-snapshot:sozorock-evidence-*",
+        "arn:aws:rds:us-east-1:791860731989:subgrp:*"
+      ]
+    },
+    {
+      "Sid": "OperateEvidenceDataApi",
+      "Effect": "Allow",
+      "Action": [
+        "rds-data:BeginTransaction",
+        "rds-data:CommitTransaction",
+        "rds-data:RollbackTransaction",
+        "rds-data:ExecuteStatement",
+        "rds-data:BatchExecuteStatement"
+      ],
+      "Resource": "arn:aws:rds:us-east-1:791860731989:cluster:sozorock-evidence-*"
+    },
+    {
+      "Sid": "ReadEvidenceManagedSecret",
+      "Effect": "Allow",
+      "Action": [
+        "secretsmanager:DescribeSecret",
+        "secretsmanager:GetSecretValue"
+      ],
+      "Resource": "arn:aws:secretsmanager:us-east-1:791860731989:secret:rds!cluster-*"
+    },
+    {
+      "Sid": "ProvisionEvidenceArtifactBucket",
+      "Effect": "Allow",
+      "Action": [
+        "s3:CreateBucket",
+        "s3:DeleteBucket",
+        "s3:GetBucketLocation",
+        "s3:GetBucketVersioning",
+        "s3:PutBucketVersioning",
+        "s3:GetEncryptionConfiguration",
+        "s3:PutEncryptionConfiguration",
+        "s3:GetBucketPublicAccessBlock",
+        "s3:PutBucketPublicAccessBlock",
+        "s3:GetLifecycleConfiguration",
+        "s3:PutLifecycleConfiguration",
+        "s3:GetBucketTagging",
+        "s3:PutBucketTagging",
+        "s3:ListBucket"
+      ],
+      "Resource": "arn:aws:s3:::sozorock-health-evidence-*"
+    },
+    {
+      "Sid": "OperateEvidenceArtifacts",
+      "Effect": "Allow",
+      "Action": [
+        "s3:PutObject",
+        "s3:GetObject",
+        "s3:GetObjectVersion"
+      ],
+      "Resource": "arn:aws:s3:::sozorock-health-evidence-*/*"
+    },
+    {
+      "Sid": "MaintainEvidenceRuntimePolicy",
+      "Effect": "Allow",
+      "Action": [
+        "iam:CreatePolicy",
+        "iam:CreatePolicyVersion",
+        "iam:DeletePolicy",
+        "iam:DeletePolicyVersion",
+        "iam:GetPolicy",
+        "iam:GetPolicyVersion",
+        "iam:ListPolicyVersions",
+        "iam:AttachRolePolicy",
+        "iam:DetachRolePolicy",
+        "iam:TagPolicy",
+        "iam:UntagPolicy"
+      ],
+      "Resource": [
+        "arn:aws:iam::791860731989:policy/sozorock-health-evidence-*",
+        "arn:aws:iam::791860731989:role/AmplifySSRComputeRole-SozoRockHealthPublic"
+      ]
+    },
+    {
+      "Sid": "MaintainEvidenceMonitoring",
+      "Effect": "Allow",
+      "Action": [
+        "cloudwatch:DeleteAlarms",
+        "cloudwatch:DescribeAlarms",
+        "cloudwatch:PutMetricAlarm",
+        "sns:CreateTopic",
+        "sns:DeleteTopic",
+        "sns:GetTopicAttributes",
+        "sns:SetTopicAttributes",
+        "sns:TagResource",
+        "sns:UntagResource",
+        "rds:CreateEventSubscription",
+        "rds:DeleteEventSubscription",
+        "rds:DescribeEventSubscriptions",
+        "rds:ModifyEventSubscription"
+      ],
+      "Resource": "*",
+      "Condition": {
+        "StringLikeIfExists": {
+          "aws:ResourceTag/sozorock:system": "evidence-core"
+        }
+      }
     },
     {
       "Sid": "ProvisionSozoRockHealthDataStores",

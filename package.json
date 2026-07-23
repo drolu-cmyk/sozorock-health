@@ -7,8 +7,14 @@
     "apps/*",
     "packages/*"
   ],
+  "dependencies": {
+    "sharp": "0.35.3"
+  },
   "overrides": {
     "postcss": "$postcss",
+    "next": {
+      "sharp": "$sharp"
+    },
     "xcode": {
       "uuid": "11.1.1"
     }

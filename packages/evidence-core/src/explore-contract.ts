@@ -89,6 +89,7 @@ export const SOURCE_COVERAGE_STATUSES = [
   "incompatible_geography",
   "awaiting_human_review",
   "not_yet_verified",
+  "superseded",
 ] as const;
 
 export type ExploreSourceCoverageStatus = (typeof SOURCE_COVERAGE_STATUSES)[number];

@@ -1,0 +1,275 @@
+name: Explore production
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_sha:
+        description: Exact approved merge commit on main
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: sozorock-explore-production
+  cancel-in-progress: false
+
+jobs:
+  release-gates:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    services:
+      postgres:
+        image: postgis/postgis:17-3.5
+        env:
+          POSTGRES_DB: evidence_test
+          POSTGRES_USER: evidence
+          POSTGRES_PASSWORD: evidence_test_only
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U evidence -d evidence_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      EVIDENCE_DATABASE_URL: postgresql://evidence:evidence_test_only@localhost:5432/evidence_test
+      EVIDENCE_DATABASE_SSL: disable
+      EVIDENCE_MIGRATION_TEST_DISPOSABLE: "true"
+      NATIONAL_SNAPSHOT_DATE: "2026-07-23T00:00:00.000Z"
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ inputs.release_sha }}
+      - name: Verify exact release commit and main ancestry
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${{ inputs.release_sha }}"
+          git fetch --no-tags origin main
+          test "$(git rev-parse origin/main)" = "${{ inputs.release_sha }}"
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "24"
+          cache: npm
+      - name: Clean install and dependency security
+        run: |
+          set -euo pipefail
+          npm ci
+          npm audit --omit=dev --audit-level=moderate
+          npm ls sharp --all
+          node - <<'NODE'
+          const packages = require("./package-lock.json").packages;
+          const versions = Object.entries(packages)
+            .filter(([name]) => /(^|\/)sharp$/.test(name))
+            .map(([, pkg]) => pkg.version);
+          if (!versions.length) throw new Error("Sharp is absent from the validated image runtime.");
+          for (const version of versions) {
+            const [major, minor] = version.split(".").map(Number);
+            if (major === 0 && minor < 35) throw new Error(`Vulnerable Sharp ${version} remains installed.`);
+          }
+          console.log(`Validated Sharp: ${[...new Set(versions)].join(", ")}`);
+          NODE
+      - name: Migration rollback and integrity
+        run: npm run test:migrations --workspace @sozorock/evidence-core
+      - name: Nationwide evidence acceptance
+        run: npm run build:national-coverage --workspace @sozorock/evidence-core
+      - name: Repository quality gates
+        run: |
+          npm run typecheck
+          npm run lint
+          npm test
+          npm run build:public
+      - name: Prove CB-CAP is absent from this release workflow
+        run: |
+          node - <<'NODE'
+          const fs = require("fs");
+          const workflow = fs.readFileSync(".github/workflows/explore-production.yml", "utf8");
+          const forbidden = ["build:" + "platform", "CBCAP" + "_APP_ID", "d307" + "qqji18y8il"];
+          if (forbidden.some((token) => workflow.includes(token))) {
+            console.error("Explore-only workflow contains a forbidden CB-CAP deployment reference.");
+            process.exit(1);
+          }
+          NODE
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: explore-production-gates-${{ inputs.release_sha }}
+          path: |
+            packages/evidence-core/data/national/national-coverage-report.v1.json
+            packages/evidence-core/data/national/national-coverage-report.v1.md
+            packages/evidence-core/data/national/import-manifest.v2025.json
+
+  deploy-explore:
+    needs: release-gates
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    environment: production
+    env:
+      RELEASE_SHA: ${{ inputs.release_sha }}
+      PUBLIC_APP_ID: ${{ vars.PUBLIC_AMPLIFY_APP_ID }}
+      AMPLIFY_BRANCH: ${{ vars.AMPLIFY_BRANCH_NAME || 'main' }}
+      PUBLIC_SITE_URL: ${{ vars.PUBLIC_SITE_URL || 'https://health.sozorockfoundation.org' }}
+      OPENAI_SECRET_ARN: ${{ secrets.OPENAI_SECRET_ARN }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ inputs.release_sha }}
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "24"
+          cache: npm
+      - run: npm ci
+      - uses: aws-actions/configure-aws-credentials@7474bc4690e29a8392af63c5b98e7449536d5c3a # v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+      - name: Resolve exact production target and baseline
+        run: |
+          set -euo pipefail
+          test -n "$PUBLIC_APP_ID"
+          test -n "$OPENAI_SECRET_ARN"
+          test "$(git rev-parse HEAD)" = "$RELEASE_SHA"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$RELEASE_SHA"
+          aws amplify get-app --app-id "$PUBLIC_APP_ID" >/dev/null
+          previous_job=$(aws amplify list-jobs --app-id "$PUBLIC_APP_ID" --branch-name "$AMPLIFY_BRANCH" \
+            --query "jobSummaries[?status=='SUCCEED']|[0].jobId" --output text)
+          test -n "$previous_job"
+          echo "PREVIOUS_PUBLIC_JOB_ID=$previous_job" >> "$GITHUB_ENV"
+          curl --fail --silent --show-error "$PUBLIC_SITE_URL/" -o homepage-before.html
+          sha256sum homepage-before.html | cut -d' ' -f1 > homepage-before.sha256
+      - name: Provision private Evidence Core authority
+        run: |
+          set -euo pipefail
+          vpc_id=$(aws ec2 describe-vpcs --filters Name=is-default,Values=true --query 'Vpcs[0].VpcId' --output text)
+          test "$vpc_id" != "None"
+          mapfile -t subnets < <(aws ec2 describe-subnets --filters Name=vpc-id,Values="$vpc_id" \
+            --query 'Subnets[].SubnetId' --output text | tr '\t' '\n')
+          test "${#subnets[@]}" -ge 2
+          subnet_csv=$(IFS=,; echo "${subnets[*]}")
+          compute_role_arn=$(aws cloudformation describe-stacks --stack-name sozorock-health-contact \
+            --query "Stacks[0].Outputs[?OutputKey=='ComputeRoleArn'].OutputValue" --output text)
+          compute_role_name="${compute_role_arn##*/}"
+          aws cloudformation deploy \
+            --stack-name sozorock-health-evidence-production \
+            --template-file infrastructure/cloudformation/evidence-core.yml \
+            --capabilities CAPABILITY_NAMED_IAM \
+            --parameter-overrides \
+              EnvironmentName=production \
+              VpcId="$vpc_id" \
+              PrivateSubnetIds="$subnet_csv" \
+              PublicComputeRoleName="$compute_role_name"
+          cluster_arn=$(aws cloudformation describe-stacks --stack-name sozorock-health-evidence-production \
+            --query "Stacks[0].Outputs[?OutputKey=='EvidenceDatabaseClusterArn'].OutputValue" --output text)
+          secret_arn=$(aws cloudformation describe-stacks --stack-name sozorock-health-evidence-production \
+            --query "Stacks[0].Outputs[?OutputKey=='EvidenceDatabaseSecretArn'].OutputValue" --output text)
+          database=$(aws cloudformation describe-stacks --stack-name sozorock-health-evidence-production \
+            --query "Stacks[0].Outputs[?OutputKey=='EvidenceDatabaseName'].OutputValue" --output text)
+          bucket=$(aws cloudformation describe-stacks --stack-name sozorock-health-evidence-production \
+            --query "Stacks[0].Outputs[?OutputKey=='EvidenceArtifactBucket'].OutputValue" --output text)
+          cluster_id="${cluster_arn##*:cluster:}"
+          backup_id="sozorock-evidence-pre-${RELEASE_SHA:0:12}-$(date +%s)"
+          aws rds create-db-cluster-snapshot --db-cluster-identifier "$cluster_id" \
+            --db-cluster-snapshot-identifier "$backup_id" >/dev/null
+          aws rds wait db-cluster-snapshot-available --db-cluster-snapshot-identifier "$backup_id"
+          {
+            echo "EVIDENCE_DATABASE_CLUSTER_ARN=$cluster_arn"
+            echo "EVIDENCE_DATABASE_SECRET_ARN=$secret_arn"
+            echo "EVIDENCE_DATABASE_NAME=$database"
+            echo "EVIDENCE_ARTIFACT_BUCKET=$bucket"
+            echo "EVIDENCE_ROLLBACK_SNAPSHOT_ID=$backup_id"
+          } >> "$GITHUB_ENV"
+      - name: Apply approved migrations and immutable snapshot
+        env:
+          EVIDENCE_PRODUCTION_MIGRATION_APPROVED: "true"
+          EVIDENCE_PRODUCTION_IMPORT_APPROVED: "true"
+        run: |
+          set -euo pipefail
+          export EVIDENCE_EXPECTED_CLUSTER_ARN="$EVIDENCE_DATABASE_CLUSTER_ARN"
+          npm run migrate:data-api --workspace @sozorock/evidence-core
+          aws s3 cp packages/evidence-core/data/national/ \
+            "s3://$EVIDENCE_ARTIFACT_BUCKET/approved/$RELEASE_SHA/" \
+            --recursive --sse AES256 --only-show-errors
+          npm run import:production:data-api --workspace @sozorock/evidence-core
+      - name: Preserve public environment and add Evidence Core configuration
+        run: |
+          set -euo pipefail
+          current_env=$(aws amplify get-app --app-id "$PUBLIC_APP_ID" --query 'app.environmentVariables' --output json)
+          merged_env=$(jq -c \
+            --arg ca "$EVIDENCE_DATABASE_CLUSTER_ARN" \
+            --arg sa "$EVIDENCE_DATABASE_SECRET_ARN" \
+            --arg db "$EVIDENCE_DATABASE_NAME" \
+            --arg bucket "$EVIDENCE_ARTIFACT_BUCKET" \
+            --arg openai "$OPENAI_SECRET_ARN" \
+            '. + {
+              EVIDENCE_DATABASE_CLUSTER_ARN:$ca,
+              EVIDENCE_DATABASE_SECRET_ARN:$sa,
+              EVIDENCE_DATABASE_NAME:$db,
+              EVIDENCE_ARTIFACT_BUCKET:$bucket,
+              EVIDENCE_ALLOWED_HOSTS:"health.sozorockfoundation.org;www.health.sozorockfoundation.org",
+              OPENAI_SECRET_ARN:$openai,
+              OPENAI_PLACE_EVIDENCE_MODEL:"gpt-5.6-sol",
+              PLACE_EVIDENCE_PROVIDER:"openai-responses",
+              PLACE_AGENT_MAX_PER_NETWORK_HOUR:"12",
+              PLACE_AGENT_MAX_GLOBAL_DAY:"2000",
+              EVIDENCE_SOURCE_CDC_PLACES_ENABLED:"true"
+            }' <<<"$current_env")
+          aws amplify update-app --app-id "$PUBLIC_APP_ID" --environment-variables "$merged_env" >/dev/null
+      - name: Deploy public application only
+        run: |
+          set -euo pipefail
+          job_id=$(aws amplify start-job --app-id "$PUBLIC_APP_ID" --branch-name "$AMPLIFY_BRANCH" \
+            --job-type RELEASE --query 'jobSummary.jobId' --output text)
+          echo "PUBLIC_AMPLIFY_JOB_ID=$job_id" >> "$GITHUB_ENV"
+          while true; do
+            status=$(aws amplify get-job --app-id "$PUBLIC_APP_ID" --branch-name "$AMPLIFY_BRANCH" \
+              --job-id "$job_id" --query 'job.summary.status' --output text)
+            case "$status" in
+              SUCCEED) break ;;
+              FAILED|CANCELLED) echo "Public Amplify job $job_id ended with $status"; exit 1 ;;
+              *) sleep 20 ;;
+            esac
+          done
+          deployed_commit=$(aws amplify get-job --app-id "$PUBLIC_APP_ID" --branch-name "$AMPLIFY_BRANCH" \
+            --job-id "$job_id" --query 'job.summary.commitId' --output text)
+          test "$deployed_commit" = "$RELEASE_SHA"
+      - name: Canonical live acceptance and rollback
+        run: |
+          set -euo pipefail
+          failed=0
+          curl --fail --silent --show-error "$PUBLIC_SITE_URL/" -o homepage-after.html || failed=1
+          curl --fail --silent --show-error "$PUBLIC_SITE_URL/explore" -o explore-after.html || failed=1
+          curl --fail --silent --show-error \
+            "$PUBLIC_SITE_URL/api/evidence/v1/place-brief?geography=county&geoid=36001" \
+            -o albany.json || failed=1
+          jq -e '.contractVersion=="explore.place-brief.v1" and .resolution.selected.authorityId=="36001"' albany.json >/dev/null || failed=1
+          if curl --fail --silent \
+            "$PUBLIC_SITE_URL/api/evidence/v1/place-brief?geography=county&geoid=99999" >/dev/null; then
+            failed=1
+          fi
+          before=$(cat homepage-before.sha256)
+          after=$(sha256sum homepage-after.html | cut -d' ' -f1)
+          test "$before" = "$after" || failed=1
+          if [ "$failed" -ne 0 ]; then
+            aws rds-data execute-statement \
+              --resource-arn "$EVIDENCE_DATABASE_CLUSTER_ARN" \
+              --secret-arn "$EVIDENCE_DATABASE_SECRET_ARN" \
+              --database "$EVIDENCE_DATABASE_NAME" \
+              --sql "UPDATE evidence.capability_switch SET enabled=false, reason='Automatic production rollback', updated_at=now(), updated_by='explore-production-workflow' WHERE capability_key IN ('narrative_generation','provider:openai_responses')" >/dev/null
+            aws amplify start-job --app-id "$PUBLIC_APP_ID" --branch-name "$AMPLIFY_BRANCH" \
+              --job-type RETRY --job-id "$PREVIOUS_PUBLIC_JOB_ID" >/dev/null || true
+            exit 1
+          fi
+      - name: Enable agent capability after deterministic acceptance
+        run: |
+          set -euo pipefail
+          aws rds-data execute-statement \
+            --resource-arn "$EVIDENCE_DATABASE_CLUSTER_ARN" \
+            --secret-arn "$EVIDENCE_DATABASE_SECRET_ARN" \
+            --database "$EVIDENCE_DATABASE_NAME" \
+            --sql "UPDATE evidence.capability_switch SET enabled=true, reason='Production acceptance passed for $RELEASE_SHA', updated_at=now(), updated_by='explore-production-workflow' WHERE capability_key IN ('narrative_generation','provider:openai_responses')" >/dev/null
+          echo "Explore public app: $PUBLIC_APP_ID"
+          echo "Amplify job: $PUBLIC_AMPLIFY_JOB_ID"
+          echo "Release commit: $RELEASE_SHA"
+          echo "Rollback job: $PREVIOUS_PUBLIC_JOB_ID"
+          echo "Database rollback snapshot: $EVIDENCE_ROLLBACK_SNAPSHOT_ID"

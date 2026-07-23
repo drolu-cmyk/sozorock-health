@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - codex/milestone-8-nationwide-evidence-activation
+      - codex/milestone-8-production-activation
 
 permissions:
   contents: read
@@ -43,6 +44,20 @@ jobs:
           node-version: "24"
           cache: npm
       - run: npm ci --ignore-scripts
+      - name: Production dependency security gate
+        run: |
+          npm audit --omit=dev --audit-level=moderate
+          npm ls sharp --all
+          node - <<'NODE'
+          const tree = require("./package-lock.json").packages;
+          const versions = Object.entries(tree)
+            .filter(([name]) => /(^|\/)sharp$/.test(name))
+            .map(([, pkg]) => pkg.version);
+          if (!versions.length || versions.some((version) => Number(version.split(".")[0]) === 0 && Number(version.split(".")[1]) < 35)) {
+            throw new Error(`Unsafe Sharp graph: ${versions.join(", ")}`);
+          }
+          console.log(`Sharp security gate: ${[...new Set(versions)].join(", ")}`);
+          NODE
       - name: Apply, rollback, and reapply migrations
         run: npm run test:migrations --workspace @sozorock/evidence-core
       - name: Rebuild official national geography

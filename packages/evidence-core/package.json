@@ -15,12 +15,16 @@
     "evaluate:national-operations": "node --experimental-strip-types scripts/evaluate-national-operations.ts",
     "build:national-geography": "node --experimental-strip-types scripts/build-national-geography.ts",
     "build:national-coverage": "node --experimental-strip-types scripts/build-national-coverage.ts",
-    "test:migrations": "node --experimental-strip-types scripts/test-migrations.ts"
+    "test:migrations": "node --experimental-strip-types scripts/test-migrations.ts",
+    "migrate:data-api": "node --experimental-strip-types scripts/migrate-data-api.ts",
+    "import:production:data-api": "node --experimental-strip-types scripts/load-production-evidence-data-api.ts"
   },
   "dependencies": {
+    "@aws-sdk/client-rds-data": "^3.933.0",
     "fflate": "^0.8.2",
     "pg": "^8.16.3",
-    "read-excel-file": "8.0.2"
+    "read-excel-file": "8.0.2",
+    "unzipper": "^0.12.3"
   },
   "devDependencies": {
     "@playwright/test": "^1.61.1",
