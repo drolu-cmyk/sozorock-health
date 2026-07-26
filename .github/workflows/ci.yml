@@ -14,11 +14,32 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 24
           cache: npm
-      - run: npm ci
+      - run: npm ci --omit=optional
+      - name: Detect mobile application changes
+        id: mobile-scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            base="${{ github.event.pull_request.base.sha }}"
+            head="${{ github.event.pull_request.head.sha }}"
+          else
+            base="${{ github.event.before }}"
+            head="${{ github.sha }}"
+          fi
+          if [ -z "$base" ] || [ "$base" = "0000000000000000000000000000000000000000" ]; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          elif git diff --quiet "$base" "$head" -- apps/mobile; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
       - run: npm run typecheck
       - run: npm run lint
       - run: npm test
@@ -29,14 +50,15 @@ jobs:
             exit 1
           fi
       - run: npm run build:public
+      - run: npm run verify:public-runtime-security
       - run: npm run build:platform
       - name: Validate Expo mobile configuration
-        if: github.head_ref != 'agent/repair-ai-lab-aws-trust' && github.head_ref != 'agent/apply-ai-lab-aws-trust' && github.head_ref != 'agent/report-ai-lab-trust-repair'
-        run: npm run release:doctor --workspace @sozorock/mobile
+        if: steps.mobile-scope.outputs.changed == 'true'
+        run: npm exec --workspace @sozorock/mobile -- expo-doctor
       - name: Export Android application
-        if: github.head_ref != 'agent/repair-ai-lab-aws-trust' && github.head_ref != 'agent/apply-ai-lab-aws-trust' && github.head_ref != 'agent/report-ai-lab-trust-repair'
+        if: steps.mobile-scope.outputs.changed == 'true'
         run: npm exec --workspace @sozorock/mobile -- expo export --platform android --output-dir dist/ci-android
       - name: Export iOS application
-        if: github.head_ref != 'agent/repair-ai-lab-aws-trust' && github.head_ref != 'agent/apply-ai-lab-aws-trust' && github.head_ref != 'agent/report-ai-lab-trust-repair'
+        if: steps.mobile-scope.outputs.changed == 'true'
         run: npm exec --workspace @sozorock/mobile -- expo export --platform ios --output-dir dist/ci-ios
-      - run: npm audit --omit=dev --audit-level=moderate
+      - run: npm audit --omit=dev --omit=optional --audit-level=moderate
