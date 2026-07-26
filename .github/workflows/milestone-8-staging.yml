@@ -48,7 +48,7 @@ jobs:
         run: |
           set -euo pipefail
           npm audit --omit=dev --omit=optional --audit-level=moderate
-          npm ls sharp --all
+          npm ls sharp --all || test "$?" -eq 1
           test ! -d node_modules/sharp
       - name: Apply, rollback, and reapply migrations
         run: npm run test:migrations --workspace @sozorock/evidence-core
