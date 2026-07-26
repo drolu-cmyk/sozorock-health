@@ -84,6 +84,23 @@
       "Resource": "*"
     },
     {
+      "Sid": "DescribeEvidenceAuroraEncryptionKey",
+      "Effect": "Allow",
+      "Action": "kms:DescribeKey",
+      "Resource": "arn:aws:kms:us-east-1:791860731989:key/2850b0b7-dc61-43ef-8df0-d5f9675f4a78"
+    },
+    {
+      "Sid": "GrantEvidenceAuroraEncryptionKey",
+      "Effect": "Allow",
+      "Action": "kms:CreateGrant",
+      "Resource": "arn:aws:kms:us-east-1:791860731989:key/2850b0b7-dc61-43ef-8df0-d5f9675f4a78",
+      "Condition": {
+        "Bool": {
+          "kms:GrantIsForAWSResource": "true"
+        }
+      }
+    },
+    {
       "Sid": "ProvisionEvidenceAurora",
       "Effect": "Allow",
       "Action": [
