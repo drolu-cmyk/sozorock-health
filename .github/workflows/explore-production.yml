@@ -143,7 +143,7 @@ jobs:
           test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$RELEASE_SHA"
           aws amplify get-app --app-id "$PUBLIC_APP_ID" >/dev/null
           previous_job=$(aws amplify list-jobs --app-id "$PUBLIC_APP_ID" --branch-name "$AMPLIFY_BRANCH" \
-            --query "jobSummaries[?status=='SUCCEED']|[0].jobId" --output text)
+            --no-paginate --query "jobSummaries[?status=='SUCCEED']|[0].jobId" --output text)
           test -n "$previous_job"
           echo "PREVIOUS_PUBLIC_JOB_ID=$previous_job" >> "$GITHUB_ENV"
           npm run test:non-explore-regression --workspace @sozorock/public-site -- \
