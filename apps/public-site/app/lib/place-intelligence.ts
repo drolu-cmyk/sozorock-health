@@ -17,6 +17,8 @@ export type PlaceIntelligenceMetric = {
   difference: number;
   score: number;
   release: "2025" | "2024";
+  higherValueMeaning: "adverse" | "favorable" | "context_dependent";
+  interpretation: "adverse_signal" | "favorable_signal" | "context_only" | "equal";
 };
 
 type LocalPlan = null | {
@@ -121,12 +123,19 @@ export function buildPlaceIntelligence({
   localPlan,
 }: PlaceIntelligenceInput): PlaceIntelligence {
   const strongest = priorities[0] ?? metrics[0];
-  const strongSignals = metrics.filter((metric) => metric.difference >= 5);
+  const strongSignals = metrics.filter((metric) => {
+    const adverse = metric.interpretation
+      ? metric.interpretation === "adverse_signal"
+      : metric.difference >= 5;
+    return adverse && metric.difference >= 5;
+  });
   const accessSignals = metrics
     .filter((metric) => metric.category === "Access barriers")
     .sort((a, b) => b.difference - a.difference);
-  const supportedAccessSignals = accessSignals.filter(
-    (metric) => metric.difference >= 2,
+  const supportedAccessSignals = accessSignals.filter((metric) =>
+    metric.interpretation
+      ? metric.interpretation === "adverse_signal"
+      : metric.difference >= 2,
   );
   const preventionSignals = metrics
     .filter((metric) => metric.category === "Prevention")

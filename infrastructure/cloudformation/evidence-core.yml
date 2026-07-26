@@ -1,0 +1,189 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Private production authority for SozoRock Explore evidence snapshots and execution audit.
+
+Parameters:
+  EnvironmentName:
+    Type: String
+    Default: production
+    AllowedValues: [staging, production]
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+  PrivateSubnetIds:
+    Type: List<AWS::EC2::Subnet::Id>
+  PublicComputeRoleName:
+    Type: String
+  DatabaseName:
+    Type: String
+    Default: sozorock_evidence
+    AllowedPattern: "^[a-zA-Z][a-zA-Z0-9_]{0,62}$"
+  MinimumCapacity:
+    Type: Number
+    Default: 0.5
+  MaximumCapacity:
+    Type: Number
+    Default: 2
+
+Resources:
+  EvidenceArtifacts:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      VersioningConfiguration:
+        Status: Enabled
+      LifecycleConfiguration:
+        Rules:
+          - Id: retain-noncurrent-evidence
+            Status: Enabled
+            NoncurrentVersionTransitions:
+              - StorageClass: STANDARD_IA
+                TransitionInDays: 30
+      Tags:
+        - Key: sozorock:system
+          Value: evidence-core
+        - Key: sozorock:environment
+          Value: !Ref EnvironmentName
+
+  EvidenceDatabaseSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: No-ingress security group for Data API-only evidence database.
+      VpcId: !Ref VpcId
+      SecurityGroupEgress:
+        - IpProtocol: "-1"
+          CidrIp: 127.0.0.1/32
+      Tags:
+        - Key: Name
+          Value: !Sub sozorock-evidence-${EnvironmentName}
+
+  EvidenceDatabaseSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: Subnets for the private evidence authority.
+      SubnetIds: !Ref PrivateSubnetIds
+
+  EvidenceDatabaseCluster:
+    Type: AWS::RDS::DBCluster
+    DeletionPolicy: Snapshot
+    UpdateReplacePolicy: Snapshot
+    Properties:
+      DatabaseName: !Ref DatabaseName
+      DBClusterIdentifier: !Sub sozorock-evidence-${EnvironmentName}
+      DBSubnetGroupName: !Ref EvidenceDatabaseSubnetGroup
+      DeletionProtection: true
+      EnableHttpEndpoint: true
+      Engine: aurora-postgresql
+      EngineMode: provisioned
+      EngineVersion: "16.6"
+      BackupRetentionPeriod: 14
+      CopyTagsToSnapshot: true
+      ManageMasterUserPassword: true
+      MasterUsername: evidence_admin
+      Port: 5432
+      ServerlessV2ScalingConfiguration:
+        MinCapacity: !Ref MinimumCapacity
+        MaxCapacity: !Ref MaximumCapacity
+      StorageEncrypted: true
+      VpcSecurityGroupIds:
+        - !Ref EvidenceDatabaseSecurityGroup
+      Tags:
+        - Key: sozorock:system
+          Value: evidence-core
+        - Key: sozorock:environment
+          Value: !Ref EnvironmentName
+
+  EvidenceDatabaseWriter:
+    Type: AWS::RDS::DBInstance
+    Properties:
+      DBClusterIdentifier: !Ref EvidenceDatabaseCluster
+      DBInstanceClass: db.serverless
+      DBInstanceIdentifier: !Sub sozorock-evidence-${EnvironmentName}-writer
+      Engine: aurora-postgresql
+      PubliclyAccessible: false
+
+  EvidenceRuntimePolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      Description: Read approved evidence authority and append execution audit.
+      Roles:
+        - !Ref PublicComputeRoleName
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: ExecuteEvidenceDataApi
+            Effect: Allow
+            Action:
+              - rds-data:ExecuteStatement
+            Resource: !GetAtt EvidenceDatabaseCluster.DBClusterArn
+          - Sid: ReadEvidenceDatabaseSecret
+            Effect: Allow
+            Action:
+              - secretsmanager:GetSecretValue
+            Resource: !GetAtt EvidenceDatabaseCluster.MasterUserSecret.SecretArn
+          - Sid: ReadApprovedEvidenceArtifacts
+            Effect: Allow
+            Action:
+              - s3:GetObject
+              - s3:GetObjectVersion
+              - s3:ListBucket
+            Resource:
+              - !GetAtt EvidenceArtifacts.Arn
+              - !Sub ${EvidenceArtifacts.Arn}/*
+
+  DatabaseEvents:
+    Type: AWS::RDS::EventSubscription
+    Properties:
+      Enabled: true
+      EventCategories:
+        - availability
+        - failover
+        - failure
+        - maintenance
+      SnsTopicArn: !Ref DatabaseAlarmTopic
+      SourceIds:
+        - !Ref EvidenceDatabaseCluster
+      SourceType: db-cluster
+
+  DatabaseAlarmTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Sub sozorock-evidence-${EnvironmentName}-alerts
+
+  DatabaseConnectionsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: Evidence database connection pressure.
+      Namespace: AWS/RDS
+      MetricName: DatabaseConnections
+      Dimensions:
+        - Name: DBClusterIdentifier
+          Value: !Ref EvidenceDatabaseCluster
+      Statistic: Maximum
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 80
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref DatabaseAlarmTopic
+
+Outputs:
+  EvidenceDatabaseClusterArn:
+    Value: !GetAtt EvidenceDatabaseCluster.DBClusterArn
+  EvidenceDatabaseSecretArn:
+    Value: !GetAtt EvidenceDatabaseCluster.MasterUserSecret.SecretArn
+  EvidenceDatabaseName:
+    Value: !Ref DatabaseName
+  EvidenceArtifactBucket:
+    Value: !Ref EvidenceArtifacts
+  EvidenceAlertTopicArn:
+    Value: !Ref DatabaseAlarmTopic

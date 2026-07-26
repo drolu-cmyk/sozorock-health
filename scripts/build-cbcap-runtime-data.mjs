@@ -55,8 +55,13 @@ async function main() {
     readFile(path.join(DATA_DIR, "county-planning.json"), "utf8").then(JSON.parse),
     readFile(path.join(DATA_DIR, "source-manifest.json"), "utf8").then(JSON.parse),
   ]);
-  if (records.length !== 3144 || new Set(records.map((record) => record.fips)).size !== 3144) {
-    throw new Error("Runtime snapshots require exactly 3,144 unique county equivalents");
+  const authoritativeCountyCount = Number(sourceManifest.geography?.countyCount);
+  if (!Number.isInteger(authoritativeCountyCount) || authoritativeCountyCount <= 0) {
+    throw new Error("The official geography manifest must declare a positive derived county count");
+  }
+  if (records.length !== authoritativeCountyCount
+    || new Set(records.map((record) => record.fips)).size !== authoritativeCountyCount) {
+    throw new Error(`Runtime snapshots require ${authoritativeCountyCount.toLocaleString("en-US")} unique county equivalents from the official geography manifest`);
   }
 
   const stateIdentity = [...new Map(records.map((record) => [record.stateFips, {

@@ -1,8 +1,19 @@
 import type { NextConfig } from "next";
 import path from "node:path";
 
+const scriptPolicy = process.env.NODE_ENV === "development"
+  ? "script-src 'self' 'unsafe-inline' 'unsafe-eval'"
+  : "script-src 'self' 'unsafe-inline'";
+const contentSecurityPolicy = `default-src 'self'; ${scriptPolicy}; worker-src 'self' blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data:; font-src 'self' data: https://fonts.gstatic.com; media-src 'self' blob:; connect-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'`;
+
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  images: {
+    // Public images are trusted static assets. Amplify serves them directly,
+    // so the production runtime does not need Next's optional Sharp/libvips
+    // image optimizer or the /_next/image transformation route.
+    unoptimized: true,
+  },
   outputFileTracingRoot: path.join(process.cwd(), "../.."),
   // Amplify SSR does not forward app environment variables to the compute
   // runtime. These values are referenced only by server routes and are
@@ -28,6 +39,31 @@ const nextConfig: NextConfig = {
     PUBLICATION_HASH_SALT_SECRET_ARN: process.env.PUBLICATION_HASH_SALT_SECRET_ARN,
     PUBLICATION_ALLOWED_HOSTS: process.env.PUBLICATION_ALLOWED_HOSTS,
     PUBLIC_SITE_URL: process.env.PUBLIC_SITE_URL,
+    PARTNER_EVIDENCE_REVIEW_ENABLED:
+      process.env.PARTNER_EVIDENCE_REVIEW_ENABLED,
+    EVIDENCE_DATABASE_CLUSTER_ARN:
+      process.env.EVIDENCE_DATABASE_CLUSTER_ARN,
+    EVIDENCE_DATABASE_SECRET_ARN:
+      process.env.EVIDENCE_DATABASE_SECRET_ARN,
+    EVIDENCE_DATABASE_NAME:
+      process.env.EVIDENCE_DATABASE_NAME,
+    EVIDENCE_ALLOWED_HOSTS:
+      process.env.EVIDENCE_ALLOWED_HOSTS,
+    OPENAI_PLACE_EVIDENCE_MODEL:
+      process.env.OPENAI_PLACE_EVIDENCE_MODEL,
+    PLACE_EVIDENCE_PROVIDER:
+      process.env.PLACE_EVIDENCE_PROVIDER,
+    EVIDENCE_SOURCE_CDC_PLACES_ENABLED:
+      process.env.EVIDENCE_SOURCE_CDC_PLACES_ENABLED,
+    PLACE_AGENT_MAX_PER_NETWORK_HOUR:
+      process.env.PLACE_AGENT_MAX_PER_NETWORK_HOUR,
+    PLACE_AGENT_MAX_GLOBAL_DAY:
+      process.env.PLACE_AGENT_MAX_GLOBAL_DAY,
+  },
+  outputFileTracingIncludes: {
+    "/review/partner-evidence/download/*": [
+      "../../output/pdf/milestone-6/*.pdf",
+    ],
   },
   async redirects() {
     return [
@@ -46,7 +82,7 @@ const nextConfig: NextConfig = {
         headers: [{ key: "Content-Language", value: "es-US" }],
       },
       { source: "/(.*)", headers: [
-        { key: "Content-Security-Policy", value: "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data:; font-src 'self' data: https://fonts.gstatic.com; media-src 'self' blob:; connect-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'" },
+        { key: "Content-Security-Policy", value: contentSecurityPolicy },
         { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains; preload" },
         { key: "X-Content-Type-Options", value: "nosniff" },
         { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },

@@ -7,6 +7,8 @@ export type ExploreMetricDefinition = {
   field: string;
   plainLanguage: string;
   response: string;
+  direction: "adverse" | "protective" | "contextual";
+  higherValueMeaning: "adverse" | "favorable" | "context_dependent";
 };
 
 export const exploreMetrics: ExploreMetricDefinition[] = [
@@ -17,6 +19,8 @@ export const exploreMetrics: ExploreMetricDefinition[] = [
     field: "diabetes",
     plainLanguage: "The estimated share of adults living with diagnosed diabetes.",
     response: "Support clear diabetes education, prevention and readiness for provider-led care.",
+    direction: "adverse",
+    higherValueMeaning: "adverse",
   },
   {
     key: "bphigh",
@@ -25,6 +29,8 @@ export const exploreMetrics: ExploreMetricDefinition[] = [
     field: "bphigh",
     plainLanguage: "The estimated share of adults who have been told they have high blood pressure.",
     response: "Support awareness, prevention and practical preparation for licensed care.",
+    direction: "adverse",
+    higherValueMeaning: "adverse",
   },
   {
     key: "obesity",
@@ -33,6 +39,8 @@ export const exploreMetrics: ExploreMetricDefinition[] = [
     field: "obesity",
     plainLanguage: "The estimated share of adults with a body mass index in the obesity range.",
     response: "Connect health literacy and prevention activity to local conditions and services.",
+    direction: "adverse",
+    higherValueMeaning: "adverse",
   },
   {
     key: "depression",
@@ -41,6 +49,8 @@ export const exploreMetrics: ExploreMetricDefinition[] = [
     field: "depression",
     plainLanguage: "The estimated share of adults who have been told they have a depressive disorder.",
     response: "Make trusted non-clinical pathways and provider-led options easier to understand.",
+    direction: "adverse",
+    higherValueMeaning: "adverse",
   },
   {
     key: "copd",
@@ -49,6 +59,8 @@ export const exploreMetrics: ExploreMetricDefinition[] = [
     field: "copd",
     plainLanguage: "The estimated share of adults who have been told they have chronic obstructive pulmonary disease.",
     response: "Support respiratory-health literacy and readiness for licensed care.",
+    direction: "adverse",
+    higherValueMeaning: "adverse",
   },
   {
     key: "csmoking",
@@ -57,6 +69,8 @@ export const exploreMetrics: ExploreMetricDefinition[] = [
     field: "csmoking",
     plainLanguage: "The estimated share of adults who currently smoke cigarettes.",
     response: "Support prevention education and connection to established public-health resources.",
+    direction: "adverse",
+    higherValueMeaning: "adverse",
   },
   {
     key: "colon_screen",
@@ -65,6 +79,8 @@ export const exploreMetrics: ExploreMetricDefinition[] = [
     field: "colon_screen",
     plainLanguage: "The estimated share of adults ages 45 to 75 who are up to date with colorectal cancer screening.",
     response: "Support clear screening education and preparation for licensed preventive care.",
+    direction: "protective",
+    higherValueMeaning: "favorable",
   },
   {
     key: "mammouse",
@@ -73,6 +89,8 @@ export const exploreMetrics: ExploreMetricDefinition[] = [
     field: "mammouse",
     plainLanguage: "The estimated share of women ages 50 to 74 who received a mammogram within the recommended period.",
     response: "Support screening awareness and practical preparation for provider-led services.",
+    direction: "protective",
+    higherValueMeaning: "favorable",
   },
   {
     key: "dental",
@@ -81,6 +99,8 @@ export const exploreMetrics: ExploreMetricDefinition[] = [
     field: "dental",
     plainLanguage: "The estimated share of adults who visited a dentist or dental clinic in the past year.",
     response: "Support oral-health literacy and connection to established dental services.",
+    direction: "protective",
+    higherValueMeaning: "favorable",
   },
   {
     key: "sleep",
@@ -89,6 +109,8 @@ export const exploreMetrics: ExploreMetricDefinition[] = [
     field: "sleep",
     plainLanguage: "The estimated share of adults who usually sleep fewer than seven hours in a 24-hour period.",
     response: "Connect plain-language education about sleep and chronic-disease risk to trusted local resources.",
+    direction: "adverse",
+    higherValueMeaning: "adverse",
   },
   {
     key: "teethlost",
@@ -97,6 +119,8 @@ export const exploreMetrics: ExploreMetricDefinition[] = [
     field: "teethlost",
     plainLanguage: "The estimated share of adults age 65 or older who have lost all natural teeth.",
     response: "Support oral-health education and practical pathways to licensed dental care.",
+    direction: "adverse",
+    higherValueMeaning: "adverse",
   },
   {
     key: "access2",
@@ -105,6 +129,8 @@ export const exploreMetrics: ExploreMetricDefinition[] = [
     field: "access2",
     plainLanguage: "The estimated share of adults ages 18 to 64 without current health insurance.",
     response: "Make benefits information and provider-led pathways easier to find and use.",
+    direction: "adverse",
+    higherValueMeaning: "adverse",
   },
   {
     key: "lacktrpt",
@@ -113,6 +139,8 @@ export const exploreMetrics: ExploreMetricDefinition[] = [
     field: "lacktrpt",
     plainLanguage: "The estimated share of adults who could not access needed destinations because transportation was unavailable.",
     response: "Bring non-clinical support closer through hub formats, events and home-based access concepts.",
+    direction: "adverse",
+    higherValueMeaning: "adverse",
   },
   {
     key: "foodinsecu",
@@ -121,6 +149,8 @@ export const exploreMetrics: ExploreMetricDefinition[] = [
     field: "foodinsecu",
     plainLanguage: "The estimated share of adults who experienced limited or uncertain access to enough food.",
     response: "Connect place-based education and support to existing community resources.",
+    direction: "adverse",
+    higherValueMeaning: "adverse",
   },
   {
     key: "mobility",
@@ -129,6 +159,8 @@ export const exploreMetrics: ExploreMetricDefinition[] = [
     field: "mobility",
     plainLanguage: "The estimated share of adults who have serious difficulty walking or climbing stairs.",
     response: "Consider home-based access, accessible events and practical digital readiness support.",
+    direction: "adverse",
+    higherValueMeaning: "adverse",
   },
   {
     key: "disability",
@@ -137,6 +169,8 @@ export const exploreMetrics: ExploreMetricDefinition[] = [
     field: "disability",
     plainLanguage: "The estimated share of adults reporting at least one disability measure.",
     response: "Design access points, communication and technology for a wider range of needs.",
+    direction: "adverse",
+    higherValueMeaning: "adverse",
   },
   {
     key: "loneliness",
@@ -145,6 +179,8 @@ export const exploreMetrics: ExploreMetricDefinition[] = [
     field: "loneliness",
     plainLanguage: "The estimated share of adults who report feeling lonely.",
     response: "Use trusted community settings for education, connection and non-clinical support.",
+    direction: "adverse",
+    higherValueMeaning: "adverse",
   },
 ];
 
@@ -185,7 +221,13 @@ export function safeGeoid(kind: ExploreKind, value: string) {
   return normalized.length === expected ? normalized : "";
 }
 
-export function scoreMetric(value: number, national: number) {
+export function scoreMetric(
+  value: number,
+  national: number,
+  higherValueMeaning: ExploreMetricDefinition["higherValueMeaning"],
+) {
   const difference = value - national;
-  return Math.max(0, difference) * 2 + value / 5;
+  if (higherValueMeaning === "adverse") return Math.max(0, difference) * 2;
+  if (higherValueMeaning === "favorable") return Math.max(0, -difference) * 2;
+  return 0;
 }

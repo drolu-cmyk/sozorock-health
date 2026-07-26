@@ -8,10 +8,11 @@ applications:
           commands:
             - nvm install 24
             - nvm use 24
-            - npm ci
+            - npm ci --omit=optional
         build:
           commands:
             - npm run build:public
+            - npm run verify:public-runtime-security
       artifacts:
         baseDirectory: apps/public-site/.next
         files:

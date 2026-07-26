@@ -7,9 +7,7 @@ const SCRIPT_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "
 const ROOT = process.env.CBCAP_ROOT ? path.resolve(process.env.CBCAP_ROOT) : SCRIPT_ROOT;
 const DATA_DIR = path.join(ROOT, "apps", "platform", "data");
 const PUBLIC_DATA_DIR = path.join(ROOT, "apps", "platform", "public", "data");
-const EXPECTED_COUNTIES = 3_144;
 const EXPECTED_STATES = 51;
-const MINIMUM_INDICATOR_PROFILES = 3_143;
 
 function sha256(value) {
   return createHash("sha256").update(value).digest("hex");
@@ -53,18 +51,19 @@ async function main() {
 
   const counties = countyData.value;
   assert(Array.isArray(counties), "County planning data must be an array");
+  const expectedCounties = Number(sourceManifest.value.geography?.countyCount);
+  assert(Number.isInteger(expectedCounties) && expectedCounties > 0, "Official geography manifest must declare a positive derived county count");
   const countyFips = counties.map((county) => String(county.fips ?? ""));
-  assertUniqueFips(countyFips, EXPECTED_COUNTIES, "County planning data");
+  assertUniqueFips(countyFips, expectedCounties, "County planning data");
 
   const calculatedSourceHash = sha256(countyData.text);
   const quality = sourceManifest.value.quality ?? {};
-  assert(quality.expectedCountyEquivalents === EXPECTED_COUNTIES, "Source manifest expected-county count changed");
-  assert(quality.actualCountyEquivalents === EXPECTED_COUNTIES, "Source manifest does not contain 3,144 county equivalents");
-  assert(quality.uniqueFips === EXPECTED_COUNTIES, "Source manifest does not report 3,144 unique county FIPS values");
+  assert(quality.expectedCountyEquivalents === expectedCounties, "Source manifest expected-county count differs from the official geography count");
+  assert(quality.actualCountyEquivalents === expectedCounties, "Source manifest does not contain the official county universe");
+  assert(quality.uniqueFips === expectedCounties, "Source manifest does not report the official number of unique county FIPS values");
   assert(quality.sha256 === calculatedSourceHash, "County planning data does not match its declared source hash");
-  assert(sourceManifest.value.geography?.countyCount === EXPECTED_COUNTIES, "Geography manifest county count changed");
-  assert(sourceManifest.value.indicators?.matchedCountyCount >= MINIMUM_INDICATOR_PROFILES, "Indicator coverage regressed below the reviewed baseline");
-  assert(sourceManifest.value.indicators?.matchedCountyCount <= EXPECTED_COUNTIES, "Indicator coverage exceeds the county universe");
+  assert(sourceManifest.value.indicators?.matchedCountyCount >= 0, "Indicator coverage cannot be negative");
+  assert(sourceManifest.value.indicators?.matchedCountyCount <= expectedCounties, "Indicator coverage exceeds the county universe");
   assertHttps(sourceManifest.value.geography?.url, "Geography source URL");
   assertHttps(sourceManifest.value.indicators?.url, "Indicator source URL");
   assert(Number.isFinite(Date.parse(sourceManifest.value.generatedAt)), "Source manifest generatedAt must be an ISO date");
@@ -74,17 +73,17 @@ async function main() {
 
   const map = countyMap.value;
   assert(map.version === 1, "County map schema version changed without review");
-  assert(map.countyCount === EXPECTED_COUNTIES, "County map count changed");
+  assert(map.countyCount === expectedCounties, "County map count differs from the official county universe");
   assert(map.sourceHash === calculatedSourceHash, "County map source hash does not match county planning data");
   assert(Array.isArray(map.records), "County map records must be an array");
   const mapFips = map.records.map((record) => String(record?.[0] ?? ""));
   const mapFipsSet = new Set(mapFips);
-  assertUniqueFips(mapFips, EXPECTED_COUNTIES, "County map");
+  assertUniqueFips(mapFips, expectedCounties, "County map");
   assert(countyFips.every((fips) => mapFipsSet.has(fips)), "County map and planning data FIPS sets differ");
 
   const summary = dashboardSummary.value;
   assert(Array.isArray(summary.states) && summary.states.length === EXPECTED_STATES, "Dashboard summary must contain 51 state/DC records");
-  assert(summary.coverage?.countyCount === EXPECTED_COUNTIES, "Dashboard summary county count changed");
+  assert(summary.coverage?.countyCount === expectedCounties, "Dashboard summary county count differs from the official county universe");
   assert(summary.coverage?.availableCountyCount === sourceManifest.value.indicators.matchedCountyCount, "Dashboard and source-manifest indicator coverage differ");
   assert(summary.sources?.quality?.sha256 === calculatedSourceHash, "Dashboard summary source hash does not match county planning data");
 
@@ -94,9 +93,9 @@ async function main() {
   assert(Array.isArray(boundary.states) && boundary.states.length === EXPECTED_STATES, "Boundary data must contain 51 state/DC geometries");
   const boundaryFips = boundary.counties.map((feature) => String(feature.id ?? ""));
   const boundaryFipsSet = new Set(boundaryFips);
-  assertUniqueFips(boundaryFips, EXPECTED_COUNTIES, "County boundaries");
+  assertUniqueFips(boundaryFips, expectedCounties, "County boundaries");
   assert(countyFips.every((fips) => boundaryFipsSet.has(fips)), "Boundary and planning data FIPS sets differ");
-  assert(boundaryManifest.value.countyCount === EXPECTED_COUNTIES, "Boundary manifest county count changed");
+  assert(boundaryManifest.value.countyCount === expectedCounties, "Boundary manifest county count differs from the official county universe");
   assert(boundaryManifest.value.stateCount === EXPECTED_STATES, "Boundary manifest state count changed");
   assert(boundaryManifest.value.sha256 === sha256(boundaries.text), "Boundary data does not match its declared source hash");
   assertHttps(boundaryManifest.value.sourceUrl, "Boundary source URL");

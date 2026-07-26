@@ -10,8 +10,13 @@ tmp/
 output/
 apps/media/exports/
 apps/media/public/gpt-live-campaign/
+apps/public-site/review-assets/
 artifacts/
 .playwright-cli/
+.playwright-output/
+.playwright-browsers/
+.npm-cache/
+scratch-sharp-override/
 
 # Environment and local secrets
 .env
