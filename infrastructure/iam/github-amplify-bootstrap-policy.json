@@ -90,6 +90,12 @@
       "Resource": "arn:aws:kms:us-east-1:791860731989:key/2850b0b7-dc61-43ef-8df0-d5f9675f4a78"
     },
     {
+      "Sid": "DescribeEvidenceDatabaseSecretEncryptionKey",
+      "Effect": "Allow",
+      "Action": "kms:DescribeKey",
+      "Resource": "arn:aws:kms:us-east-1:791860731989:key/15511f2e-4119-446c-b0fe-53e429ce87ee"
+    },
+    {
       "Sid": "GrantEvidenceAuroraEncryptionKey",
       "Effect": "Allow",
       "Action": "kms:CreateGrant",
