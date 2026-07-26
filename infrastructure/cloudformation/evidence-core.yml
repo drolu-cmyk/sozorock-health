@@ -145,7 +145,6 @@ Resources:
     Properties:
       Enabled: true
       EventCategories:
-        - availability
         - failover
         - failure
         - maintenance
