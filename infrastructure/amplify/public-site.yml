@@ -8,9 +8,11 @@ applications:
           commands:
             - nvm install 24
             - nvm use 24
+            - export NODE_OPTIONS=--max-old-space-size=6144
             - npm ci --omit=optional
         build:
           commands:
+            - export NODE_OPTIONS=--max-old-space-size=6144
             - npm run build:public
             - npm run verify:public-runtime-security
       artifacts:
