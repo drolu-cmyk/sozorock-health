@@ -129,17 +129,23 @@ try {
   );
   await client.query(down0007);
   const rolledBackWorkforce = await client.query(
-    "SELECT to_regclass('evidence.workforce_designation') AS table_name",
+    `SELECT EXISTS (
+      SELECT 1 FROM information_schema.tables
+      WHERE table_schema='evidence' AND table_name='workforce_designation'
+    ) AS present`,
   );
-  if (rolledBackWorkforce.rows[0].table_name !== null) {
+  if (rolledBackWorkforce.rows[0].present !== false) {
     throw new Error("Migration 0007 rollback did not remove the workforce-designation table.");
   }
   const migration0007 = await readFile(path.join(migrationsDir, "0007_national_context_store.sql"), "utf8");
   await client.query(migration0007);
   const restoredWorkforce = await client.query(
-    "SELECT to_regclass('evidence.workforce_designation') AS table_name",
+    `SELECT EXISTS (
+      SELECT 1 FROM information_schema.tables
+      WHERE table_schema='evidence' AND table_name='workforce_designation'
+    ) AS present`,
   );
-  if (restoredWorkforce.rows[0].table_name !== "evidence.workforce_designation") {
+  if (restoredWorkforce.rows[0].present !== true) {
     throw new Error("Migration 0007 did not restore the workforce-designation table.");
   }
 
