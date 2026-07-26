@@ -56,21 +56,10 @@ jobs:
       - name: Clean install and dependency security
         run: |
           set -euo pipefail
-          npm ci
-          npm audit --omit=dev --audit-level=moderate
+          npm ci --omit=optional
+          npm audit --omit=dev --omit=optional --audit-level=moderate
           npm ls sharp --all
-          node - <<'NODE'
-          const packages = require("./package-lock.json").packages;
-          const versions = Object.entries(packages)
-            .filter(([name]) => /(^|\/)sharp$/.test(name))
-            .map(([, pkg]) => pkg.version);
-          if (!versions.length) throw new Error("Sharp is absent from the validated image runtime.");
-          for (const version of versions) {
-            const [major, minor] = version.split(".").map(Number);
-            if (major === 0 && minor < 35) throw new Error(`Vulnerable Sharp ${version} remains installed.`);
-          }
-          console.log(`Validated Sharp: ${[...new Set(versions)].join(", ")}`);
-          NODE
+          test ! -d node_modules/sharp
       - name: Migration rollback and integrity
         run: npm run test:migrations --workspace @sozorock/evidence-core
       - name: Nationwide evidence acceptance
@@ -81,6 +70,23 @@ jobs:
           npm run lint
           npm test
           npm run build:public
+          npm run verify:public-runtime-security
+      - name: Generate runtime SBOM
+        run: |
+          set -euo pipefail
+          mkdir -p output/security
+          npm sbom --workspace @sozorock/public-site --omit=dev --omit=optional \
+            --sbom-format cyclonedx > output/security/public-runtime.cdx.json
+      - name: Install pinned Trivy
+        uses: aquasecurity/setup-trivy@81e514348e19b6112ce2a7e3ecbafe19c1e1f567 # v0.3.1
+        with:
+          version: v0.72.0
+          cache: true
+      - name: Scan runtime SBOM
+        run: |
+          set -euo pipefail
+          trivy sbom --severity HIGH,CRITICAL --exit-code 1 \
+            output/security/public-runtime.cdx.json
       - name: Prove CB-CAP is absent from this release workflow
         run: |
           node - <<'NODE'
@@ -99,6 +105,8 @@ jobs:
             packages/evidence-core/data/national/national-coverage-report.v1.json
             packages/evidence-core/data/national/national-coverage-report.v1.md
             packages/evidence-core/data/national/import-manifest.v2025.json
+            output/security/public-runtime.cdx.json
+            output/security/public-runtime-security.json
 
   deploy-explore:
     needs: release-gates
@@ -119,7 +127,9 @@ jobs:
         with:
           node-version: "24"
           cache: npm
-      - run: npm ci
+      - run: npm ci --omit=optional
+      - name: Install browser for release regression
+        run: npx playwright install --with-deps chromium
       - uses: aws-actions/configure-aws-credentials@7474bc4690e29a8392af63c5b98e7449536d5c3a # v4
         with:
           role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
@@ -136,8 +146,8 @@ jobs:
             --query "jobSummaries[?status=='SUCCEED']|[0].jobId" --output text)
           test -n "$previous_job"
           echo "PREVIOUS_PUBLIC_JOB_ID=$previous_job" >> "$GITHUB_ENV"
-          curl --fail --silent --show-error "$PUBLIC_SITE_URL/" -o homepage-before.html
-          sha256sum homepage-before.html | cut -d' ' -f1 > homepage-before.sha256
+          npm run test:non-explore-regression --workspace @sozorock/public-site -- \
+            capture "$PUBLIC_SITE_URL" output/non-explore-regression
       - name: Provision private Evidence Core authority
         run: |
           set -euo pipefail
@@ -218,8 +228,11 @@ jobs:
       - name: Deploy public application only
         run: |
           set -euo pipefail
+          git fetch --no-tags origin main
+          test "$(git rev-parse origin/main)" = "$RELEASE_SHA"
           job_id=$(aws amplify start-job --app-id "$PUBLIC_APP_ID" --branch-name "$AMPLIFY_BRANCH" \
-            --job-type RELEASE --query 'jobSummary.jobId' --output text)
+            --job-type RELEASE --job-reason "Explore release $RELEASE_SHA" \
+            --query 'jobSummary.jobId' --output text)
           echo "PUBLIC_AMPLIFY_JOB_ID=$job_id" >> "$GITHUB_ENV"
           while true; do
             status=$(aws amplify get-job --app-id "$PUBLIC_APP_ID" --branch-name "$AMPLIFY_BRANCH" \
@@ -232,7 +245,10 @@ jobs:
           done
           deployed_commit=$(aws amplify get-job --app-id "$PUBLIC_APP_ID" --branch-name "$AMPLIFY_BRANCH" \
             --job-id "$job_id" --query 'job.summary.commitId' --output text)
-          test "$deployed_commit" = "$RELEASE_SHA"
+          git fetch --no-tags origin main
+          test "$(git rev-parse origin/main)" = "$RELEASE_SHA"
+          echo "AMPLIFY_REPORTED_COMMIT_ID=$deployed_commit" >> "$GITHUB_ENV"
+          echo "Amplify built the pinned main branch release $RELEASE_SHA (job reported commit: $deployed_commit)."
       - name: Canonical live acceptance and rollback
         run: |
           set -euo pipefail
@@ -247,9 +263,8 @@ jobs:
             "$PUBLIC_SITE_URL/api/evidence/v1/place-brief?geography=county&geoid=99999" >/dev/null; then
             failed=1
           fi
-          before=$(cat homepage-before.sha256)
-          after=$(sha256sum homepage-after.html | cut -d' ' -f1)
-          test "$before" = "$after" || failed=1
+          npm run test:non-explore-regression --workspace @sozorock/public-site -- \
+            compare "$PUBLIC_SITE_URL" output/non-explore-regression || failed=1
           if [ "$failed" -ne 0 ]; then
             aws rds-data execute-statement \
               --resource-arn "$EVIDENCE_DATABASE_CLUSTER_ARN" \
@@ -260,6 +275,12 @@ jobs:
               --job-type RETRY --job-id "$PREVIOUS_PUBLIC_JOB_ID" >/dev/null || true
             exit 1
           fi
+      - name: Upload non-Explore regression evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: non-explore-production-regression-${{ inputs.release_sha }}
+          path: output/non-explore-regression
       - name: Enable agent capability after deterministic acceptance
         run: |
           set -euo pipefail
@@ -270,6 +291,7 @@ jobs:
             --sql "UPDATE evidence.capability_switch SET enabled=true, reason='Production acceptance passed for $RELEASE_SHA', updated_at=now(), updated_by='explore-production-workflow' WHERE capability_key IN ('narrative_generation','provider:openai_responses')" >/dev/null
           echo "Explore public app: $PUBLIC_APP_ID"
           echo "Amplify job: $PUBLIC_AMPLIFY_JOB_ID"
+          echo "Amplify reported commit: $AMPLIFY_REPORTED_COMMIT_ID"
           echo "Release commit: $RELEASE_SHA"
           echo "Rollback job: $PREVIOUS_PUBLIC_JOB_ID"
           echo "Database rollback snapshot: $EVIDENCE_ROLLBACK_SNAPSHOT_ID"

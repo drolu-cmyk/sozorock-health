@@ -5,6 +5,8 @@ import test from "node:test";
 const provider = await readFile(new URL("../app/lib/place-agent-openai.ts", import.meta.url), "utf8");
 const route = await readFile(new URL("../app/api/evidence/v1/agent/route.ts", import.meta.url), "utf8");
 const workflow = await readFile(new URL("../../../.github/workflows/explore-production.yml", import.meta.url), "utf8");
+const nextConfig = await readFile(new URL("../next.config.ts", import.meta.url), "utf8");
+const runtimeVerifier = await readFile(new URL("../../../scripts/verify-public-runtime-security.mjs", import.meta.url), "utf8");
 const packageLock = JSON.parse(await readFile(new URL("../../../package-lock.json", import.meta.url), "utf8"));
 
 test("production agent is evidence-only, stored-output disabled, bounded, and tool allowlisted", () => {
@@ -36,16 +38,17 @@ test("Explore-only release workflow cannot deploy CB-CAP", () => {
   assert.doesNotMatch(workflow, /CBCAP_APP_ID/);
   assert.doesNotMatch(workflow, /d307qqji18y8il/);
   assert.match(workflow, /PUBLIC_APP_ID/);
-  assert.match(workflow, /npm ls sharp --all/);
+  assert.match(workflow, /npm ci --omit=optional/);
+  assert.match(workflow, /verify:public-runtime-security/);
 });
 
-test("locked production graph contains no Sharp release below 0.35", () => {
+test("public runtime removes optional Sharp while preserving upstream lock metadata", () => {
+  assert.match(nextConfig, /unoptimized:\s*true/);
+  assert.match(runtimeVerifier, /Runtime trace imports Sharp\/libvips/);
+  assert.match(runtimeVerifier, /Rendered HTML depends on \/_next\/image/);
   const versions = Object.entries(packageLock.packages)
     .filter(([name]) => /(^|\/)sharp$/.test(name))
-    .map(([, value]) => value.version);
-  assert.ok(versions.length > 0);
-  for (const version of versions) {
-    const [major, minor] = version.split(".").map(Number);
-    assert.ok(major > 0 || minor >= 35, `unsafe Sharp ${version}`);
-  }
+    .map(([, value]) => ({ version: value.version, optional: value.optional }));
+  assert.ok(versions.length > 0, "upstream optional dependency metadata must remain auditable");
+  assert.ok(versions.every(({ optional }) => optional === true));
 });

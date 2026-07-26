@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit",
     "test": "node --experimental-strip-types --test tests/*.test.mjs",
     "test:explore-visual": "node scripts/run-explore-visual.mjs",
+    "test:non-explore-regression": "node scripts/run-non-explore-regression.mjs",
     "test:partner-evidence-visual": "node scripts/run-partner-evidence-visual.mjs"
   },
   "dependencies": {

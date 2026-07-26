@@ -8,6 +8,12 @@ const contentSecurityPolicy = `default-src 'self'; ${scriptPolicy}; worker-src '
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  images: {
+    // Public images are trusted static assets. Amplify serves them directly,
+    // so the production runtime does not need Next's optional Sharp/libvips
+    // image optimizer or the /_next/image transformation route.
+    unoptimized: true,
+  },
   outputFileTracingRoot: path.join(process.cwd(), "../.."),
   // Amplify SSR does not forward app environment variables to the compute
   // runtime. These values are referenced only by server routes and are

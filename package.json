@@ -7,14 +7,8 @@
     "apps/*",
     "packages/*"
   ],
-  "dependencies": {
-    "sharp": "0.35.3"
-  },
   "overrides": {
     "postcss": "$postcss",
-    "next": {
-      "sharp": "$sharp"
-    },
     "xcode": {
       "uuid": "11.1.1"
     }
@@ -31,6 +25,7 @@
     "postinstall": "patch-package && node scripts/reconcile-installed-security-lock.mjs",
     "dev:public": "npm exec --workspace @sozorock/public-site -- next dev",
     "build:public": "npm exec --workspace @sozorock/public-site -- next build",
+    "verify:public-runtime-security": "node scripts/verify-public-runtime-security.mjs",
     "dev:platform": "npm exec --workspace @sozorock/platform -- next dev",
     "build:platform": "npm exec --workspace @sozorock/platform -- next build",
     "refresh:cbcap-data": "node scripts/refresh-cbcap-data.mjs && node scripts/build-cbcap-runtime-data.mjs",
@@ -46,6 +41,8 @@
     "eslint": "^9.39.5",
     "eslint-config-next": "^15.5.21",
     "patch-package": "^8.0.1",
+    "pixelmatch": "^7.2.0",
+    "pngjs": "^7.0.0",
     "postcss": "8.5.22"
   }
 }

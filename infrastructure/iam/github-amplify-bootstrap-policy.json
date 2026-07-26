@@ -2,7 +2,7 @@
   "Version": "2012-10-17",
   "Statement": [
     {
-      "Sid": "DeploySozoRockHealthAmplifyApps",
+      "Sid": "DeploySozoRockHealthPublicAmplifyApp",
       "Effect": "Allow",
       "Action": [
         "amplify:GetApp",
@@ -14,9 +14,7 @@
       ],
       "Resource": [
         "arn:aws:amplify:us-east-1:791860731989:apps/d2k1gmeov1v557",
-        "arn:aws:amplify:us-east-1:791860731989:apps/d2k1gmeov1v557/*",
-        "arn:aws:amplify:us-east-1:791860731989:apps/d307qqji18y8il",
-        "arn:aws:amplify:us-east-1:791860731989:apps/d307qqji18y8il/*"
+        "arn:aws:amplify:us-east-1:791860731989:apps/d2k1gmeov1v557/*"
       ]
     },
     {
@@ -75,6 +73,17 @@
       }
     },
     {
+      "Sid": "DiscoverEvidenceAurora",
+      "Effect": "Allow",
+      "Action": [
+        "rds:DescribeDBClusters",
+        "rds:DescribeDBClusterSnapshots",
+        "rds:DescribeDBInstances",
+        "rds:DescribeDBSubnetGroups"
+      ],
+      "Resource": "*"
+    },
+    {
       "Sid": "ProvisionEvidenceAurora",
       "Effect": "Allow",
       "Action": [
@@ -85,10 +94,6 @@
         "rds:CreateDBSubnetGroup",
         "rds:DeleteDBInstance",
         "rds:DeleteDBSubnetGroup",
-        "rds:DescribeDBClusters",
-        "rds:DescribeDBClusterSnapshots",
-        "rds:DescribeDBInstances",
-        "rds:DescribeDBSubnetGroups",
         "rds:ModifyDBCluster",
         "rds:ModifyDBInstance",
         "rds:RemoveTagsFromResource"

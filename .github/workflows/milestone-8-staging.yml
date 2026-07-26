@@ -43,21 +43,13 @@ jobs:
         with:
           node-version: "24"
           cache: npm
-      - run: npm ci --ignore-scripts
+      - run: npm ci --omit=optional
       - name: Production dependency security gate
         run: |
-          npm audit --omit=dev --audit-level=moderate
+          set -euo pipefail
+          npm audit --omit=dev --omit=optional --audit-level=moderate
           npm ls sharp --all
-          node - <<'NODE'
-          const tree = require("./package-lock.json").packages;
-          const versions = Object.entries(tree)
-            .filter(([name]) => /(^|\/)sharp$/.test(name))
-            .map(([, pkg]) => pkg.version);
-          if (!versions.length || versions.some((version) => Number(version.split(".")[0]) === 0 && Number(version.split(".")[1]) < 35)) {
-            throw new Error(`Unsafe Sharp graph: ${versions.join(", ")}`);
-          }
-          console.log(`Sharp security gate: ${[...new Set(versions)].join(", ")}`);
-          NODE
+          test ! -d node_modules/sharp
       - name: Apply, rollback, and reapply migrations
         run: npm run test:migrations --workspace @sozorock/evidence-core
       - name: Rebuild official national geography
@@ -71,7 +63,19 @@ jobs:
       - name: Repository tests
         run: npm test
       - name: Clean public production build
-        run: npm run build:public
+        run: |
+          npm run build:public
+          npm run verify:public-runtime-security
+          mkdir -p output/security
+          npm sbom --workspace @sozorock/public-site --omit=dev --omit=optional \
+            --sbom-format cyclonedx > output/security/public-runtime.cdx.json
+      - name: Install pinned Trivy
+        uses: aquasecurity/setup-trivy@81e514348e19b6112ce2a7e3ecbafe19c1e1f567 # v0.3.1
+        with:
+          version: v0.72.0
+          cache: true
+      - name: Scan runtime SBOM
+        run: trivy sbom --severity HIGH,CRITICAL --exit-code 1 output/security/public-runtime.cdx.json
       - name: Upload coverage and migration evidence
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
@@ -80,3 +84,5 @@ jobs:
             packages/evidence-core/data/national/national-geography-coverage.v2025.json
             packages/evidence-core/data/national/national-coverage-report.v1.json
             packages/evidence-core/data/national/national-coverage-report.v1.md
+            output/security/public-runtime.cdx.json
+            output/security/public-runtime-security.json
