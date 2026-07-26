@@ -9,6 +9,7 @@ import {
   RDSDataClient,
   RollbackTransactionCommand,
 } from "@aws-sdk/client-rds-data";
+import { planPendingMigrations } from "../src/operations/migration-plan.ts";
 import { splitPostgresStatements } from "../src/operations/sql-splitter.ts";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -62,13 +63,8 @@ try {
 } catch (error) {
   if (!String(error).includes("schema_migration")) throw error;
 }
-for (const migration of migrations) {
-  const prior = existingMigrations.get(migration.name);
-  if (prior && prior !== migration.sha256) {
-    throw new Error(`Migration integrity failure for ${migration.name}.`);
-  }
-}
-if (migrations.every((migration) => existingMigrations.get(migration.name) === migration.sha256)) {
+const pendingMigrations = planPendingMigrations(migrations, existingMigrations);
+if (pendingMigrations.length === 0) {
   console.log(JSON.stringify({
     target: { resourceArn, database },
     migrations: migrations.map(({ name, sha256 }) => ({ name, sha256 })),
@@ -82,13 +78,12 @@ let transactionId: string | undefined;
 try {
   transactionId = (await client.send(new BeginTransactionCommand(base))).transactionId;
   if (!transactionId) throw new Error("RDS Data API did not start a migration transaction.");
-  for (const migration of migrations) {
+  for (const migration of pendingMigrations) {
     for (const statement of splitPostgresStatements(migration.sql)) {
       await query(statement, transactionId);
     }
   }
-  for (const migration of migrations) {
-    if (existingMigrations.has(migration.name)) continue;
+  for (const migration of pendingMigrations) {
     await client.send(new ExecuteStatementCommand({
       ...base,
       transactionId,
