@@ -206,6 +206,7 @@ jobs:
         run: |
           set -euo pipefail
           current_env=$(aws amplify get-app --app-id "$PUBLIC_APP_ID" --query 'app.environmentVariables' --output json)
+          public_build_spec=$(cat infrastructure/amplify/public-site.yml)
           merged_env=$(jq -c \
             --arg ca "$EVIDENCE_DATABASE_CLUSTER_ARN" \
             --arg sa "$EVIDENCE_DATABASE_SECRET_ARN" \
@@ -225,7 +226,10 @@ jobs:
               PLACE_AGENT_MAX_GLOBAL_DAY:"10",
               EVIDENCE_SOURCE_CDC_PLACES_ENABLED:"true"
             }' <<<"$current_env")
-          aws amplify update-app --app-id "$PUBLIC_APP_ID" --environment-variables "$merged_env" >/dev/null
+          aws amplify update-app \
+            --app-id "$PUBLIC_APP_ID" \
+            --build-spec "$public_build_spec" \
+            --environment-variables "$merged_env" >/dev/null
       - name: Deploy public application only
         run: |
           set -euo pipefail
