@@ -13,10 +13,11 @@ import {
 import { isClinicalSafetyQuestion } from "./place-agent-safety";
 
 const secrets = new SecretsManagerClient({});
-const MAX_TOOL_DEPTH = 6;
+const MAX_TOOL_DEPTH = 3;
+const MAX_OUTPUT_TOKENS = 900;
 const REQUEST_TIMEOUT_MS = 22_000;
 const MODEL = process.env.OPENAI_PLACE_EVIDENCE_MODEL?.trim() || "gpt-5.6-sol";
-const AGENT_POLICY_VERSION = "place-evidence-agent.production.v1";
+const AGENT_POLICY_VERSION = "place-evidence-agent.production.v2";
 const AGENT_SCHEMA_VERSION = "place-evidence-answer.v1";
 
 export type PlaceEvidenceAnswer = {
@@ -343,8 +344,12 @@ export async function answerWithOpenAI(input: {
           input: inputItems,
           tools: PLACE_AGENT_TOOL_DEFINITIONS,
           tool_choice: "auto",
-          max_output_tokens: 1_600,
+          max_tool_calls: MAX_TOOL_DEPTH,
+          parallel_tool_calls: false,
+          max_output_tokens: MAX_OUTPUT_TOKENS,
+          reasoning: { effort: "none" },
           text: {
+            verbosity: "low",
             format: {
               type: "json_schema",
               name: "place_evidence_answer",

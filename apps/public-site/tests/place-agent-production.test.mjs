@@ -13,7 +13,12 @@ const packageLock = JSON.parse(await readFile(new URL("../../../package-lock.jso
 test("production agent is evidence-only, stored-output disabled, bounded, and tool allowlisted", () => {
   assert.match(provider, /store:\s*false/);
   assert.match(provider, /PLACE_AGENT_TOOL_DEFINITIONS/);
-  assert.match(provider, /MAX_TOOL_DEPTH\s*=\s*6/);
+  assert.match(provider, /MAX_TOOL_DEPTH\s*=\s*3/);
+  assert.match(provider, /MAX_OUTPUT_TOKENS\s*=\s*900/);
+  assert.match(provider, /max_tool_calls:\s*MAX_TOOL_DEPTH/);
+  assert.match(provider, /parallel_tool_calls:\s*false/);
+  assert.match(provider, /reasoning:\s*\{\s*effort:\s*"none"\s*\}/);
+  assert.match(provider, /verbosity:\s*"low"/);
   assert.match(provider, /REQUEST_TIMEOUT_MS\s*=\s*22_000/);
   assert.doesNotMatch(provider, /web_search|computer_use|file_search|https?:\/\/(?!api\.openai\.com)/);
 });

@@ -220,8 +220,8 @@ jobs:
               OPENAI_SECRET_ARN:$openai,
               OPENAI_PLACE_EVIDENCE_MODEL:"gpt-5.6-sol",
               PLACE_EVIDENCE_PROVIDER:"openai-responses",
-              PLACE_AGENT_MAX_PER_NETWORK_HOUR:"12",
-              PLACE_AGENT_MAX_GLOBAL_DAY:"2000",
+              PLACE_AGENT_MAX_PER_NETWORK_HOUR:"3",
+              PLACE_AGENT_MAX_GLOBAL_DAY:"25",
               EVIDENCE_SOURCE_CDC_PLACES_ENABLED:"true"
             }' <<<"$current_env")
           aws amplify update-app --app-id "$PUBLIC_APP_ID" --environment-variables "$merged_env" >/dev/null
