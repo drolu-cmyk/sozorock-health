@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
+import { isClinicalSafetyQuestion } from "../app/lib/place-agent-safety.ts";
 
 const provider = await readFile(new URL("../app/lib/place-agent-openai.ts", import.meta.url), "utf8");
 const route = await readFile(new URL("../app/api/evidence/v1/agent/route.ts", import.meta.url), "utf8");
@@ -20,7 +21,10 @@ test("production agent is evidence-only, stored-output disabled, bounded, and to
 test("unsupported claims and clinical questions fail closed", () => {
   assert.match(provider, /claim does not exactly match the approved evidence package/);
   assert.match(provider, /cannot provide medical advice/);
-  assert.match(provider, /safetyRefusal/);
+  assert.equal(isClinicalSafetyQuestion("Please diagnose my symptoms."), true);
+  assert.equal(isClinicalSafetyQuestion("What medication dosage should I take?"), true);
+  assert.equal(isClinicalSafetyQuestion("Prescribe treatment for my diagnosis."), true);
+  assert.equal(isClinicalSafetyQuestion("What does the reviewed county evidence show?"), false);
   assert.match(provider, /evidence_gap/);
 });
 

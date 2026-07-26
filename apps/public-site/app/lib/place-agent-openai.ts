@@ -10,6 +10,7 @@ import {
   countyRecordByFips,
   getApprovedCountyBrief,
 } from "./approved-evidence-snapshot";
+import { isClinicalSafetyQuestion } from "./place-agent-safety";
 
 const secrets = new SecretsManagerClient({});
 const MAX_TOOL_DEPTH = 6;
@@ -226,11 +227,6 @@ const answerSchema = {
   ],
 } as const;
 
-function safetyRefusal(question: string) {
-  const normalized = question.toLowerCase();
-  return /\b(diagnos|symptom|triage|treat|treatment|medication|dose|prescrib|my risk|am i)\b/.test(normalized);
-}
-
 function refusal(brief: ExplorePlaceBriefV1): PlaceEvidenceAnswer {
   return {
     schemaVersion: AGENT_SCHEMA_VERSION,
@@ -308,7 +304,7 @@ export async function answerWithOpenAI(input: {
   const brief = getApprovedCountyBrief(input.geoid);
   if (!brief) throw new Error("County GEOID not found.");
   const inputHash = createHash("sha256").update(JSON.stringify(input)).digest("hex");
-  if (safetyRefusal(input.question)) {
+  if (isClinicalSafetyQuestion(input.question)) {
     const answer = refusal(brief);
     return {
       answer,
