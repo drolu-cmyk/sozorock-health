@@ -84,6 +84,7 @@ Resources:
       Engine: aurora-postgresql
       EngineMode: provisioned
       EngineVersion: "16.13"
+      KmsKeyId: alias/aws/rds
       BackupRetentionPeriod: 14
       CopyTagsToSnapshot: true
       ManageMasterUserPassword: true
