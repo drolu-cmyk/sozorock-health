@@ -51,6 +51,14 @@ test("Explore-only release workflow cannot deploy CB-CAP", () => {
   assert.match(workflow, /verify:public-runtime-security/);
 });
 
+test("production key rotation writes only to AWS Secrets Manager without logging the key", () => {
+  assert.match(workflow, /OPENAI_API_KEY_BOOTSTRAP:\s*\$\{\{\s*secrets\.OPENAI_API_KEY_BOOTSTRAP\s*\}\}/);
+  assert.match(workflow, /aws secretsmanager put-secret-value/);
+  assert.match(workflow, /--secret-string "file:\/\/\$secret_file"/);
+  assert.match(workflow, /chmod 600 "\$secret_file"/);
+  assert.doesNotMatch(workflow, /echo\s+"\$OPENAI_API_KEY_BOOTSTRAP"/);
+});
+
 test("public runtime removes optional Sharp while preserving upstream lock metadata", () => {
   assert.match(nextConfig, /unoptimized:\s*true/);
   assert.match(runtimeVerifier, /Runtime trace imports Sharp\/libvips/);
