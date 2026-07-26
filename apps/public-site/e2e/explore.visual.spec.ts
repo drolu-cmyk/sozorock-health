@@ -1,4 +1,17 @@
 import { expect, test } from "@playwright/test";
+import { readFileSync } from "node:fs";
+
+const nationalReport = JSON.parse(
+  readFileSync(
+    new URL(
+      "../../../packages/evidence-core/data/national/national-coverage-report.v1.json",
+      import.meta.url,
+    ),
+    "utf8",
+  ),
+) as {
+  randomStateSample: Array<{ state: string; geoid: string; name: string }>;
+};
 
 const places = [
   { name: "Albany County, NY", geoid: "36001" },
@@ -39,3 +52,42 @@ for (const place of places) {
     expect(overflow).toBeLessThanOrEqual(1);
   });
 }
+
+test("required responsive widths preserve the county brief, map, and keyboard flow", async ({ page }) => {
+  test.setTimeout(240_000);
+  const widths = [320, 375, 390, 414, 768, 1024, 1440];
+  for (const width of widths) {
+    await page.setViewportSize({ width, height: width < 768 ? 844 : 900 });
+    await page.goto("/explore?kind=county&geoid=36001&view=brief", {
+      waitUntil: "domcontentloaded",
+    });
+    await expect(page.getByRole("heading", { level: 1, name: /Albany County/i })).toBeVisible();
+    await page.getByRole("tab", { name: "Map" }).click();
+    await expect(page.locator('[data-map-ready="true"]')).toBeVisible();
+    await expect(page.locator(".maplibregl-canvas")).toBeVisible();
+    const overflow = await page.evaluate(
+      () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    );
+    expect(overflow, `horizontal overflow at ${width}px`).toBeLessThanOrEqual(1);
+  }
+});
+
+test("one stratified county from every state and DC resolves through the public interface", async ({ page }) => {
+  test.setTimeout(360_000);
+  expect(nationalReport.randomStateSample).toHaveLength(51);
+  await page.setViewportSize({ width: 1024, height: 768 });
+  for (const sample of nationalReport.randomStateSample) {
+    const response = await page.goto(
+      `/explore?kind=county&geoid=${sample.geoid}&view=brief`,
+      { waitUntil: "domcontentloaded" },
+    );
+    expect(response?.status(), `${sample.state} ${sample.geoid}`).toBe(200);
+    await expect(
+      page.getByRole("heading", { level: 1, name: new RegExp(sample.name, "i") }),
+    ).toBeVisible();
+    const overflow = await page.evaluate(
+      () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    );
+    expect(overflow, `${sample.state} ${sample.geoid}`).toBeLessThanOrEqual(1);
+  }
+});

@@ -118,8 +118,7 @@ jobs:
       PUBLIC_APP_ID: ${{ vars.PUBLIC_AMPLIFY_APP_ID }}
       AMPLIFY_BRANCH: ${{ vars.AMPLIFY_BRANCH_NAME || 'main' }}
       PUBLIC_SITE_URL: ${{ vars.PUBLIC_SITE_URL || 'https://health.sozorockfoundation.org' }}
-      OPENAI_SECRET_ARN: ${{ secrets.OPENAI_SECRET_ARN }}
-      OPENAI_API_KEY_BOOTSTRAP: ${{ secrets.OPENAI_API_KEY_BOOTSTRAP }}
+      OPENAI_PLACE_EVIDENCE_SECRET_ARN: ${{ secrets.OPENAI_PLACE_EVIDENCE_SECRET_ARN }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
@@ -135,28 +134,11 @@ jobs:
         with:
           role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
           aws-region: ${{ vars.AWS_REGION }}
-      - name: Rotate OpenAI key into AWS Secrets Manager
-        if: ${{ env.OPENAI_API_KEY_BOOTSTRAP != '' }}
-        run: |
-          set -euo pipefail
-          test -n "$OPENAI_SECRET_ARN"
-          secret_file=$(mktemp)
-          trap 'rm -f "$secret_file"' EXIT
-          chmod 600 "$secret_file"
-          printf '%s' "$OPENAI_API_KEY_BOOTSTRAP" > "$secret_file"
-          version_id=$(aws secretsmanager put-secret-value \
-            --secret-id "$OPENAI_SECRET_ARN" \
-            --secret-string "file://$secret_file" \
-            --query VersionId \
-            --output text)
-          test -n "$version_id"
-          echo "::add-mask::$version_id"
-          echo "OPENAI_SECRET_VERSION_ID=$version_id" >> "$GITHUB_ENV"
       - name: Resolve exact production target and baseline
         run: |
           set -euo pipefail
           test -n "$PUBLIC_APP_ID"
-          test -n "$OPENAI_SECRET_ARN"
+          test -n "$OPENAI_PLACE_EVIDENCE_SECRET_ARN"
           test "$(git rev-parse HEAD)" = "$RELEASE_SHA"
           test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$RELEASE_SHA"
           aws amplify get-app --app-id "$PUBLIC_APP_ID" >/dev/null
@@ -186,7 +168,8 @@ jobs:
               EnvironmentName=production \
               VpcId="$vpc_id" \
               PrivateSubnetIds="$subnet_csv" \
-              PublicComputeRoleName="$compute_role_name"
+              PublicComputeRoleName="$compute_role_name" \
+              PlaceEvidenceOpenAISecretArn="$OPENAI_PLACE_EVIDENCE_SECRET_ARN"
           cluster_arn=$(aws cloudformation describe-stacks --stack-name sozorock-health-evidence-production \
             --query "Stacks[0].Outputs[?OutputKey=='EvidenceDatabaseClusterArn'].OutputValue" --output text)
           secret_arn=$(aws cloudformation describe-stacks --stack-name sozorock-health-evidence-production \
@@ -228,18 +211,18 @@ jobs:
             --arg sa "$EVIDENCE_DATABASE_SECRET_ARN" \
             --arg db "$EVIDENCE_DATABASE_NAME" \
             --arg bucket "$EVIDENCE_ARTIFACT_BUCKET" \
-            --arg openai "$OPENAI_SECRET_ARN" \
+            --arg openai "$OPENAI_PLACE_EVIDENCE_SECRET_ARN" \
             '. + {
               EVIDENCE_DATABASE_CLUSTER_ARN:$ca,
               EVIDENCE_DATABASE_SECRET_ARN:$sa,
               EVIDENCE_DATABASE_NAME:$db,
               EVIDENCE_ARTIFACT_BUCKET:$bucket,
               EVIDENCE_ALLOWED_HOSTS:"health.sozorockfoundation.org;www.health.sozorockfoundation.org",
-              OPENAI_SECRET_ARN:$openai,
+              OPENAI_PLACE_EVIDENCE_SECRET_ARN:$openai,
               OPENAI_PLACE_EVIDENCE_MODEL:"gpt-5.6-sol",
               PLACE_EVIDENCE_PROVIDER:"openai-responses",
-              PLACE_AGENT_MAX_PER_NETWORK_HOUR:"3",
-              PLACE_AGENT_MAX_GLOBAL_DAY:"25",
+              PLACE_AGENT_MAX_PER_NETWORK_HOUR:"2",
+              PLACE_AGENT_MAX_GLOBAL_DAY:"10",
               EVIDENCE_SOURCE_CDC_PLACES_ENABLED:"true"
             }' <<<"$current_env")
           aws amplify update-app --app-id "$PUBLIC_APP_ID" --environment-variables "$merged_env" >/dev/null

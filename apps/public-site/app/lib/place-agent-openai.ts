@@ -14,7 +14,7 @@ import { isClinicalSafetyQuestion } from "./place-agent-safety";
 
 const secrets = new SecretsManagerClient({});
 const MAX_TOOL_DEPTH = 3;
-const MAX_OUTPUT_TOKENS = 900;
+const MAX_OUTPUT_TOKENS = 600;
 const REQUEST_TIMEOUT_MS = 22_000;
 const MODEL = process.env.OPENAI_PLACE_EVIDENCE_MODEL?.trim() || "gpt-5.6-sol";
 const AGENT_POLICY_VERSION = "place-evidence-agent.production.v2";
@@ -79,7 +79,7 @@ function approvedClaims(brief: ExplorePlaceBriefV1) {
 }
 
 async function apiKey() {
-  const arn = process.env.OPENAI_SECRET_ARN?.trim();
+  const arn = process.env.OPENAI_PLACE_EVIDENCE_SECRET_ARN?.trim();
   if (!arn) throw new Error("OpenAI secret is not configured.");
   const value = await secrets.send(new GetSecretValueCommand({ SecretId: arn }));
   const raw = value.SecretString?.trim();

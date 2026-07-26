@@ -207,6 +207,44 @@
 .verified { background: #dfeadf; color: #28543a; }
 .provisional { background: #fff1c9; color: #795414; }
 
+.countyChoice {
+  width: min(1120px, calc(100% - 40px));
+  margin: 64px auto;
+  padding: clamp(28px, 5vw, 58px);
+  border-top: 5px solid var(--signal);
+  background: var(--paper-bright);
+}
+.countyChoice > span, .countyChoice > h1, .countyChoice > p { max-width: 860px; }
+.countyChoice > span { color: var(--green-dark); font-size: 11px; font-weight: 850; letter-spacing: .09em; text-transform: uppercase; }
+.countyChoice h1 { margin: 10px 0 16px; font-size: clamp(38px, 6vw, 72px); letter-spacing: -.055em; line-height: .98; }
+.countyChoice > p { color: #526064; line-height: 1.55; }
+.countyChoice > div { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; margin-top: 30px; }
+.countyChoice button { display: grid; min-height: 178px; grid-template-columns: 1fr auto; gap: 8px 14px; padding: 20px; border: 1px solid var(--line); background: #fff; color: var(--ink); text-align: left; cursor: pointer; }
+.countyChoice button:hover, .countyChoice button:focus-visible { border-color: var(--ink); box-shadow: inset 0 -4px var(--signal); }
+.countyChoice button strong { font-size: 20px; }
+.countyChoice button span, .countyChoice button small { grid-column: 1; }
+.countyChoice button span { color: var(--green-dark); font-weight: 800; }
+.countyChoice button small { color: #596568; line-height: 1.4; }
+.countyChoice button svg { grid-column: 2; grid-row: 1 / span 3; align-self: center; }
+.resolutionCaveat { display: flex; gap: 8px; align-items: flex-start; margin-top: 18px !important; font-size: 13px; }
+
+.allMeasures, .coverageMatrix { margin-top: 18px; border-top: 1px solid var(--line); }
+.allMeasures summary, .coverageMatrix summary { display: flex; min-height: 52px; align-items: center; justify-content: space-between; cursor: pointer; font-weight: 800; list-style: none; }
+.allMeasures summary::-webkit-details-marker, .coverageMatrix summary::-webkit-details-marker { display: none; }
+.allMeasures[open] summary svg, .coverageMatrix[open] summary svg { transform: rotate(90deg); }
+.measureTable { overflow-x: auto; border: 1px solid var(--line); background: #fff; }
+.measureTable > div { display: grid; min-width: 760px; grid-template-columns: minmax(260px, 1.8fr) repeat(4, minmax(100px, .7fr)); border-top: 1px solid var(--line); }
+.measureTable > div:first-child { border-top: 0; background: #eeeadf; }
+.measureTable span { display: grid; gap: 4px; padding: 11px 12px; border-right: 1px solid var(--line); font-size: 13px; }
+.measureTable span:last-child { border-right: 0; }
+.measureTable [role="columnheader"] { color: var(--green-dark); font-size: 10px; font-weight: 850; letter-spacing: .08em; text-transform: uppercase; }
+.measureTable small { color: #617074; line-height: 1.35; }
+.coverageMatrix > div { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); }
+.coverageMatrix article { padding: 14px; background: #fff; }
+.coverageMatrix article strong { text-transform: capitalize; }
+.coverageMatrix article span { float: right; color: var(--green-dark); font-size: 10px; font-weight: 850; text-transform: uppercase; }
+.coverageMatrix article p { margin: 8px 0 0; color: #596568; font-size: 12px; line-height: 1.4; }
+
 .mapLayout { display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(320px, .55fr); min-height: 680px; }
 .mapFigure { display: grid; min-width: 0; margin: 0; grid-template-rows: minmax(540px, 1fr) auto; background: #e8ede6; }
 .mapCanvas { width: 100%; min-height: 540px; }
@@ -229,6 +267,7 @@
 .legend i { display: block; flex: 0 0 auto; }
 .legendFill { width: 20px; height: 14px; background: rgba(185,70,44,.35); }
 .legendLine { width: 22px; height: 2px; background: #fff; }
+.legendContext { width: 22px; height: 2px; border-top: 2px dashed var(--signal); }
 .legendMarker { width: 12px; height: 12px; border: 2px solid #fff; border-radius: 50%; background: var(--signal); }
 .resourceStatus { display: grid; grid-template-columns: auto 1fr; gap: 10px; margin: 24px 0; padding: 16px; border-left: 3px solid var(--signal); background: #1c292c; }
 .resourceStatus p { margin: 0; color: #c1cbcd; font-size: 13px; line-height: 1.45; }
@@ -312,6 +351,7 @@
   .evidenceCard { min-height: 0; }
   .evidenceCard + .evidenceCard { border-left: 1px solid var(--line); border-top: 0; }
   .evidenceCard h3 { margin-top: 24px; }
+  .coverageMatrix > div { grid-template-columns: 1fr; }
   .sourceStrip { grid-template-columns: 1fr 1fr; }
   .sourceStrip > div, .sourceStrip > details > summary { min-height: 68px; border-bottom: 1px solid var(--line); }
   .sourceStrip > details { grid-column: 1 / -1; }

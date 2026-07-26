@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createRequire } from "node:module";
 import { safeGeoid, type ExploreKind } from "../../../lib/explore-health";
 
 export const runtime = "nodejs";
@@ -9,6 +10,14 @@ type FeatureCollection = {
 };
 
 const emptyCollection: FeatureCollection = { type: "FeatureCollection", features: [] };
+const countyBoundaries = createRequire(import.meta.url)(
+  "../../../../../../packages/evidence-core/data/national/county-boundaries.v2025.json",
+) as {
+  censusVintage: string;
+  sourceUrl: string;
+  generalization: string;
+  byGeoid: Record<string, FeatureCollection["features"][number]>;
+};
 
 function collectNumbers(value: unknown, points: number[][]) {
   if (!Array.isArray(value)) return;
@@ -58,10 +67,10 @@ async function arcGisGeoJson(url: string, parameters: Record<string, string>) {
 
 async function areaGeometry(kind: ExploreKind, geoid: string) {
   if (kind === "county") {
-    return arcGisGeoJson(
-      "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/State_County/MapServer/9/query",
-      { where: `GEOID='${geoid}'`, outFields: "GEOID,NAME", maxAllowableOffset: "0.0005" },
-    );
+    const feature = countyBoundaries.byGeoid[geoid];
+    return feature
+      ? { type: "FeatureCollection" as const, features: [feature] }
+      : emptyCollection;
   }
   if (kind === "zip") {
     return arcGisGeoJson(
@@ -93,14 +102,29 @@ export async function GET(request: NextRequest) {
   const geoid = safeGeoid(kind, request.nextUrl.searchParams.get("geoid") ?? "");
   if (!geoid) return NextResponse.json({ area: emptyCollection, verifiedResources: emptyCollection });
   const area = await areaGeometry(kind, geoid);
+  const contextKindValue = request.nextUrl.searchParams.get("contextKind");
+  const contextKind = contextKindValue === "county" || contextKindValue === "place" || contextKindValue === "zip"
+    ? contextKindValue
+    : null;
+  const contextGeoid = contextKind
+    ? safeGeoid(contextKind, request.nextUrl.searchParams.get("contextGeoid") ?? "")
+    : "";
+  const contextArea = contextKind && contextGeoid && (contextKind !== kind || contextGeoid !== geoid)
+    ? await areaGeometry(contextKind, contextGeoid)
+    : emptyCollection;
   return NextResponse.json(
     {
       area,
+      contextArea,
       bounds: bounds(area),
       verifiedResources: emptyCollection,
-      vintage: "U.S. Census Bureau TIGERweb, January 1, 2025",
-      sourceUrl: "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/",
+      vintage: `U.S. Census Bureau TIGERweb, January 1, ${countyBoundaries.censusVintage}`,
+      sourceUrl: countyBoundaries.sourceUrl,
+      geometryNote: countyBoundaries.generalization,
       resourceNote: "No verified SozoRock or community resource markers are published for this geography.",
+      contextNote: contextArea.features.length
+        ? "The outline shows the original ZIP Code Tabulation Area or Census place used to resolve this county. It is context only; every displayed observation remains county-level."
+        : null,
     },
     { headers: { "Cache-Control": "public, s-maxage=604800, stale-while-revalidate=2592000" } },
   );

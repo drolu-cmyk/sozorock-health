@@ -6,6 +6,10 @@ import { isClinicalSafetyQuestion } from "../app/lib/place-agent-safety.ts";
 const provider = await readFile(new URL("../app/lib/place-agent-openai.ts", import.meta.url), "utf8");
 const route = await readFile(new URL("../app/api/evidence/v1/agent/route.ts", import.meta.url), "utf8");
 const workflow = await readFile(new URL("../../../.github/workflows/explore-production.yml", import.meta.url), "utf8");
+const evidenceInfrastructure = await readFile(
+  new URL("../../../infrastructure/cloudformation/evidence-core.yml", import.meta.url),
+  "utf8",
+);
 const nextConfig = await readFile(new URL("../next.config.ts", import.meta.url), "utf8");
 const runtimeVerifier = await readFile(new URL("../../../scripts/verify-public-runtime-security.mjs", import.meta.url), "utf8");
 const packageLock = JSON.parse(await readFile(new URL("../../../package-lock.json", import.meta.url), "utf8"));
@@ -14,7 +18,8 @@ test("production agent is evidence-only, stored-output disabled, bounded, and to
   assert.match(provider, /store:\s*false/);
   assert.match(provider, /PLACE_AGENT_TOOL_DEFINITIONS/);
   assert.match(provider, /MAX_TOOL_DEPTH\s*=\s*3/);
-  assert.match(provider, /MAX_OUTPUT_TOKENS\s*=\s*900/);
+  assert.match(provider, /MAX_OUTPUT_TOKENS\s*=\s*600/);
+  assert.match(provider, /OPENAI_PLACE_EVIDENCE_SECRET_ARN/);
   assert.match(provider, /max_tool_calls:\s*MAX_TOOL_DEPTH/);
   assert.match(provider, /parallel_tool_calls:\s*false/);
   assert.match(provider, /reasoning:\s*\{\s*effort:\s*"none"\s*\}/);
@@ -51,12 +56,13 @@ test("Explore-only release workflow cannot deploy CB-CAP", () => {
   assert.match(workflow, /verify:public-runtime-security/);
 });
 
-test("production key rotation writes only to AWS Secrets Manager without logging the key", () => {
-  assert.match(workflow, /OPENAI_API_KEY_BOOTSTRAP:\s*\$\{\{\s*secrets\.OPENAI_API_KEY_BOOTSTRAP\s*\}\}/);
-  assert.match(workflow, /aws secretsmanager put-secret-value/);
-  assert.match(workflow, /--secret-string "file:\/\/\$secret_file"/);
-  assert.match(workflow, /chmod 600 "\$secret_file"/);
-  assert.doesNotMatch(workflow, /echo\s+"\$OPENAI_API_KEY_BOOTSTRAP"/);
+test("production consumes the dedicated AWS-managed agent secret without key material in GitHub", () => {
+  assert.match(workflow, /OPENAI_PLACE_EVIDENCE_SECRET_ARN:\s*\$\{\{\s*secrets\.OPENAI_PLACE_EVIDENCE_SECRET_ARN\s*\}\}/);
+  assert.doesNotMatch(workflow, /OPENAI_API_KEY_BOOTSTRAP/);
+  assert.doesNotMatch(workflow, /aws secretsmanager put-secret-value/);
+  assert.match(evidenceInfrastructure, /PlaceEvidenceOpenAISecretArn/);
+  assert.match(evidenceInfrastructure, /Sid:\s*ReadPlaceEvidenceOpenAISecret/);
+  assert.match(evidenceInfrastructure, /Action:\s*\n\s*-\s*secretsmanager:GetSecretValue/);
 });
 
 test("public runtime removes optional Sharp while preserving upstream lock metadata", () => {

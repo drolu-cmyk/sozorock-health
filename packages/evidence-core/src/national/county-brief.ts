@@ -180,6 +180,17 @@ function sourceCoverage(record: CountyEvidenceSnapshotRecord, snapshot: CountyEv
       retrievedAt: null,
     },
     {
+      sourceId: "ahrf-workforce",
+      status: "not_yet_verified",
+      reason: "An approved Area Health Resources Files snapshot has not yet completed staging verification for this county.",
+      sourceVersionId: null,
+      geographyKind: "county",
+      observationCount: 0,
+      releaseDate: null,
+      dataPeriod: { start: null, end: null },
+      retrievedAt: null,
+    },
+    {
       sourceId: "ahrq-clh",
       status: "awaiting_human_review",
       reason: "The AHRQ workbook reader is active, but the approved workbook and codebook import await staging review.",

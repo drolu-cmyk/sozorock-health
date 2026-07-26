@@ -53,7 +53,7 @@ export const SOURCE_CATALOG: SourceCatalogRecord[] = [
     id: "hrsa-workforce",
     family: "hrsa",
     publisher: "Health Resources and Services Administration",
-    title: "Health workforce, HPSA, MUA/P, and Area Health Resources Files",
+    title: "Health Professional Shortage Areas and Medically Underserved Areas and Populations",
     officialUrl: "https://data.hrsa.gov/",
     hostPolicy: "fixed_allowlist",
     allowedHosts: ["hrsa.gov"],
@@ -63,6 +63,22 @@ export const SOURCE_CATALOG: SourceCatalogRecord[] = [
     limitations: [
       "Designation coverage can represent a geography, population group, or facility and must not be silently converted to a whole-county finding.",
       "Provider counts do not prove appointment availability or participation in SozoRock Health.",
+    ],
+  },
+  {
+    id: "ahrf-workforce",
+    family: "hrsa",
+    publisher: "Health Resources and Services Administration, Bureau of Health Workforce",
+    title: "Area Health Resources Files",
+    officialUrl: "https://data.hrsa.gov/data/download?data=AHRF",
+    hostPolicy: "fixed_allowlist",
+    allowedHosts: ["hrsa.gov"],
+    refreshCadence: "release_based",
+    geographyKinds: ["state", "county"],
+    reviewStatus: "verified",
+    limitations: [
+      "AHRF combines variables with source-specific years; every displayed value must retain its own period.",
+      "Workforce and facility counts are contextual and do not establish availability, quality, causation, or a local planning priority.",
     ],
   },
   {

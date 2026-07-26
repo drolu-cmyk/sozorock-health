@@ -6,6 +6,7 @@ on:
     branches:
       - codex/milestone-8-nationwide-evidence-activation
       - codex/milestone-8-production-activation
+      - codex/nationwide-county-release
 
 permissions:
   contents: read
@@ -62,6 +63,10 @@ jobs:
         run: npm run lint
       - name: Repository tests
         run: npm test
+      - name: Explore browser acceptance
+        run: |
+          npx playwright install --with-deps chromium
+          npm run test:explore-visual --workspace @sozorock/public-site
       - name: Clean public production build
         run: |
           npm run build:public
