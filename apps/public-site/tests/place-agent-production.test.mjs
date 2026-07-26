@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
+import { isClinicalSafetyQuestion } from "../app/lib/place-agent-safety.ts";
 
 const provider = await readFile(new URL("../app/lib/place-agent-openai.ts", import.meta.url), "utf8");
 const route = await readFile(new URL("../app/api/evidence/v1/agent/route.ts", import.meta.url), "utf8");
@@ -12,7 +13,12 @@ const packageLock = JSON.parse(await readFile(new URL("../../../package-lock.jso
 test("production agent is evidence-only, stored-output disabled, bounded, and tool allowlisted", () => {
   assert.match(provider, /store:\s*false/);
   assert.match(provider, /PLACE_AGENT_TOOL_DEFINITIONS/);
-  assert.match(provider, /MAX_TOOL_DEPTH\s*=\s*6/);
+  assert.match(provider, /MAX_TOOL_DEPTH\s*=\s*3/);
+  assert.match(provider, /MAX_OUTPUT_TOKENS\s*=\s*900/);
+  assert.match(provider, /max_tool_calls:\s*MAX_TOOL_DEPTH/);
+  assert.match(provider, /parallel_tool_calls:\s*false/);
+  assert.match(provider, /reasoning:\s*\{\s*effort:\s*"none"\s*\}/);
+  assert.match(provider, /verbosity:\s*"low"/);
   assert.match(provider, /REQUEST_TIMEOUT_MS\s*=\s*22_000/);
   assert.doesNotMatch(provider, /web_search|computer_use|file_search|https?:\/\/(?!api\.openai\.com)/);
 });
@@ -20,7 +26,10 @@ test("production agent is evidence-only, stored-output disabled, bounded, and to
 test("unsupported claims and clinical questions fail closed", () => {
   assert.match(provider, /claim does not exactly match the approved evidence package/);
   assert.match(provider, /cannot provide medical advice/);
-  assert.match(provider, /safetyRefusal/);
+  assert.equal(isClinicalSafetyQuestion("Please diagnose my symptoms."), true);
+  assert.equal(isClinicalSafetyQuestion("What medication dosage should I take?"), true);
+  assert.equal(isClinicalSafetyQuestion("Prescribe treatment for my diagnosis."), true);
+  assert.equal(isClinicalSafetyQuestion("What does the reviewed county evidence show?"), false);
   assert.match(provider, /evidence_gap/);
 });
 
@@ -40,6 +49,14 @@ test("Explore-only release workflow cannot deploy CB-CAP", () => {
   assert.match(workflow, /PUBLIC_APP_ID/);
   assert.match(workflow, /npm ci --omit=optional/);
   assert.match(workflow, /verify:public-runtime-security/);
+});
+
+test("production key rotation writes only to AWS Secrets Manager without logging the key", () => {
+  assert.match(workflow, /OPENAI_API_KEY_BOOTSTRAP:\s*\$\{\{\s*secrets\.OPENAI_API_KEY_BOOTSTRAP\s*\}\}/);
+  assert.match(workflow, /aws secretsmanager put-secret-value/);
+  assert.match(workflow, /--secret-string "file:\/\/\$secret_file"/);
+  assert.match(workflow, /chmod 600 "\$secret_file"/);
+  assert.doesNotMatch(workflow, /echo\s+"\$OPENAI_API_KEY_BOOTSTRAP"/);
 });
 
 test("public runtime removes optional Sharp while preserving upstream lock metadata", () => {
