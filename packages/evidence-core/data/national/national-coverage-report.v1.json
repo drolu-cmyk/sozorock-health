@@ -1,7 +1,7 @@
 {
   "schemaVersion": "sozorock.national-coverage-report.v1",
-  "generatedAt": "2026-07-23T18:32:17.830Z",
-  "snapshotId": "snapshot:045a20af00bf24f05bc98c9810477c01b4205b5834e08d03a426f21cf235020c",
+  "generatedAt": "2026-07-23T00:00:00.000Z",
+  "snapshotId": "snapshot:1ca229a06b3368ccb33a9ea46f4f5671b67678c5679f5edb36cd475e6b970f8a",
   "authoritativeCountyCount": 3144,
   "loadedCountyCount": 3144,
   "searchableCountyCount": 3144,
@@ -16,16 +16,21 @@
       "unavailable_from_source": 1
     },
     "census-acs5": {
-      "credential_blocked": 3144
+      "available": 3144
     },
     "hrsa-workforce": {
-      "not_yet_verified": 3144
+      "available": 3126,
+      "unavailable_from_source": 18
+    },
+    "ahrf-workforce": {
+      "available": 3144
     },
     "ahrq-clh": {
-      "awaiting_human_review": 3144
+      "available": 3144
     },
     "local-planning-documents": {
-      "not_yet_verified": 3144
+      "not_yet_verified": 3140,
+      "awaiting_human_review": 4
     }
   },
   "geographyQuality": {
@@ -357,43 +362,43 @@
   "randomStateSample": [
     {
       "state": "AL",
-      "geoid": "01113",
-      "name": "Russell County"
+      "geoid": "01109",
+      "name": "Pike County"
     },
     {
       "state": "AK",
-      "geoid": "02060",
-      "name": "Bristol Bay Borough"
+      "geoid": "02198",
+      "name": "Prince of Wales-Hyder Census Area"
     },
     {
       "state": "AZ",
-      "geoid": "04015",
-      "name": "Mohave County"
+      "geoid": "04017",
+      "name": "Navajo County"
     },
     {
       "state": "AR",
-      "geoid": "05051",
-      "name": "Garland County"
+      "geoid": "05109",
+      "name": "Pike County"
     },
     {
       "state": "CA",
-      "geoid": "06025",
-      "name": "Imperial County"
+      "geoid": "06093",
+      "name": "Siskiyou County"
     },
     {
       "state": "CO",
-      "geoid": "08023",
-      "name": "Costilla County"
+      "geoid": "08051",
+      "name": "Gunnison County"
     },
     {
       "state": "CT",
-      "geoid": "09160",
-      "name": "Northwest Hills Planning Region"
+      "geoid": "09150",
+      "name": "Northeastern Connecticut Planning Region"
     },
     {
       "state": "DE",
-      "geoid": "10005",
-      "name": "Sussex County"
+      "geoid": "10001",
+      "name": "Kent County"
     },
     {
       "state": "DC",
@@ -402,13 +407,13 @@
     },
     {
       "state": "FL",
-      "geoid": "12091",
-      "name": "Okaloosa County"
+      "geoid": "12021",
+      "name": "Collier County"
     },
     {
       "state": "GA",
-      "geoid": "13285",
-      "name": "Troup County"
+      "geoid": "13035",
+      "name": "Butts County"
     },
     {
       "state": "HI",
@@ -417,48 +422,48 @@
     },
     {
       "state": "ID",
-      "geoid": "16075",
-      "name": "Payette County"
+      "geoid": "16029",
+      "name": "Caribou County"
     },
     {
       "state": "IL",
-      "geoid": "17161",
-      "name": "Rock Island County"
+      "geoid": "17181",
+      "name": "Union County"
     },
     {
       "state": "IN",
-      "geoid": "18023",
-      "name": "Clinton County"
+      "geoid": "18049",
+      "name": "Fulton County"
     },
     {
       "state": "IA",
-      "geoid": "19065",
-      "name": "Fayette County"
+      "geoid": "19143",
+      "name": "Osceola County"
     },
     {
       "state": "KS",
-      "geoid": "20201",
-      "name": "Washington County"
+      "geoid": "20039",
+      "name": "Decatur County"
     },
     {
       "state": "KY",
-      "geoid": "21051",
-      "name": "Clay County"
+      "geoid": "21103",
+      "name": "Henry County"
     },
     {
       "state": "LA",
-      "geoid": "22005",
-      "name": "Ascension Parish"
+      "geoid": "22039",
+      "name": "Evangeline Parish"
     },
     {
       "state": "ME",
-      "geoid": "23019",
-      "name": "Penobscot County"
+      "geoid": "23011",
+      "name": "Kennebec County"
     },
     {
       "state": "MD",
-      "geoid": "24047",
-      "name": "Worcester County"
+      "geoid": "24023",
+      "name": "Garrett County"
     },
     {
       "state": "MA",
@@ -467,143 +472,143 @@
     },
     {
       "state": "MI",
-      "geoid": "26033",
-      "name": "Chippewa County"
+      "geoid": "26161",
+      "name": "Washtenaw County"
     },
     {
       "state": "MN",
-      "geoid": "27091",
-      "name": "Martin County"
+      "geoid": "27053",
+      "name": "Hennepin County"
     },
     {
       "state": "MS",
-      "geoid": "28075",
-      "name": "Lauderdale County"
+      "geoid": "28061",
+      "name": "Jasper County"
     },
     {
       "state": "MO",
-      "geoid": "29125",
-      "name": "Maries County"
+      "geoid": "29179",
+      "name": "Reynolds County"
     },
     {
       "state": "MT",
-      "geoid": "30033",
-      "name": "Garfield County"
+      "geoid": "30063",
+      "name": "Missoula County"
     },
     {
       "state": "NE",
-      "geoid": "31077",
-      "name": "Greeley County"
+      "geoid": "31123",
+      "name": "Morrill County"
     },
     {
       "state": "NV",
-      "geoid": "32021",
-      "name": "Mineral County"
+      "geoid": "32033",
+      "name": "White Pine County"
     },
     {
       "state": "NH",
-      "geoid": "33015",
-      "name": "Rockingham County"
+      "geoid": "33003",
+      "name": "Carroll County"
     },
     {
       "state": "NJ",
-      "geoid": "34011",
-      "name": "Cumberland County"
+      "geoid": "34035",
+      "name": "Somerset County"
     },
     {
       "state": "NM",
-      "geoid": "35021",
-      "name": "Harding County"
+      "geoid": "35013",
+      "name": "Doña Ana County"
     },
     {
       "state": "NY",
-      "geoid": "36047",
-      "name": "Kings County"
+      "geoid": "36007",
+      "name": "Broome County"
     },
     {
       "state": "NC",
-      "geoid": "37035",
-      "name": "Catawba County"
+      "geoid": "37145",
+      "name": "Person County"
     },
     {
       "state": "ND",
-      "geoid": "38103",
-      "name": "Wells County"
+      "geoid": "38035",
+      "name": "Grand Forks County"
     },
     {
       "state": "OH",
-      "geoid": "39017",
-      "name": "Butler County"
+      "geoid": "39083",
+      "name": "Knox County"
     },
     {
       "state": "OK",
-      "geoid": "40003",
-      "name": "Alfalfa County"
+      "geoid": "40139",
+      "name": "Texas County"
     },
     {
       "state": "OR",
-      "geoid": "41005",
-      "name": "Clackamas County"
+      "geoid": "41019",
+      "name": "Douglas County"
     },
     {
       "state": "PA",
-      "geoid": "42091",
-      "name": "Montgomery County"
+      "geoid": "42103",
+      "name": "Pike County"
     },
     {
       "state": "RI",
-      "geoid": "44005",
-      "name": "Newport County"
+      "geoid": "44009",
+      "name": "Washington County"
     },
     {
       "state": "SC",
-      "geoid": "45041",
-      "name": "Florence County"
+      "geoid": "45035",
+      "name": "Dorchester County"
     },
     {
       "state": "SD",
-      "geoid": "46055",
-      "name": "Haakon County"
+      "geoid": "46003",
+      "name": "Aurora County"
     },
     {
       "state": "TN",
-      "geoid": "47019",
-      "name": "Carter County"
+      "geoid": "47093",
+      "name": "Knox County"
     },
     {
       "state": "TX",
-      "geoid": "48101",
-      "name": "Cottle County"
+      "geoid": "48255",
+      "name": "Karnes County"
     },
     {
       "state": "UT",
-      "geoid": "49019",
-      "name": "Grand County"
+      "geoid": "49017",
+      "name": "Garfield County"
     },
     {
       "state": "VT",
-      "geoid": "50007",
-      "name": "Chittenden County"
+      "geoid": "50003",
+      "name": "Bennington County"
     },
     {
       "state": "VA",
-      "geoid": "51187",
-      "name": "Warren County"
+      "geoid": "51067",
+      "name": "Franklin County"
     },
     {
       "state": "WA",
-      "geoid": "53061",
-      "name": "Snohomish County"
+      "geoid": "53055",
+      "name": "San Juan County"
     },
     {
       "state": "WV",
-      "geoid": "54043",
-      "name": "Lincoln County"
+      "geoid": "54047",
+      "name": "McDowell County"
     },
     {
       "state": "WI",
-      "geoid": "55013",
-      "name": "Burnett County"
+      "geoid": "55135",
+      "name": "Waupaca County"
     },
     {
       "state": "WY",

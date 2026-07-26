@@ -70,10 +70,10 @@ test("the approved marketing homepage and publication access remain locked toget
   assert.match(homepage, /hero-community-desktop-v2\.webp/);
   assert.match(homepage, /hero-community-mobile-v2\.webp/);
   assert.match(homepage, /portal-barrier-v2\.webp/);
-  assert.match(locationRoute, /withoutState\.replace\(countyDesignation, ""\)/);
+  assert.match(locationRoute, /geography-search-index\.v1\.json/);
   assert.match(locationRoute, /naturalPlacePriority/);
-  assert.match(locationRoute, /queryPointLayer/);
-  assert.match(locationRoute, /label: placeName \? `\$\{geoid\} · \$\{placeName\}` : geoid/);
+  assert.match(locationRoute, /U\.S\. Census Bureau \$\{searchIndex\.censusVintage\} Gazetteer/);
+  assert.doesNotMatch(locationRoute, /queryPointLayer/);
   assert.match(contactForm, /CB-CAP inquiry/);
   assert.match(contactForm, /Media inquiry/);
   assert.match(publicationSection, /publication\.cover/);

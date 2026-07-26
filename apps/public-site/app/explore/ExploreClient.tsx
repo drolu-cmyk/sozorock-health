@@ -35,6 +35,25 @@ type PlaceKind = "county" | "place" | "zip";
 type WorkspaceView = "brief" | "map" | "action";
 type EvidenceStatus = "Supported" | "Potentially supported" | "Insufficient evidence";
 
+type CountyResolutionCandidate = {
+  countyGeoid: string;
+  label: string;
+  overlapAreaPercent: number | null;
+  overlapPopulationPercent: number | null;
+  calculationMethod: string;
+  isPrimary: boolean;
+  sourceUrl: string;
+  vintage: string;
+};
+
+type CountyResolution = {
+  original: { kind: PlaceKind; geoid: string; label: string };
+  status: "resolved" | "selection_required" | "not_found";
+  selectedCountyGeoid: string | null;
+  counties: CountyResolutionCandidate[];
+  caveats: string[];
+};
+
 type Suggestion = {
   id: string;
   kind: PlaceKind;
@@ -67,6 +86,19 @@ type Metric = {
   geographyLevel: "county" | "census_place" | "zcta";
 };
 
+type ContextMeasure = {
+  key: string;
+  label: string;
+  value: string | number | null;
+  unit: string;
+  uncertainty: string | null;
+  source: string;
+  release: string;
+  period: string;
+  direction: string;
+  definition: string;
+};
+
 type PlanningDocument = {
   id: string;
   title: string;
@@ -91,8 +123,10 @@ type PlaceResponse = {
     geographyAuthority: string;
     evidenceGeography: "county" | "census_place" | "zcta";
     caveats: string[];
+    resolution: CountyResolution;
   };
   metrics: Metric[];
+  contextMeasures: ContextMeasure[];
   priorities: Metric[];
   dataCoverage: {
     measureCount: number;
@@ -130,6 +164,48 @@ type PlaceResponse = {
     geography?: string;
     retrievedAt?: string;
   }>;
+  sourceCoverage: Array<{
+    sourceId: string;
+    status: string;
+    reason: string;
+    observationCount: number;
+    releaseDate: string | null;
+  }>;
+  workforceContext: {
+    hpsa: Array<{
+      designationId: string;
+      designationName: string;
+      designationType: string;
+      componentType: string;
+      discipline: string;
+      status: string;
+      score: number | null;
+      designationDate: string | null;
+      lastUpdateDate: string | null;
+      wholeCounty: boolean;
+    }>;
+    medicallyUnderservedAreasAndPopulations: Array<{
+      designationId: string;
+      designationName: string;
+      designationType: string;
+      componentType: string;
+      populationType: string;
+      status: string;
+      imuScore: number | null;
+      designationDate: string | null;
+      lastUpdateDate: string | null;
+      wholeCounty: boolean;
+    }>;
+    areaHealthResources: Array<{
+      variableId: string;
+      label: string;
+      value: number | null;
+      unit: string;
+      year: string;
+      direction: string;
+    }>;
+    limitation: string;
+  };
 };
 
 type FeatureCollection = {
@@ -139,11 +215,13 @@ type FeatureCollection = {
 
 type GeometryResponse = {
   area: FeatureCollection;
+  contextArea?: FeatureCollection;
   bounds: number[] | null;
   verifiedResources: FeatureCollection;
   vintage: string;
   sourceUrl: string;
   resourceNote: string;
+  contextNote?: string | null;
 };
 
 const stateCodes: Record<string, string> = {
@@ -339,11 +417,19 @@ function EvidenceCard({
   kind,
   metric,
 }: {
-  kind: "attention" | "improving" | "missing";
+  kind: "attention" | "improving" | "protective" | "context" | "missing";
   metric?: Metric;
 }) {
-  const title = kind === "attention" ? "Needs attention" : kind === "improving" ? "Improving" : "Evidence missing";
-  const Icon = kind === "attention" ? WarningCircle : kind === "improving" ? ChartLineUp : Info;
+  const title = kind === "attention"
+    ? "Needs attention"
+    : kind === "improving"
+      ? "Improving"
+      : kind === "protective"
+        ? "Protective signal"
+        : kind === "context"
+          ? "Local context"
+          : "Evidence missing";
+  const Icon = kind === "attention" ? WarningCircle : kind === "improving" || kind === "protective" ? ChartLineUp : Info;
   const benchmark = metric?.state ?? metric?.national ?? 0;
   const max = metric ? Math.max(metric.value, benchmark, 1) * 1.15 : 1;
   return (
@@ -366,8 +452,8 @@ function EvidenceCard({
         </>
       ) : (
         <>
-          <h3>{kind === "improving" ? "No comparable trend yet" : "Local service capacity"}</h3>
-          <p>{kind === "improving" ? "No measure has a compatible prior release showing a favorable change." : "Current provider capacity, wait time and community-input evidence is not available in this view."}</p>
+          <h3>{kind === "improving" ? "No comparable trend yet" : kind === "context" ? "No context measure available" : "Local service capacity"}</h3>
+          <p>{kind === "improving" ? "No measure has a compatible prior release showing a favorable change." : kind === "context" ? "No compatible contextual measure is published for this county." : "Current provider capacity, wait time and community-input evidence is not available in this view."}</p>
           <span className={styles.noValue}>—</span>
         </>
       )}
@@ -382,6 +468,12 @@ function BriefView({ data }: { data: PlaceResponse }) {
   const improving = data.metrics
     .filter((metric) => metric.trend === "improving")
     .sort((a, b) => Math.abs(b.trendDifference ?? 0) - Math.abs(a.trendDifference ?? 0))[0];
+  const protective = data.metrics
+    .filter((metric) => metric.direction === "protective")
+    .sort((a, b) => Math.abs(b.difference) - Math.abs(a.difference))[0];
+  const contextual = data.metrics
+    .filter((metric) => metric.direction === "contextual")
+    .sort((a, b) => Math.abs(b.difference) - Math.abs(a.difference))[0];
   const plan = data.localPlan.documents[0];
   return (
     <section id="brief-panel" role="tabpanel" aria-labelledby="brief-tab" className={styles.viewPanel}>
@@ -418,11 +510,105 @@ function BriefView({ data }: { data: PlaceResponse }) {
             <p>{data.dataCoverage.measureCount} compatible measures</p>
           </div>
           <div className={styles.evidenceCards}>
-            <EvidenceCard kind="attention" metric={attention} />
-            <EvidenceCard kind="improving" metric={improving} />
+            <EvidenceCard kind={attention ? "attention" : "protective"} metric={attention ?? protective} />
+            <EvidenceCard kind={improving ? "improving" : "context"} metric={improving ?? contextual} />
             <EvidenceCard kind="missing" />
           </div>
           <p className={styles.comparisonNote}><Info size={17} aria-hidden="true" /> Favorable measures are never ranked as problems simply because they are high. Comparisons use the same geographic level and release.</p>
+          <details className={styles.allMeasures}>
+            <summary>All {data.metrics.length + data.contextMeasures.length} compatible measures <CaretRight size={17} aria-hidden="true" /></summary>
+            <div className={styles.measureTable} role="table" aria-label={`All compatible county measures for ${data.location.label}`}>
+              <div role="row">
+                <span role="columnheader">Measure</span>
+                <span role="columnheader">County</span>
+                <span role="columnheader">State</span>
+                <span role="columnheader">National</span>
+                <span role="columnheader">Uncertainty</span>
+              </div>
+              {data.metrics.map((metric) => (
+                <div role="row" key={metric.key}>
+                  <span role="cell"><strong>{metric.label}</strong><small>{metric.plainLanguage}</small></span>
+                  <span role="cell">{metric.value.toFixed(1)}%</span>
+                  <span role="cell">{metric.state === null ? "Unavailable" : `${metric.state.toFixed(1)}%`}</span>
+                  <span role="cell">{metric.national.toFixed(1)}%</span>
+                  <span role="cell">{metric.confidence || "Not supplied"}</span>
+                </div>
+              ))}
+              {data.contextMeasures.map((measure) => (
+                <div role="row" key={measure.key}>
+                  <span role="cell">
+                    <strong>{measure.label}</strong>
+                    <small>{measure.source} · {measure.definition} · {measure.period}</small>
+                  </span>
+                  <span role="cell">{measure.value === null
+                    ? "Unavailable"
+                    : typeof measure.value === "string"
+                      ? `${measure.value} ${measure.unit}`
+                      : measure.unit === "percent"
+                      ? `${measure.value.toFixed(1)}%`
+                      : `${formatNumber(measure.value)} ${measure.unit}`}</span>
+                  <span role="cell">Not comparable here</span>
+                  <span role="cell">Not comparable here</span>
+                  <span role="cell">{measure.uncertainty ?? "Not supplied by source"}</span>
+                </div>
+              ))}
+            </div>
+          </details>
+          <details className={styles.coverageMatrix}>
+            <summary>Evidence coverage <CaretRight size={17} aria-hidden="true" /></summary>
+            <div>
+              {data.sourceCoverage.map((source) => (
+                <article key={source.sourceId}>
+                  <strong>{source.sourceId.replaceAll("-", " ")}</strong>
+                  <span>{source.status.replaceAll("_", " ")}</span>
+                  <p>{source.reason}</p>
+                </article>
+              ))}
+            </div>
+          </details>
+          <details className={styles.coverageMatrix}>
+            <summary>Workforce and shortage designations <CaretRight size={17} aria-hidden="true" /></summary>
+            <div>
+              {data.workforceContext.hpsa.length === 0
+                && data.workforceContext.medicallyUnderservedAreasAndPopulations.length === 0
+                && data.workforceContext.areaHealthResources.every((observation) => observation.value === null) ? (
+                  <article>
+                    <strong>No associated designation in the approved source</strong>
+                    <p>This does not mean that no shortage or access barrier exists.</p>
+                  </article>
+                ) : (
+                  <>
+                    {data.workforceContext.hpsa.map((designation) => (
+                      <article key={`hpsa-${designation.designationId}-${designation.discipline}`}>
+                        <strong>{designation.designationName || designation.discipline}</strong>
+                        <span>{designation.wholeCounty ? "Whole county" : designation.componentType || "Source-defined area"}</span>
+                        <p>{designation.discipline} · {designation.status}{designation.score === null ? "" : ` · score ${designation.score}`}</p>
+                      </article>
+                    ))}
+                    {data.workforceContext.medicallyUnderservedAreasAndPopulations.map((designation) => (
+                      <article key={`muap-${designation.designationId}`}>
+                        <strong>{designation.designationName || "Medically underserved designation"}</strong>
+                        <span>{designation.wholeCounty ? "Whole county" : designation.componentType || "Source-defined area"}</span>
+                        <p>{designation.designationType} · {designation.status}{designation.imuScore === null ? "" : ` · IMU ${designation.imuScore}`}</p>
+                      </article>
+                    ))}
+                    {data.workforceContext.areaHealthResources.map((observation) => (
+                      <article key={`ahrf-${observation.variableId}`}>
+                        <strong>{observation.label}</strong>
+                        <span>{observation.year}</span>
+                        <p>{observation.value === null
+                          ? "Unavailable from source"
+                          : `${formatNumber(observation.value)} ${observation.unit}`}</p>
+                      </article>
+                    ))}
+                  </>
+                )}
+              <article>
+                <strong>How to read this</strong>
+                <p>{data.workforceContext.limitation}</p>
+              </article>
+            </div>
+          </details>
         </div>
       </div>
       <SourceStrip data={data} />
@@ -460,6 +646,10 @@ function MapCanvas({ geometry, data, metric }: { geometry: GeometryResponse | nu
         map.addSource("official-boundary", { type: "geojson", data: geometry.area as never });
         map.addLayer({ id: "boundary-fill", type: "fill", source: "official-boundary", paint: { "fill-color": fill, "fill-opacity": metric ? 0.28 : 0.12 } });
         map.addLayer({ id: "boundary-line", type: "line", source: "official-boundary", paint: { "line-color": "#111a1d", "line-width": 2.4 } });
+        if (geometry.contextArea?.features.length) {
+          map.addSource("search-context", { type: "geojson", data: geometry.contextArea as never });
+          map.addLayer({ id: "search-context-line", type: "line", source: "search-context", paint: { "line-color": "#f4b71b", "line-width": 2, "line-dasharray": [3, 2] } });
+        }
         if (geometry.verifiedResources.features.length) {
           map.addSource("verified-resources", { type: "geojson", data: geometry.verifiedResources as never });
           map.addLayer({ id: "verified-resources", type: "circle", source: "verified-resources", paint: { "circle-radius": 6, "circle-color": "#f4b71b", "circle-stroke-color": "#111a1d", "circle-stroke-width": 2 } });
@@ -529,9 +719,11 @@ function MapView({
           <div className={styles.legend}>
             <span><i className={styles.legendFill} /> Selected geography and compatible measure</span>
             <span><i className={styles.legendLine} /> Official boundary</span>
+            {geometry?.contextArea?.features.length ? <span><i className={styles.legendContext} /> Original search geography</span> : null}
             <span><i className={styles.legendMarker} /> Verified resource</span>
           </div>
           <div className={styles.resourceStatus}><MapPin size={20} aria-hidden="true" /><p>{geometry?.resourceNote ?? "Verified resource information is loading."}</p></div>
+          {geometry?.contextNote ? <p className={styles.mapNotice}>{geometry.contextNote}</p> : null}
           {geometry?.sourceUrl && <a href={geometry.sourceUrl} target="_blank" rel="noreferrer">Open boundary source <ArrowSquareOut size={16} aria-hidden="true" /></a>}
         </aside>
       </div>
@@ -690,21 +882,43 @@ export function ExploreClient() {
   const [error, setError] = useState("");
   const [activeView, setActiveView] = useState<WorkspaceView>("brief");
   const [downloadOpen, setDownloadOpen] = useState(false);
+  const [pendingResolution, setPendingResolution] = useState<CountyResolution | null>(null);
+  const [pendingPlace, setPendingPlace] = useState<Suggestion | null>(null);
 
-  const loadPlace = useCallback(async (place: Pick<Suggestion, "kind" | "geoid">) => {
+  const loadPlace = useCallback(async (
+    place: Pick<Suggestion, "kind" | "geoid"> & Partial<Pick<Suggestion, "display" | "label">>,
+    countyGeoid?: string,
+  ) => {
     setLoading(true);
     setError("");
     setData(null);
     setGeometry(null);
+    setPendingResolution(null);
+    setPendingPlace(null);
     setActiveView("brief");
-    const params = new URLSearchParams({ kind: place.kind, geoid: place.geoid, view: "brief" });
+    const queryLabel = place.display ?? place.label ?? place.geoid;
+    const params = new URLSearchParams({ kind: place.kind, geoid: place.geoid, query: queryLabel, view: "brief" });
+    if (countyGeoid) params.set("county", countyGeoid);
     try {
-      const [dataResponse, geometryResponse] = await Promise.all([
-        fetch(`/api/explore?kind=${place.kind}&geoid=${place.geoid}`),
-        fetch(`/api/explore/geometry?kind=${place.kind}&geoid=${place.geoid}`),
-      ]);
-      const payload = (await dataResponse.json().catch(() => ({}))) as PlaceResponse & { error?: string };
+      const dataResponse = await fetch(`/api/explore?${params.toString()}`);
+      const payload = (await dataResponse.json().catch(() => ({}))) as PlaceResponse & { error?: string; resolution?: CountyResolution };
+      if (dataResponse.status === 409 && payload.resolution?.status === "selection_required") {
+        setPendingResolution(payload.resolution);
+        setPendingPlace({
+          id: `${place.kind}-${place.geoid}`,
+          kind: place.kind,
+          geoid: place.geoid,
+          label: place.label ?? queryLabel,
+          display: queryLabel,
+          stateFips: "",
+        });
+        window.history.replaceState({}, "", `/explore?${params.toString()}`);
+        return;
+      }
       if (!dataResponse.ok) throw new Error(payload.error ?? "Current public data could not be loaded.");
+      const geometryResponse = await fetch(
+        `/api/explore/geometry?kind=county&geoid=${encodeURIComponent(payload.location.geoid)}&contextKind=${encodeURIComponent(place.kind)}&contextGeoid=${encodeURIComponent(place.geoid)}`,
+      );
       const map = (await geometryResponse.json().catch(() => null)) as GeometryResponse | null;
       setData(payload);
       setGeometry(map);
@@ -721,8 +935,12 @@ export function ExploreClient() {
     const kind = params.get("kind");
     const geoid = params.get("geoid");
     const view = params.get("view");
+    const query = params.get("query") ?? geoid ?? "";
+    const county = params.get("county") ?? undefined;
     if (view === "brief" || view === "map" || view === "action") setActiveView(view);
-    if ((kind === "county" || kind === "place" || kind === "zip") && geoid) void loadPlace({ kind, geoid });
+    if ((kind === "county" || kind === "place" || kind === "zip") && geoid) {
+      void loadPlace({ kind, geoid, label: query, display: query }, county);
+    }
   }, [loadPlace]);
 
   function changeView(view: WorkspaceView) {
@@ -761,7 +979,7 @@ export function ExploreClient() {
       </header>
 
       <main id="explore-main">
-        {!data && !loading && (
+        {!data && !loading && !pendingResolution && (
           <>
             <section className={styles.hero}>
               <div className={styles.heroCopy}><span>SozoRock Place Intelligence</span><h1>See what is shaping health in this place.</h1><p>Search a U.S. ZIP Code, city or county. See what current sources support, what remains uncertain and where local review is still needed.</p></div>
@@ -776,6 +994,28 @@ export function ExploreClient() {
         )}
 
         {loading && <section className={styles.loading} aria-live="polite"><span /><p>Resolving the geography and checking current sources…</p></section>}
+        {pendingResolution && pendingPlace && !loading && (
+          <section className={styles.countyChoice} aria-labelledby="county-choice-title">
+            <span>County evidence selection</span>
+            <h1 id="county-choice-title">{pendingResolution.original.label} intersects more than one county.</h1>
+            <p>Choose the county whose evidence you want to view. The original search remains visible, but the evidence and first map will describe the selected county.</p>
+            <div>
+              {pendingResolution.counties.map((county) => (
+                <button
+                  type="button"
+                  key={county.countyGeoid}
+                  onClick={() => void loadPlace(pendingPlace, county.countyGeoid)}
+                >
+                  <strong>{county.label}</strong>
+                  <span>{county.overlapAreaPercent === null ? "Overlap unavailable" : `${county.overlapAreaPercent.toFixed(2)}% land-area overlap`}</span>
+                  <small>{county.calculationMethod}{county.isPrimary ? " · Largest mapped overlap" : ""}</small>
+                  <ArrowRight size={18} aria-hidden="true" />
+                </button>
+              ))}
+            </div>
+            {pendingResolution.caveats.map((caveat) => <p className={styles.resolutionCaveat} key={caveat}><Info size={17} aria-hidden="true" />{caveat}</p>)}
+          </section>
+        )}
         {error && <section className={styles.errorPanel} role="alert"><h1>We could not load this place.</h1><p>{error}</p><button type="button" onClick={() => window.location.assign("/explore")}>Start another search</button></section>}
 
         {data && (
@@ -785,6 +1025,9 @@ export function ExploreClient() {
                 <span>Selected place</span>
                 <h1>{data.location.label}</h1>
                 <div><ShieldCheck size={19} aria-hidden="true" /><strong>{data.location.geographyLabel}</strong><span>{formatNumber(data.location.population)} people</span></div>
+                {data.location.resolution.original.kind !== "county" && (
+                  <p><MapPin size={18} aria-hidden="true" /> Search resolved from {data.location.resolution.original.label} to this county.</p>
+                )}
                 <p><Info size={18} aria-hidden="true" /> {data.location.caveats[0]}</p>
               </div>
               <LocationSearch compact onSelect={loadPlace} />

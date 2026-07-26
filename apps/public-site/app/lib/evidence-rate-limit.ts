@@ -68,8 +68,8 @@ export async function enforceAgentRateLimit(request: NextRequest) {
   const clientHash = createHash("sha256")
     .update(`${await salt()}:place-agent:${clientNetworkAddress(request.headers)}`)
     .digest("hex");
-  const perNetworkPerHour = Number(process.env.PLACE_AGENT_MAX_PER_NETWORK_HOUR || "3");
-  const globalPerDay = Number(process.env.PLACE_AGENT_MAX_GLOBAL_DAY || "25");
+  const perNetworkPerHour = Number(process.env.PLACE_AGENT_MAX_PER_NETWORK_HOUR || "2");
+  const globalPerDay = Number(process.env.PLACE_AGENT_MAX_GLOBAL_DAY || "10");
   if (!Number.isInteger(perNetworkPerHour) || perNetworkPerHour < 1
     || !Number.isInteger(globalPerDay) || globalPerDay < 1) {
     return { allowed: false as const, retryAfter: null };

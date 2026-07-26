@@ -14,14 +14,23 @@
     "build:partner-evidence-review": "node --experimental-strip-types scripts/build-partner-evidence-review.ts",
     "evaluate:national-operations": "node --experimental-strip-types scripts/evaluate-national-operations.ts",
     "build:national-geography": "node --experimental-strip-types scripts/build-national-geography.ts",
+    "build:resolution-index": "node --experimental-strip-types scripts/build-resolution-index.ts",
+    "build:current-resolution-index": "node --experimental-strip-types scripts/build-current-resolution-index.ts",
+    "build:geography-search-index": "node --experimental-strip-types scripts/build-geography-search-index.ts",
+    "build:county-boundaries": "node --experimental-strip-types scripts/build-county-boundaries.ts",
+    "build:national-acs-context": "node --experimental-strip-types scripts/build-national-acs-context.ts",
+    "build:local-plan-directory": "node --experimental-strip-types scripts/build-local-plan-coverage-directory.ts",
+    "build:national-hrsa-context": "node --experimental-strip-types scripts/build-national-hrsa-context.ts",
+    "build:national-ahrf-context": "node --experimental-strip-types scripts/build-national-ahrf-context.ts",
+    "build:national-ahrq-context": "node --experimental-strip-types scripts/build-national-ahrq-context.ts",
     "build:national-coverage": "node --experimental-strip-types scripts/build-national-coverage.ts",
     "test:migrations": "node --experimental-strip-types scripts/test-migrations.ts",
     "migrate:data-api": "node --experimental-strip-types scripts/migrate-data-api.ts",
-    "import:production:data-api": "node --experimental-strip-types scripts/load-production-evidence-data-api.ts"
+    "import:production:data-api": "node --experimental-strip-types scripts/load-production-evidence-data-api.ts && node --experimental-strip-types scripts/load-national-context-data-api.ts"
   },
   "dependencies": {
     "@aws-sdk/client-rds-data": "^3.933.0",
-    "fflate": "^0.8.2",
+    "fflate": "^0.8.3",
     "pg": "^8.16.3",
     "read-excel-file": "8.0.2",
     "unzipper": "^0.12.3"

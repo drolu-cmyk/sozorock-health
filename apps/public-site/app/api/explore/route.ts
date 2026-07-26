@@ -1,13 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { buildPlaceIntelligence } from "../../lib/place-intelligence";
 import {
+  acsCountySource,
   countyRecordByFips,
   getApprovedCountyBrief,
+  getAcsCountyContext,
+  getAhrfCountyContext,
+  getAhrqCountyContext,
+  getHrsaCountyContext,
   nationalCountyBenchmark,
   stateCountyBenchmark,
 } from "../../lib/approved-evidence-snapshot";
 import { exploreMetrics, safeGeoid, scoreMetric, type ExploreKind } from "../../lib/explore-health";
 import { enforceEvidenceRateLimit } from "../../lib/evidence-rate-limit";
+import { resolveEvidenceCounty } from "../../lib/county-resolution";
 
 export const runtime = "nodejs";
 
@@ -17,12 +23,20 @@ const paths: Record<string, { group: "conditions" | "barriers" | "prevention"; f
   obesity: { group: "conditions", field: "obesity" },
   depression: { group: "conditions", field: "depression" },
   copd: { group: "conditions", field: "copd" },
+  chd: { group: "conditions", field: "coronaryHeartDisease" },
+  stroke: { group: "conditions", field: "stroke" },
+  cancer: { group: "conditions", field: "cancer" },
+  casthma: { group: "conditions", field: "asthma" },
   colon_screen: { group: "prevention", field: "colorectalScreening" },
   mammouse: { group: "prevention", field: "mammography" },
   dental: { group: "prevention", field: "dentalVisit" },
+  checkup: { group: "prevention", field: "annualCheckup" },
+  cholscreen: { group: "prevention", field: "cholesterolScreening" },
   access2: { group: "barriers", field: "uninsured" },
   lacktrpt: { group: "barriers", field: "transportation" },
   foodinsecu: { group: "barriers", field: "foodInsecurity" },
+  housinsecu: { group: "barriers", field: "housingInsecurity" },
+  shututility: { group: "barriers", field: "utilityShutoff" },
   disability: { group: "barriers", field: "disability" },
   loneliness: { group: "barriers", field: "loneliness" },
 };
@@ -58,17 +72,33 @@ export async function GET(request: NextRequest) {
   if (!kind) return NextResponse.json({ error: "Choose a ZIP Code, city or county." }, { status: 400 });
   const geoid = safeGeoid(kind, request.nextUrl.searchParams.get("geoid") ?? "");
   if (!geoid) return NextResponse.json({ error: "Choose a valid U.S. place." }, { status: 400 });
-  if (kind !== "county") {
+  const originalLabel = (request.nextUrl.searchParams.get("query") ?? geoid).trim().slice(0, 160);
+  const requestedCounty = request.nextUrl.searchParams.get("county");
+  const resolution = await resolveEvidenceCounty({
+    kind,
+    geoid,
+    label: originalLabel,
+    selectedCountyGeoid: requestedCounty,
+  });
+  if (resolution.status !== "resolved" || !resolution.selectedCountyGeoid) {
     return NextResponse.json({
-      error: "This release validates county evidence only. ZIP Codes, ZCTAs and Census places remain distinct and are not being converted to county evidence.",
-      sourceCoverageStatus: "incompatible_geography",
-    }, { status: 409 });
+      error: resolution.status === "selection_required"
+        ? "This place intersects more than one county. Choose the county whose evidence you want to view."
+        : "No current county or county equivalent could be resolved for this search.",
+      resolution,
+      sourceCoverageStatus: resolution.status === "selection_required" ? "selection_required" : "incompatible_geography",
+    }, { status: resolution.status === "selection_required" ? 409 : 404 });
   }
-  const record = countyRecordByFips.get(geoid);
+  const evidenceGeoid = resolution.selectedCountyGeoid;
+  const record = countyRecordByFips.get(evidenceGeoid);
   if (!record) return NextResponse.json({ error: "No current Census county or county equivalent matched that GEOID." }, { status: 404 });
-  const brief = getApprovedCountyBrief(geoid);
+  const brief = getApprovedCountyBrief(evidenceGeoid);
   if (!brief) return NextResponse.json({ error: "The approved evidence snapshot is temporarily unavailable." }, { status: 503 });
   const stateBenchmark = stateCountyBenchmark(record.stateCode);
+  const acsContext = getAcsCountyContext(evidenceGeoid);
+  const workforceContext = getHrsaCountyContext(evidenceGeoid);
+  const ahrfContext = getAhrfCountyContext(evidenceGeoid);
+  const ahrqContext = getAhrqCountyContext(evidenceGeoid);
 
   const metrics = exploreMetrics.flatMap((definition) => {
     const path = paths[definition.key];
@@ -100,7 +130,7 @@ export async function GET(request: NextRequest) {
     .slice(0, 5);
   const location = {
     kind: "county" as const,
-    geoid,
+    geoid: evidenceGeoid,
     label: `${record.county}, ${record.stateCode}`,
     state: record.stateCode,
     population: record.population ?? 0,
@@ -109,6 +139,7 @@ export async function GET(request: NextRequest) {
     geographyAuthority: "U.S. Census Bureau",
     evidenceGeography: "county" as const,
     caveats: brief.resolution.caveats,
+    resolution,
   };
   const intelligence = buildPlaceIntelligence({
     location,
@@ -117,6 +148,95 @@ export async function GET(request: NextRequest) {
     localPlan: null,
   });
   const cdcCoverage = brief.publicData.sourceCoverage.find((item) => item.sourceId === "cdc-places");
+  const sourceCoverageById = new Map<string, (typeof brief.publicData.sourceCoverage)[number]>(
+    brief.publicData.sourceCoverage.map((coverage) => [coverage.sourceId, coverage]),
+  );
+  const contextMeasures = [
+    {
+      key: "acs-population",
+      label: "Population",
+      value: acsContext.population,
+      unit: "people",
+      uncertainty: acsContext.populationMoe === null ? null : `±${acsContext.populationMoe.toLocaleString("en-US")}`,
+      source: "American Community Survey",
+      release: acsCountySource.releaseDate,
+      period: `${acsCountySource.dataPeriod.start}–${acsCountySource.dataPeriod.end}`,
+      direction: "contextual",
+      definition: "Total population",
+    },
+    {
+      key: "acs-median-age",
+      label: "Median age",
+      value: acsContext.medianAge,
+      unit: "years",
+      uncertainty: acsContext.medianAgeMoe === null ? null : `±${acsContext.medianAgeMoe.toFixed(1)}`,
+      source: "American Community Survey",
+      release: acsCountySource.releaseDate,
+      period: `${acsCountySource.dataPeriod.start}–${acsCountySource.dataPeriod.end}`,
+      direction: "contextual",
+      definition: "Median age of the total population",
+    },
+    {
+      key: "acs-poverty",
+      label: "Population below the poverty threshold",
+      value: acsContext.povertyPercent,
+      unit: "percent",
+      uncertainty: acsContext.povertyPercentMoe === null ? null : `±${acsContext.povertyPercentMoe.toFixed(1)} percentage points`,
+      source: "American Community Survey",
+      release: acsCountySource.releaseDate,
+      period: `${acsCountySource.dataPeriod.start}–${acsCountySource.dataPeriod.end}`,
+      direction: "adverse",
+      definition: "Population for whom poverty status is determined",
+    },
+    {
+      key: "acs-no-vehicle",
+      label: "Households with no vehicle available",
+      value: acsContext.noVehiclePercent,
+      unit: "percent",
+      uncertainty: acsContext.noVehiclePercentMoe === null ? null : `±${acsContext.noVehiclePercentMoe.toFixed(1)} percentage points`,
+      source: "American Community Survey",
+      release: acsCountySource.releaseDate,
+      period: `${acsCountySource.dataPeriod.start}–${acsCountySource.dataPeriod.end}`,
+      direction: "adverse",
+      definition: "Households",
+    },
+    {
+      key: "acs-internet",
+      label: "Households with an internet subscription",
+      value: acsContext.internetSubscriptionPercent,
+      unit: "percent",
+      uncertainty: acsContext.internetSubscriptionPercentMoe === null ? null : `±${acsContext.internetSubscriptionPercentMoe.toFixed(1)} percentage points`,
+      source: "American Community Survey",
+      release: acsCountySource.releaseDate,
+      period: `${acsCountySource.dataPeriod.start}–${acsCountySource.dataPeriod.end}`,
+      direction: "protective",
+      definition: "Households",
+    },
+    ...ahrfContext.observations.map((observation) => ({
+      key: `ahrf-${observation.variableId}`,
+      label: observation.label,
+      value: observation.value,
+      unit: observation.unit,
+      uncertainty: null,
+      source: "Area Health Resources Files",
+      release: "2025-12-18",
+      period: observation.year,
+      direction: observation.direction,
+      definition: "County context measure; the source does not supply a margin of error.",
+    })),
+    ...ahrqContext.observations.map((observation) => ({
+      key: `ahrq-${observation.variableId}`,
+      label: observation.label,
+      value: observation.value,
+      unit: observation.unit,
+      uncertainty: observation.uncertainty,
+      source: `AHRQ Community-Level Health (${observation.originalSource})`,
+      release: "2025-09-01",
+      period: observation.dataPeriod,
+      direction: observation.direction,
+      definition: `${observation.domain.replace(/^\d+\.\s*/, "")} · ${observation.topic}. The source workbook does not supply a margin of error for this field.`,
+    })),
+  ];
   return NextResponse.json({
     location,
     summary: priorities[0]
@@ -125,34 +245,49 @@ export async function GET(request: NextRequest) {
     metrics,
     priorities,
     dataCoverage: {
-      measureCount: metrics.length,
+      measureCount: metrics.length + contextMeasures.filter((measure) => measure.value !== null).length,
       currentMeasureCount: metrics.length,
       previousMeasureCount: 0,
     },
+    contextMeasures,
     offerings: [],
     intelligence,
     localPlan: {
       status: brief.localPlanningEvidence.status,
-      documents: brief.localPlanningEvidence.documents,
+      documents: brief.localPlanningEvidence.documents.map((document) => ({
+        ...document,
+        documentType: document.type,
+        coverage: "Official-source candidate; geography and current-plan status await named human review.",
+        status: "not_yet_verified" as const,
+      })),
       claims: brief.localPlanningEvidence.claims,
-      note: "Current local planning evidence: not yet verified.",
+      note: brief.localPlanningEvidence.documents.length
+        ? "An official-source candidate is available for review. It is not presented as this county's verified current plan."
+        : "Current local planning evidence: not yet verified.",
     },
     sources: brief.publicData.sources.map((source) => ({
       name: source.title,
       url: source.officialUrl,
       release: source.releaseDate,
       period: [source.dataPeriod.start, source.dataPeriod.end].filter(Boolean).join("–"),
-      note: cdcCoverage?.reason ?? "Approved evidence snapshot",
+      note: sourceCoverageById.get(source.sourceId)?.reason
+        ?? (source.sourceId === "cdc-places" ? cdcCoverage?.reason : "Approved evidence snapshot"),
       status: source.reviewStatus,
       geography: "County",
       retrievedAt: source.retrievedAt,
     })),
     sourceCoverage: brief.publicData.sourceCoverage,
+    workforceContext: {
+      hpsa: workforceContext.hpsa,
+      medicallyUnderservedAreasAndPopulations: workforceContext.muaP,
+      areaHealthResources: ahrfContext.observations,
+      limitation: "Designation scope is retained. A subcounty, population-group, or facility designation is not presented as a whole-county designation.",
+    },
     evidenceContract: {
       contractVersion: brief.contractVersion,
       evidenceSnapshotId: brief.evidenceSnapshotId,
       policyVersion: brief.policyVersion,
-      cacheKey: `${brief.contractVersion}:${brief.evidenceSnapshotId}:${brief.policyVersion}:${geoid}`,
+      cacheKey: `${brief.contractVersion}:${brief.evidenceSnapshotId}:${brief.policyVersion}:${evidenceGeoid}`,
     },
   }, {
     headers: {

@@ -10,6 +10,11 @@ const nationalDir = path.join(packageRoot, "data", "national");
 const countyRows = JSON.parse(await readFile(path.join(repoRoot, "apps", "platform", "data", "county-planning.json"), "utf8"));
 const sourceManifest = JSON.parse(await readFile(path.join(repoRoot, "apps", "platform", "data", "source-manifest.json"), "utf8"));
 const geographyCoverage = JSON.parse(await readFile(path.join(nationalDir, "national-geography-coverage.v2025.json"), "utf8"));
+const acsContext = JSON.parse(await readFile(path.join(nationalDir, "acs-county-context.v1.json"), "utf8"));
+const hrsaContext = JSON.parse(await readFile(path.join(nationalDir, "hrsa-county-context.v1.json"), "utf8"));
+const ahrfContext = JSON.parse(await readFile(path.join(nationalDir, "ahrf-county-context.v1.json"), "utf8"));
+const ahrqContext = JSON.parse(await readFile(path.join(nationalDir, "ahrq-clh-county-context.v1.json"), "utf8"));
+const localPlanDirectory = JSON.parse(await readFile(path.join(nationalDir, "local-plan-coverage-directory.v1.json"), "utf8"));
 const generatedAt = process.env.NATIONAL_SNAPSHOT_DATE?.trim() || new Date().toISOString();
 const snapshotId = `snapshot:${createHash("sha256")
   .update(`${sourceManifest.quality.sha256}|${geographyCoverage.authoritativePrimaryCountyCount}|${generatedAt}`)
@@ -38,10 +43,30 @@ const sourceCoverageCounts: Record<string, Record<string, number>> = {};
 for (const county of snapshot.counties) {
   const validation = validateExplorePlaceBriefV1(buildCountyPlaceBrief(county, snapshot));
   if (!validation.valid) failures.push({ geoid: county.fips, errors: validation.errors });
-  for (const coverage of buildCountyPlaceBrief(county, snapshot).publicData.sourceCoverage) {
-    sourceCoverageCounts[coverage.sourceId] ??= {};
-    sourceCoverageCounts[coverage.sourceId][coverage.status] = (sourceCoverageCounts[coverage.sourceId][coverage.status] ?? 0) + 1;
-  }
+}
+const localPlans = new Map(localPlanDirectory.counties.map((item: { countyGeoid: string }) => [item.countyGeoid, item]));
+function addCoverage(sourceId: string, status: string) {
+  sourceCoverageCounts[sourceId] ??= {};
+  sourceCoverageCounts[sourceId][status] = (sourceCoverageCounts[sourceId][status] ?? 0) + 1;
+}
+for (const county of snapshot.counties) {
+  addCoverage("census-geography", "available");
+  addCoverage("cdc-places", county.sourceStatus === "available"
+    ? county.dataCoverage >= 100 ? "available" : "partially_available"
+    : "unavailable_from_source");
+  addCoverage("census-acs5", acsContext.records[county.fips] ? "available" : "unavailable_from_source");
+  const hrsa = hrsaContext.counties[county.fips];
+  addCoverage("hrsa-workforce", (hrsa?.hpsa.length ?? 0) + (hrsa?.muaP.length ?? 0)
+    ? "available" : "unavailable_from_source");
+  addCoverage("ahrf-workforce", ahrfContext.counties[county.fips]?.observations.some(
+    (item: { value: unknown }) => item.value !== null,
+  ) ? "available" : "unavailable_from_source");
+  addCoverage("ahrq-clh", ahrqContext.counties[county.fips]?.observations.some(
+    (item: { value: unknown }) => item.value !== null,
+  ) ? "available" : "unavailable_from_source");
+  const local = localPlans.get(county.fips) as { verificationStatus?: string; candidates?: unknown[] } | undefined;
+  addCoverage("local-planning-documents", local?.verificationStatus === "verified"
+    ? "available" : local?.candidates?.length ? "awaiting_human_review" : "not_yet_verified");
 }
 const missingCounties = geographyCoverage.counts.countiesAndEquivalents - countyGeoids.size;
 if (missingCounties !== 0 || failures.length) {
@@ -86,6 +111,13 @@ const report = {
   randomStateSample,
   failures,
 };
+const coverageTable = Object.entries(report.sourceCoverageCounts)
+  .flatMap(([sourceId, statuses]) =>
+    Object.entries(statuses).map(([status, count]) => `| ${sourceId} | ${status} | ${count.toLocaleString("en-US")} |`))
+  .join("\n");
+const evaluationTable = report.evaluationPlaces
+  .map((place) => `| ${place.geoid} | ${place.found ? "Yes" : "No"} | ${place.briefValid ? "Pass" : "Fail"} |`)
+  .join("\n");
 const human = `# Nationwide Evidence Activation Coverage
 
 - Official Census 2025 county and county-equivalent count: ${report.authoritativeCountyCount.toLocaleString("en-US")}
@@ -95,6 +127,24 @@ const human = `# Nationwide Evidence Activation Coverage
 - Duplicate county GEOIDs: ${report.geographyQuality.duplicates}
 - Orphan counties: ${report.geographyQuality.orphans}
 - Invalid county GEOIDs: ${report.geographyQuality.invalidFips}
+- Missing required geometry metadata: ${report.geographyQuality.missingGeometryMetadata}
+
+## Evidence coverage
+
+| Source | Status | Counties |
+|---|---|---:|
+${coverageTable}
+
+## Evaluation places
+
+| County GEOID | Found | Brief contract |
+|---|---|---|
+${evaluationTable}
+
+## Extended coverage
+
+- Puerto Rico: inventoried separately from the 50-state-plus-DC release scope.
+- American Samoa, Guam, Northern Mariana Islands and U.S. Virgin Islands: inventoried as island-area extended coverage.
 
 Every county remains present even when a public-data source or verified local plan is unavailable. Source coverage is reported separately and missing values are never converted to zero.
 `;

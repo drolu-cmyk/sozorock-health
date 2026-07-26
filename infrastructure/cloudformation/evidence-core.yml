@@ -12,6 +12,10 @@ Parameters:
     Type: List<AWS::EC2::Subnet::Id>
   PublicComputeRoleName:
     Type: String
+  PlaceEvidenceOpenAISecretArn:
+    Type: String
+    Description: ARN of the dedicated SozoRock Place Intelligence OpenAI secret.
+    AllowedPattern: "^arn:aws:secretsmanager:[a-z0-9-]+:[0-9]{12}:secret:.+$"
   DatabaseName:
     Type: String
     Default: sozorock_evidence
@@ -130,6 +134,11 @@ Resources:
             Action:
               - secretsmanager:GetSecretValue
             Resource: !GetAtt EvidenceDatabaseCluster.MasterUserSecret.SecretArn
+          - Sid: ReadPlaceEvidenceOpenAISecret
+            Effect: Allow
+            Action:
+              - secretsmanager:GetSecretValue
+            Resource: !Ref PlaceEvidenceOpenAISecretArn
           - Sid: ReadApprovedEvidenceArtifacts
             Effect: Allow
             Action:

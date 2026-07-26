@@ -95,7 +95,7 @@ export const SOURCE_COVERAGE_STATUSES = [
 export type ExploreSourceCoverageStatus = (typeof SOURCE_COVERAGE_STATUSES)[number];
 
 export type ExploreSourceCoverage = {
-  sourceId: "census-geography" | "cdc-places" | "census-acs5" | "hrsa-workforce" | "ahrq-clh" | "local-planning-documents";
+  sourceId: "census-geography" | "cdc-places" | "census-acs5" | "hrsa-workforce" | "ahrf-workforce" | "ahrq-clh" | "local-planning-documents";
   status: ExploreSourceCoverageStatus;
   reason: string;
   sourceVersionId: string | null;
@@ -122,6 +122,8 @@ export type ExplorePlaceBriefV1 = {
     overlappingCounties: Array<ExploreGeographyReference & {
       overlapAreaPercent: number | null;
       overlapPopulationPercent: number | null;
+      calculationMethod: string;
+      isPrimary: boolean;
     }>;
     caveats: string[];
   };
@@ -168,6 +170,7 @@ export function validateExplorePlaceBriefV1(brief: ExplorePlaceBriefV1) {
     "cdc-places",
     "census-acs5",
     "hrsa-workforce",
+    "ahrf-workforce",
     "ahrq-clh",
     "local-planning-documents",
   ]);

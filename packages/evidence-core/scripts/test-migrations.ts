@@ -58,6 +58,7 @@ try {
     "source_import_state", "planning_document_candidate", "source_coverage",
     "import_manifest", "source_health_event", "execution_audit", "capability_switch",
     "schema_migration",
+    "workforce_designation",
   ];
   const tables = await client.query(
     "SELECT table_name FROM information_schema.tables WHERE table_schema='evidence'",
@@ -100,6 +101,53 @@ try {
   if (!sourceStatuses.rows.some((row) => row.enumlabel === "superseded")) {
     throw new Error("Migration 0005 did not restore the superseded source status.");
   }
+  const down0006 = await readFile(
+    path.join(migrationsDir, "rollback", "0006_national_context_sources.down.sql"),
+    "utf8",
+  );
+  await client.query(down0006);
+  const rolledBackAhrq = await client.query(
+    "SELECT enabled FROM evidence.capability_switch WHERE capability_key='source:ahrq_clh'",
+  );
+  if (rolledBackAhrq.rows[0]?.enabled !== false) {
+    throw new Error("Migration 0006 rollback did not disable the AHRQ capability.");
+  }
+  const migration0006 = await readFile(path.join(migrationsDir, "0006_national_context_sources.sql"), "utf8");
+  await client.query(migration0006);
+  const contextCapabilities = await client.query(
+    "SELECT capability_key, enabled FROM evidence.capability_switch WHERE capability_key IN ('source:acs','source:ahrf','source:ahrq_clh')",
+  );
+  if (
+    contextCapabilities.rows.length !== 3
+    || contextCapabilities.rows.some((row) => row.enabled !== true)
+  ) {
+    throw new Error("Migration 0006 did not restore all national context-source capabilities.");
+  }
+  const down0007 = await readFile(
+    path.join(migrationsDir, "rollback", "0007_national_context_store.down.sql"),
+    "utf8",
+  );
+  await client.query(down0007);
+  const rolledBackWorkforce = await client.query(
+    `SELECT EXISTS (
+      SELECT 1 FROM information_schema.tables
+      WHERE table_schema='evidence' AND table_name='workforce_designation'
+    ) AS present`,
+  );
+  if (rolledBackWorkforce.rows[0].present !== false) {
+    throw new Error("Migration 0007 rollback did not remove the workforce-designation table.");
+  }
+  const migration0007 = await readFile(path.join(migrationsDir, "0007_national_context_store.sql"), "utf8");
+  await client.query(migration0007);
+  const restoredWorkforce = await client.query(
+    `SELECT EXISTS (
+      SELECT 1 FROM information_schema.tables
+      WHERE table_schema='evidence' AND table_name='workforce_designation'
+    ) AS present`,
+  );
+  if (restoredWorkforce.rows[0].present !== true) {
+    throw new Error("Migration 0007 did not restore the workforce-designation table.");
+  }
 
   console.log(JSON.stringify({
     migrations: await migrationFiles(),
@@ -109,6 +157,10 @@ try {
     rollback0004Passed: true,
     reapply0004Passed: true,
     reapply0005Passed: true,
+    rollback0006Passed: true,
+    reapply0006Passed: true,
+    rollback0007Passed: true,
+    reapply0007Passed: true,
   }, null, 2));
 } finally {
   await client.end();

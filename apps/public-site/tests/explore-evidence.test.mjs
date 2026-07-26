@@ -25,7 +25,10 @@ test("the evidence API uses the approved versioned snapshot and validated geogra
   assert.match(route, /previousMeasureCount/);
   assert.match(route, /buildPlaceIntelligence/);
   assert.match(route, /safeGeoid/);
-  assert.match(route, /incompatible_geography/);
+  assert.match(route, /resolveEvidenceCounty/);
+  assert.match(route, /selection_required/);
+  assert.match(route, /getHrsaCountyContext/);
+  assert.match(route, /workforceContext/);
   assert.match(route, /X-Evidence-Snapshot/);
   assert.match(approvedSnapshot, /county-evidence-snapshot\.v1\.json/);
   assert.match(approvedSnapshot, /buildCountyPlaceBrief/);
@@ -95,7 +98,8 @@ test("directionality and geography are explicit in the public evidence response"
   const brief = await source("../../packages/evidence-core/src/national/county-brief.ts");
   assert.match(route, /function interpretation/);
   assert.match(route, /geographyLevel:/);
-  assert.match(route, /kind !== "county"/);
+  assert.doesNotMatch(route, /kind !== "county"/);
+  assert.match(route, /selectedCountyGeoid/);
   assert.match(brief, /County evidence describes the county as a whole/);
   assert.match(brief, /modeled area estimates/);
   assert.match(metrics, /higherValueMeaning: "favorable"/);
@@ -126,12 +130,36 @@ test("location search loads selections immediately and supports keyboard discove
   assert.match(component, /event\.key === "ArrowRight"/);
   assert.match(component, /event\.key === "ArrowLeft"/);
   assert.match(component, /aria-activedescendant/);
-  assert.match(route, /CENTLAT,CENTLON,AREALAND/);
+  assert.match(route, /geography-search-index\.v1\.json/);
   assert.match(route, /normalizedSearch/);
-  assert.match(route, /COUNTY\|PARISH\|BOROUGH\|CENSUS AREA\|MUNICIPIO\|MUNICIPALITY/);
+  assert.match(route, /COUNTY\|PARISH\|BOROUGH\|CENSUS AREA\|MUNICIPALITY/);
   assert.match(route, /naturalPlacePriority/);
-  assert.match(route, /PR: "72"/);
-  assert.match(route, /VI: "78"/);
+  assert.doesNotMatch(route, /TIGERweb/);
+  assert.doesNotMatch(route, /queryPointLayer/);
+});
+
+test("the Explore interface preserves the original search and requires transparent county selection", async () => {
+  const component = await source("app/explore/ExploreClient.tsx");
+  const resolver = await source("app/lib/county-resolution.ts");
+  assert.match(component, /County evidence selection/);
+  assert.match(component, /land-area overlap/);
+  assert.match(component, /resolution\.original\.label/);
+  assert.match(component, /countyGeoid/);
+  assert.match(resolver, /calculationMethod: resolutionIndex\.method/);
+  assert.match(resolver, /resolutionIndex\.placeCaveat/);
+  assert.match(resolver, /overlapPopulationPercent: county\.overlapPopulationPercent/);
+  assert.match(resolver, /counties\.length > 1 \? "selection_required"/);
+  assert.doesNotMatch(resolver, /tigerweb|@turf|fetch\(/i);
+});
+
+test("all compatible measures and source coverage remain available", async () => {
+  const component = await source("app/explore/ExploreClient.tsx");
+  const route = await source("app/api/explore/route.ts");
+  assert.match(component, /All \{data\.metrics\.length \+ data\.contextMeasures\.length\} compatible measures/);
+  assert.match(component, /Evidence coverage/);
+  for (const key of ["chd", "stroke", "cancer", "casthma", "checkup", "cholscreen", "housinsecu", "shututility"]) {
+    assert.match(route, new RegExp(`${key}:`));
+  }
 });
 
 test("the map worker is allowed without weakening the production script policy", async () => {

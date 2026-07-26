@@ -21,6 +21,13 @@ export const PUBLIC_DATA_REFRESH_SCHEDULES = [
     staleAfterDays: 3,
   },
   {
+    adapterId: "ahrf-release-v1",
+    sourceId: "ahrf-workforce",
+    scheduleExpression: "cron(23 8 1 * ? *)",
+    policy: "Check monthly; import only an official release whose selected variables validate against the matching technical documentation.",
+    staleAfterDays: 430,
+  },
+  {
     adapterId: "ahrq-clh-v2",
     sourceId: "ahrq-clh",
     scheduleExpression: "cron(53 8 1 * ? *)",

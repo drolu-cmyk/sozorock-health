@@ -127,7 +127,7 @@ export class AcsIngestionAdapter implements PublicDataAdapter {
         adapterId: this.id,
         sourceId: this.sourceId,
         status: "unavailable",
-        statusReason: "The Census API requires an API key. Configure CENSUS_API_KEY in the ingestion runtime; the key is never stored in evidence or cache metadata.",
+        statusReason: "The current Census Data API requires CENSUS_API_KEY in the ingestion runtime; the key is never stored in evidence or cache metadata.",
         sourceVersion: null,
         measures: [],
         observations: [],
