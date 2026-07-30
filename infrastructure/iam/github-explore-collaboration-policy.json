@@ -123,6 +123,31 @@
       "Resource": "arn:aws:iam::791860731989:role/sozorock-explore-collaboration-*"
     },
     {
+      "Sid": "ProvisionExplorePublicSiteRealtimePolicy",
+      "Effect": "Allow",
+      "Action": [
+        "iam:CreatePolicy",
+        "iam:DeletePolicy",
+        "iam:GetPolicy",
+        "iam:GetPolicyVersion",
+        "iam:ListPolicyVersions",
+        "iam:CreatePolicyVersion",
+        "iam:DeletePolicyVersion",
+        "iam:TagPolicy",
+        "iam:UntagPolicy"
+      ],
+      "Resource": "arn:aws:iam::791860731989:policy/sozorock-explore-realtime-public-site-*"
+    },
+    {
+      "Sid": "AttachExplorePublicSiteRealtimePolicy",
+      "Effect": "Allow",
+      "Action": [
+        "iam:AttachRolePolicy",
+        "iam:DetachRolePolicy"
+      ],
+      "Resource": "arn:aws:iam::791860731989:role/AmplifySSRComputeRole-SozoRockHealthPublic"
+    },
+    {
       "Sid": "DescribeExploreLogs",
       "Effect": "Allow",
       "Action": "logs:DescribeLogGroups",
