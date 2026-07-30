@@ -291,6 +291,28 @@ jobs:
             --app-id "$PUBLIC_APP_ID" \
             --build-spec "$public_build_spec" \
             --environment-variables "$merged_env" >/dev/null
+          aws amplify update-branch \
+            --app-id "$PUBLIC_APP_ID" \
+            --branch-name "$AMPLIFY_BRANCH" \
+            --build-spec "$public_build_spec" >/dev/null
+          expected_build_spec_hash=$(printf '%s' "$public_build_spec" | sha256sum | cut -d' ' -f1)
+          for attempt in $(seq 1 12); do
+            app_build_spec=$(aws amplify get-app --app-id "$PUBLIC_APP_ID" \
+              --query 'app.buildSpec' --output text)
+            branch_build_spec=$(aws amplify get-branch --app-id "$PUBLIC_APP_ID" \
+              --branch-name "$AMPLIFY_BRANCH" --query 'branch.buildSpec' --output text)
+            app_hash=$(printf '%s' "$app_build_spec" | sha256sum | cut -d' ' -f1)
+            branch_hash=$(printf '%s' "$branch_build_spec" | sha256sum | cut -d' ' -f1)
+            if [ "$app_hash" = "$expected_build_spec_hash" ] \
+              && [ "$branch_hash" = "$expected_build_spec_hash" ]; then
+              break
+            fi
+            if [ "$attempt" -eq 12 ]; then
+              echo "Amplify did not converge on the approved public build specification." >&2
+              exit 1
+            fi
+            sleep 5
+          done
       - name: Deploy public application only
         run: |
           set -euo pipefail

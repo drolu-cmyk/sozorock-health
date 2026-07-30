@@ -73,6 +73,9 @@ test("Explore-only release workflow cannot deploy CB-CAP", () => {
   assert.match(workflow, /verify:public-runtime-security/);
   assert.match(workflow, /test:national-api/);
   assert.match(workflow, /explore\.visual\.spec\.ts/);
+  assert.match(workflow, /aws amplify update-app[\s\S]*--build-spec "\$public_build_spec"/);
+  assert.match(workflow, /aws amplify update-branch[\s\S]*--branch-name "\$AMPLIFY_BRANCH"[\s\S]*--build-spec "\$public_build_spec"/);
+  assert.match(workflow, /expected_build_spec_hash/);
 });
 
 test("production consumes the dedicated AWS-managed agent secret without key material in GitHub", () => {
