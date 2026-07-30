@@ -226,11 +226,32 @@ jobs:
               HandlerBucket="$EVIDENCE_ARTIFACT_BUCKET" \
               HandlerKey="$handler_key" \
               PublicSiteRuntimeRoleName="$PUBLIC_COMPUTE_ROLE_NAME"
-          for output in WebSocketUrl ManagementEndpoint SessionTable ConnectionTable CountyWorkspaceUserPoolId CountyWorkspaceAppClientId; do
+          for output in WebSocketApiId WebSocketLogGroupArn WebSocketUrl ManagementEndpoint SessionTable ConnectionTable CountyWorkspaceUserPoolId CountyWorkspaceAppClientId; do
             value=$(aws cloudformation describe-stacks --stack-name sozorock-explore-collaboration-production \
               --query "Stacks[0].Outputs[?OutputKey=='$output'].OutputValue" --output text)
+            printf -v "EXPLORE_$output" '%s' "$value"
             echo "EXPLORE_$output=$value" >> "$GITHUB_ENV"
           done
+          route_settings='{"ThrottlingBurstLimit":100,"ThrottlingRateLimit":50}'
+          access_log_settings=$(jq -cn \
+            --arg destination "$EXPLORE_WebSocketLogGroupArn" \
+            --arg format '{"requestId":"$context.requestId","routeKey":"$context.routeKey","status":"$context.status","connectionId":"$context.connectionId"}' \
+            '{DestinationArn:$destination,Format:$format}')
+          if aws apigatewayv2 get-stage --api-id "$EXPLORE_WebSocketApiId" --stage-name production >/dev/null 2>&1; then
+            aws apigatewayv2 update-stage \
+              --api-id "$EXPLORE_WebSocketApiId" \
+              --stage-name production \
+              --auto-deploy \
+              --default-route-settings "$route_settings" \
+              --access-log-settings "$access_log_settings" >/dev/null
+          else
+            aws apigatewayv2 create-stage \
+              --api-id "$EXPLORE_WebSocketApiId" \
+              --stage-name production \
+              --auto-deploy \
+              --default-route-settings "$route_settings" \
+              --access-log-settings "$access_log_settings" >/dev/null
+          fi
       - name: Preserve public environment and add Evidence Core configuration
         run: |
           set -euo pipefail
