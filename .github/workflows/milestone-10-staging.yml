@@ -337,7 +337,8 @@ jobs:
           curl --fail --silent "$STAGING_EXPLORE_URL/api/evidence/v1/place-brief?geography=county&geoid=36001" \
             | jq -e '.contractVersion=="explore.place-brief.v1"' >/dev/null
           PLAYWRIGHT_BASE_URL="$STAGING_EXPLORE_URL" \
-            npx playwright test --config apps/public-site/playwright.config.ts
+            npx playwright test apps/public-site/e2e/explore.visual.spec.ts \
+              --config apps/public-site/playwright.config.ts
           npm run test:national-api --workspace @sozorock/public-site -- "$STAGING_EXPLORE_URL"
           npm run test:staging-collaboration --workspace @sozorock/public-site
           npm run test:non-explore-regression --workspace @sozorock/public-site -- \
