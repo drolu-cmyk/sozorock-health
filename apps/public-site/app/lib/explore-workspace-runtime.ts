@@ -73,7 +73,7 @@ export async function createCountyWorkspace(input: {
     const geography = await executeEvidenceSql(
       `SELECT id::text
        FROM evidence.geography
-       WHERE kind='county' AND authority='US_CENSUS' AND authority_id=:geoid
+       WHERE kind='county' AND authority='census' AND authority_id=:geoid
          AND release_scope='primary_50_states_dc' AND review_status='verified'
        LIMIT 1`,
       [{ name: "geoid", value: { stringValue: input.geoid } }],
