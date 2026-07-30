@@ -62,6 +62,8 @@
         "cognito-idp:DeleteUserPool",
         "cognito-idp:DescribeUserPool",
         "cognito-idp:UpdateUserPool",
+        "cognito-idp:GetUserPoolMfaConfig",
+        "cognito-idp:SetUserPoolMfaConfig",
         "cognito-idp:TagResource",
         "cognito-idp:UntagResource",
         "cognito-idp:CreateUserPoolClient",
