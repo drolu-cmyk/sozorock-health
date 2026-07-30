@@ -207,6 +207,11 @@ jobs:
             --recursive --sse AES256 --only-show-errors
           npm run import:production:data-api --workspace @sozorock/evidence-core
           npm run seed:collaboration-control-plane --workspace @sozorock/evidence-core
+          aws rds-data execute-statement \
+            --resource-arn "$EVIDENCE_DATABASE_CLUSTER_ARN" \
+            --secret-arn "$EVIDENCE_DATABASE_SECRET_ARN" \
+            --database "$EVIDENCE_DATABASE_NAME" \
+            --sql "INSERT INTO evidence.workspace_tenant (id, legal_name, status, created_at, created_by) VALUES ('10000000-0000-4000-8000-000000000001', 'The SozoRock Foundation, Inc.', 'active', now(), 'explore-production-workflow') ON CONFLICT (id) DO UPDATE SET legal_name=EXCLUDED.legal_name, status='active'" >/dev/null
       - name: Provision Explore collaboration transport and identity
         run: |
           set -euo pipefail
@@ -281,6 +286,7 @@ jobs:
               PLACE_EVIDENCE_PROVIDER:"openai-responses",
               PLACE_AGENT_MAX_PER_NETWORK_HOUR:"2",
               PLACE_AGENT_MAX_GLOBAL_DAY:"10",
+              PLACE_AGENT_RATE_LIMIT_NAMESPACE:"production",
               EVIDENCE_SOURCE_CDC_PLACES_ENABLED:"true",
               EXPLORE_REALTIME_SESSION_TABLE:$sessions,
               EXPLORE_REALTIME_CONNECTION_TABLE:$connections,

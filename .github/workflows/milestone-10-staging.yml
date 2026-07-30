@@ -101,7 +101,7 @@ jobs:
     env:
       AWS_REGION: ${{ vars.AWS_REGION || 'us-east-1' }}
       PUBLIC_APP_ID: ${{ vars.PUBLIC_AMPLIFY_APP_ID }}
-      STAGING_BRANCH: codex/explore-agentic-collaboration
+      STAGING_BRANCH: ${{ github.ref_name }}
       PRODUCTION_URL: ${{ vars.PUBLIC_SITE_URL || 'https://health.sozorockfoundation.org' }}
       OPENAI_SECRET_ARN: ${{ secrets.OPENAI_SECRET_ARN }}
       RELEASE_SHA: ${{ github.sha }}
@@ -265,6 +265,7 @@ jobs:
               PLACE_EVIDENCE_PROVIDER:"openai-responses",
               PLACE_AGENT_MAX_PER_NETWORK_HOUR:"20",
               PLACE_AGENT_MAX_GLOBAL_DAY:"100",
+              PLACE_AGENT_RATE_LIMIT_NAMESPACE:"staging",
               EXPLORE_REALTIME_SESSION_TABLE:$sessions,
               EXPLORE_REALTIME_CONNECTION_TABLE:$connections,
               EXPLORE_REALTIME_PUBLIC_ENDPOINT:$websocket,

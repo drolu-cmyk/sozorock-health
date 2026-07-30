@@ -61,6 +61,8 @@ const nextConfig: NextConfig = {
       process.env.PLACE_AGENT_MAX_PER_NETWORK_HOUR,
     PLACE_AGENT_MAX_GLOBAL_DAY:
       process.env.PLACE_AGENT_MAX_GLOBAL_DAY,
+    PLACE_AGENT_RATE_LIMIT_NAMESPACE:
+      process.env.PLACE_AGENT_RATE_LIMIT_NAMESPACE,
   },
   outputFileTracingIncludes: {
     "/review/partner-evidence/download/*": [

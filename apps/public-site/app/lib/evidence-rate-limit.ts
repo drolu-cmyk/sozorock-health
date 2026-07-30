@@ -3,6 +3,7 @@ import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { GetSecretValueCommand, SecretsManagerClient } from "@aws-sdk/client-secrets-manager";
 import { DynamoDBDocumentClient, UpdateCommand } from "@aws-sdk/lib-dynamodb";
 import type { NextRequest } from "next/server";
+import { agentRateLimitNamespace } from "./agent-rate-limit-policy";
 import { clientNetworkAddress } from "./request-security";
 
 const region = process.env.AWS_REGION ?? "us-east-1";
@@ -65,6 +66,7 @@ export async function enforceAgentRateLimit(request: NextRequest) {
   const epoch = Math.floor(Date.now() / 1000);
   const hour = Math.floor(epoch / 3600);
   const day = Math.floor(epoch / 86400);
+  const namespace = agentRateLimitNamespace();
   const clientHash = createHash("sha256")
     .update(`${await salt()}:place-agent:${clientNetworkAddress(request.headers)}`)
     .digest("hex");
@@ -77,7 +79,7 @@ export async function enforceAgentRateLimit(request: NextRequest) {
   try {
     await dynamo.send(new UpdateCommand({
       TableName: tableName,
-      Key: { submissionId: `place-agent-global#${day}` },
+      Key: { submissionId: `place-agent-global#${namespace}#${day}` },
       UpdateExpression: "ADD requestCount :one SET expiresAt = :expiresAt, recordType = :recordType",
       ConditionExpression: "attribute_not_exists(requestCount) OR requestCount < :maximum",
       ExpressionAttributeValues: {
@@ -89,7 +91,7 @@ export async function enforceAgentRateLimit(request: NextRequest) {
     }));
     await dynamo.send(new UpdateCommand({
       TableName: tableName,
-      Key: { submissionId: `place-agent-rate#${clientHash}#${hour}` },
+      Key: { submissionId: `place-agent-rate#${namespace}#${clientHash}#${hour}` },
       UpdateExpression: "ADD requestCount :one SET expiresAt = :expiresAt, recordType = :recordType",
       ConditionExpression: "attribute_not_exists(requestCount) OR requestCount < :maximum",
       ExpressionAttributeValues: {
