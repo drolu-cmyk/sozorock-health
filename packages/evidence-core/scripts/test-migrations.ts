@@ -91,6 +91,7 @@ try {
   if (!immutableGuardPassed) throw new Error("Immutable execution-audit trigger did not reject mutation.");
 
   let workspaceEventImmutableGuardPassed = false;
+  let workspaceEventMutationError: unknown = null;
   await client.query("BEGIN");
   try {
     await client.query(
@@ -105,9 +106,10 @@ try {
          'primary_50_states_dc','metadata_only'
        );
        INSERT INTO evidence.evidence_snapshot (
-         id, name, content_hash, created_at, review_status, reviewed_by, reviewed_at, published_at
+         id, contract_version, policy_version, content_hash, created_at,
+         review_status, reviewed_by, reviewed_at, published_at
        ) VALUES (
-         '44444444-4444-4444-a444-444444444444','Disposable snapshot',
+         '44444444-4444-4444-a444-444444444444','test.snapshot.v1','test-policy',
          'sha256:${"b".repeat(64)}',now(),'verified','migration-test',now(),now()
        );
        INSERT INTO evidence.county_workspace (
@@ -135,12 +137,15 @@ try {
       "UPDATE evidence.workspace_event SET outcome='accepted' WHERE id='66666666-6666-4666-a666-666666666666'",
     );
   } catch (error) {
+    workspaceEventMutationError = error;
     workspaceEventImmutableGuardPassed = String(error).includes("immutable");
   } finally {
     await client.query("ROLLBACK");
   }
   if (!workspaceEventImmutableGuardPassed) {
-    throw new Error("Immutable workspace-event trigger did not reject mutation.");
+    throw new Error(
+      `Immutable workspace-event trigger did not reject mutation. Received: ${String(workspaceEventMutationError)}`,
+    );
   }
 
   const down = await readFile(path.join(migrationsDir, "rollback", "0004_nationwide_evidence_activation.down.sql"), "utf8");
