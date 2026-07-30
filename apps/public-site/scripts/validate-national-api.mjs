@@ -11,7 +11,9 @@ const counties = catalog.geographies.filter((item) =>
   item.kind === "county" && item.releaseScope === "primary_50_states_dc");
 if (counties.length !== 3_144) throw new Error(`Expected 3,144 counties; found ${counties.length}.`);
 
-const baseUrl = process.env.EXPLORE_VALIDATION_BASE_URL ?? "http://localhost:4318";
+const baseUrl = process.env.EXPLORE_VALIDATION_BASE_URL
+  ?? process.argv[2]
+  ?? "http://localhost:4318";
 const failures = [];
 let cursor = 0;
 let validated = 0;

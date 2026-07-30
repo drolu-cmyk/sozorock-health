@@ -71,6 +71,8 @@ test("Explore-only release workflow cannot deploy CB-CAP", () => {
   assert.match(workflow, /PUBLIC_APP_ID/);
   assert.match(workflow, /npm ci --omit=optional/);
   assert.match(workflow, /verify:public-runtime-security/);
+  assert.match(workflow, /test:national-api/);
+  assert.match(workflow, /explore\.visual\.spec\.ts/);
 });
 
 test("production consumes the dedicated AWS-managed agent secret without key material in GitHub", () => {

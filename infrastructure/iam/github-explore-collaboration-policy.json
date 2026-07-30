@@ -71,6 +71,7 @@
         "cognito-idp:DescribeUserPoolClient",
         "cognito-idp:UpdateUserPoolClient",
         "cognito-idp:AdminCreateUser",
+        "cognito-idp:AdminDeleteUser",
         "cognito-idp:AdminUpdateUserAttributes",
         "cognito-idp:AdminSetUserPassword",
         "cognito-idp:AdminInitiateAuth"
