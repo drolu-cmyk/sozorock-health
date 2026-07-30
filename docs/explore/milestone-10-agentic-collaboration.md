@@ -94,6 +94,12 @@ becomes zero.
    evidence snapshot, retry the prior public Amplify job, purge affected caches,
    and preserve audit history.
 
+The GitHub OIDC role receives the separate, least-privilege
+`github-explore-collaboration-policy.json` policy. It is limited to the
+Explore evidence/collaboration staging and production stack names, the public
+Amplify application, and the named real-time resources. This bootstrap policy
+is applied by an account administrator and is not self-expanded by CI.
+
 ## Data-retention boundary
 
 County workspaces must not contain PHI or resident-level records. Workspace
