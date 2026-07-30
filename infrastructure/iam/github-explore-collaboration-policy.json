@@ -122,19 +122,19 @@
       ],
       "Resource": "arn:aws:iam::791860731989:role/sozorock-explore-collaboration-*"
     },
-      {
-        "Sid": "DescribeExploreLogs",
-        "Effect": "Allow",
-        "Action": "logs:DescribeLogGroups",
-        "Resource": "*"
-      },
-      {
-        "Sid": "ManageExploreLogs",
-        "Effect": "Allow",
-        "Action": [
-          "logs:CreateLogGroup",
-          "logs:DeleteLogGroup",
-          "logs:PutRetentionPolicy",
+    {
+      "Sid": "DescribeExploreLogs",
+      "Effect": "Allow",
+      "Action": "logs:DescribeLogGroups",
+      "Resource": "*"
+    },
+    {
+      "Sid": "ManageExploreLogs",
+      "Effect": "Allow",
+      "Action": [
+        "logs:CreateLogGroup",
+        "logs:DeleteLogGroup",
+        "logs:PutRetentionPolicy",
         "logs:DeleteRetentionPolicy",
         "logs:TagResource",
         "logs:UntagResource"
