@@ -97,11 +97,12 @@ try {
       `INSERT INTO evidence.workspace_tenant (id, legal_name, status, created_at, created_by)
        VALUES ('22222222-2222-4222-a222-222222222222','Disposable test tenant','active',now(),'migration-test');
        INSERT INTO evidence.geography (
-         id, kind, authority, authority_id, display_name, vintage, review_status,
-         release_scope, geometry_status
+         id, kind, authority, authority_id, name, display_name, state_fips,
+         county_fips, vintage, review_status, release_scope, geometry_status
        ) VALUES (
-         '33333333-3333-4333-a333-333333333333','county','US_CENSUS','99001',
-         'Disposable County','2025','verified','primary_50_states_dc','metadata_only'
+         '33333333-3333-4333-a333-333333333333','county','census','99001',
+         'Disposable County','Disposable County','99','99001','2025','verified',
+         'primary_50_states_dc','metadata_only'
        );
        INSERT INTO evidence.evidence_snapshot (
          id, name, content_hash, created_at, review_status, reviewed_by, reviewed_at, published_at
