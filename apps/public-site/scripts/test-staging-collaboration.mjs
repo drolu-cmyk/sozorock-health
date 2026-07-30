@@ -131,7 +131,8 @@ const duplicate = await json(await request(
 ));
 assert.equal(duplicate.event.sequenceNumber, createdEvent.event.sequenceNumber);
 
-const sectionPath = `/api/evidence/v1/workspaces/${workspaceId}/sections/planning-questions`;
+const sectionKey = `planning-questions-${randomUUID()}`;
+const sectionPath = `/api/evidence/v1/workspaces/${workspaceId}/sections/${sectionKey}`;
 const concurrent = await Promise.all([
   request(sectionPath, ownerToken, {
     method: "PUT",
