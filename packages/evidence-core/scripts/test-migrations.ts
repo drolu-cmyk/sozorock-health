@@ -59,6 +59,9 @@ try {
     "import_manifest", "source_health_event", "execution_audit", "capability_switch",
     "schema_migration",
     "workforce_designation",
+    "workspace_tenant", "county_workspace", "workspace_event", "workspace_participant",
+    "planning_scenario", "planning_scenario_version", "funder_snapshot",
+    "source_adapter_contract", "source_adapter_execution",
   ];
   const tables = await client.query(
     "SELECT table_name FROM information_schema.tables WHERE table_schema='evidence'",
@@ -86,6 +89,78 @@ try {
     await client.query("ROLLBACK");
   }
   if (!immutableGuardPassed) throw new Error("Immutable execution-audit trigger did not reject mutation.");
+
+  let workspaceEventImmutableGuardPassed = false;
+  let workspaceEventMutationError: unknown = null;
+  await client.query("BEGIN");
+  try {
+    await client.query(
+      `INSERT INTO evidence.workspace_tenant (id, legal_name, status, created_at, created_by)
+       VALUES ('22222222-2222-4222-a222-222222222222','Disposable test tenant','active',now(),'migration-test');
+       INSERT INTO evidence.geography (
+         id, kind, authority, authority_id, name, display_name, state_fips,
+         county_fips, vintage, review_status, release_scope, geometry_status
+       ) VALUES (
+         '33333333-3333-4333-a333-333333333333','county','census','99001',
+         'Disposable County','Disposable County','99','99001','2025','verified',
+         'primary_50_states_dc','metadata_only'
+       );
+       INSERT INTO evidence.evidence_snapshot (
+         id, contract_version, policy_version, content_hash, created_at,
+         review_status, reviewed_by, reviewed_at, published_at
+       ) VALUES (
+         '44444444-4444-4444-a444-444444444444','test.snapshot.v1','test-policy',
+         'sha256:${"b".repeat(64)}',now(),'verified','migration-test',now(),now()
+       );
+       INSERT INTO evidence.county_workspace (
+         id, tenant_id, geography_id, evidence_snapshot_id, title, status,
+         version, policy_version, created_at, created_by, updated_at
+       ) VALUES (
+         '55555555-5555-4555-a555-555555555555',
+         '22222222-2222-4222-a222-222222222222',
+         '33333333-3333-4333-a333-333333333333',
+         '44444444-4444-4444-a444-444444444444',
+         'Disposable workspace','active',1,'test',now(),'migration-test',now()
+       );
+       INSERT INTO evidence.workspace_event (
+         id, workspace_id, tenant_id, sequence_number, event_type, actor_type,
+         actor_id, idempotency_key, policy_version, outcome, occurred_at
+       ) VALUES (
+         '66666666-6666-4666-a666-666666666666',
+         '55555555-5555-4555-a555-555555555555',
+         '22222222-2222-4222-a222-222222222222',
+         1,'workspace_created','human','migration-test','migration-test-1',
+         'test','recorded',now()
+       )`,
+    );
+    await client.query(
+      "UPDATE evidence.workspace_event SET outcome='accepted' WHERE id='66666666-6666-4666-a666-666666666666'",
+    );
+  } catch (error) {
+    workspaceEventMutationError = error;
+    workspaceEventImmutableGuardPassed = String(error).includes("immutable");
+  } finally {
+    await client.query("ROLLBACK");
+  }
+  if (!workspaceEventImmutableGuardPassed) {
+    throw new Error(
+      `Immutable workspace-event trigger did not reject mutation. Received: ${String(workspaceEventMutationError)}`,
+    );
+  }
+
+  // Roll back the newest dependent schema first. This verifies 0008's down
+  // migration and prevents its foreign keys from masking older rollback tests.
+  const down0008 = await readFile(
+    path.join(migrationsDir, "rollback", "0008_explore_agentic_collaboration.down.sql"),
+    "utf8",
+  );
+  await client.query(down0008);
+  const rolledBackWorkspace = await client.query(
+    "SELECT to_regclass('evidence.county_workspace') AS table_name",
+  );
+  if (rolledBackWorkspace.rows[0].table_name !== null) {
+    throw new Error("Migration 0008 rollback did not remove the county-workspace table.");
+  }
 
   const down = await readFile(path.join(migrationsDir, "rollback", "0004_nationwide_evidence_activation.down.sql"), "utf8");
   await client.query(down);
@@ -148,6 +223,17 @@ try {
   if (restoredWorkforce.rows[0].present !== true) {
     throw new Error("Migration 0007 did not restore the workforce-designation table.");
   }
+  const migration0008 = await readFile(
+    path.join(migrationsDir, "0008_explore_agentic_collaboration.sql"),
+    "utf8",
+  );
+  await client.query(migration0008);
+  const restoredWorkspace = await client.query(
+    "SELECT to_regclass('evidence.county_workspace') AS table_name",
+  );
+  if (restoredWorkspace.rows[0].table_name === null) {
+    throw new Error("Migration 0008 did not restore the county-workspace table.");
+  }
 
   console.log(JSON.stringify({
     migrations: await migrationFiles(),
@@ -161,6 +247,9 @@ try {
     reapply0006Passed: true,
     rollback0007Passed: true,
     reapply0007Passed: true,
+    workspaceEventImmutableGuardPassed,
+    rollback0008Passed: true,
+    reapply0008Passed: true,
   }, null, 2));
 } finally {
   await client.end();

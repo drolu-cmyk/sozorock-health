@@ -69,6 +69,7 @@ jobs:
           npm run typecheck
           npm run lint
           npm test
+          npm run build --workspace @sozorock/explore-realtime
           npm run build:public
           npm run verify:public-runtime-security
       - name: Generate runtime SBOM
@@ -160,6 +161,7 @@ jobs:
           compute_role_arn=$(aws cloudformation describe-stacks --stack-name sozorock-health-contact \
             --query "Stacks[0].Outputs[?OutputKey=='ComputeRoleArn'].OutputValue" --output text)
           compute_role_name="${compute_role_arn##*/}"
+          echo "PUBLIC_COMPUTE_ROLE_NAME=$compute_role_name" >> "$GITHUB_ENV"
           aws cloudformation deploy \
             --stack-name sozorock-health-evidence-production \
             --template-file infrastructure/cloudformation/evidence-core.yml \
@@ -194,6 +196,8 @@ jobs:
         env:
           EVIDENCE_PRODUCTION_MIGRATION_APPROVED: "true"
           EVIDENCE_PRODUCTION_IMPORT_APPROVED: "true"
+          EVIDENCE_CONTROL_PLANE_SEED_APPROVED: "true"
+          EVIDENCE_CONTROL_PLANE_APPROVED_BY: explore-production-workflow
         run: |
           set -euo pipefail
           export EVIDENCE_EXPECTED_CLUSTER_ARN="$EVIDENCE_DATABASE_CLUSTER_ARN"
@@ -202,6 +206,55 @@ jobs:
             "s3://$EVIDENCE_ARTIFACT_BUCKET/approved/$RELEASE_SHA/" \
             --recursive --sse AES256 --only-show-errors
           npm run import:production:data-api --workspace @sozorock/evidence-core
+          npm run seed:collaboration-control-plane --workspace @sozorock/evidence-core
+      - name: Provision Explore collaboration transport and identity
+        run: |
+          set -euo pipefail
+          mkdir -p output/realtime
+          npx esbuild packages/explore-realtime/src/handler.ts --bundle --platform=node \
+            --target=node22 --format=cjs --outfile=output/realtime/handler.js
+          (cd output/realtime && zip -q ../explore-realtime.zip handler.js)
+          handler_key="production/$RELEASE_SHA/explore-realtime.zip"
+          aws s3 cp output/explore-realtime.zip \
+            "s3://$EVIDENCE_ARTIFACT_BUCKET/$handler_key" --sse AES256 --only-show-errors
+          aws cloudformation deploy \
+            --stack-name sozorock-explore-collaboration-production \
+            --template-file infrastructure/cloudformation/explore-collaboration.yml \
+            --capabilities CAPABILITY_NAMED_IAM \
+            --parameter-overrides \
+              EnvironmentName=production \
+              HandlerBucket="$EVIDENCE_ARTIFACT_BUCKET" \
+              HandlerKey="$handler_key" \
+              PublicSiteRuntimeRoleName="$PUBLIC_COMPUTE_ROLE_NAME"
+          for output in WebSocketApiId WebSocketLogGroupArn WebSocketThrottlingBurstLimit WebSocketThrottlingRateLimit WebSocketUrl ManagementEndpoint SessionTable ConnectionTable CountyWorkspaceUserPoolId CountyWorkspaceAppClientId; do
+            value=$(aws cloudformation describe-stacks --stack-name sozorock-explore-collaboration-production \
+              --query "Stacks[0].Outputs[?OutputKey=='$output'].OutputValue" --output text)
+            printf -v "EXPLORE_$output" '%s' "$value"
+            echo "EXPLORE_$output=$value" >> "$GITHUB_ENV"
+          done
+          route_settings=$(jq -cn \
+            --argjson burst "$EXPLORE_WebSocketThrottlingBurstLimit" \
+            --argjson rate "$EXPLORE_WebSocketThrottlingRateLimit" \
+            '{ThrottlingBurstLimit:$burst,ThrottlingRateLimit:$rate}')
+          access_log_settings=$(jq -cn \
+            --arg destination "$EXPLORE_WebSocketLogGroupArn" \
+            --arg format '{"requestId":"$context.requestId","routeKey":"$context.routeKey","status":"$context.status","connectionId":"$context.connectionId"}' \
+            '{DestinationArn:$destination,Format:$format}')
+          if aws apigatewayv2 get-stage --api-id "$EXPLORE_WebSocketApiId" --stage-name production >/dev/null 2>&1; then
+            aws apigatewayv2 update-stage \
+              --api-id "$EXPLORE_WebSocketApiId" \
+              --stage-name production \
+              --auto-deploy \
+              --default-route-settings "$route_settings" \
+              --access-log-settings "$access_log_settings" >/dev/null
+          else
+            aws apigatewayv2 create-stage \
+              --api-id "$EXPLORE_WebSocketApiId" \
+              --stage-name production \
+              --auto-deploy \
+              --default-route-settings "$route_settings" \
+              --access-log-settings "$access_log_settings" >/dev/null
+          fi
       - name: Preserve public environment and add Evidence Core configuration
         run: |
           set -euo pipefail
@@ -213,6 +266,10 @@ jobs:
             --arg db "$EVIDENCE_DATABASE_NAME" \
             --arg bucket "$EVIDENCE_ARTIFACT_BUCKET" \
             --arg openai "$OPENAI_PLACE_EVIDENCE_SECRET_ARN" \
+            --arg sessions "$EXPLORE_SessionTable" \
+            --arg connections "$EXPLORE_ConnectionTable" \
+            --arg websocket "$EXPLORE_WebSocketUrl" \
+            --arg management "$EXPLORE_ManagementEndpoint" \
             '. + {
               EVIDENCE_DATABASE_CLUSTER_ARN:$ca,
               EVIDENCE_DATABASE_SECRET_ARN:$sa,
@@ -224,7 +281,11 @@ jobs:
               PLACE_EVIDENCE_PROVIDER:"openai-responses",
               PLACE_AGENT_MAX_PER_NETWORK_HOUR:"2",
               PLACE_AGENT_MAX_GLOBAL_DAY:"10",
-              EVIDENCE_SOURCE_CDC_PLACES_ENABLED:"true"
+              EVIDENCE_SOURCE_CDC_PLACES_ENABLED:"true",
+              EXPLORE_REALTIME_SESSION_TABLE:$sessions,
+              EXPLORE_REALTIME_CONNECTION_TABLE:$connections,
+              EXPLORE_REALTIME_PUBLIC_ENDPOINT:$websocket,
+              EXPLORE_REALTIME_MANAGEMENT_ENDPOINT:$management
             }' <<<"$current_env")
           aws amplify update-app \
             --app-id "$PUBLIC_APP_ID" \
@@ -254,6 +315,53 @@ jobs:
           test "$(git rev-parse origin/main)" = "$RELEASE_SHA"
           echo "AMPLIFY_REPORTED_COMMIT_ID=$deployed_commit" >> "$GITHUB_ENV"
           echo "Amplify built the pinned main branch release $RELEASE_SHA (job reported commit: $deployed_commit)."
+      - name: Create scoped production acceptance identities
+        run: |
+          set -euo pipefail
+          tenant="10000000-0000-4000-8000-000000000001"
+          suffix="${RELEASE_SHA:0:12}"
+          owner_username="release-owner-${suffix}@sozorockfoundation.org"
+          contributor_username="release-contributor-${suffix}@sozorockfoundation.org"
+          viewer_username="release-viewer-${suffix}@sozorockfoundation.org"
+          create_user() {
+            local username="$1" role="$2" access="$3" password="$4"
+            aws cognito-idp admin-create-user --user-pool-id "$EXPLORE_CountyWorkspaceUserPoolId" \
+              --username "$username" --message-action SUPPRESS \
+              --user-attributes \
+                Name=email,Value="$username" Name=email_verified,Value=true \
+                Name=custom:tenant_id,Value="$tenant" \
+                Name=custom:workspace_role,Value="$role" \
+                Name=custom:workspace_access,Value="$access" >/dev/null
+            aws cognito-idp admin-set-user-password --user-pool-id "$EXPLORE_CountyWorkspaceUserPoolId" \
+              --username "$username" --password "$password" --permanent
+          }
+          auth() {
+            aws cognito-idp admin-initiate-auth --user-pool-id "$EXPLORE_CountyWorkspaceUserPoolId" \
+              --client-id "$EXPLORE_CountyWorkspaceAppClientId" --auth-flow ADMIN_USER_PASSWORD_AUTH \
+              --auth-parameters "USERNAME=$1,PASSWORD=$2" \
+              --query 'AuthenticationResult.AccessToken' --output text
+          }
+          owner_password="$(openssl rand -base64 24)!Aa1"
+          contributor_password="$(openssl rand -base64 24)!Aa1"
+          viewer_password="$(openssl rand -base64 24)!Aa1"
+          create_user "$owner_username" foundation_reviewer owner "$owner_password"
+          create_user "$contributor_username" county_planner contributor "$contributor_password"
+          create_user "$viewer_username" research_funder_viewer viewer "$viewer_password"
+          owner_token=$(auth "$owner_username" "$owner_password")
+          contributor_token=$(auth "$contributor_username" "$contributor_password")
+          viewer_token=$(auth "$viewer_username" "$viewer_password")
+          echo "::add-mask::$owner_token"
+          echo "::add-mask::$contributor_token"
+          echo "::add-mask::$viewer_token"
+          {
+            echo "PRODUCTION_OWNER_USERNAME=$owner_username"
+            echo "PRODUCTION_CONTRIBUTOR_USERNAME=$contributor_username"
+            echo "PRODUCTION_VIEWER_USERNAME=$viewer_username"
+            echo "STAGING_EXPLORE_URL=$PUBLIC_SITE_URL"
+            echo "STAGING_OWNER_ACCESS_TOKEN=$owner_token"
+            echo "STAGING_CONTRIBUTOR_ACCESS_TOKEN=$contributor_token"
+            echo "STAGING_VIEWER_ACCESS_TOKEN=$viewer_token"
+          } >> "$GITHUB_ENV"
       - name: Canonical live acceptance and rollback
         run: |
           set -euo pipefail
@@ -268,6 +376,11 @@ jobs:
             "$PUBLIC_SITE_URL/api/evidence/v1/place-brief?geography=county&geoid=99999" >/dev/null; then
             failed=1
           fi
+          npm run test:national-api --workspace @sozorock/public-site -- \
+            "$PUBLIC_SITE_URL" || failed=1
+          PLAYWRIGHT_BASE_URL="$PUBLIC_SITE_URL" \
+            npx playwright test apps/public-site/e2e/explore.visual.spec.ts \
+              --config apps/public-site/playwright.config.ts || failed=1
           npm run test:non-explore-regression --workspace @sozorock/public-site -- \
             compare "$PUBLIC_SITE_URL" output/non-explore-regression || failed=1
           if [ "$failed" -ne 0 ]; then
@@ -275,7 +388,7 @@ jobs:
               --resource-arn "$EVIDENCE_DATABASE_CLUSTER_ARN" \
               --secret-arn "$EVIDENCE_DATABASE_SECRET_ARN" \
               --database "$EVIDENCE_DATABASE_NAME" \
-              --sql "UPDATE evidence.capability_switch SET enabled=false, reason='Automatic production rollback', updated_at=now(), updated_by='explore-production-workflow' WHERE capability_key IN ('narrative_generation','provider:openai_responses')" >/dev/null
+              --sql "UPDATE evidence.capability_switch SET enabled=false, reason='Automatic production rollback', updated_at=now(), updated_by='explore-production-workflow' WHERE capability_key IN ('narrative_generation','provider:openai_responses','explore:collaboration','explore:scenarios','explore:funder_snapshots','explore:source_maintenance')" >/dev/null
             aws amplify start-job --app-id "$PUBLIC_APP_ID" --branch-name "$AMPLIFY_BRANCH" \
               --job-type RETRY --job-id "$PREVIOUS_PUBLIC_JOB_ID" >/dev/null || true
             exit 1
@@ -293,8 +406,9 @@ jobs:
             --resource-arn "$EVIDENCE_DATABASE_CLUSTER_ARN" \
             --secret-arn "$EVIDENCE_DATABASE_SECRET_ARN" \
             --database "$EVIDENCE_DATABASE_NAME" \
-            --sql "UPDATE evidence.capability_switch SET enabled=true, reason='Production acceptance passed for $RELEASE_SHA', updated_at=now(), updated_by='explore-production-workflow' WHERE capability_key IN ('narrative_generation','provider:openai_responses')" >/dev/null
+              --sql "UPDATE evidence.capability_switch SET enabled=true, reason='Production acceptance passed for $RELEASE_SHA', updated_at=now(), updated_by='explore-production-workflow' WHERE capability_key IN ('narrative_generation','provider:openai_responses','explore:collaboration','explore:scenarios','explore:funder_snapshots','explore:source_maintenance')" >/dev/null
           agent_failed=0
+          npm run test:staging-collaboration --workspace @sozorock/public-site || agent_failed=1
           curl --fail --silent --show-error \
             -X POST "$PUBLIC_SITE_URL/api/evidence/v1/agent" \
             -H "Origin: $PUBLIC_SITE_URL" \
@@ -313,6 +427,8 @@ jobs:
             .schemaVersion=="place-evidence-answer.v1"
             and (.status=="answered" or .status=="evidence_gap")
             and (.geographicScope.geoid=="36001")
+            and (.citedEvidence | length)>0
+            and (.sourceAndDataDates | length)>0
             and (.nonClinicalBoundary | type=="string" and length>0)
           ' agent-grounded.json >/dev/null || agent_failed=1
           if [ "$agent_failed" -ne 0 ]; then
@@ -320,7 +436,7 @@ jobs:
               --resource-arn "$EVIDENCE_DATABASE_CLUSTER_ARN" \
               --secret-arn "$EVIDENCE_DATABASE_SECRET_ARN" \
               --database "$EVIDENCE_DATABASE_NAME" \
-              --sql "UPDATE evidence.capability_switch SET enabled=false, reason='Agent live acceptance failed for $RELEASE_SHA', updated_at=now(), updated_by='explore-production-workflow' WHERE capability_key IN ('narrative_generation','provider:openai_responses')" >/dev/null
+              --sql "UPDATE evidence.capability_switch SET enabled=false, reason='Agent live acceptance failed for $RELEASE_SHA', updated_at=now(), updated_by='explore-production-workflow' WHERE capability_key IN ('narrative_generation','provider:openai_responses','explore:collaboration','explore:scenarios','explore:funder_snapshots','explore:source_maintenance')" >/dev/null
             rollback_job=$(aws amplify start-job --app-id "$PUBLIC_APP_ID" --branch-name "$AMPLIFY_BRANCH" \
               --job-type RETRY --job-id "$PREVIOUS_PUBLIC_JOB_ID" \
               --query 'jobSummary.jobId' --output text)
@@ -341,3 +457,16 @@ jobs:
           echo "Release commit: $RELEASE_SHA"
           echo "Rollback job: $PREVIOUS_PUBLIC_JOB_ID"
           echo "Database rollback snapshot: $EVIDENCE_ROLLBACK_SNAPSHOT_ID"
+      - name: Remove scoped production acceptance identities
+        if: always()
+        run: |
+          for username in \
+            "${PRODUCTION_OWNER_USERNAME:-}" \
+            "${PRODUCTION_CONTRIBUTOR_USERNAME:-}" \
+            "${PRODUCTION_VIEWER_USERNAME:-}"; do
+            if [ -n "$username" ]; then
+              aws cognito-idp admin-delete-user \
+                --user-pool-id "$EXPLORE_CountyWorkspaceUserPoolId" \
+                --username "$username" || true
+            fi
+          done

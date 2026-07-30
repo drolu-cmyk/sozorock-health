@@ -11,7 +11,7 @@ export default defineConfig({
   workers: 1,
   reporter: [["list"]],
   use: {
-    baseURL: "http://127.0.0.1:4182",
+    baseURL: process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:4182",
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
     launchOptions: executablePath ? { executablePath } : undefined,

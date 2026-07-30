@@ -54,17 +54,17 @@ test("the public route avoids internal product language", async () => {
   }
 });
 
-test("the public explorer exposes only the approved Brief, Map and Action workspace", async () => {
+test("the public explorer exposes the approved Brief, Map, Action and Visuals workspace", async () => {
   const component = await source("app/explore/ExploreClient.tsx");
   const rules = await source("app/lib/place-intelligence.ts");
   for (const heading of [
     "SozoRock Place Intelligence",
     "What the local plan says",
     "What the comparable data shows",
-    "From evidence to accountable action",
+    "A planning conversation with sources.",
     "No recommendation yet",
   ]) assert.equal(component.includes(heading), true, `missing public section: ${heading}`);
-  assert.match(component, /type WorkspaceView = "brief" \| "map" \| "action"/);
+  assert.match(component, /type WorkspaceView = "brief" \| "map" \| "action" \| "visuals"/);
   assert.match(component, /role="tablist"/);
   assert.match(component, /role="tabpanel"/);
   assert.match(component, /Not yet verified/);

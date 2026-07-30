@@ -10,3 +10,4 @@ export * from "./agent/index.ts";
 export * from "./decision-support/index.ts";
 export * from "./operations/index.ts";
 export * from "./national/index.ts";
+export * from "./collaboration/index.ts";

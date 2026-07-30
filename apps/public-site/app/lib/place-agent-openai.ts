@@ -2,6 +2,8 @@ import { createHash } from "node:crypto";
 import { GetSecretValueCommand, SecretsManagerClient } from "@aws-sdk/client-secrets-manager";
 import {
   PLACE_AGENT_TOOL_DEFINITIONS,
+  buildStructuredVisualResult,
+  validateExplorePlaceBriefV1,
   type ExplorePlaceBriefV1,
   type PlaceAgentToolName,
 } from "@sozorock/evidence-core";
@@ -14,7 +16,7 @@ import { isClinicalSafetyQuestion } from "./place-agent-safety";
 
 const secrets = new SecretsManagerClient({});
 const MAX_TOOL_DEPTH = 3;
-const MAX_OUTPUT_TOKENS = 600;
+const MAX_OUTPUT_TOKENS = 900;
 const REQUEST_TIMEOUT_MS = 22_000;
 const MODEL = process.env.OPENAI_PLACE_EVIDENCE_MODEL?.trim() || "gpt-5.6-sol";
 const AGENT_POLICY_VERSION = "place-evidence-agent.production.v2";
@@ -62,6 +64,20 @@ type OpenAIResponse = {
   };
 };
 
+const PLACE_AGENT_PIPELINE = [
+  "resolve_geography",
+  "resolve_county_relationships",
+  "get_place_evidence",
+  "get_source_coverage",
+  "list_verified_local_plans",
+  "get_map_layers",
+  "compare_compatible_measures",
+  "identify_evidence_gaps",
+  "evaluate_response_fit",
+  "validate_claims_and_citations",
+  "generate_structured_visual_result",
+] as const;
+
 function contentHash() {
   return approvedCountyEvidenceSnapshot.snapshotId.replace(/^snapshot:/, "sha256:");
 }
@@ -76,6 +92,64 @@ function approvedClaims(brief: ExplorePlaceBriefV1) {
     ...brief.localPlanningEvidence.claims.flatMap((claim) =>
       claim.citationIds.map((citationId) => ({ citationId, claim: claim.statement }))),
   ];
+}
+
+function placeAgentPipelinePackage(brief: ExplorePlaceBriefV1) {
+  const contract = validateExplorePlaceBriefV1(brief);
+  if (!contract.valid) throw new Error("Approved county evidence failed the place-brief contract.");
+  const visual = buildStructuredVisualResult(brief);
+  const verifiedPlans = brief.localPlanningEvidence.documents.filter(
+    (document) => document.reviewStatus === "verified",
+  );
+  const approved = approvedClaims(brief);
+  const citations = new Set(brief.citations.map((citation) => citation.id));
+  const claimValidation = approved.every((claim) => citations.has(claim.citationId));
+  if (!claimValidation) throw new Error("Approved claim package contains a missing citation.");
+  return {
+    pipelineVersion: "place-agent-pipeline.v1",
+    completedSteps: PLACE_AGENT_PIPELINE,
+    county: brief.resolution.selected,
+    countyRelationships: {
+      originalQuery: brief.query,
+      overlappingCounties: brief.resolution.overlappingCounties,
+      caveats: brief.resolution.caveats,
+    },
+    evidenceSummary: {
+      observationCount: brief.publicData.observations.length,
+      approvedClaims: approved.slice(0, 8),
+    },
+    sourceCoverage: brief.publicData.sourceCoverage,
+    verifiedLocalPlans: {
+      status: brief.localPlanningEvidence.status,
+      documents: verifiedPlans,
+      claims: brief.localPlanningEvidence.claims.filter((claim) => claim.reviewStatus === "verified"),
+    },
+    mapLayers: {
+      countyBoundary: "available",
+      statisticalLayers: brief.publicData.sourceCoverage
+        .filter((coverage) => ["available", "partially_available"].includes(coverage.status))
+        .map((coverage) => ({
+          sourceId: coverage.sourceId,
+          geography: coverage.geographyKind,
+          status: coverage.status,
+        })),
+      limitation: "A layer may render only at its published geography. County values cannot create subcounty heat points.",
+    },
+    comparison: {
+      compatibleCount: visual.countyComparison.filter((item) => item.compatibility === "compatible").length,
+      incompatibleCount: visual.countyComparison.filter((item) => item.compatibility !== "compatible").length,
+    },
+    evidenceGaps: brief.evidenceAssessment.missing,
+    responseFits: brief.evidenceAssessment.responseFits,
+    claimValidation: { valid: true, approvedClaimCount: approved.length },
+    visualResult: {
+      contractVersion: visual.contractVersion,
+      measureCount: visual.measureExplorer.length,
+      uncertaintyCount: visual.uncertainty.length,
+      sourceCount: visual.sourceFreshness.length,
+    },
+    nonClinicalBoundary: brief.safety,
+  };
 }
 
 async function apiKey() {
@@ -301,10 +375,12 @@ export async function answerWithOpenAI(input: {
   inputHash: string;
   outputHash: string;
   snapshotContentHash: string;
+  pipelineSteps: readonly string[];
 }> {
   const brief = getApprovedCountyBrief(input.geoid);
   if (!brief) throw new Error("County GEOID not found.");
   const inputHash = createHash("sha256").update(JSON.stringify(input)).digest("hex");
+  const pipeline = placeAgentPipelinePackage(brief);
   if (isClinicalSafetyQuestion(input.question)) {
     const answer = refusal(brief);
     return {
@@ -316,6 +392,7 @@ export async function answerWithOpenAI(input: {
       inputHash,
       outputHash: createHash("sha256").update(JSON.stringify(answer)).digest("hex"),
       snapshotContentHash: contentHash(),
+      pipelineSteps: pipeline.completedSteps,
     };
   }
 
@@ -324,7 +401,12 @@ export async function answerWithOpenAI(input: {
   const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
   const inputItems: unknown[] = [{
     role: "user",
-    content: `Selected county GEOID: ${input.geoid}\nQuestion: ${input.question}`,
+    content: [
+      `Selected county GEOID: ${input.geoid}`,
+      `Question: ${input.question}`,
+      "Approved deterministic pipeline result:",
+      JSON.stringify(pipeline),
+    ].join("\n"),
   }];
   const usedBriefs = new Map<string, ExplorePlaceBriefV1>([[input.geoid, brief]]);
   let responseId: string | null = null;
@@ -366,6 +448,7 @@ export async function answerWithOpenAI(input: {
             "Response fit means fit for local review only, never a final intervention decision.",
             "Every citedEvidence item must copy both citationId and claim exactly from a tool's approvedClaims list.",
             "If evidence is insufficient, return evidence_gap and say what is missing.",
+            "Be concise. Return no more than three citedEvidence items, three sourceAndDataDates items, three missingEvidence items, and three caveats.",
           ].join("\n"),
         }),
         signal: controller.signal,
@@ -388,6 +471,7 @@ export async function answerWithOpenAI(input: {
           inputHash,
           outputHash: createHash("sha256").update(JSON.stringify(answer)).digest("hex"),
           snapshotContentHash: contentHash(),
+          pipelineSteps: pipeline.completedSteps,
         };
       }
       if (depth === MAX_TOOL_DEPTH) throw new Error("Agent tool depth exceeded.");

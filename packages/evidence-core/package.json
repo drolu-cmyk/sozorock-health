@@ -26,7 +26,8 @@
     "build:national-coverage": "node --experimental-strip-types scripts/build-national-coverage.ts",
     "test:migrations": "node --experimental-strip-types scripts/test-migrations.ts",
     "migrate:data-api": "node --experimental-strip-types scripts/migrate-data-api.ts",
-    "import:production:data-api": "node --experimental-strip-types scripts/load-production-evidence-data-api.ts && node --experimental-strip-types scripts/load-national-context-data-api.ts"
+    "import:production:data-api": "node --experimental-strip-types scripts/load-production-evidence-data-api.ts && node --experimental-strip-types scripts/load-national-context-data-api.ts",
+    "seed:collaboration-control-plane": "node --experimental-strip-types scripts/seed-collaboration-control-plane.ts"
   },
   "dependencies": {
     "@aws-sdk/client-rds-data": "^3.933.0",

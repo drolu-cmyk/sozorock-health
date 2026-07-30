@@ -12,10 +12,11 @@ concurrency:
 
 permissions:
   contents: read
+  issues: write
 
 jobs:
   source-health:
-    name: Check five-place source health without publishing
+    name: Check national source health without publishing
     runs-on: ubuntu-latest
     timeout-minutes: 45
     env:
@@ -38,13 +39,16 @@ jobs:
       - name: Run evidence policy and safety tests
         run: npm run test --workspace @sozorock/evidence-core
 
-      - name: Record official-source health for the evaluation places
+      - name: Record official-source health and national coverage
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p output/place-evidence-operations
           npm run evaluate:five-places --workspace @sozorock/evidence-core -- --include-hrsa \
             | tee output/place-evidence-operations/five-place-source-health.json
+          npm run build:national-coverage --workspace @sozorock/evidence-core
+          cp packages/evidence-core/data/national/national-coverage-report.v1.json \
+            output/place-evidence-operations/national-coverage.json
 
       - name: Record release-gate status
         shell: bash
@@ -91,4 +95,62 @@ jobs:
         with:
           name: planning-review-queue-${{ github.run_id }}
           path: packages/evidence-core/review/milestone-3-pilot-evidence-review.json
+          retention-days: 30
+
+  monthly-adapter-candidates:
+    name: Validate official candidate releases without publishing
+    if: github.event_name == 'workflow_dispatch' || github.event.schedule == '43 8 1 * *'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      CENSUS_API_KEY: ${{ secrets.CENSUS_API_KEY }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci --omit=optional
+      - name: Download and validate official candidates
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run build:national-acs-context --workspace @sozorock/evidence-core
+          npm run build:national-hrsa-context --workspace @sozorock/evidence-core
+          npm run build:national-ahrf-context --workspace @sozorock/evidence-core
+          npm run build:national-ahrq-context --workspace @sozorock/evidence-core
+          npm run build:national-coverage --workspace @sozorock/evidence-core
+          npm run test --workspace @sozorock/evidence-core
+      - name: Propose human review when approved artifacts would change
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git diff --quiet; then
+            echo "No candidate release changed the approved artifact set."
+            exit 0
+          fi
+          mkdir -p output/place-evidence-operations
+          git diff --stat > output/place-evidence-operations/candidate-change-stat.txt
+          title="[Evidence adapter review] candidate source changes $(date -u +%Y-%m)"
+          if ! gh issue list --state open --search "\"$title\" in:title" --json title \
+            --jq '.[].title' | grep -Fxq "$title"; then
+            {
+              echo "Official candidate releases produced changes in the controlled evidence artifacts."
+              echo
+              echo "No production mapping or evidence snapshot was changed."
+              echo "A named reviewer must inspect source meaning, schema, geography, coverage, and measures."
+              echo
+              echo '```'
+              cat output/place-evidence-operations/candidate-change-stat.txt
+              echo '```'
+            } > output/place-evidence-operations/candidate-review.md
+            gh issue create --title "$title" --body-file output/place-evidence-operations/candidate-review.md
+          fi
+      - uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4
+        with:
+          name: source-adapter-candidates-${{ github.run_id }}
+          path: output/place-evidence-operations
           retention-days: 30

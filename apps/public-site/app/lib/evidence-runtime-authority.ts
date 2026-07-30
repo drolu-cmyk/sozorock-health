@@ -1,8 +1,12 @@
 import { createHash, randomUUID } from "node:crypto";
 import {
+  BeginTransactionCommand,
+  CommitTransactionCommand,
   ExecuteStatementCommand,
   RDSDataClient,
+  RollbackTransactionCommand,
   type Field,
+  type SqlParameter,
 } from "@aws-sdk/client-rds-data";
 
 const client = new RDSDataClient({});
@@ -23,7 +27,7 @@ function config(): AuthorityConfig {
   return { clusterArn, secretArn, database };
 }
 
-function fieldValue(field: Field | undefined) {
+export function evidenceFieldValue(field: Field | undefined) {
   if (!field || field.isNull) return null;
   if (field.stringValue !== undefined) return field.stringValue;
   if (field.booleanValue !== undefined) return field.booleanValue;
@@ -32,10 +36,11 @@ function fieldValue(field: Field | undefined) {
   return null;
 }
 
-async function execute(sql: string, parameters: Array<{
-  name: string;
-  value: Field;
-}> = []) {
+export async function executeEvidenceSql(
+  sql: string,
+  parameters: SqlParameter[] = [],
+  transactionId?: string,
+) {
   const authority = config();
   return client.send(new ExecuteStatementCommand({
     resourceArn: authority.clusterArn,
@@ -43,8 +48,37 @@ async function execute(sql: string, parameters: Array<{
     database: authority.database,
     sql,
     parameters,
+    transactionId,
     includeResultMetadata: true,
   }));
+}
+
+export async function executeEvidenceTransaction<T>(
+  work: (transactionId: string) => Promise<T>,
+) {
+  const authority = config();
+  const opened = await client.send(new BeginTransactionCommand({
+    resourceArn: authority.clusterArn,
+    secretArn: authority.secretArn,
+    database: authority.database,
+  }));
+  if (!opened.transactionId) throw new Error("Evidence transaction could not be opened.");
+  try {
+    const result = await work(opened.transactionId);
+    await client.send(new CommitTransactionCommand({
+      resourceArn: authority.clusterArn,
+      secretArn: authority.secretArn,
+      transactionId: opened.transactionId,
+    }));
+    return result;
+  } catch (error) {
+    await client.send(new RollbackTransactionCommand({
+      resourceArn: authority.clusterArn,
+      secretArn: authority.secretArn,
+      transactionId: opened.transactionId,
+    }));
+    throw error;
+  }
 }
 
 export type EvidenceAuthority = {
@@ -57,7 +91,7 @@ export type EvidenceAuthority = {
 export async function requireEvidenceAuthority(
   snapshotContentHash: string,
 ): Promise<EvidenceAuthority> {
-  const result = await execute(
+  const result = await executeEvidenceSql(
     `SELECT
        s.id::text,
        s.content_hash,
@@ -78,10 +112,10 @@ export async function requireEvidenceAuthority(
   );
   const row = result.records?.[0];
   if (!row) throw new Error("The bundled evidence snapshot is not approved by the production authority.");
-  const snapshotUuid = String(fieldValue(row[0]) ?? "");
-  const contentHash = String(fieldValue(row[1]) ?? "");
-  const narrativeEnabled = fieldValue(row[2]) === true;
-  const openAiEnabled = fieldValue(row[3]) === true;
+  const snapshotUuid = String(evidenceFieldValue(row[0]) ?? "");
+  const contentHash = String(evidenceFieldValue(row[1]) ?? "");
+  const narrativeEnabled = evidenceFieldValue(row[2]) === true;
+  const openAiEnabled = evidenceFieldValue(row[3]) === true;
   if (!snapshotUuid || contentHash !== snapshotContentHash) {
     throw new Error("Evidence snapshot authority mismatch.");
   }
@@ -91,6 +125,17 @@ export async function requireEvidenceAuthority(
     narrativeEnabled,
     openAiEnabled,
   };
+}
+
+export async function requireEvidenceCapability(capabilityKey: string) {
+  const result = await executeEvidenceSql(
+    `SELECT enabled, reason FROM evidence.capability_switch WHERE capability_key=:capability_key`,
+    [{ name: "capability_key", value: { stringValue: capabilityKey } }],
+  );
+  const row = result.records?.[0];
+  if (!row || evidenceFieldValue(row[0]) !== true) {
+    throw new Error(String(evidenceFieldValue(row?.[1]) ?? "Evidence capability is not enabled."));
+  }
 }
 
 export function sha256(value: unknown) {
@@ -110,7 +155,7 @@ export async function writeExecutionAudit(input: {
   reason: string;
   metadata: Record<string, unknown>;
 }) {
-  await execute(
+  await executeEvidenceSql(
     `INSERT INTO evidence.execution_audit (
        id, execution_type, contract_version, policy_version, snapshot_id,
        geography_id, request_hash, response_hash, outcome, reason, occurred_at, metadata

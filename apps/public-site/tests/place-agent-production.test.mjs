@@ -18,13 +18,30 @@ test("production agent is evidence-only, stored-output disabled, bounded, and to
   assert.match(provider, /store:\s*false/);
   assert.match(provider, /PLACE_AGENT_TOOL_DEFINITIONS/);
   assert.match(provider, /MAX_TOOL_DEPTH\s*=\s*3/);
-  assert.match(provider, /MAX_OUTPUT_TOKENS\s*=\s*600/);
+  assert.match(provider, /MAX_OUTPUT_TOKENS\s*=\s*900/);
+  assert.match(provider, /Return no more than three citedEvidence items/);
   assert.match(provider, /OPENAI_PLACE_EVIDENCE_SECRET_ARN/);
   assert.match(provider, /max_tool_calls:\s*MAX_TOOL_DEPTH/);
   assert.match(provider, /parallel_tool_calls:\s*false/);
   assert.match(provider, /reasoning:\s*\{\s*effort:\s*"none"\s*\}/);
   assert.match(provider, /verbosity:\s*"low"/);
   assert.match(provider, /REQUEST_TIMEOUT_MS\s*=\s*22_000/);
+  assert.match(provider, /place-agent-pipeline\.v1/);
+  for (const step of [
+    "resolve_geography",
+    "resolve_county_relationships",
+    "get_place_evidence",
+    "get_source_coverage",
+    "list_verified_local_plans",
+    "get_map_layers",
+    "compare_compatible_measures",
+    "identify_evidence_gaps",
+    "evaluate_response_fit",
+    "validate_claims_and_citations",
+    "generate_structured_visual_result",
+  ]) {
+    assert.match(provider, new RegExp(`"${step}"`));
+  }
   assert.doesNotMatch(provider, /web_search|computer_use|file_search|https?:\/\/(?!api\.openai\.com)/);
 });
 
@@ -54,6 +71,8 @@ test("Explore-only release workflow cannot deploy CB-CAP", () => {
   assert.match(workflow, /PUBLIC_APP_ID/);
   assert.match(workflow, /npm ci --omit=optional/);
   assert.match(workflow, /verify:public-runtime-security/);
+  assert.match(workflow, /test:national-api/);
+  assert.match(workflow, /explore\.visual\.spec\.ts/);
 });
 
 test("production consumes the dedicated AWS-managed agent secret without key material in GitHub", () => {
@@ -63,6 +82,15 @@ test("production consumes the dedicated AWS-managed agent secret without key mat
   assert.match(evidenceInfrastructure, /PlaceEvidenceOpenAISecretArn/);
   assert.match(evidenceInfrastructure, /Sid:\s*ReadPlaceEvidenceOpenAISecret/);
   assert.match(evidenceInfrastructure, /Action:\s*\n\s*-\s*secretsmanager:GetSecretValue/);
+});
+
+test("public collaboration runtime has cluster-scoped transactional Data API access", () => {
+  assert.match(evidenceInfrastructure, /rds-data:BeginTransaction/);
+  assert.match(evidenceInfrastructure, /rds-data:CommitTransaction/);
+  assert.match(evidenceInfrastructure, /rds-data:ExecuteStatement/);
+  assert.match(evidenceInfrastructure, /rds-data:RollbackTransaction/);
+  assert.match(evidenceInfrastructure, /Resource:\s*!GetAtt EvidenceDatabaseCluster\.DBClusterArn/);
+  assert.doesNotMatch(evidenceInfrastructure, /Resource:\s*["']?\*["']?/);
 });
 
 test("public runtime removes optional Sharp while preserving upstream lock metadata", () => {

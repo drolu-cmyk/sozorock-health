@@ -1,0 +1,174 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "DeployExploreStagingAndProductionStacks",
+      "Effect": "Allow",
+      "Action": [
+        "cloudformation:CreateStack",
+        "cloudformation:UpdateStack",
+        "cloudformation:DescribeStacks",
+        "cloudformation:DescribeStackEvents",
+        "cloudformation:DescribeStackResources",
+        "cloudformation:CreateChangeSet",
+        "cloudformation:DescribeChangeSet",
+        "cloudformation:ExecuteChangeSet",
+        "cloudformation:DeleteChangeSet",
+        "cloudformation:GetTemplateSummary"
+      ],
+      "Resource": [
+        "arn:aws:cloudformation:us-east-1:791860731989:stack/sozorock-health-evidence-staging/*",
+        "arn:aws:cloudformation:us-east-1:791860731989:stack/sozorock-health-evidence-production/*",
+        "arn:aws:cloudformation:us-east-1:791860731989:stack/sozorock-explore-collaboration-staging/*",
+        "arn:aws:cloudformation:us-east-1:791860731989:stack/sozorock-explore-collaboration-production/*",
+        "arn:aws:cloudformation:us-east-1:791860731989:changeSet/*/*"
+      ]
+    },
+    {
+      "Sid": "ManageExploreAmplifyBranch",
+      "Effect": "Allow",
+      "Action": [
+        "amplify:CreateBranch",
+        "amplify:UpdateBranch",
+        "amplify:DeleteBranch"
+      ],
+      "Resource": [
+        "arn:aws:amplify:us-east-1:791860731989:apps/d2k1gmeov1v557",
+        "arn:aws:amplify:us-east-1:791860731989:apps/d2k1gmeov1v557/*"
+      ]
+    },
+    {
+      "Sid": "ProvisionExploreRealtimeTables",
+      "Effect": "Allow",
+      "Action": [
+        "dynamodb:CreateTable",
+        "dynamodb:DeleteTable",
+        "dynamodb:DescribeTable",
+        "dynamodb:UpdateTable",
+        "dynamodb:UpdateTimeToLive",
+        "dynamodb:DescribeTimeToLive",
+        "dynamodb:UpdateContinuousBackups",
+        "dynamodb:DescribeContinuousBackups",
+        "dynamodb:TagResource",
+        "dynamodb:UntagResource"
+      ],
+      "Resource": "arn:aws:dynamodb:us-east-1:791860731989:table/sozorock-explore-realtime-*"
+    },
+    {
+      "Sid": "ProvisionExploreIdentity",
+      "Effect": "Allow",
+      "Action": [
+        "cognito-idp:CreateUserPool",
+        "cognito-idp:DeleteUserPool",
+        "cognito-idp:DescribeUserPool",
+        "cognito-idp:UpdateUserPool",
+        "cognito-idp:GetUserPoolMfaConfig",
+        "cognito-idp:SetUserPoolMfaConfig",
+        "cognito-idp:TagResource",
+        "cognito-idp:UntagResource",
+        "cognito-idp:CreateUserPoolClient",
+        "cognito-idp:DeleteUserPoolClient",
+        "cognito-idp:DescribeUserPoolClient",
+        "cognito-idp:UpdateUserPoolClient",
+        "cognito-idp:AdminCreateUser",
+        "cognito-idp:AdminDeleteUser",
+        "cognito-idp:AdminUpdateUserAttributes",
+        "cognito-idp:AdminSetUserPassword",
+        "cognito-idp:AdminInitiateAuth"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "ProvisionExploreWebSocketApi",
+      "Effect": "Allow",
+      "Action": [
+        "apigateway:GET",
+        "apigateway:POST",
+        "apigateway:PUT",
+        "apigateway:PATCH",
+        "apigateway:DELETE"
+      ],
+      "Resource": "arn:aws:apigateway:us-east-1::/apis*"
+    },
+    {
+      "Sid": "ProvisionExploreRealtimeFunction",
+      "Effect": "Allow",
+      "Action": [
+        "lambda:CreateFunction",
+        "lambda:DeleteFunction",
+        "lambda:GetFunction",
+        "lambda:GetFunctionConfiguration",
+        "lambda:UpdateFunctionCode",
+        "lambda:UpdateFunctionConfiguration",
+        "lambda:AddPermission",
+        "lambda:RemovePermission",
+        "lambda:TagResource",
+        "lambda:UntagResource"
+      ],
+      "Resource": "arn:aws:lambda:us-east-1:791860731989:function:sozorock-explore-realtime-*"
+    },
+    {
+      "Sid": "ProvisionExploreRealtimeRole",
+      "Effect": "Allow",
+      "Action": [
+        "iam:CreateRole",
+        "iam:DeleteRole",
+        "iam:GetRole",
+        "iam:PassRole",
+        "iam:PutRolePolicy",
+        "iam:GetRolePolicy",
+        "iam:DeleteRolePolicy",
+        "iam:TagRole",
+        "iam:UntagRole"
+      ],
+      "Resource": "arn:aws:iam::791860731989:role/sozorock-explore-collaboration-*"
+    },
+    {
+      "Sid": "ProvisionExplorePublicSiteRealtimePolicy",
+      "Effect": "Allow",
+      "Action": [
+        "iam:CreatePolicy",
+        "iam:DeletePolicy",
+        "iam:GetPolicy",
+        "iam:GetPolicyVersion",
+        "iam:ListPolicyVersions",
+        "iam:CreatePolicyVersion",
+        "iam:DeletePolicyVersion",
+        "iam:TagPolicy",
+        "iam:UntagPolicy"
+      ],
+      "Resource": "arn:aws:iam::791860731989:policy/sozorock-explore-realtime-public-site-*"
+    },
+    {
+      "Sid": "AttachExplorePublicSiteRealtimePolicy",
+      "Effect": "Allow",
+      "Action": [
+        "iam:AttachRolePolicy",
+        "iam:DetachRolePolicy"
+      ],
+      "Resource": "arn:aws:iam::791860731989:role/AmplifySSRComputeRole-SozoRockHealthPublic"
+    },
+    {
+      "Sid": "DescribeExploreLogs",
+      "Effect": "Allow",
+      "Action": "logs:DescribeLogGroups",
+      "Resource": "*"
+    },
+    {
+      "Sid": "ManageExploreLogs",
+      "Effect": "Allow",
+      "Action": [
+        "logs:CreateLogGroup",
+        "logs:DeleteLogGroup",
+        "logs:PutRetentionPolicy",
+        "logs:DeleteRetentionPolicy",
+        "logs:TagResource",
+        "logs:UntagResource"
+      ],
+      "Resource": [
+        "arn:aws:logs:us-east-1:791860731989:log-group:/aws/apigateway/sozorock-explore-collaboration-*",
+        "arn:aws:logs:us-east-1:791860731989:log-group:/aws/lambda/sozorock-explore-realtime-*"
+      ]
+    }
+  ]
+}
