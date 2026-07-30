@@ -226,13 +226,16 @@ jobs:
               HandlerBucket="$EVIDENCE_ARTIFACT_BUCKET" \
               HandlerKey="$handler_key" \
               PublicSiteRuntimeRoleName="$PUBLIC_COMPUTE_ROLE_NAME"
-          for output in WebSocketApiId WebSocketLogGroupArn WebSocketUrl ManagementEndpoint SessionTable ConnectionTable CountyWorkspaceUserPoolId CountyWorkspaceAppClientId; do
+          for output in WebSocketApiId WebSocketLogGroupArn WebSocketThrottlingBurstLimit WebSocketThrottlingRateLimit WebSocketUrl ManagementEndpoint SessionTable ConnectionTable CountyWorkspaceUserPoolId CountyWorkspaceAppClientId; do
             value=$(aws cloudformation describe-stacks --stack-name sozorock-explore-collaboration-production \
               --query "Stacks[0].Outputs[?OutputKey=='$output'].OutputValue" --output text)
             printf -v "EXPLORE_$output" '%s' "$value"
             echo "EXPLORE_$output=$value" >> "$GITHUB_ENV"
           done
-          route_settings='{"ThrottlingBurstLimit":100,"ThrottlingRateLimit":50}'
+          route_settings=$(jq -cn \
+            --argjson burst "$EXPLORE_WebSocketThrottlingBurstLimit" \
+            --argjson rate "$EXPLORE_WebSocketThrottlingRateLimit" \
+            '{ThrottlingBurstLimit:$burst,ThrottlingRateLimit:$rate}')
           access_log_settings=$(jq -cn \
             --arg destination "$EXPLORE_WebSocketLogGroupArn" \
             --arg format '{"requestId":"$context.requestId","routeKey":"$context.routeKey","status":"$context.status","connectionId":"$context.connectionId"}' \

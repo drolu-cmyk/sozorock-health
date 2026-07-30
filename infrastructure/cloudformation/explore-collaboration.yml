@@ -12,6 +12,12 @@ Parameters:
   PublicSiteRuntimeRoleName:
     Type: String
 
+Mappings:
+  RealtimeStageConfiguration:
+    Defaults:
+      ThrottlingBurstLimit: 100
+      ThrottlingRateLimit: 50
+
 Resources:
   CountyWorkspaceUserPool:
     Type: AWS::Cognito::UserPool
@@ -262,6 +268,10 @@ Outputs:
     Value: !Ref WebSocketApi
   WebSocketLogGroupArn:
     Value: !GetAtt WebSocketLogGroup.Arn
+  WebSocketThrottlingBurstLimit:
+    Value: !FindInMap [RealtimeStageConfiguration, Defaults, ThrottlingBurstLimit]
+  WebSocketThrottlingRateLimit:
+    Value: !FindInMap [RealtimeStageConfiguration, Defaults, ThrottlingRateLimit]
   WebSocketUrl:
     Value: !Sub wss://${WebSocketApi}.execute-api.${AWS::Region}.${AWS::URLSuffix}/${EnvironmentName}
   ManagementEndpoint:
