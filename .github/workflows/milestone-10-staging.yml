@@ -267,7 +267,7 @@ jobs:
               PLACE_AGENT_MAX_GLOBAL_DAY:"10",
               EXPLORE_REALTIME_SESSION_TABLE:$sessions,
               EXPLORE_REALTIME_CONNECTION_TABLE:$connections,
-              NEXT_PUBLIC_EXPLORE_REALTIME_ENDPOINT:$websocket,
+              EXPLORE_REALTIME_PUBLIC_ENDPOINT:$websocket,
               EXPLORE_REALTIME_MANAGEMENT_ENDPOINT:$management
             }' <<<"$branch_env")
           aws amplify update-branch --app-id "$PUBLIC_APP_ID" --branch-name "$STAGING_BRANCH" \

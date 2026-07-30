@@ -22,7 +22,7 @@ function config() {
   const sessionTable = process.env.EXPLORE_REALTIME_SESSION_TABLE?.trim();
   const connectionTable = process.env.EXPLORE_REALTIME_CONNECTION_TABLE?.trim();
   const endpoint = process.env.EXPLORE_REALTIME_MANAGEMENT_ENDPOINT?.trim();
-  const publicEndpoint = process.env.NEXT_PUBLIC_EXPLORE_REALTIME_ENDPOINT?.trim();
+  const publicEndpoint = process.env.EXPLORE_REALTIME_PUBLIC_ENDPOINT?.trim();
   if (!sessionTable || !connectionTable || !endpoint || !publicEndpoint) {
     throw new Error("Explore real-time service is not configured.");
   }

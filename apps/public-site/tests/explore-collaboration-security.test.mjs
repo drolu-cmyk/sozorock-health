@@ -38,6 +38,8 @@ test("real-time session is opaque, short-lived and never authorizes mutations", 
   assert.match(realtime, /randomBytes\(32\)/);
   assert.match(realtime, /Math\.floor\(Date\.now\(\) \/ 1000\) \+ 300/);
   assert.match(realtime, /sozorock-session\./);
+  assert.match(realtime, /EXPLORE_REALTIME_PUBLIC_ENDPOINT/);
+  assert.doesNotMatch(realtime, /NEXT_PUBLIC_EXPLORE_REALTIME_ENDPOINT/);
   assert.doesNotMatch(realtime, /OPENAI_API_KEY|CENSUS_API_KEY|secretValue/i);
   assert.match(realtimeHandler, /Workspace writes use the authenticated HTTPS API/);
   assert.match(infrastructure, /ThrottlingBurstLimit:\s*100/);

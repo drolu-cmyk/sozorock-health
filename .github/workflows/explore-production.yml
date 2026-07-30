@@ -284,7 +284,7 @@ jobs:
               EVIDENCE_SOURCE_CDC_PLACES_ENABLED:"true",
               EXPLORE_REALTIME_SESSION_TABLE:$sessions,
               EXPLORE_REALTIME_CONNECTION_TABLE:$connections,
-              NEXT_PUBLIC_EXPLORE_REALTIME_ENDPOINT:$websocket,
+              EXPLORE_REALTIME_PUBLIC_ENDPOINT:$websocket,
               EXPLORE_REALTIME_MANAGEMENT_ENDPOINT:$management
             }' <<<"$current_env")
           aws amplify update-app \
