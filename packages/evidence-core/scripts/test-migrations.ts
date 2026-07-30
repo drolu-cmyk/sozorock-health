@@ -148,6 +148,20 @@ try {
     );
   }
 
+  // Roll back the newest dependent schema first. This verifies 0008's down
+  // migration and prevents its foreign keys from masking older rollback tests.
+  const down0008 = await readFile(
+    path.join(migrationsDir, "rollback", "0008_explore_agentic_collaboration.down.sql"),
+    "utf8",
+  );
+  await client.query(down0008);
+  const rolledBackWorkspace = await client.query(
+    "SELECT to_regclass('evidence.county_workspace') AS table_name",
+  );
+  if (rolledBackWorkspace.rows[0].table_name !== null) {
+    throw new Error("Migration 0008 rollback did not remove the county-workspace table.");
+  }
+
   const down = await readFile(path.join(migrationsDir, "rollback", "0004_nationwide_evidence_activation.down.sql"), "utf8");
   await client.query(down);
   const rolledBack = await client.query("SELECT to_regclass('evidence.source_coverage') AS table_name");
@@ -208,17 +222,6 @@ try {
   );
   if (restoredWorkforce.rows[0].present !== true) {
     throw new Error("Migration 0007 did not restore the workforce-designation table.");
-  }
-  const down0008 = await readFile(
-    path.join(migrationsDir, "rollback", "0008_explore_agentic_collaboration.down.sql"),
-    "utf8",
-  );
-  await client.query(down0008);
-  const rolledBackWorkspace = await client.query(
-    "SELECT to_regclass('evidence.county_workspace') AS table_name",
-  );
-  if (rolledBackWorkspace.rows[0].table_name !== null) {
-    throw new Error("Migration 0008 rollback did not remove the county-workspace table.");
   }
   const migration0008 = await readFile(
     path.join(migrationsDir, "0008_explore_agentic_collaboration.sql"),
