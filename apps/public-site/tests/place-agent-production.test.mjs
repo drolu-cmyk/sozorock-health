@@ -6,6 +6,10 @@ import { isClinicalSafetyQuestion } from "../app/lib/place-agent-safety.ts";
 const provider = await readFile(new URL("../app/lib/place-agent-openai.ts", import.meta.url), "utf8");
 const route = await readFile(new URL("../app/api/evidence/v1/agent/route.ts", import.meta.url), "utf8");
 const workflow = await readFile(new URL("../../../.github/workflows/explore-production.yml", import.meta.url), "utf8");
+const stagingWorkflow = await readFile(
+  new URL("../../../.github/workflows/milestone-10-staging.yml", import.meta.url),
+  "utf8",
+);
 const evidenceInfrastructure = await readFile(
   new URL("../../../infrastructure/cloudformation/evidence-core.yml", import.meta.url),
   "utf8",
@@ -76,6 +80,13 @@ test("Explore-only release workflow cannot deploy CB-CAP", () => {
   assert.match(workflow, /aws amplify update-app[\s\S]*--build-spec "\$public_build_spec"/);
   assert.match(workflow, /aws amplify update-branch[\s\S]*--branch-name "\$AMPLIFY_BRANCH"[\s\S]*--build-spec "\$public_build_spec"/);
   assert.match(workflow, /expected_build_spec_hash/);
+});
+
+test("staging acceptance capacity is isolated from production agent limits", () => {
+  assert.match(stagingWorkflow, /PLACE_AGENT_MAX_PER_NETWORK_HOUR:"20"/);
+  assert.match(stagingWorkflow, /PLACE_AGENT_MAX_GLOBAL_DAY:"100"/);
+  assert.match(workflow, /PLACE_AGENT_MAX_PER_NETWORK_HOUR:"2"/);
+  assert.match(workflow, /PLACE_AGENT_MAX_GLOBAL_DAY:"10"/);
 });
 
 test("production consumes the dedicated AWS-managed agent secret without key material in GitHub", () => {
