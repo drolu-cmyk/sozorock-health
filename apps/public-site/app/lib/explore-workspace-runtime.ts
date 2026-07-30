@@ -216,9 +216,8 @@ export async function appendWorkspaceEvent(input: {
          :tool_name, :request_hash, :response_hash, :outcome, CAST(:payload AS jsonb), now()
        FROM evidence.workspace_event WHERE workspace_id=CAST(:workspace_id AS uuid)
        ON CONFLICT (workspace_id, idempotency_key)
-       DO UPDATE SET idempotency_key=evidence.workspace_event.idempotency_key
-       RETURNING id::text, sequence_number, event_type::text, occurred_at::text,
-         (xmax = 0) AS inserted`,
+       DO NOTHING
+       RETURNING id::text, sequence_number, event_type::text, occurred_at::text`,
       [
         { name: "id", value: { stringValue: randomUUID() } },
         { name: "workspace_id", value: { stringValue: input.workspaceId } },
@@ -251,12 +250,39 @@ export async function appendWorkspaceEvent(input: {
       ],
       transactionId,
     );
+    const insertedRecord = inserted.records?.[0];
+    if (insertedRecord) {
+      return {
+        id: String(evidenceFieldValue(insertedRecord[0]) ?? ""),
+        sequenceNumber: Number(evidenceFieldValue(insertedRecord[1]) ?? 0),
+        eventType: String(evidenceFieldValue(insertedRecord[2]) ?? input.eventType),
+        occurredAt: String(evidenceFieldValue(insertedRecord[3]) ?? ""),
+        inserted: true,
+      };
+    }
+    const existing = await executeEvidenceSql(
+      `SELECT id::text, sequence_number, event_type::text, occurred_at::text
+       FROM evidence.workspace_event
+       WHERE workspace_id=CAST(:workspace_id AS uuid)
+         AND tenant_id=CAST(:tenant_id AS uuid)
+         AND idempotency_key=:idempotency_key`,
+      [
+        { name: "workspace_id", value: { stringValue: input.workspaceId } },
+        { name: "tenant_id", value: { stringValue: input.tenantId } },
+        { name: "idempotency_key", value: { stringValue: input.idempotencyKey.slice(0, 200) } },
+      ],
+      transactionId,
+    );
+    const existingRecord = existing.records?.[0];
+    if (!existingRecord) {
+      throw new Error("The idempotent workspace event could not be recovered.");
+    }
     return {
-      id: String(evidenceFieldValue(inserted.records?.[0]?.[0]) ?? ""),
-      sequenceNumber: Number(evidenceFieldValue(inserted.records?.[0]?.[1]) ?? 0),
-      eventType: String(evidenceFieldValue(inserted.records?.[0]?.[2]) ?? input.eventType),
-      occurredAt: String(evidenceFieldValue(inserted.records?.[0]?.[3]) ?? ""),
-      inserted: evidenceFieldValue(inserted.records?.[0]?.[4]) === true,
+      id: String(evidenceFieldValue(existingRecord[0]) ?? ""),
+      sequenceNumber: Number(evidenceFieldValue(existingRecord[1]) ?? 0),
+      eventType: String(evidenceFieldValue(existingRecord[2]) ?? input.eventType),
+      occurredAt: String(evidenceFieldValue(existingRecord[3]) ?? ""),
+      inserted: false,
     };
   };
   return input.transactionId ? run(input.transactionId) : executeEvidenceTransaction(run);
