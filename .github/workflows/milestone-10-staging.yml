@@ -101,7 +101,7 @@ jobs:
     env:
       AWS_REGION: ${{ vars.AWS_REGION || 'us-east-1' }}
       PUBLIC_APP_ID: ${{ vars.PUBLIC_AMPLIFY_APP_ID }}
-      STAGING_BRANCH: codex/explore-agentic-collaboration
+      STAGING_BRANCH: ${{ github.ref_name }}
       PRODUCTION_URL: ${{ vars.PUBLIC_SITE_URL || 'https://health.sozorockfoundation.org' }}
       OPENAI_SECRET_ARN: ${{ secrets.OPENAI_SECRET_ARN }}
       RELEASE_SHA: ${{ github.sha }}

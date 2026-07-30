@@ -84,6 +84,7 @@ test("Explore-only release workflow cannot deploy CB-CAP", () => {
 });
 
 test("staging acceptance capacity is isolated from production agent limits", () => {
+  assert.match(stagingWorkflow, /STAGING_BRANCH:\s*\$\{\{\s*github\.ref_name\s*\}\}/);
   assert.match(stagingWorkflow, /PLACE_AGENT_MAX_PER_NETWORK_HOUR:"20"/);
   assert.match(stagingWorkflow, /PLACE_AGENT_MAX_GLOBAL_DAY:"100"/);
   assert.match(stagingWorkflow, /PLACE_AGENT_RATE_LIMIT_NAMESPACE:"staging"/);
