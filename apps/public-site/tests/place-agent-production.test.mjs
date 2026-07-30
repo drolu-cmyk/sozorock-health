@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { isClinicalSafetyQuestion } from "../app/lib/place-agent-safety.ts";
+import { agentRateLimitNamespace } from "../app/lib/agent-rate-limit-policy.ts";
 
 const provider = await readFile(new URL("../app/lib/place-agent-openai.ts", import.meta.url), "utf8");
 const route = await readFile(new URL("../app/api/evidence/v1/agent/route.ts", import.meta.url), "utf8");
@@ -85,8 +86,23 @@ test("Explore-only release workflow cannot deploy CB-CAP", () => {
 test("staging acceptance capacity is isolated from production agent limits", () => {
   assert.match(stagingWorkflow, /PLACE_AGENT_MAX_PER_NETWORK_HOUR:"20"/);
   assert.match(stagingWorkflow, /PLACE_AGENT_MAX_GLOBAL_DAY:"100"/);
+  assert.match(stagingWorkflow, /PLACE_AGENT_RATE_LIMIT_NAMESPACE:"staging"/);
   assert.match(workflow, /PLACE_AGENT_MAX_PER_NETWORK_HOUR:"2"/);
   assert.match(workflow, /PLACE_AGENT_MAX_GLOBAL_DAY:"10"/);
+  assert.match(workflow, /PLACE_AGENT_RATE_LIMIT_NAMESPACE:"production"/);
+});
+
+test("agent rate-limit namespaces cannot collide across environments", () => {
+  assert.equal(agentRateLimitNamespace("staging"), "staging");
+  assert.equal(agentRateLimitNamespace("production"), "production");
+  assert.equal(agentRateLimitNamespace("INVALID/NAMESPACE"), "production");
+  assert.equal(agentRateLimitNamespace(""), "production");
+});
+
+test("production activates the approved Foundation workspace tenant idempotently", () => {
+  assert.match(workflow, /INSERT INTO evidence\.workspace_tenant/);
+  assert.match(workflow, /The SozoRock Foundation, Inc\./);
+  assert.match(workflow, /ON CONFLICT \(id\) DO UPDATE SET legal_name=EXCLUDED\.legal_name, status='active'/);
 });
 
 test("production consumes the dedicated AWS-managed agent secret without key material in GitHub", () => {
