@@ -84,6 +84,15 @@ test("production consumes the dedicated AWS-managed agent secret without key mat
   assert.match(evidenceInfrastructure, /Action:\s*\n\s*-\s*secretsmanager:GetSecretValue/);
 });
 
+test("public collaboration runtime has cluster-scoped transactional Data API access", () => {
+  assert.match(evidenceInfrastructure, /rds-data:BeginTransaction/);
+  assert.match(evidenceInfrastructure, /rds-data:CommitTransaction/);
+  assert.match(evidenceInfrastructure, /rds-data:ExecuteStatement/);
+  assert.match(evidenceInfrastructure, /rds-data:RollbackTransaction/);
+  assert.match(evidenceInfrastructure, /Resource:\s*!GetAtt EvidenceDatabaseCluster\.DBClusterArn/);
+  assert.doesNotMatch(evidenceInfrastructure, /Resource:\s*["']?\*["']?/);
+});
+
 test("public runtime removes optional Sharp while preserving upstream lock metadata", () => {
   assert.match(nextConfig, /unoptimized:\s*true/);
   assert.match(runtimeVerifier, /Runtime trace imports Sharp\/libvips/);

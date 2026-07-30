@@ -127,7 +127,10 @@ Resources:
           - Sid: ExecuteEvidenceDataApi
             Effect: Allow
             Action:
+              - rds-data:BeginTransaction
+              - rds-data:CommitTransaction
               - rds-data:ExecuteStatement
+              - rds-data:RollbackTransaction
             Resource: !GetAtt EvidenceDatabaseCluster.DBClusterArn
           - Sid: ReadEvidenceDatabaseSecret
             Effect: Allow
