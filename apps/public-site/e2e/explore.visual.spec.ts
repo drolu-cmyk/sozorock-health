@@ -22,13 +22,14 @@ const places = [
 ] as const;
 
 for (const place of places) {
-  test(`${place.name} renders the Brief, Map and Action views without viewport overflow`, async ({ page }, testInfo) => {
+  test(`${place.name} renders Brief, Map, Action and Visuals without viewport overflow`, async ({ page }, testInfo) => {
     await page.goto(`/explore?kind=county&geoid=${place.geoid}&view=brief`, { waitUntil: "domcontentloaded" });
     await expect(page.getByRole("heading", { level: 1, name: new RegExp(place.name.split(",")[0], "i") })).toBeVisible();
 
     const brief = page.getByRole("tab", { name: "Brief" });
     const map = page.getByRole("tab", { name: "Map" });
     const action = page.getByRole("tab", { name: "Action" });
+    const visuals = page.getByRole("tab", { name: "Visuals" });
     await expect(brief).toHaveAttribute("aria-selected", "true");
     await expect(page.getByText("What the local plan says")).toBeVisible();
     await expect(page.getByText(/Not yet verified|No current local plan is verified/).first()).toBeVisible();
@@ -45,8 +46,17 @@ for (const place of places) {
 
     await action.click();
     await expect(action).toHaveAttribute("aria-selected", "true");
+    await expect(page.getByLabel(`Question about ${place.name}`)).toBeVisible();
+    await expect(page.getByRole("button", { name: "Ask Place Intelligence" })).toBeDisabled();
     await expect(page.getByText("No recommendation yet")).toBeVisible();
     await page.screenshot({ path: testInfo.outputPath(`${place.geoid}-action.png`), fullPage: true });
+
+    await visuals.click();
+    await expect(visuals).toHaveAttribute("aria-selected", "true");
+    await expect(page.getByRole("heading", { name: "See the measure. See its limits." })).toBeVisible();
+    await expect(page.getByText("No fixed scores. No automatic recommendation.")).toBeVisible();
+    await expect(page.getByText("All available measures")).toBeVisible();
+    await page.screenshot({ path: testInfo.outputPath(`${place.geoid}-visuals.png`), fullPage: true });
 
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
     expect(overflow).toBeLessThanOrEqual(1);
@@ -65,6 +75,8 @@ test("required responsive widths preserve the county brief, map, and keyboard fl
     await page.getByRole("tab", { name: "Map" }).click();
     await expect(page.locator('[data-map-ready="true"]')).toBeVisible();
     await expect(page.locator(".maplibregl-canvas")).toBeVisible();
+    await page.getByRole("tab", { name: "Visuals" }).click();
+    await expect(page.getByRole("heading", { name: "See the measure. See its limits." })).toBeVisible();
     const overflow = await page.evaluate(
       () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
     );

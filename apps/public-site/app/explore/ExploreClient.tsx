@@ -15,8 +15,9 @@ import {
   ArrowRight,
   ArrowSquareOut,
   CaretRight,
+  ChartBar,
   ChartLineUp,
-  CheckCircle,
+  ChatCircleDots,
   Clock,
   DownloadSimple,
   FileText,
@@ -32,7 +33,7 @@ import {
 import styles from "./explore.module.css";
 
 type PlaceKind = "county" | "place" | "zip";
-type WorkspaceView = "brief" | "map" | "action";
+type WorkspaceView = "brief" | "map" | "action" | "visuals";
 type EvidenceStatus = "Supported" | "Potentially supported" | "Insufficient evidence";
 
 type CountyResolutionCandidate = {
@@ -222,6 +223,24 @@ type GeometryResponse = {
   sourceUrl: string;
   resourceNote: string;
   contextNote?: string | null;
+};
+
+type PlaceAgentAnswer = {
+  schemaVersion: string;
+  answer: string;
+  status: "answered" | "evidence_gap" | "refused";
+  citedEvidence: Array<{ citationId: string; claim: string }>;
+  sourceAndDataDates: Array<{
+    sourceId: string;
+    releaseDate: string | null;
+    dataPeriodStart: string | null;
+    dataPeriodEnd: string | null;
+  }>;
+  geographicScope: { kind: string; geoid: string; displayName: string };
+  confidence: "high" | "moderate" | "low";
+  missingEvidence: string[];
+  caveats: string[];
+  nonClinicalBoundary: string;
 };
 
 const stateCodes: Record<string, string> = {
@@ -732,39 +751,205 @@ function MapView({
 }
 
 function ActionView({ data }: { data: PlaceResponse }) {
-  const rows = data.intelligence.placeBasedResponses.map((response) => {
-    const details = responseDetails[response.name] ?? {
-      partner: "Local institutions with responsibility for the evidence and response.",
-      measure: "A locally agreed measure with an owner, baseline and reporting period.",
-    };
-    return {
-      ...response,
-      barrier: data.intelligence.practicalBarriers.find((item) => item.status !== "Insufficient evidence")?.title ?? "Local evidence gap",
-      outcome: response.status === "Insufficient evidence" ? "Insufficient evidence" : "Local review required",
-      ...details,
-    };
-  });
+  const [question, setQuestion] = useState("");
+  const [answer, setAnswer] = useState<PlaceAgentAnswer | null>(null);
+  const [status, setStatus] = useState<"idle" | "asking" | "error">("idle");
+  const [error, setError] = useState("");
+
+  async function ask(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const nextQuestion = question.trim();
+    if (nextQuestion.length < 3) return;
+    setStatus("asking");
+    setError("");
+    setAnswer(null);
+    try {
+      const response = await fetch("/api/evidence/v1/agent", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ geoid: data.location.geoid, question: nextQuestion }),
+      });
+      const payload = (await response.json().catch(() => ({}))) as PlaceAgentAnswer & { error?: string };
+      if (!response.ok) throw new Error(payload.error ?? "Place Intelligence could not answer this question.");
+      setAnswer(payload);
+      setStatus("idle");
+    } catch (nextError) {
+      setError((nextError as Error).message);
+      setStatus("error");
+    }
+  }
+
+  const prompts = [
+    "What evidence is available for this county?",
+    "What evidence is still missing?",
+    "Does the evidence potentially support a Health Access Day for local review?",
+  ];
   return (
     <section id="action-panel" role="tabpanel" aria-labelledby="action-tab" className={styles.viewPanel}>
       <header className={styles.actionHeader}>
-        <div><span>From evidence to accountable action</span><h2>Show the link. Keep the boundary.</h2></div>
-        <p>These are non-clinical options for local review, not automatic recommendations. Licensed care remains with licensed professionals.</p>
+        <div><span>Ask the evidence</span><h2>A planning conversation with sources.</h2></div>
+        <p>Ask about this county’s approved evidence, sources, gaps and possible non-clinical responses. Every substantive answer must cite the stored evidence package.</p>
       </header>
-      <div className={styles.actionTable} role="table" aria-label="Evidence to action pathways">
-        <div className={styles.actionColumns} role="row">
-          <span role="columnheader">Evidence</span><span role="columnheader">Practical barrier</span><span role="columnheader">Potential response</span><span role="columnheader">Partner role</span><span role="columnheader">Measure of progress</span>
-        </div>
-        {rows.map((row) => (
-          <article role="row" key={row.name} className={styles.actionRow}>
-            <div role="cell" data-label="Evidence"><span className={styles.actionStatus}>{row.outcome}</span><p>{row.evidence}</p></div>
-            <div role="cell" data-label="Practical barrier"><strong>{row.barrier}</strong><p>Confirm with current local evidence and community review.</p></div>
-            <div role="cell" data-label="Potential response"><strong>{row.name}</strong><p>{row.reason}</p></div>
-            <div role="cell" data-label="Partner role"><p>{row.partner}</p></div>
-            <div role="cell" data-label="Measure of progress"><p>{row.measure}</p></div>
+      <div className={styles.agentWorkspace}>
+        <form className={styles.agentQuestion} onSubmit={ask}>
+          <label htmlFor="place-question">Question about {data.location.label}</label>
+          <div>
+            <textarea
+              id="place-question"
+              value={question}
+              onChange={(event) => setQuestion(event.target.value)}
+              rows={3}
+              maxLength={1500}
+              placeholder="Ask what current evidence shows, how a measure is defined, or what requires local review."
+            />
+            <button type="submit" disabled={status === "asking" || question.trim().length < 3}>
+              <ChatCircleDots size={20} aria-hidden="true" />
+              {status === "asking" ? "Checking evidence…" : "Ask Place Intelligence"}
+            </button>
+          </div>
+          <div className={styles.promptChips} aria-label="Example evidence questions">
+            {prompts.map((prompt) => (
+              <button key={prompt} type="button" onClick={() => setQuestion(prompt)}>{prompt}</button>
+            ))}
+          </div>
+          {error && <p className={styles.agentError} role="alert">{error}</p>}
+        </form>
+        <aside className={styles.agentBoundary}>
+          <ShieldCheck size={24} aria-hidden="true" />
+          <h3>County evidence only</h3>
+          <p>No live web search. No patient profile. No diagnosis, triage, treatment advice or individual-risk inference.</p>
+        </aside>
+        {answer && (
+          <article className={styles.agentAnswer} aria-live="polite">
+            <header>
+              <span className={styles.actionStatus}>{answer.status.replace("_", " ")}</span>
+              <span>{answer.confidence} confidence</span>
+            </header>
+            <h3>Place Intelligence response</h3>
+            <p>{answer.answer}</p>
+            {answer.citedEvidence.length > 0 && (
+              <div className={styles.agentCitations}>
+                <h4>Cited evidence</h4>
+                {answer.citedEvidence.map((citation) => (
+                  <article key={`${citation.citationId}-${citation.claim}`}>
+                    <p>{citation.claim}</p>
+                    <small>Citation {citation.citationId}</small>
+                  </article>
+                ))}
+              </div>
+            )}
+            {answer.missingEvidence.length > 0 && (
+              <div><h4>Missing evidence</h4><ul>{answer.missingEvidence.map((item) => <li key={item}>{item}</li>)}</ul></div>
+            )}
+            <p className={styles.agentDisclosure}>{answer.nonClinicalBoundary}</p>
           </article>
-        ))}
+        )}
+        <section className={styles.planReview} aria-labelledby="plan-review-title">
+          <div>
+            <span>Shared county plan</span>
+            <h3 id="plan-review-title">Agent suggestions require acceptance.</h3>
+            <p>Approved collaborators can add a cited result to a named plan section, comment, assign a review question and restore an earlier version. Agent and human changes remain visibly separate.</p>
+          </div>
+          <div>
+            {data.intelligence.placeBasedResponses.map((response) => {
+              const details = responseDetails[response.name];
+              return (
+                <article key={response.name}>
+                  <span>{response.status}</span>
+                  <h4>{response.name}</h4>
+                  <p>{response.reason}</p>
+                  <small>{details?.measure ?? "A locally agreed measure with an owner, baseline and reporting period."}</small>
+                  <button type="button" disabled title="Contributor invitation required">Add for human review</button>
+                </article>
+              );
+            })}
+          </div>
+        </section>
       </div>
       <div className={styles.noRecommendation}><ShieldCheck size={22} aria-hidden="true" /><p><strong>“No recommendation yet” is a valid outcome.</strong> If the geography, source, recency or local review is insufficient, the system should stop rather than overstate a case for action.</p></div>
+    </section>
+  );
+}
+
+function VisualsView({ data }: { data: PlaceResponse }) {
+  const [measureKey, setMeasureKey] = useState(data.metrics[0]?.key ?? "");
+  const selected = data.metrics.find((metric) => metric.key === measureKey) ?? data.metrics[0];
+  const chartMax = selected
+    ? Math.max(selected.value, selected.national, selected.state ?? 0, 1)
+    : 1;
+  const workforceCount = data.workforceContext.hpsa.length
+    + data.workforceContext.medicallyUnderservedAreasAndPopulations.length;
+  return (
+    <section id="visuals-panel" role="tabpanel" aria-labelledby="visuals-tab" className={`${styles.viewPanel} ${styles.visualsView}`}>
+      <header className={styles.visualsHeader}>
+        <div><span>Evidence views</span><h2>See the measure. See its limits.</h2></div>
+        <div><p>Visuals use compatible county evidence only. They do not create an overall health ranking or imply neighborhood-level precision.</p><a href={`/api/evidence/v1/funder-snapshot?geoid=${encodeURIComponent(data.location.geoid)}&format=pdf`}><DownloadSimple size={18} aria-hidden="true" /> Download funder snapshot</a></div>
+      </header>
+      <div className={styles.visualGrid}>
+        <article className={styles.comparisonVisual}>
+          <header><div><span>County comparison</span><h3>{selected?.label ?? "No comparable measure"}</h3></div>
+            <label>Measure<select value={measureKey} onChange={(event) => setMeasureKey(event.target.value)}>{data.metrics.map((metric) => <option key={metric.key} value={metric.key}>{metric.label}</option>)}</select></label>
+          </header>
+          {selected ? (
+            <>
+              <div className={styles.comparisonBars} role="img" aria-label={`${selected.label}: ${data.location.label} ${selected.value} percent, state ${selected.state ?? "unavailable"} percent, national ${selected.national} percent.`}>
+                {[
+                  [data.location.label, selected.value],
+                  ["State", selected.state],
+                  ["National", selected.national],
+                ].map(([label, value]) => (
+                  <div key={String(label)}>
+                    <span>{label}</span>
+                    <div><i style={{ width: `${typeof value === "number" ? (value / chartMax) * 100 : 0}%` }} /></div>
+                    <strong>{typeof value === "number" ? `${value.toFixed(1)}%` : "Unavailable"}</strong>
+                  </div>
+                ))}
+              </div>
+              <dl className={styles.measureDefinition}>
+                <div><dt>Meaning</dt><dd>{selected.plainLanguage}</dd></div>
+                <div><dt>Data period</dt><dd>{selected.release === "2025" ? "2022–2023" : "Source-specific period"}</dd></div>
+                <div><dt>Adjustment</dt><dd>{selected.confidence.includes("age-adjusted") ? "Age-adjusted" : "See source definition"}</dd></div>
+                <div><dt>Uncertainty</dt><dd>{selected.confidence}</dd></div>
+                <div><dt>Direction</dt><dd>{selected.direction}</dd></div>
+                <div><dt>Geography</dt><dd>County</dd></div>
+              </dl>
+            </>
+          ) : <p>No compatible county measure is available.</p>}
+        </article>
+        <article className={styles.coverageVisual}>
+          <span>Evidence coverage</span><h3>Available, missing and under review.</h3>
+          <div>
+            {data.sourceCoverage.map((source) => (
+              <div key={source.sourceId}><strong>{source.sourceId.replaceAll("-", " ")}</strong><span data-status={source.status}>{source.status.replaceAll("_", " ")}</span><small>{source.observationCount} record{source.observationCount === 1 ? "" : "s"} · {source.releaseDate ?? "Release unavailable"}</small></div>
+            ))}
+          </div>
+        </article>
+        <article className={styles.freshnessVisual}>
+          <span>Source freshness</span><h3>Different sources move on different schedules.</h3>
+          <ol>{data.sources.map((source) => <li key={`${source.name}-${source.release}`}><time>{source.release}</time><div><strong>{source.name}</strong><span>{source.period} · {source.geography ?? "Source geography"}</span></div></li>)}</ol>
+        </article>
+        <article className={styles.workforceVisual}>
+          <span>Workforce and shortage context</span><h3>{workforceCount ? `${workforceCount} designation records require scope-aware review.` : "No designation record is available in the approved snapshot."}</h3>
+          <p>{data.workforceContext.limitation}</p>
+          <div>{data.workforceContext.areaHealthResources.map((measure) => <p key={measure.variableId}><strong>{measure.label}</strong><span>{measure.value ?? "Unavailable"} {measure.unit} · {measure.year}</span></p>)}</div>
+        </article>
+        <article className={styles.signalMatrix}>
+          <span>Planning priority versus statistical signal</span><h3>Keep the evidence types separate.</h3>
+          <div><section><strong>Verified local priorities</strong>{data.localPlan.claims.length ? data.localPlan.claims.map((claim) => <p key={claim.id}>{claim.statement}</p>) : <p>Current local planning evidence: not yet verified.</p>}</section><section><strong>Statistical signals</strong>{data.priorities.slice(0, 5).map((metric) => <p key={metric.key}>{metric.label}: {metric.value.toFixed(1)}%</p>)}</section></div>
+        </article>
+        <article className={styles.hubMatrix}>
+          <span>Response-fit review</span><h3>No fixed scores. No automatic recommendation.</h3>
+          <div>{data.intelligence.placeBasedResponses.map((response) => <section key={response.name}><strong>{response.name}</strong><span>{response.status}</span><p>{response.reason}</p></section>)}</div>
+        </article>
+      </div>
+      <details className={styles.visualMeasureExplorer}>
+        <summary>All available measures <CaretRight size={18} aria-hidden="true" /></summary>
+        <div className={styles.measureTable} role="table" aria-label="All compatible county measures">
+          <div role="row"><span role="columnheader">Measure</span><span role="columnheader">Value</span><span role="columnheader">Direction</span><span role="columnheader">Release</span><span role="columnheader">Geography</span></div>
+          {data.metrics.map((metric) => <div role="row" key={metric.key}><span role="cell"><strong>{metric.label}</strong><small>{metric.plainLanguage}</small></span><span role="cell">{metric.value.toFixed(1)}%</span><span role="cell">{metric.direction}</span><span role="cell">{metric.release}</span><span role="cell">County</span></div>)}
+          {data.contextMeasures.map((measure) => <div role="row" key={measure.key}><span role="cell"><strong>{measure.label}</strong><small>{measure.definition}</small></span><span role="cell">{measure.value ?? "Unavailable"} {measure.unit}</span><span role="cell">{measure.direction}</span><span role="cell">{measure.release}</span><span role="cell">County</span></div>)}
+        </div>
+      </details>
     </section>
   );
 }
@@ -937,7 +1122,7 @@ export function ExploreClient() {
     const view = params.get("view");
     const query = params.get("query") ?? geoid ?? "";
     const county = params.get("county") ?? undefined;
-    if (view === "brief" || view === "map" || view === "action") setActiveView(view);
+    if (view === "brief" || view === "map" || view === "action" || view === "visuals") setActiveView(view);
     if ((kind === "county" || kind === "place" || kind === "zip") && geoid) {
       void loadPlace({ kind, geoid, label: query, display: query }, county);
     }
@@ -951,7 +1136,7 @@ export function ExploreClient() {
   }
 
   function moveViewFocus(event: ReactKeyboardEvent<HTMLButtonElement>, view: WorkspaceView) {
-    const views: WorkspaceView[] = ["brief", "map", "action"];
+    const views: WorkspaceView[] = ["brief", "map", "action", "visuals"];
     const current = views.indexOf(view);
     const next = event.key === "ArrowRight"
       ? views[(current + 1) % views.length]
@@ -987,8 +1172,8 @@ export function ExploreClient() {
               <div className={styles.coverage}><span><strong>Nationwide</strong> geography</span><span><strong>Source-traceable</strong> evidence</span><span><strong>Strictly non-clinical</strong> place analysis</span></div>
             </section>
             <section className={styles.intro}>
-              <div><span>One place. Three useful views.</span><h2>A brief to understand. A map with a reason. An action path with limits.</h2></div>
-              <div><article><FileText size={26} /><strong>Brief</strong><p>Local-plan status, public-data context, gaps and citations.</p></article><article><MapTrifold size={26} /><strong>Map</strong><p>Official geography and only compatible evidence layers.</p></article><article><CheckCircle size={26} /><strong>Action</strong><p>Evidence linked to a possible response, partner and measure.</p></article></div>
+              <div><span>One place. Four useful views.</span><h2>A brief to understand. A map with a reason. An action path with limits. Visuals that show their evidence.</h2></div>
+              <div><article><FileText size={26} /><strong>Brief</strong><p>Local-plan status, public-data context, gaps and citations.</p></article><article><MapTrifold size={26} /><strong>Map</strong><p>Official geography and only compatible evidence layers.</p></article><article><ChatCircleDots size={26} /><strong>Action</strong><p>Ask grounded questions and review possible responses.</p></article><article><ChartBar size={26} /><strong>Visuals</strong><p>Comparisons, uncertainty, coverage and source freshness.</p></article></div>
             </section>
           </>
         )}
@@ -1035,9 +1220,9 @@ export function ExploreClient() {
 
             <div className={styles.workspaceToolbar}>
               <div className={styles.tabs} role="tablist" aria-label="Explore views">
-                {(["brief", "map", "action"] as const).map((view) => {
+                {(["brief", "map", "action", "visuals"] as const).map((view) => {
                   const label = view[0].toUpperCase() + view.slice(1);
-                  const Icon = view === "brief" ? FileText : view === "map" ? MapTrifold : CheckCircle;
+                  const Icon = view === "brief" ? FileText : view === "map" ? MapTrifold : view === "action" ? ChatCircleDots : ChartBar;
                   return <button key={view} id={`${view}-tab`} role="tab" aria-selected={activeView === view} aria-controls={`${view}-panel`} tabIndex={activeView === view ? 0 : -1} onClick={() => changeView(view)} onKeyDown={(event) => moveViewFocus(event, view)}><Icon size={20} aria-hidden="true" />{label}</button>;
                 })}
               </div>
@@ -1047,6 +1232,7 @@ export function ExploreClient() {
             {activeView === "brief" && <BriefView data={data} />}
             {activeView === "map" && <MapView data={data} geometry={geometry} />}
             {activeView === "action" && <ActionView data={data} />}
+            {activeView === "visuals" && <VisualsView data={data} />}
           </div>
         )}
       </main>

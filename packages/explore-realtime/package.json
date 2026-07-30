@@ -1,0 +1,21 @@
+{
+  "name": "@sozorock/explore-realtime",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "main": "dist/handler.js",
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "test": "node --experimental-strip-types --test tests/*.test.ts"
+  },
+  "dependencies": {
+    "@aws-sdk/client-apigatewaymanagementapi": "^3.1098.0",
+    "@aws-sdk/client-dynamodb": "^3.1098.0"
+  },
+  "devDependencies": {
+    "@types/aws-lambda": "^8.10.152",
+    "@types/node": "22.15.3",
+    "typescript": "5.8.3"
+  }
+}

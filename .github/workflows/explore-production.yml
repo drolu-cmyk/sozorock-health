@@ -69,6 +69,7 @@ jobs:
           npm run typecheck
           npm run lint
           npm test
+          npm run build --workspace @sozorock/explore-realtime
           npm run build:public
           npm run verify:public-runtime-security
       - name: Generate runtime SBOM
@@ -160,6 +161,7 @@ jobs:
           compute_role_arn=$(aws cloudformation describe-stacks --stack-name sozorock-health-contact \
             --query "Stacks[0].Outputs[?OutputKey=='ComputeRoleArn'].OutputValue" --output text)
           compute_role_name="${compute_role_arn##*/}"
+          echo "PUBLIC_COMPUTE_ROLE_NAME=$compute_role_name" >> "$GITHUB_ENV"
           aws cloudformation deploy \
             --stack-name sozorock-health-evidence-production \
             --template-file infrastructure/cloudformation/evidence-core.yml \
@@ -194,6 +196,8 @@ jobs:
         env:
           EVIDENCE_PRODUCTION_MIGRATION_APPROVED: "true"
           EVIDENCE_PRODUCTION_IMPORT_APPROVED: "true"
+          EVIDENCE_CONTROL_PLANE_SEED_APPROVED: "true"
+          EVIDENCE_CONTROL_PLANE_APPROVED_BY: explore-production-workflow
         run: |
           set -euo pipefail
           export EVIDENCE_EXPECTED_CLUSTER_ARN="$EVIDENCE_DATABASE_CLUSTER_ARN"
@@ -202,6 +206,31 @@ jobs:
             "s3://$EVIDENCE_ARTIFACT_BUCKET/approved/$RELEASE_SHA/" \
             --recursive --sse AES256 --only-show-errors
           npm run import:production:data-api --workspace @sozorock/evidence-core
+          npm run seed:collaboration-control-plane --workspace @sozorock/evidence-core
+      - name: Provision Explore collaboration transport and identity
+        run: |
+          set -euo pipefail
+          mkdir -p output/realtime
+          npx esbuild packages/explore-realtime/src/handler.ts --bundle --platform=node \
+            --target=node22 --format=cjs --outfile=output/realtime/handler.js
+          (cd output/realtime && zip -q ../explore-realtime.zip handler.js)
+          handler_key="production/$RELEASE_SHA/explore-realtime.zip"
+          aws s3 cp output/explore-realtime.zip \
+            "s3://$EVIDENCE_ARTIFACT_BUCKET/$handler_key" --sse AES256 --only-show-errors
+          aws cloudformation deploy \
+            --stack-name sozorock-explore-collaboration-production \
+            --template-file infrastructure/cloudformation/explore-collaboration.yml \
+            --capabilities CAPABILITY_NAMED_IAM \
+            --parameter-overrides \
+              EnvironmentName=production \
+              HandlerBucket="$EVIDENCE_ARTIFACT_BUCKET" \
+              HandlerKey="$handler_key" \
+              PublicSiteRuntimeRoleName="$PUBLIC_COMPUTE_ROLE_NAME"
+          for output in WebSocketUrl ManagementEndpoint SessionTable ConnectionTable CountyWorkspaceUserPoolId CountyWorkspaceAppClientId; do
+            value=$(aws cloudformation describe-stacks --stack-name sozorock-explore-collaboration-production \
+              --query "Stacks[0].Outputs[?OutputKey=='$output'].OutputValue" --output text)
+            echo "EXPLORE_$output=$value" >> "$GITHUB_ENV"
+          done
       - name: Preserve public environment and add Evidence Core configuration
         run: |
           set -euo pipefail
@@ -213,6 +242,10 @@ jobs:
             --arg db "$EVIDENCE_DATABASE_NAME" \
             --arg bucket "$EVIDENCE_ARTIFACT_BUCKET" \
             --arg openai "$OPENAI_PLACE_EVIDENCE_SECRET_ARN" \
+            --arg sessions "$EXPLORE_SessionTable" \
+            --arg connections "$EXPLORE_ConnectionTable" \
+            --arg websocket "$EXPLORE_WebSocketUrl" \
+            --arg management "$EXPLORE_ManagementEndpoint" \
             '. + {
               EVIDENCE_DATABASE_CLUSTER_ARN:$ca,
               EVIDENCE_DATABASE_SECRET_ARN:$sa,
@@ -224,7 +257,11 @@ jobs:
               PLACE_EVIDENCE_PROVIDER:"openai-responses",
               PLACE_AGENT_MAX_PER_NETWORK_HOUR:"2",
               PLACE_AGENT_MAX_GLOBAL_DAY:"10",
-              EVIDENCE_SOURCE_CDC_PLACES_ENABLED:"true"
+              EVIDENCE_SOURCE_CDC_PLACES_ENABLED:"true",
+              EXPLORE_REALTIME_SESSION_TABLE:$sessions,
+              EXPLORE_REALTIME_CONNECTION_TABLE:$connections,
+              NEXT_PUBLIC_EXPLORE_REALTIME_ENDPOINT:$websocket,
+              EXPLORE_REALTIME_MANAGEMENT_ENDPOINT:$management
             }' <<<"$current_env")
           aws amplify update-app \
             --app-id "$PUBLIC_APP_ID" \
@@ -275,7 +312,7 @@ jobs:
               --resource-arn "$EVIDENCE_DATABASE_CLUSTER_ARN" \
               --secret-arn "$EVIDENCE_DATABASE_SECRET_ARN" \
               --database "$EVIDENCE_DATABASE_NAME" \
-              --sql "UPDATE evidence.capability_switch SET enabled=false, reason='Automatic production rollback', updated_at=now(), updated_by='explore-production-workflow' WHERE capability_key IN ('narrative_generation','provider:openai_responses')" >/dev/null
+              --sql "UPDATE evidence.capability_switch SET enabled=false, reason='Automatic production rollback', updated_at=now(), updated_by='explore-production-workflow' WHERE capability_key IN ('narrative_generation','provider:openai_responses','explore:collaboration','explore:scenarios','explore:funder_snapshots','explore:source_maintenance')" >/dev/null
             aws amplify start-job --app-id "$PUBLIC_APP_ID" --branch-name "$AMPLIFY_BRANCH" \
               --job-type RETRY --job-id "$PREVIOUS_PUBLIC_JOB_ID" >/dev/null || true
             exit 1
@@ -293,7 +330,7 @@ jobs:
             --resource-arn "$EVIDENCE_DATABASE_CLUSTER_ARN" \
             --secret-arn "$EVIDENCE_DATABASE_SECRET_ARN" \
             --database "$EVIDENCE_DATABASE_NAME" \
-            --sql "UPDATE evidence.capability_switch SET enabled=true, reason='Production acceptance passed for $RELEASE_SHA', updated_at=now(), updated_by='explore-production-workflow' WHERE capability_key IN ('narrative_generation','provider:openai_responses')" >/dev/null
+              --sql "UPDATE evidence.capability_switch SET enabled=true, reason='Production acceptance passed for $RELEASE_SHA', updated_at=now(), updated_by='explore-production-workflow' WHERE capability_key IN ('narrative_generation','provider:openai_responses','explore:collaboration','explore:scenarios','explore:funder_snapshots','explore:source_maintenance')" >/dev/null
           agent_failed=0
           curl --fail --silent --show-error \
             -X POST "$PUBLIC_SITE_URL/api/evidence/v1/agent" \
@@ -320,7 +357,7 @@ jobs:
               --resource-arn "$EVIDENCE_DATABASE_CLUSTER_ARN" \
               --secret-arn "$EVIDENCE_DATABASE_SECRET_ARN" \
               --database "$EVIDENCE_DATABASE_NAME" \
-              --sql "UPDATE evidence.capability_switch SET enabled=false, reason='Agent live acceptance failed for $RELEASE_SHA', updated_at=now(), updated_by='explore-production-workflow' WHERE capability_key IN ('narrative_generation','provider:openai_responses')" >/dev/null
+              --sql "UPDATE evidence.capability_switch SET enabled=false, reason='Agent live acceptance failed for $RELEASE_SHA', updated_at=now(), updated_by='explore-production-workflow' WHERE capability_key IN ('narrative_generation','provider:openai_responses','explore:collaboration','explore:scenarios','explore:funder_snapshots','explore:source_maintenance')" >/dev/null
             rollback_job=$(aws amplify start-job --app-id "$PUBLIC_APP_ID" --branch-name "$AMPLIFY_BRANCH" \
               --job-type RETRY --job-id "$PREVIOUS_PUBLIC_JOB_ID" \
               --query 'jobSummary.jobId' --output text)

@@ -1,0 +1,285 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Explore-only authenticated county workspace real-time transport.
+
+Parameters:
+  EnvironmentName:
+    Type: String
+    AllowedValues: [staging, production]
+  HandlerBucket:
+    Type: String
+  HandlerKey:
+    Type: String
+  PublicSiteRuntimeRoleName:
+    Type: String
+
+Resources:
+  CountyWorkspaceUserPool:
+    Type: AWS::Cognito::UserPool
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      UserPoolName: !Sub sozorock-county-workspaces-${EnvironmentName}
+      DeletionProtection: ACTIVE
+      UsernameAttributes: [email]
+      AutoVerifiedAttributes: [email]
+      MfaConfiguration: OPTIONAL
+      EnabledMfas: [SOFTWARE_TOKEN_MFA]
+      AccountRecoverySetting:
+        RecoveryMechanisms:
+          - Name: verified_email
+            Priority: 1
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 14
+          RequireLowercase: true
+          RequireNumbers: true
+          RequireSymbols: true
+          RequireUppercase: true
+          TemporaryPasswordValidityDays: 2
+      Schema:
+        - Name: tenant_id
+          AttributeDataType: String
+          Mutable: false
+          Required: false
+          StringAttributeConstraints:
+            MinLength: "36"
+            MaxLength: "36"
+        - Name: workspace_role
+          AttributeDataType: String
+          Mutable: true
+          Required: false
+          StringAttributeConstraints:
+            MinLength: "3"
+            MaxLength: "40"
+        - Name: workspace_access
+          AttributeDataType: String
+          Mutable: true
+          Required: false
+          StringAttributeConstraints:
+            MinLength: "5"
+            MaxLength: "16"
+  CountyWorkspaceAppClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      ClientName: !Sub sozorock-county-workspaces-${EnvironmentName}
+      UserPoolId: !Ref CountyWorkspaceUserPool
+      GenerateSecret: false
+      PreventUserExistenceErrors: ENABLED
+      EnableTokenRevocation: true
+      AccessTokenValidity: 15
+      IdTokenValidity: 15
+      RefreshTokenValidity: 1
+      TokenValidityUnits:
+        AccessToken: minutes
+        IdToken: minutes
+        RefreshToken: days
+      ExplicitAuthFlows:
+        - ALLOW_ADMIN_USER_PASSWORD_AUTH
+        - ALLOW_REFRESH_TOKEN_AUTH
+
+  RealtimeSessions:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      TableName: !Sub sozorock-explore-realtime-sessions-${EnvironmentName}
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: token_hash
+          AttributeType: S
+      KeySchema:
+        - AttributeName: token_hash
+          KeyType: HASH
+      TimeToLiveSpecification:
+        AttributeName: expires_at
+        Enabled: true
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      SSESpecification:
+        SSEEnabled: true
+
+  RealtimeConnections:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      TableName: !Sub sozorock-explore-realtime-connections-${EnvironmentName}
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: connection_id
+          AttributeType: S
+        - AttributeName: workspace_id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: connection_id
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: workspace_id-index
+          KeySchema:
+            - AttributeName: workspace_id
+              KeyType: HASH
+          Projection:
+            ProjectionType: KEYS_ONLY
+      TimeToLiveSpecification:
+        AttributeName: expires_at
+        Enabled: true
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      SSESpecification:
+        SSEEnabled: true
+
+  RealtimeRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: RealtimeTableAccess
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - dynamodb:GetItem
+                  - dynamodb:PutItem
+                  - dynamodb:DeleteItem
+                Resource:
+                  - !GetAtt RealtimeSessions.Arn
+                  - !GetAtt RealtimeConnections.Arn
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: "*"
+
+  RealtimeHandler:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub sozorock-explore-realtime-${EnvironmentName}
+      Runtime: nodejs22.x
+      Handler: handler.handler
+      Role: !GetAtt RealtimeRole.Arn
+      Timeout: 10
+      MemorySize: 256
+      Code:
+        S3Bucket: !Ref HandlerBucket
+        S3Key: !Ref HandlerKey
+      Environment:
+        Variables:
+          SESSION_TABLE: !Ref RealtimeSessions
+          CONNECTION_TABLE: !Ref RealtimeConnections
+
+  WebSocketApi:
+    Type: AWS::ApiGatewayV2::Api
+    Properties:
+      Name: !Sub sozorock-explore-collaboration-${EnvironmentName}
+      ProtocolType: WEBSOCKET
+      RouteSelectionExpression: "$request.body.action"
+
+  WebSocketIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref WebSocketApi
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !Sub
+        - arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${HandlerArn}/invocations
+        - HandlerArn: !GetAtt RealtimeHandler.Arn
+
+  ConnectRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref WebSocketApi
+      RouteKey: "$connect"
+      AuthorizationType: NONE
+      Target: !Join ["/", [integrations, !Ref WebSocketIntegration]]
+
+  DisconnectRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref WebSocketApi
+      RouteKey: "$disconnect"
+      AuthorizationType: NONE
+      Target: !Join ["/", [integrations, !Ref WebSocketIntegration]]
+
+  DefaultRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref WebSocketApi
+      RouteKey: "$default"
+      AuthorizationType: NONE
+      Target: !Join ["/", [integrations, !Ref WebSocketIntegration]]
+
+  WebSocketStage:
+    Type: AWS::ApiGatewayV2::Stage
+    Properties:
+      ApiId: !Ref WebSocketApi
+      StageName: !Ref EnvironmentName
+      AutoDeploy: true
+      DefaultRouteSettings:
+        ThrottlingBurstLimit: 100
+        ThrottlingRateLimit: 50
+      AccessLogSettings:
+        DestinationArn: !GetAtt WebSocketLogGroup.Arn
+        Format: '{"requestId":"$context.requestId","routeKey":"$context.routeKey","status":"$context.status","connectionId":"$context.connectionId"}'
+
+  WebSocketLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/apigateway/sozorock-explore-collaboration-${EnvironmentName}
+      RetentionInDays: 30
+
+  RealtimeInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref RealtimeHandler
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub arn:${AWS::Partition}:execute-api:${AWS::Region}:${AWS::AccountId}:${WebSocketApi}/*
+
+  PublicSiteRealtimePolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      ManagedPolicyName: !Sub sozorock-explore-realtime-public-site-${EnvironmentName}
+      Roles:
+        - !Ref PublicSiteRuntimeRoleName
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: MintRealtimeSession
+            Effect: Allow
+            Action:
+              - dynamodb:PutItem
+            Resource: !GetAtt RealtimeSessions.Arn
+          - Sid: ListAndExpireConnections
+            Effect: Allow
+            Action:
+              - dynamodb:Query
+              - dynamodb:DeleteItem
+            Resource:
+              - !GetAtt RealtimeConnections.Arn
+              - !Sub ${RealtimeConnections.Arn}/index/workspace_id-index
+          - Sid: BroadcastWorkspaceEvents
+            Effect: Allow
+            Action:
+              - execute-api:ManageConnections
+            Resource: !Sub arn:${AWS::Partition}:execute-api:${AWS::Region}:${AWS::AccountId}:${WebSocketApi}/${EnvironmentName}/POST/@connections/*
+
+Outputs:
+  WebSocketUrl:
+    Value: !Sub wss://${WebSocketApi}.execute-api.${AWS::Region}.${AWS::URLSuffix}/${EnvironmentName}
+  ManagementEndpoint:
+    Value: !Sub https://${WebSocketApi}.execute-api.${AWS::Region}.${AWS::URLSuffix}/${EnvironmentName}
+  SessionTable:
+    Value: !Ref RealtimeSessions
+  ConnectionTable:
+    Value: !Ref RealtimeConnections
+  CountyWorkspaceUserPoolId:
+    Value: !Ref CountyWorkspaceUserPool
+  CountyWorkspaceAppClientId:
+    Value: !Ref CountyWorkspaceAppClient

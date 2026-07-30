@@ -1,0 +1,328 @@
+name: Milestone 10 Explore staging
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - codex/explore-agentic-collaboration
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: milestone-10-explore-staging
+  cancel-in-progress: true
+
+jobs:
+  release-gates:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    services:
+      postgres:
+        image: postgis/postgis:17-3.5
+        env:
+          POSTGRES_DB: evidence_test
+          POSTGRES_USER: evidence
+          POSTGRES_PASSWORD: evidence_test_only
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U evidence -d evidence_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      EVIDENCE_DATABASE_URL: postgresql://evidence:evidence_test_only@localhost:5432/evidence_test
+      EVIDENCE_DATABASE_SSL: disable
+      EVIDENCE_MIGRATION_TEST_DISPOSABLE: "true"
+      NATIONAL_SNAPSHOT_DATE: "2026-07-23T00:00:00.000Z"
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "24"
+          cache: npm
+      - name: Clean secure install
+        run: |
+          set -euo pipefail
+          npm ci --omit=optional
+          npm audit --omit=dev --omit=optional --audit-level=moderate
+          npm ls sharp --all || test "$?" -eq 1
+          test ! -d node_modules/sharp
+      - name: Migration integrity and rollback
+        run: npm run test:migrations --workspace @sozorock/evidence-core
+      - name: Nationwide county and evidence contract
+        run: npm run build:national-coverage --workspace @sozorock/evidence-core
+      - name: Repository quality
+        run: |
+          npm run typecheck
+          npm run lint
+          npm test
+          npm run build:public
+          npm run verify:public-runtime-security
+      - name: Explore browser matrix
+        run: |
+          npx playwright install --with-deps chromium
+          npm run test:explore-visual --workspace @sozorock/public-site
+      - name: Runtime SBOM and vulnerability scan
+        run: |
+          mkdir -p output/security
+          npm sbom --workspace @sozorock/public-site --omit=dev --omit=optional \
+            --sbom-format cyclonedx > output/security/public-runtime.cdx.json
+      - uses: aquasecurity/setup-trivy@81e514348e19b6112ce2a7e3ecbafe19c1e1f567 # v0.3.1
+        with:
+          version: v0.72.0
+          cache: true
+      - run: trivy sbom --severity HIGH,CRITICAL --exit-code 1 output/security/public-runtime.cdx.json
+      - name: Prove Explore-only scope
+        run: |
+          node - <<'NODE'
+          const fs = require("fs");
+          const workflow = fs.readFileSync(".github/workflows/milestone-10-staging.yml", "utf8");
+          const forbidden = ["build:" + "platform", "CBCAP" + "_APP_ID", "d307" + "qqji18y8il"];
+          if (forbidden.some((token) => workflow.includes(token))) process.exit(1);
+          NODE
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: milestone-10-release-gates
+          path: |
+            packages/evidence-core/data/national/national-coverage-report.v1.json
+            packages/evidence-core/data/national/national-coverage-report.v1.md
+            output/security/public-runtime.cdx.json
+            output/security/public-runtime-security.json
+            .playwright-output/explore
+
+  isolated-staging:
+    needs: release-gates
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    environment: staging
+    env:
+      AWS_REGION: ${{ vars.AWS_REGION || 'us-east-1' }}
+      PUBLIC_APP_ID: ${{ vars.PUBLIC_AMPLIFY_APP_ID }}
+      STAGING_BRANCH: codex/explore-agentic-collaboration
+      PRODUCTION_URL: ${{ vars.PUBLIC_SITE_URL || 'https://health.sozorockfoundation.org' }}
+      OPENAI_SECRET_ARN: ${{ secrets.OPENAI_SECRET_ARN }}
+      RELEASE_SHA: ${{ github.sha }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.sha }}
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "24"
+          cache: npm
+      - run: npm ci --omit=optional
+      - run: npx playwright install --with-deps chromium
+      - uses: aws-actions/configure-aws-credentials@7474bc4690e29a8392af63c5b98e7449536d5c3a # v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+      - name: Resolve staging infrastructure inputs
+        run: |
+          set -euo pipefail
+          test -n "$PUBLIC_APP_ID"
+          test -n "$OPENAI_SECRET_ARN"
+          test "$(git rev-parse HEAD)" = "$RELEASE_SHA"
+          aws amplify get-app --app-id "$PUBLIC_APP_ID" >/dev/null
+          vpc_id=$(aws ec2 describe-vpcs --filters Name=is-default,Values=true --query 'Vpcs[0].VpcId' --output text)
+          mapfile -t subnets < <(aws ec2 describe-subnets --filters Name=vpc-id,Values="$vpc_id" \
+            --query 'Subnets[].SubnetId' --output text | tr '\t' '\n')
+          test "${#subnets[@]}" -ge 2
+          subnet_csv=$(IFS=,; echo "${subnets[*]}")
+          compute_role_arn=$(aws cloudformation describe-stacks --stack-name sozorock-health-contact \
+            --query "Stacks[0].Outputs[?OutputKey=='ComputeRoleArn'].OutputValue" --output text)
+          echo "VPC_ID=$vpc_id" >> "$GITHUB_ENV"
+          echo "SUBNET_CSV=$subnet_csv" >> "$GITHUB_ENV"
+          echo "PUBLIC_COMPUTE_ROLE_NAME=${compute_role_arn##*/}" >> "$GITHUB_ENV"
+      - name: Provision isolated staging Evidence Core
+        run: |
+          aws cloudformation deploy \
+            --stack-name sozorock-health-evidence-staging \
+            --template-file infrastructure/cloudformation/evidence-core.yml \
+            --capabilities CAPABILITY_NAMED_IAM \
+            --parameter-overrides \
+              EnvironmentName=staging \
+              VpcId="$VPC_ID" \
+              PrivateSubnetIds="$SUBNET_CSV" \
+              PublicComputeRoleName="$PUBLIC_COMPUTE_ROLE_NAME" \
+              PlaceEvidenceOpenAISecretArn="$OPENAI_SECRET_ARN" \
+              MinimumCapacity=0.5 MaximumCapacity=1
+          for output in EvidenceDatabaseClusterArn EvidenceDatabaseSecretArn EvidenceDatabaseName EvidenceArtifactBucket; do
+            value=$(aws cloudformation describe-stacks --stack-name sozorock-health-evidence-staging \
+              --query "Stacks[0].Outputs[?OutputKey=='$output'].OutputValue" --output text)
+            echo "$output=$value" >> "$GITHUB_ENV"
+          done
+      - name: Build and provision real-time collaboration
+        run: |
+          set -euo pipefail
+          mkdir -p output/realtime
+          npx esbuild packages/explore-realtime/src/handler.ts --bundle --platform=node \
+            --target=node22 --format=cjs --outfile=output/realtime/handler.js
+          (cd output/realtime && zip -q ../explore-realtime.zip handler.js)
+          handler_key="staging/$RELEASE_SHA/explore-realtime.zip"
+          aws s3 cp output/explore-realtime.zip "s3://$EvidenceArtifactBucket/$handler_key" \
+            --sse AES256 --only-show-errors
+          aws cloudformation deploy \
+            --stack-name sozorock-explore-collaboration-staging \
+            --template-file infrastructure/cloudformation/explore-collaboration.yml \
+            --capabilities CAPABILITY_NAMED_IAM \
+            --parameter-overrides \
+              EnvironmentName=staging \
+              HandlerBucket="$EvidenceArtifactBucket" \
+              HandlerKey="$handler_key" \
+              PublicSiteRuntimeRoleName="$PUBLIC_COMPUTE_ROLE_NAME"
+          for output in WebSocketUrl ManagementEndpoint SessionTable ConnectionTable CountyWorkspaceUserPoolId CountyWorkspaceAppClientId; do
+            value=$(aws cloudformation describe-stacks --stack-name sozorock-explore-collaboration-staging \
+              --query "Stacks[0].Outputs[?OutputKey=='$output'].OutputValue" --output text)
+            echo "$output=$value" >> "$GITHUB_ENV"
+          done
+      - name: Apply migrations and immutable evidence snapshot
+        env:
+          EVIDENCE_PRODUCTION_MIGRATION_APPROVED: "true"
+          EVIDENCE_PRODUCTION_IMPORT_APPROVED: "true"
+          EVIDENCE_CONTROL_PLANE_SEED_APPROVED: "true"
+          EVIDENCE_CONTROL_PLANE_APPROVED_BY: milestone-10-staging-workflow
+        run: |
+          set -euo pipefail
+          export EVIDENCE_DATABASE_CLUSTER_ARN="$EvidenceDatabaseClusterArn"
+          export EVIDENCE_DATABASE_SECRET_ARN="$EvidenceDatabaseSecretArn"
+          export EVIDENCE_DATABASE_NAME="$EvidenceDatabaseName"
+          export EVIDENCE_ARTIFACT_BUCKET="$EvidenceArtifactBucket"
+          export EVIDENCE_EXPECTED_CLUSTER_ARN="$EvidenceDatabaseClusterArn"
+          npm run migrate:data-api --workspace @sozorock/evidence-core
+          aws s3 cp packages/evidence-core/data/national/ \
+            "s3://$EvidenceArtifactBucket/approved/$RELEASE_SHA/" \
+            --recursive --sse AES256 --only-show-errors
+          npm run import:production:data-api --workspace @sozorock/evidence-core
+          npm run seed:collaboration-control-plane --workspace @sozorock/evidence-core
+          aws rds-data execute-statement \
+            --resource-arn "$EvidenceDatabaseClusterArn" \
+            --secret-arn "$EvidenceDatabaseSecretArn" \
+            --database "$EvidenceDatabaseName" \
+            --sql "INSERT INTO evidence.workspace_tenant (id, legal_name, status, created_at, created_by) VALUES ('10000000-0000-4000-8000-000000000001', 'The SozoRock Foundation, Inc. staging', 'active', now(), 'milestone-10-staging-workflow') ON CONFLICT (id) DO NOTHING"
+          aws rds-data execute-statement \
+            --resource-arn "$EvidenceDatabaseClusterArn" \
+            --secret-arn "$EvidenceDatabaseSecretArn" \
+            --database "$EvidenceDatabaseName" \
+            --sql "UPDATE evidence.capability_switch SET enabled=true, reason='Milestone 10 isolated staging acceptance', updated_at=now(), updated_by='milestone-10-staging-workflow' WHERE capability_key IN ('narrative_generation','provider:openai_responses','explore:collaboration','explore:scenarios','explore:funder_snapshots','explore:source_maintenance')"
+      - name: Create isolated Amplify staging branch
+        run: |
+          set -euo pipefail
+          if ! aws amplify get-branch --app-id "$PUBLIC_APP_ID" --branch-name "$STAGING_BRANCH" >/dev/null 2>&1; then
+            aws amplify create-branch --app-id "$PUBLIC_APP_ID" --branch-name "$STAGING_BRANCH" \
+              --stage DEVELOPMENT --enable-auto-build >/dev/null
+          fi
+          default_domain=$(aws amplify get-app --app-id "$PUBLIC_APP_ID" --query 'app.defaultDomain' --output text)
+          branch_slug=$(tr '/_' '--' <<<"$STAGING_BRANCH")
+          staging_url="https://${branch_slug}.${default_domain}"
+          branch_env=$(aws amplify get-branch --app-id "$PUBLIC_APP_ID" --branch-name "$STAGING_BRANCH" \
+            --query 'branch.environmentVariables' --output json)
+          merged_env=$(jq -c \
+            --arg cluster "$EvidenceDatabaseClusterArn" \
+            --arg secret "$EvidenceDatabaseSecretArn" \
+            --arg database "$EvidenceDatabaseName" \
+            --arg bucket "$EvidenceArtifactBucket" \
+            --arg hosts "${branch_slug}.${default_domain}" \
+            --arg openai "$OPENAI_SECRET_ARN" \
+            --arg sessions "$SessionTable" \
+            --arg connections "$ConnectionTable" \
+            --arg websocket "$WebSocketUrl" \
+            --arg management "$ManagementEndpoint" \
+            '. + {
+              EVIDENCE_DATABASE_CLUSTER_ARN:$cluster,
+              EVIDENCE_DATABASE_SECRET_ARN:$secret,
+              EVIDENCE_DATABASE_NAME:$database,
+              EVIDENCE_ARTIFACT_BUCKET:$bucket,
+              EVIDENCE_ALLOWED_HOSTS:$hosts,
+              OPENAI_PLACE_EVIDENCE_SECRET_ARN:$openai,
+              OPENAI_PLACE_EVIDENCE_MODEL:"gpt-5.6-sol",
+              PLACE_EVIDENCE_PROVIDER:"openai-responses",
+              PLACE_AGENT_MAX_PER_NETWORK_HOUR:"2",
+              PLACE_AGENT_MAX_GLOBAL_DAY:"10",
+              EXPLORE_REALTIME_SESSION_TABLE:$sessions,
+              EXPLORE_REALTIME_CONNECTION_TABLE:$connections,
+              NEXT_PUBLIC_EXPLORE_REALTIME_ENDPOINT:$websocket,
+              EXPLORE_REALTIME_MANAGEMENT_ENDPOINT:$management
+            }' <<<"$branch_env")
+          aws amplify update-branch --app-id "$PUBLIC_APP_ID" --branch-name "$STAGING_BRANCH" \
+            --environment-variables "$merged_env" >/dev/null
+          echo "STAGING_EXPLORE_URL=$staging_url" >> "$GITHUB_ENV"
+          npm run test:non-explore-regression --workspace @sozorock/public-site -- \
+            capture "$PRODUCTION_URL" output/non-explore-regression
+          job_id=$(aws amplify start-job --app-id "$PUBLIC_APP_ID" --branch-name "$STAGING_BRANCH" \
+            --job-type RELEASE --job-reason "Milestone 10 staging $RELEASE_SHA" \
+            --query 'jobSummary.jobId' --output text)
+          echo "STAGING_AMPLIFY_JOB_ID=$job_id" >> "$GITHUB_ENV"
+          while true; do
+            status=$(aws amplify get-job --app-id "$PUBLIC_APP_ID" --branch-name "$STAGING_BRANCH" \
+              --job-id "$job_id" --query 'job.summary.status' --output text)
+            case "$status" in
+              SUCCEED) break ;;
+              FAILED|CANCELLED) exit 1 ;;
+              *) sleep 20 ;;
+            esac
+          done
+      - name: Create scoped staging identities
+        shell: bash
+        run: |
+          set -euo pipefail
+          tenant="10000000-0000-4000-8000-000000000001"
+          create_user() {
+            local username="$1" role="$2" access="$3" password="$4"
+            aws cognito-idp admin-create-user --user-pool-id "$CountyWorkspaceUserPoolId" \
+              --username "$username" --message-action SUPPRESS \
+              --user-attributes \
+                Name=email,Value="$username" Name=email_verified,Value=true \
+                Name=custom:tenant_id,Value="$tenant" \
+                Name=custom:workspace_role,Value="$role" \
+                Name=custom:workspace_access,Value="$access" >/dev/null 2>&1 || true
+            aws cognito-idp admin-update-user-attributes --user-pool-id "$CountyWorkspaceUserPoolId" \
+              --username "$username" --user-attributes \
+                Name=custom:workspace_role,Value="$role" \
+                Name=custom:workspace_access,Value="$access" >/dev/null
+            aws cognito-idp admin-set-user-password --user-pool-id "$CountyWorkspaceUserPoolId" \
+              --username "$username" --password "$password" --permanent
+          }
+          owner_password="$(openssl rand -base64 24)!Aa1"
+          contributor_password="$(openssl rand -base64 24)!Aa1"
+          viewer_password="$(openssl rand -base64 24)!Aa1"
+          create_user "staging-owner@sozorockfoundation.org" foundation_reviewer owner "$owner_password"
+          create_user "staging-contributor@sozorockfoundation.org" county_planner contributor "$contributor_password"
+          create_user "staging-viewer@sozorockfoundation.org" research_funder_viewer viewer "$viewer_password"
+          auth() {
+            aws cognito-idp admin-initiate-auth --user-pool-id "$CountyWorkspaceUserPoolId" \
+              --client-id "$CountyWorkspaceAppClientId" --auth-flow ADMIN_USER_PASSWORD_AUTH \
+              --auth-parameters "USERNAME=$1,PASSWORD=$2" \
+              --query 'AuthenticationResult.AccessToken' --output text
+          }
+          owner_token=$(auth "staging-owner@sozorockfoundation.org" "$owner_password")
+          contributor_token=$(auth "staging-contributor@sozorockfoundation.org" "$contributor_password")
+          viewer_token=$(auth "staging-viewer@sozorockfoundation.org" "$viewer_password")
+          echo "::add-mask::$owner_token"
+          echo "::add-mask::$contributor_token"
+          echo "::add-mask::$viewer_token"
+          echo "STAGING_OWNER_ACCESS_TOKEN=$owner_token" >> "$GITHUB_ENV"
+          echo "STAGING_CONTRIBUTOR_ACCESS_TOKEN=$contributor_token" >> "$GITHUB_ENV"
+          echo "STAGING_VIEWER_ACCESS_TOKEN=$viewer_token" >> "$GITHUB_ENV"
+      - name: Staging browser, national and two-session acceptance
+        run: |
+          set -euo pipefail
+          curl --fail --silent "$STAGING_EXPLORE_URL/explore" >/dev/null
+          curl --fail --silent "$STAGING_EXPLORE_URL/api/evidence/v1/place-brief?geography=county&geoid=36001" \
+            | jq -e '.contractVersion=="explore.place-brief.v1"' >/dev/null
+          PLAYWRIGHT_BASE_URL="$STAGING_EXPLORE_URL" \
+            npx playwright test --config apps/public-site/playwright.config.ts
+          npm run test:national-api --workspace @sozorock/public-site -- "$STAGING_EXPLORE_URL"
+          npm run test:staging-collaboration --workspace @sozorock/public-site
+          npm run test:non-explore-regression --workspace @sozorock/public-site -- \
+            compare "$STAGING_EXPLORE_URL" output/non-explore-regression
+      - name: Upload staging acceptance evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: milestone-10-isolated-staging
+          path: |
+            output/non-explore-regression
+            .playwright-output/explore

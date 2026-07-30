@@ -25,6 +25,22 @@ test("production agent is evidence-only, stored-output disabled, bounded, and to
   assert.match(provider, /reasoning:\s*\{\s*effort:\s*"none"\s*\}/);
   assert.match(provider, /verbosity:\s*"low"/);
   assert.match(provider, /REQUEST_TIMEOUT_MS\s*=\s*22_000/);
+  assert.match(provider, /place-agent-pipeline\.v1/);
+  for (const step of [
+    "resolve_geography",
+    "resolve_county_relationships",
+    "get_place_evidence",
+    "get_source_coverage",
+    "list_verified_local_plans",
+    "get_map_layers",
+    "compare_compatible_measures",
+    "identify_evidence_gaps",
+    "evaluate_response_fit",
+    "validate_claims_and_citations",
+    "generate_structured_visual_result",
+  ]) {
+    assert.match(provider, new RegExp(`"${step}"`));
+  }
   assert.doesNotMatch(provider, /web_search|computer_use|file_search|https?:\/\/(?!api\.openai\.com)/);
 });
 

@@ -101,6 +101,7 @@ export async function POST(request: NextRequest) {
         schemaVersion: placeAgentRuntimeVersions.schemaVersion,
         snapshotContentHash: output.snapshotContentHash,
         toolCalls: output.toolCalls,
+        pipelineSteps: output.pipelineSteps,
         usage: output.usage ?? null,
       },
     });
