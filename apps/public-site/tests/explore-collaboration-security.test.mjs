@@ -21,6 +21,10 @@ const migration = await readFile(
   new URL("../../../packages/evidence-core/migrations/0008_explore_agentic_collaboration.sql", import.meta.url),
   "utf8",
 );
+const publicBuildSpec = await readFile(
+  new URL("../../../infrastructure/amplify/public-site.yml", import.meta.url),
+  "utf8",
+);
 
 test("workspace authentication is Cognito-backed and tenant scoped", () => {
   assert.match(auth, /GetUserCommand/);
@@ -44,6 +48,14 @@ test("real-time session is opaque, short-lived and never authorizes mutations", 
   assert.match(realtimeHandler, /Workspace writes use the authenticated HTTPS API/);
   assert.match(infrastructure, /ThrottlingBurstLimit:\s*100/);
   assert.match(infrastructure, /TimeToLiveSpecification/);
+});
+
+test("Amplify exposes only approved server configuration to the Next.js runtime", () => {
+  assert.match(publicBuildSpec, /> apps\/public-site\/\.env\.production/);
+  assert.match(publicBuildSpec, /EXPLORE_REALTIME_/);
+  assert.match(publicBuildSpec, /OPENAI_PLACE_EVIDENCE_/);
+  assert.doesNotMatch(publicBuildSpec, /NEXT_PUBLIC_EXPLORE_REALTIME_/);
+  assert.doesNotMatch(publicBuildSpec, /OPENAI_API_KEY|CENSUS_API_KEY/);
 });
 
 test("workspace event route enforces same-origin, authentication and human-only review", () => {

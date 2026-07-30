@@ -13,6 +13,7 @@ applications:
         build:
           commands:
             - export NODE_OPTIONS=--max-old-space-size=6144
+            - env | grep -E '^(EVIDENCE_|OPENAI_PLACE_EVIDENCE_|PLACE_EVIDENCE_|PLACE_AGENT_|EXPLORE_REALTIME_)' > apps/public-site/.env.production
             - npm run build:public
             - npm run verify:public-runtime-security
       artifacts:
