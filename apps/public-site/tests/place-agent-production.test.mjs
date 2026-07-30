@@ -18,7 +18,8 @@ test("production agent is evidence-only, stored-output disabled, bounded, and to
   assert.match(provider, /store:\s*false/);
   assert.match(provider, /PLACE_AGENT_TOOL_DEFINITIONS/);
   assert.match(provider, /MAX_TOOL_DEPTH\s*=\s*3/);
-  assert.match(provider, /MAX_OUTPUT_TOKENS\s*=\s*600/);
+  assert.match(provider, /MAX_OUTPUT_TOKENS\s*=\s*900/);
+  assert.match(provider, /Return no more than three citedEvidence items/);
   assert.match(provider, /OPENAI_PLACE_EVIDENCE_SECRET_ARN/);
   assert.match(provider, /max_tool_calls:\s*MAX_TOOL_DEPTH/);
   assert.match(provider, /parallel_tool_calls:\s*false/);

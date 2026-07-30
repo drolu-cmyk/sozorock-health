@@ -16,7 +16,7 @@ import { isClinicalSafetyQuestion } from "./place-agent-safety";
 
 const secrets = new SecretsManagerClient({});
 const MAX_TOOL_DEPTH = 3;
-const MAX_OUTPUT_TOKENS = 600;
+const MAX_OUTPUT_TOKENS = 900;
 const REQUEST_TIMEOUT_MS = 22_000;
 const MODEL = process.env.OPENAI_PLACE_EVIDENCE_MODEL?.trim() || "gpt-5.6-sol";
 const AGENT_POLICY_VERSION = "place-evidence-agent.production.v2";
@@ -448,6 +448,7 @@ export async function answerWithOpenAI(input: {
             "Response fit means fit for local review only, never a final intervention decision.",
             "Every citedEvidence item must copy both citationId and claim exactly from a tool's approvedClaims list.",
             "If evidence is insufficient, return evidence_gap and say what is missing.",
+            "Be concise. Return no more than three citedEvidence items, three sourceAndDataDates items, three missingEvidence items, and three caveats.",
           ].join("\n"),
         }),
         signal: controller.signal,
