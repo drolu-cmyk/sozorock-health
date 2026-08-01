@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createRequire } from "node:module";
 import test from "node:test";
 import {
   collectionPolygons,
@@ -7,6 +8,9 @@ import {
   hasRenderableGeometry,
   projectFallbackPosition,
 } from "../app/lib/explore-map-fallback.ts";
+
+const require = createRequire(import.meta.url);
+const countyBoundaries = require("../../../packages/evidence-core/data/national/county-boundaries.v2025.json");
 
 const featureCollection = (geometry) => ({ type: "FeatureCollection", features: [{ geometry }] });
 
@@ -28,6 +32,20 @@ test("Fairfax County MultiPolygon preserves interior rings in one even-odd compo
   const path = compoundPathForPolygons(polygons, layout);
   assert.equal((path.match(/\bM/g) ?? []).length, 3);
   assert.equal((path.match(/\bZ/g) ?? []).length, 3);
+});
+
+test("the official Fairfax County boundary fixture retains its interior ring", () => {
+  const fairfax = {
+    type: "FeatureCollection",
+    features: [countyBoundaries.byGeoid["51059"]],
+  };
+  const polygons = collectionPolygons(fairfax);
+  assert.equal(fairfax.features[0].geometry.type, "MultiPolygon");
+  assert.ok(polygons.some((polygon) => polygon.length > 1), "Fairfax must include an interior ring");
+  const layout = fitFallbackGeometry([fairfax]);
+  const path = compoundPathForPolygons(polygons, layout);
+  assert.equal((path.match(/\bM/g) ?? []).length, (path.match(/\bZ/g) ?? []).length);
+  assert.ok((path.match(/\bM/g) ?? []).length > 1, "exterior and interior rings share one compound path");
 });
 
 test("fallback fitting uses one scale and letterboxes narrow and wide counties", () => {

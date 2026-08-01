@@ -192,6 +192,35 @@
 .comparisonNote { display: flex; align-items: flex-start; gap: 8px; margin: 14px 0 0; padding: 14px; background: var(--paper); color: #576164; font-size: 13px; line-height: 1.45; }
 .comparisonNote svg { flex: 0 0 auto; }
 
+/* Shared workspace read-only view. Keep the evidence itself as the focal point. */
+.shareCard {
+  width: min(1320px, calc(100% - 2 * clamp(20px, 4vw, 58px)));
+  margin: 0 auto;
+  padding: clamp(24px, 5vw, 64px);
+  border: 1px solid var(--line);
+  background: var(--paper-bright);
+}
+.shareNotice {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--line);
+  color: #526064;
+  font-size: 13px;
+}
+.shareNotice strong { color: var(--green-dark); }
+.shareNotice span { color: #697477; }
+.shareIntro { max-width: 780px; margin: 24px 0 42px; color: #536064; line-height: 1.55; }
+.shareCard h2 { margin: 48px 0 18px; font-size: clamp(28px, 4vw, 44px); letter-spacing: -.045em; }
+.shareSections { display: grid; gap: 16px; }
+.shareSections article { padding: 22px; border: 1px solid var(--line); background: var(--paper); }
+.shareSections article header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.shareSections article h3 { margin: 0; font-size: 20px; text-transform: capitalize; }
+.shareSections article span { color: #667174; font-size: 12px; }
+.shareSections pre { margin: 18px 0 0; color: #445154; font-family: inherit; line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; }
+
 .sourceStrip {
   position: relative;
   display: grid;
@@ -481,6 +510,9 @@
   .comparisonVisual label { width: 100%; min-width: 0; }
   .measureDefinition { grid-template-columns: repeat(2, 1fr); }
   .downloadForm > div { grid-template-columns: 1fr; }
+  .shareCard { width: calc(100% - 40px); padding: 28px 20px; }
+  .shareNotice, .shareSections article header { display: block; }
+  .shareNotice span, .shareSections article header span { display: block; margin-top: 7px; }
 }
 
 @media (max-width: 430px) {

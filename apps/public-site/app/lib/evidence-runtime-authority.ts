@@ -11,6 +11,21 @@ import {
 
 const client = new RDSDataClient({});
 
+export type EvidenceRuntimeEnvironment = "production" | "staging" | "test";
+
+/**
+ * Environment is deployment authority, never request data.  Production and
+ * staging workflows set the rate-limit namespace even when Amplify does not
+ * expose a separate runtime flag; an unset local process is deliberately
+ * treated as test so it cannot create production traction records.
+ */
+export function evidenceRuntimeEnvironment(): EvidenceRuntimeEnvironment {
+  const configured = (process.env.RUNTIME_ENV ?? process.env.PLACE_AGENT_RATE_LIMIT_NAMESPACE ?? "").trim().toLowerCase();
+  if (configured === "production") return "production";
+  if (configured === "staging") return "staging";
+  return "test";
+}
+
 type AuthorityConfig = {
   clusterArn: string;
   secretArn: string;
@@ -88,6 +103,30 @@ export type EvidenceAuthority = {
   openAiEnabled: boolean;
 };
 
+/** Verify that the immutable snapshot shipped to the route is the snapshot
+ * currently approved by the Evidence Core.  This intentionally does not read
+ * narrative or agent capability switches; deterministic Brief/Map/Visuals
+ * delivery must remain available when the agent is disabled. */
+export async function requirePublishedEvidenceSnapshot(snapshotContentHash: string) {
+  const result = await executeEvidenceSql(
+    `SELECT s.id::text, s.content_hash
+       FROM evidence.evidence_snapshot s
+      WHERE s.content_hash=:content_hash
+        AND s.review_status='verified'
+        AND s.published_at IS NOT NULL
+      ORDER BY s.published_at DESC
+      LIMIT 1`,
+    [{ name: "content_hash", value: { stringValue: snapshotContentHash } }],
+  );
+  const row = result.records?.[0];
+  const snapshotUuid = String(evidenceFieldValue(row?.[0]) ?? "");
+  const contentHash = String(evidenceFieldValue(row?.[1]) ?? "");
+  if (!/^[0-9a-f-]{36}$/i.test(snapshotUuid) || contentHash !== snapshotContentHash) {
+    throw new Error("The bundled evidence snapshot is not approved by the production authority.");
+  }
+  return { snapshotUuid, snapshotContentHash: contentHash };
+}
+
 export async function requireEvidenceAuthority(
   snapshotContentHash: string,
 ): Promise<EvidenceAuthority> {
@@ -136,6 +175,32 @@ export async function requireEvidenceCapability(capabilityKey: string) {
   if (!row || evidenceFieldValue(row[0]) !== true) {
     throw new Error(String(evidenceFieldValue(row?.[1]) ?? "Evidence capability is not enabled."));
   }
+}
+
+/**
+ * Resolve the persisted canonical geography identifier used by the Evidence
+ * Core.  Public routes receive a Census GEOID, but audit records must point
+ * at the immutable `evidence.geography` row rather than storing a second,
+ * free-form geography identifier.
+ */
+export async function requireEvidenceGeographyId(countyGeoid: string) {
+  if (!/^\d{5}$/.test(countyGeoid)) throw new Error("County GEOID is invalid.");
+  const result = await executeEvidenceSql(
+    `SELECT id::text
+       FROM evidence.geography
+      WHERE authority='census'
+        AND authority_id=:county_geoid
+        AND kind='county'
+        AND review_status='verified'
+      ORDER BY vintage DESC
+      LIMIT 1`,
+    [{ name: "county_geoid", value: { stringValue: countyGeoid } }],
+  );
+  const id = String(evidenceFieldValue(result.records?.[0]?.[0]) ?? "");
+  if (!/^[0-9a-f-]{36}$/i.test(id)) {
+    throw new Error("The canonical county is missing from the production evidence store.");
+  }
+  return id;
 }
 
 export function sha256(value: unknown) {

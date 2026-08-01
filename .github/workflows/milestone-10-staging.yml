@@ -220,6 +220,9 @@ jobs:
             "s3://$EvidenceArtifactBucket/approved/$RELEASE_SHA/" \
             --recursive --sse AES256 --only-show-errors
           npm run import:production:data-api --workspace @sozorock/evidence-core
+          snapshot_id=$(jq -r '.snapshotId' packages/evidence-core/data/national/county-evidence-snapshot.v1.json)
+          test "$snapshot_id" != "null"
+          echo "EVIDENCE_SNAPSHOT_CONTENT_HASH=${snapshot_id/snapshot:/sha256:}" >> "$GITHUB_ENV"
           npm run seed:collaboration-control-plane --workspace @sozorock/evidence-core
           aws rds-data execute-statement \
             --resource-arn "$EvidenceDatabaseClusterArn" \
@@ -254,6 +257,7 @@ jobs:
             --arg connections "$ConnectionTable" \
             --arg websocket "$WebSocketUrl" \
             --arg management "$ManagementEndpoint" \
+            --arg snapshot_hash "$EVIDENCE_SNAPSHOT_CONTENT_HASH" \
             '. + {
               EVIDENCE_DATABASE_CLUSTER_ARN:$cluster,
               EVIDENCE_DATABASE_SECRET_ARN:$secret,
@@ -269,7 +273,8 @@ jobs:
               EXPLORE_REALTIME_SESSION_TABLE:$sessions,
               EXPLORE_REALTIME_CONNECTION_TABLE:$connections,
               EXPLORE_REALTIME_PUBLIC_ENDPOINT:$websocket,
-              EXPLORE_REALTIME_MANAGEMENT_ENDPOINT:$management
+              EXPLORE_REALTIME_MANAGEMENT_ENDPOINT:$management,
+              EVIDENCE_SNAPSHOT_CONTENT_HASH:$snapshot_hash
             }' <<<"$branch_env")
           aws amplify update-branch --app-id "$PUBLIC_APP_ID" --branch-name "$STAGING_BRANCH" \
             --environment-variables "$merged_env" >/dev/null

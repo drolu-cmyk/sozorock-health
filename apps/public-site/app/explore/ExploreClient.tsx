@@ -308,7 +308,7 @@ const responseDetails: Record<string, { partner: string; measure: string }> = {
 
 function BrandLockup() {
   return (
-    <span className={styles.brand} aria-label="SozoRock Health">
+    <span className={styles.brand} role="img" aria-label="SozoRock Health">
       <span className={styles.brandWord}>SozoRock<sup>®</sup></span>
       <span className={styles.brandHealth}>Health</span>
     </span>
@@ -486,7 +486,7 @@ function EvidenceCard({
           <h3>{metric.label}</h3>
           <p>{metric.plainLanguage}</p>
           <div className={styles.metricValue}><strong>{metric.value.toFixed(1)}%</strong><span>{metric.geographyLevel === "zcta" ? "ZCTA estimate" : "Selected place"}</span></div>
-          <div className={styles.miniBar} aria-label={`${metric.label}: ${metric.value.toFixed(1)} percent here and ${benchmark === null ? "comparison unavailable" : `${benchmark.toFixed(1)} percent comparison`}`}>
+          <div className={styles.miniBar} role="img" aria-label={`${metric.label}: ${metric.value.toFixed(1)} percent here and ${benchmark === null ? "comparison unavailable" : `${benchmark.toFixed(1)} percent comparison`}`}>
             <i style={{ width: `${(metric.value / max) * 100}%` }} />
             {benchmark !== null && <b style={{ left: `${(benchmark / max) * 100}%` }} />}
           </div>
@@ -518,7 +518,7 @@ function BoundaryFallback({ geometry, data, metric }: { geometry: GeometryRespon
   const contextPath = layout ? compoundPathForPolygons(contextPolygons, layout) : "";
   return (
     <div className={styles.mapFallback} data-map-fallback="true">
-      <svg viewBox="0 0 100 100" role="img" aria-label={`Cached official boundary for ${data.location.label}`}>
+      <svg viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet" role="img" aria-label={`Cached official boundary for ${data.location.label}`}>
         <rect width="100" height="100" fill="#e8ede6" />
         {areaPath ? <path d={areaPath} fill={fill} fillOpacity="0.28" fillRule="evenodd" clipRule="evenodd" stroke="#111a1d" strokeWidth="0.55" vectorEffect="non-scaling-stroke" /> : null}
         {contextPath ? <path d={contextPath} fill="none" stroke="#f4b71b" strokeWidth="0.75" strokeDasharray="2.2 1.6" vectorEffect="non-scaling-stroke" /> : null}
@@ -731,6 +731,11 @@ function MapCanvas({ geometry, data, metric }: { geometry: GeometryResponse | nu
       if (cancelled || !containerRef.current) return;
       const fill = metric?.interpretation === "adverse_signal" ? "#b9462c" : metric?.interpretation === "favorable_signal" ? "#446342" : "#6e7a74";
       try {
+        const supportsWebgl = (maplibregl as typeof maplibregl & { supported?: () => boolean }).supported;
+        if (typeof supportsWebgl === "function" && !supportsWebgl()) {
+          setMapError("The interactive map is unavailable in this browser.");
+          return;
+        }
         map = new maplibregl.Map({
           container: containerRef.current,
           style: {

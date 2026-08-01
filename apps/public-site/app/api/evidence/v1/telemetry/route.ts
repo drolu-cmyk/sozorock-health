@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { recordExplorePerformance, recordExploreUsage } from "../../../../lib/explore-workspace-runtime";
 import { enforceEvidenceRateLimit } from "../../../../lib/evidence-rate-limit";
+import { evidenceRuntimeEnvironment } from "../../../../lib/evidence-runtime-authority";
 import { isTrustedSameOrigin, readBoundedText } from "../../../../lib/request-security";
 import type { EvidenceUsageEvent, PerformanceSample } from "@sozorock/evidence-core";
 
@@ -37,7 +38,7 @@ export async function POST(request: NextRequest) {
     if (!bounded.ok) return NextResponse.json({ error: "The request was not accepted." }, { status: 400 });
     const body = JSON.parse(bounded.text) as Record<string, unknown>;
     const kind = body.kind === "performance" ? "performance" : "usage";
-    const environment = body.environment === "test" || body.environment === "staging" ? body.environment : "production";
+    const environment = evidenceRuntimeEnvironment();
     if (kind === "usage") {
       const eventName = typeof body.eventName === "string" && usageEvents.has(body.eventName as EvidenceUsageEvent["eventName"]) ? body.eventName as EvidenceUsageEvent["eventName"] : null;
       if (!eventName) return NextResponse.json({ error: "Unsupported telemetry event." }, { status: 400 });

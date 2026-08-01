@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { validateExplorePlaceBriefV1 } from "@sozorock/evidence-core";
-import { getApprovedCountyBrief } from "../../../../lib/approved-evidence-snapshot";
+import { getPublishedCountyBrief } from "../../../../lib/published-evidence-runtime";
 import { enforceEvidenceRateLimit } from "../../../../lib/evidence-rate-limit";
+import {
+  requireEvidenceGeographyId,
+  requirePublishedEvidenceSnapshot,
+} from "../../../../lib/evidence-runtime-authority";
+import { placeAgentRuntimeVersions } from "../../../../lib/place-agent-openai";
 
 export const runtime = "nodejs";
 
@@ -26,7 +31,18 @@ export async function GET(request: NextRequest) {
       status: "incompatible_geography",
     }, { status: 400 });
   }
-  const brief = getApprovedCountyBrief(geoid);
+  if (process.env.NODE_ENV === "production") {
+    try {
+      await requirePublishedEvidenceSnapshot(placeAgentRuntimeVersions.snapshotContentHash);
+      await requireEvidenceGeographyId(geoid);
+    } catch {
+      return NextResponse.json(
+        { error: "The approved evidence snapshot is temporarily unavailable." },
+        { status: 503, headers: { "Cache-Control": "no-store" } },
+      );
+    }
+  }
+  const brief = await getPublishedCountyBrief(geoid);
   if (!brief) return NextResponse.json({ error: "County GEOID not found in the approved Census geography snapshot." }, { status: 404 });
   const validation = validateExplorePlaceBriefV1(brief);
   if (!validation.valid) {

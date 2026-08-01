@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createPilotOnboardingRequest } from "../../../../lib/explore-workspace-runtime";
-import { requireEvidenceCapability } from "../../../../lib/evidence-runtime-authority";
+import { evidenceRuntimeEnvironment, requireEvidenceCapability } from "../../../../lib/evidence-runtime-authority";
 import { enforceEvidenceRateLimit } from "../../../../lib/evidence-rate-limit";
 import { isTrustedSameOrigin, readBoundedText } from "../../../../lib/request-security";
 
@@ -8,7 +8,6 @@ export const runtime = "nodejs";
 
 const roles = new Set(["county", "provider", "library", "community_host", "education_workforce", "funder", "research"]);
 const sources = new Set(["explore", "funder_snapshot", "partner_referral", "direct"]);
-const environments = new Set(["staging", "production", "test"]);
 
 export async function POST(request: NextRequest) {
   try {
@@ -28,7 +27,7 @@ export async function POST(request: NextRequest) {
     const role = typeof body.role === "string" && roles.has(body.role) ? body.role as "county" | "provider" | "library" | "community_host" | "education_workforce" | "funder" | "research" : "county";
     const intendedUse = typeof body.intendedUse === "string" ? body.intendedUse : "";
     const source = typeof body.source === "string" && sources.has(body.source) ? body.source as "explore" | "funder_snapshot" | "partner_referral" | "direct" : "explore";
-    const environment = typeof body.environment === "string" && environments.has(body.environment) ? body.environment as "staging" | "production" | "test" : "production";
+    const environment = evidenceRuntimeEnvironment();
     const consent = body.consent === true;
     const created = await createPilotOnboardingRequest({ countyGeoid, organization, contactName, email, role, intendedUse, consent, source, environment });
     return NextResponse.json({ contractVersion: "explore.pilot-onboarding.v1", request: created }, { status: 201, headers: { "Cache-Control": "no-store" } });

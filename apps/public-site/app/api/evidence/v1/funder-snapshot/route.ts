@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from "pdf-lib";
 import { buildFunderEvidenceSnapshot } from "@sozorock/evidence-core";
-import { getApprovedCountyBrief } from "../../../../lib/approved-evidence-snapshot";
+import { getPublishedCountyBrief } from "../../../../lib/published-evidence-runtime";
 import { enforceEvidenceRateLimit } from "../../../../lib/evidence-rate-limit";
 import {
   requireEvidenceAuthority,
   requireEvidenceCapability,
+  requireEvidenceGeographyId,
   sha256,
   writeExecutionAudit,
 } from "../../../../lib/evidence-runtime-authority";
@@ -154,7 +155,7 @@ export async function GET(request: NextRequest) {
     if (!/^\d{5}$/.test(geoid)) {
       return NextResponse.json({ error: "Provide a valid five-digit Census county GEOID." }, { status: 400 });
     }
-    const brief = getApprovedCountyBrief(geoid);
+    const brief = await getPublishedCountyBrief(geoid);
     if (!brief) return NextResponse.json({ error: "County GEOID not found." }, { status: 404 });
     const snapshot = buildFunderEvidenceSnapshot({
       brief,
@@ -162,12 +163,13 @@ export async function GET(request: NextRequest) {
       generatedAt: new Date().toISOString(),
     });
     const authority = await requireEvidenceAuthority(placeAgentRuntimeVersions.snapshotContentHash);
+    const geographyUuid = await requireEvidenceGeographyId(geoid);
     await writeExecutionAudit({
       executionType: "partner_brief",
       contractVersion: "explore.funder-snapshot.v1",
       policyVersion: placeAgentRuntimeVersions.policyVersion,
       snapshotUuid: authority.snapshotUuid,
-      geographyUuid: null,
+      geographyUuid,
       requestHash: sha256({
         geoid,
         format: request.nextUrl.searchParams.get("format") === "pdf" ? "pdf" : "json",

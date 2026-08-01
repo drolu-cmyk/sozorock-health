@@ -17,6 +17,9 @@ const evidenceInfrastructure = await readFile(
 );
 const nextConfig = await readFile(new URL("../next.config.ts", import.meta.url), "utf8");
 const runtimeVerifier = await readFile(new URL("../../../scripts/verify-public-runtime-security.mjs", import.meta.url), "utf8");
+const runtimeAuthority = await readFile(new URL("../app/lib/evidence-runtime-authority.ts", import.meta.url), "utf8");
+const exploreRoute = await readFile(new URL("../app/api/explore/route.ts", import.meta.url), "utf8");
+const placeBriefRoute = await readFile(new URL("../app/api/evidence/v1/place-brief/route.ts", import.meta.url), "utf8");
 const packageLock = JSON.parse(await readFile(new URL("../../../package-lock.json", import.meta.url), "utf8"));
 
 test("production agent is evidence-only, stored-output disabled, bounded, and tool allowlisted", () => {
@@ -81,6 +84,17 @@ test("Explore-only release workflow cannot deploy CB-CAP", () => {
   assert.match(workflow, /aws amplify update-app[\s\S]*--build-spec "\$public_build_spec"/);
   assert.match(workflow, /aws amplify update-branch[\s\S]*--branch-name "\$AMPLIFY_BRANCH"[\s\S]*--build-spec "\$public_build_spec"/);
   assert.match(workflow, /expected_build_spec_hash/);
+});
+
+test("production Explore requests are tied to persisted canonical geography and approved snapshots", () => {
+  assert.match(runtimeAuthority, /requirePublishedEvidenceSnapshot/);
+  assert.match(runtimeAuthority, /authority='census'/);
+  assert.match(runtimeAuthority, /kind='county'/);
+  assert.match(runtimeAuthority, /requireEvidenceGeographyId/);
+  assert.match(exploreRoute, /requirePublishedEvidenceSnapshot/);
+  assert.match(exploreRoute, /requireEvidenceGeographyId\(evidenceGeoid\)/);
+  assert.match(placeBriefRoute, /requirePublishedEvidenceSnapshot/);
+  assert.match(placeBriefRoute, /requireEvidenceGeographyId\(geoid\)/);
 });
 
 test("staging acceptance capacity is isolated from production agent limits", () => {
