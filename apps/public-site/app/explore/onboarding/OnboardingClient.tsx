@@ -37,7 +37,6 @@ export function OnboardingClient() {
           intendedUse: String(form.get("intendedUse") ?? ""),
           consent: form.get("consent") === "on",
           source: "explore",
-          environment: "production",
         }),
       });
       const payload = await response.json().catch(() => ({})) as { request?: { id?: string }; error?: string };

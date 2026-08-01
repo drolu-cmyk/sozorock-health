@@ -3,6 +3,7 @@ import { enforceAgentRateLimit } from "../../../../lib/evidence-rate-limit";
 import {
   requireEvidenceAuthority,
   requireEvidenceGeographyId,
+  evidenceRuntimeEnvironment,
   sha256,
   writeExecutionAudit,
 } from "../../../../lib/evidence-runtime-authority";
@@ -109,7 +110,7 @@ export async function POST(request: NextRequest) {
     try {
       await recordExplorePerformance({
         operation: "agent_response",
-        environment: process.env.RUNTIME_ENV === "staging" ? "staging" : "production",
+        environment: evidenceRuntimeEnvironment(),
         latencyMs: Date.now() - startedAt,
         success: true,
         errorClass: null,
@@ -152,7 +153,7 @@ export async function POST(request: NextRequest) {
       try {
         await recordExplorePerformance({
           operation: "agent_response",
-          environment: process.env.RUNTIME_ENV === "staging" ? "staging" : "production",
+          environment: evidenceRuntimeEnvironment(),
           latencyMs: Date.now() - startedAt,
           success: false,
           errorClass: (error as { name?: string }).name ?? "UnknownError",

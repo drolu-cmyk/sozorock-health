@@ -41,6 +41,14 @@ const shareRoute = await readFile(
   new URL("../app/api/evidence/v1/workspace-share/route.ts", import.meta.url),
   "utf8",
 );
+const onboardingRoute = await readFile(
+  new URL("../app/api/evidence/v1/onboarding/route.ts", import.meta.url),
+  "utf8",
+);
+const telemetryRoute = await readFile(
+  new URL("../app/api/evidence/v1/telemetry/route.ts", import.meta.url),
+  "utf8",
+);
 
 test("workspace authentication is Cognito-backed and tenant scoped", () => {
   assert.match(auth, /GetUserCommand/);
@@ -92,6 +100,10 @@ test("workspace event route enforces same-origin, authentication and human-only 
   assert.doesNotMatch(eventRoute, /Access-Control-Allow-Origin/);
   assert.match(shareRoute, /getSharedWorkspacePlan/);
   assert.doesNotMatch(shareRoute, /tenantId/);
+  assert.match(onboardingRoute, /evidenceRuntimeEnvironment\(\)/);
+  assert.doesNotMatch(onboardingRoute, /body\.environment/);
+  assert.match(telemetryRoute, /evidenceRuntimeEnvironment\(\)/);
+  assert.doesNotMatch(telemetryRoute, /body\.environment/);
 });
 
 test("collaboration records that carry history are immutable", () => {

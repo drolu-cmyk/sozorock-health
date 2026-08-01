@@ -11,6 +11,21 @@ import {
 
 const client = new RDSDataClient({});
 
+export type EvidenceRuntimeEnvironment = "production" | "staging" | "test";
+
+/**
+ * Environment is deployment authority, never request data.  Production and
+ * staging workflows set the rate-limit namespace even when Amplify does not
+ * expose a separate runtime flag; an unset local process is deliberately
+ * treated as test so it cannot create production traction records.
+ */
+export function evidenceRuntimeEnvironment(): EvidenceRuntimeEnvironment {
+  const configured = (process.env.RUNTIME_ENV ?? process.env.PLACE_AGENT_RATE_LIMIT_NAMESPACE ?? "").trim().toLowerCase();
+  if (configured === "production") return "production";
+  if (configured === "staging") return "staging";
+  return "test";
+}
+
 type AuthorityConfig = {
   clusterArn: string;
   secretArn: string;
