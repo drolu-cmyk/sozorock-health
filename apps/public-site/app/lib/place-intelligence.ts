@@ -12,13 +12,13 @@ export type PlaceIntelligenceMetric = {
   plainLanguage: string;
   response: string;
   value: number;
-  national: number;
+  national: number | null;
   state: number | null;
-  difference: number;
+  difference: number | null;
   score: number;
-  release: "2025" | "2024";
+  release: string;
   higherValueMeaning: "adverse" | "favorable" | "context_dependent";
-  interpretation: "adverse_signal" | "favorable_signal" | "context_only" | "equal";
+  interpretation: "adverse_signal" | "favorable_signal" | "context_only" | "equal" | "comparison_unavailable";
 };
 
 type LocalPlan = null | {
@@ -62,8 +62,8 @@ export type PlaceIntelligence = {
     title: string;
     category: PlaceIntelligenceMetric["category"];
     localValue: number;
-    benchmarkValue: number;
-    difference: number;
+    benchmarkValue: number | null;
+    difference: number | null;
     source: string;
     status: EvidenceStatus;
   }>;
@@ -95,13 +95,17 @@ export type PlaceIntelligence = {
 
 const number = new Intl.NumberFormat("en-US");
 
-function statusForDifference(difference: number): EvidenceStatus {
+function statusForDifference(difference: number | null): EvidenceStatus {
+  if (difference === null) return "Insufficient evidence";
   if (difference >= 5) return "Supported";
   if (difference >= 2) return "Potentially supported";
   return "Insufficient evidence";
 }
 
 function compare(metric: PlaceIntelligenceMetric) {
+  if (metric.difference === null || metric.national === null) {
+    return `${metric.value.toFixed(1)}%; comparison unavailable for this release`;
+  }
   const direction = metric.difference >= 0 ? "above" : "below";
   return `${metric.value.toFixed(1)}%, ${Math.abs(metric.difference).toFixed(1)} percentage points ${direction} the national geographic average`;
 }
@@ -126,16 +130,16 @@ export function buildPlaceIntelligence({
   const strongSignals = metrics.filter((metric) => {
     const adverse = metric.interpretation
       ? metric.interpretation === "adverse_signal"
-      : metric.difference >= 5;
-    return adverse && metric.difference >= 5;
+      : metric.difference !== null && metric.difference >= 5;
+    return adverse && metric.difference !== null && metric.difference >= 5;
   });
   const accessSignals = metrics
-    .filter((metric) => metric.category === "Access barriers")
-    .sort((a, b) => b.difference - a.difference);
+    .filter((metric) => metric.category === "Access barriers" && metric.difference !== null)
+    .sort((a, b) => (b.difference ?? 0) - (a.difference ?? 0));
   const supportedAccessSignals = accessSignals.filter((metric) =>
     metric.interpretation
       ? metric.interpretation === "adverse_signal"
-      : metric.difference >= 2,
+      : metric.difference !== null && metric.difference >= 2,
   );
   const preventionSignals = metrics
     .filter((metric) => metric.category === "Prevention")
@@ -167,7 +171,7 @@ export function buildPlaceIntelligence({
     ? accessSignals.slice(0, 4).map((metric) => ({
         title: metric.label,
         statement:
-          metric.difference >= 2
+          metric.difference !== null && metric.difference >= 2
             ? `${metric.label} is a locally elevated practical barrier at ${compare(metric)}.`
             : `${metric.label} is available for this place, but the estimate is not materially above the national geographic average.`,
         status: statusForDifference(metric.difference),
@@ -185,7 +189,7 @@ export function buildPlaceIntelligence({
 
   const hubSignal = supportedAccessSignals[0];
   const providerSignal = metrics.find((metric) =>
-    ["access2", "lacktrpt", "mobility", "disability"].includes(metric.key),
+    ["access2", "lacktrpt", "mobility", "disability"].includes(metric.key) && metric.difference !== null,
   );
   const preventionSignal = preventionSignals[0];
 
@@ -315,10 +319,10 @@ export function buildPlaceIntelligence({
         status: "Supported",
       },
       {
-        title: "Major-road context",
+        title: "Geographic limits",
         statement:
-          "Roads provide orientation for delivery planning; they do not measure travel time or transportation access on their own.",
-        layer: "U.S. Census Bureau transportation network",
+          "The map does not create neighborhood hotspots or add decorative road layers. County evidence stays at county scope.",
+        layer: "Selected county boundary",
         status: "Supported",
       },
       {
