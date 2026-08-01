@@ -108,6 +108,7 @@ const hrsaContext = hrsaContextJson as {
   manifests: Array<{ sha256: string }>;
   counties: Record<string, HrsaCountyContext>;
 };
+export const hrsaCountySource = { officialUrl: hrsaContext.officialUrl };
 
 export function getHrsaCountyContext(geoid: string): HrsaCountyContext {
   return hrsaContext.counties[geoid] ?? { hpsa: [], muaP: [] };
@@ -131,6 +132,7 @@ const ahrfContext = ahrfContextJson as {
   manifests: { data: { sha256: string }; documentation: { sha256: string } };
   counties: Record<string, AhrfCountyContext>;
 };
+export const ahrfCountySource = { officialUrl: ahrfContext.officialUrl, releaseDate: ahrfContext.releaseDate };
 
 export function getAhrfCountyContext(geoid: string): AhrfCountyContext {
   return ahrfContext.counties[geoid] ?? { observations: [] };
@@ -159,6 +161,7 @@ const ahrqContext = ahrqContextJson as {
   manifests: { data: { sha256: string }; codebook: { sha256: string } };
   counties: Record<string, AhrqCountyContext>;
 };
+export const ahrqCountySource = { officialUrl: ahrqContext.officialUrl, releaseDate: ahrqContext.releaseDate };
 
 export function getAhrqCountyContext(geoid: string): AhrqCountyContext {
   return ahrqContext.counties[geoid] ?? { observations: [] };

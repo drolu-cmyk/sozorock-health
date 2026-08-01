@@ -239,6 +239,13 @@
 .measureTable span:last-child { border-right: 0; }
 .measureTable [role="columnheader"] { color: var(--green-dark); font-size: 10px; font-weight: 850; letter-spacing: .08em; text-transform: uppercase; }
 .measureTable small { color: #617074; line-height: 1.35; }
+.measureDetails { margin-top: 7px; }
+.measureDetails summary { display: inline-flex; align-items: center; gap: 4px; color: var(--green-dark); cursor: pointer; font-size: 11px; font-weight: 800; }
+.measureDetails dl { display: grid; gap: 5px; margin: 8px 0 0; padding: 8px; background: #f7f5ef; border: 1px solid var(--line); }
+.measureDetails dl div { display: grid; grid-template-columns: 92px 1fr; gap: 8px; }
+.measureDetails dt { color: var(--green-dark); font-size: 10px; font-weight: 800; text-transform: uppercase; }
+.measureDetails dd { margin: 0; color: #526064; font-size: 12px; line-height: 1.35; }
+.measureDetails a { color: inherit; text-decoration: underline; }
 .coverageMatrix > div { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); }
 .coverageMatrix article { padding: 14px; background: #fff; }
 .coverageMatrix article strong { text-transform: capitalize; }
@@ -252,6 +259,9 @@
 .mapCanvas :global(.maplibregl-ctrl button) { width: 44px; height: 44px; }
 .mapFigure figcaption { padding: 14px 20px; border-top: 1px solid #a9b2aa; color: #4e5a5d; font-size: 12px; line-height: 1.45; }
 .mapEmpty { display: grid; min-height: 540px; place-items: center; align-content: center; gap: 10px; padding: 24px; color: #53605a; text-align: center; }
+.mapFallback { display: grid; min-height: 540px; place-items: center; align-content: center; gap: 12px; padding: 24px; background: #e8ede6; color: #53605a; text-align: center; }
+.mapFallback svg { display: block; width: min(88%, 520px); height: 360px; }
+.mapFallback p { max-width: 34rem; margin: 0; font-size: 13px; line-height: 1.45; }
 .mapSidebar { padding: clamp(28px, 4vw, 48px); background: var(--ink); color: #fff; }
 .mapSidebar > span { margin-bottom: 8px; color: #b9d0b6; }
 .mapSidebar h2 { margin: 0; font-size: clamp(32px, 4vw, 48px); letter-spacing: -.05em; line-height: 1; }
@@ -450,7 +460,7 @@
   .sourceStrip > details { grid-column: 1 / -1; }
   .sourceList { position: fixed; inset: 92px 14px 14px; width: auto; max-height: none; }
   .mapFigure { grid-template-rows: minmax(420px, 56vh) auto; }
-  .mapCanvas, .mapEmpty { min-height: 420px; }
+  .mapCanvas, .mapEmpty, .mapFallback { min-height: 420px; }
   .mapSidebar { display: block; }
   .mapMetric { margin-top: 20px; }
   .actionHeader { grid-template-columns: 1fr; gap: 16px; padding-top: 34px; }

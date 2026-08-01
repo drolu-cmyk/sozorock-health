@@ -75,16 +75,22 @@ type Metric = {
   higherValueMeaning: "adverse" | "favorable" | "context_dependent";
   value: number;
   confidence: string;
-  national: number;
+  national: number | null;
   state: number | null;
-  difference: number;
+  difference: number | null;
   score: number;
-  release: "2025" | "2024";
+  release: string;
   previousValue: number | null;
   trendDifference: number | null;
   trend: "improving" | "worsening" | "stable" | "unavailable";
-  interpretation: "adverse_signal" | "favorable_signal" | "context_only" | "equal";
+  interpretation: "adverse_signal" | "favorable_signal" | "context_only" | "equal" | "comparison_unavailable";
   geographyLevel: "county" | "census_place" | "zcta";
+  universe: string;
+  adjustment: string;
+  source: string;
+  sourceUrl: string;
+  dataPeriod: string;
+  retrievedAt: string | null;
 };
 
 type ContextMeasure = {
@@ -98,6 +104,7 @@ type ContextMeasure = {
   period: string;
   direction: string;
   definition: string;
+  sourceUrl?: string;
 };
 
 type PlanningDocument = {
@@ -449,8 +456,8 @@ function EvidenceCard({
           ? "Local context"
           : "Evidence missing";
   const Icon = kind === "attention" ? WarningCircle : kind === "improving" || kind === "protective" ? ChartLineUp : Info;
-  const benchmark = metric?.state ?? metric?.national ?? 0;
-  const max = metric ? Math.max(metric.value, benchmark, 1) * 1.15 : 1;
+  const benchmark = metric?.state ?? metric?.national ?? null;
+  const max = metric ? Math.max(metric.value, benchmark ?? 0, 1) * 1.15 : 1;
   return (
     <article className={`${styles.evidenceCard} ${styles[`evidenceCard_${kind}`]}`}>
       <header><Icon size={24} aria-hidden="true" /><span>{title}</span></header>
@@ -459,14 +466,16 @@ function EvidenceCard({
           <h3>{metric.label}</h3>
           <p>{metric.plainLanguage}</p>
           <div className={styles.metricValue}><strong>{metric.value.toFixed(1)}%</strong><span>{metric.geographyLevel === "zcta" ? "ZCTA estimate" : "Selected place"}</span></div>
-          <div className={styles.miniBar} aria-label={`${metric.label}: ${metric.value.toFixed(1)} percent here and ${benchmark.toFixed(1)} percent comparison`}>
+          <div className={styles.miniBar} aria-label={`${metric.label}: ${metric.value.toFixed(1)} percent here and ${benchmark === null ? "comparison unavailable" : `${benchmark.toFixed(1)} percent comparison`}`}>
             <i style={{ width: `${(metric.value / max) * 100}%` }} />
-            <b style={{ left: `${(benchmark / max) * 100}%` }} />
+            {benchmark !== null && <b style={{ left: `${(benchmark / max) * 100}%` }} />}
           </div>
           <small>
             {kind === "improving" && metric.previousValue !== null
               ? `${Math.abs(metric.trendDifference ?? 0).toFixed(1)} points better than the prior release.`
-              : `${Math.abs(metric.difference).toFixed(1)} points ${metric.difference >= 0 ? "above" : "below"} the ${metric.state !== null ? "state" : "national"} comparison.`}
+              : metric.difference === null
+                ? "Comparison unavailable for this release."
+                : `${Math.abs(metric.difference).toFixed(1)} points ${metric.difference >= 0 ? "above" : "below"} the ${metric.state !== null ? "state" : "national"} comparison.`}
           </small>
         </>
       ) : (
@@ -480,6 +489,78 @@ function EvidenceCard({
   );
 }
 
+function collectRings(value: unknown, rings: number[][][]) {
+  if (!Array.isArray(value) || value.length === 0) return;
+  const first = value[0];
+  if (Array.isArray(first) && first.length >= 2 && typeof first[0] === "number") {
+    rings.push(value as number[][]);
+    return;
+  }
+  value.forEach((item) => collectRings(item, rings));
+}
+
+function BoundaryFallback({ geometry, data, metric }: { geometry: GeometryResponse; data: PlaceResponse; metric?: Metric }) {
+  const rings: number[][][] = [];
+  geometry.area.features.forEach((feature) => {
+    const featureGeometry = feature.geometry as { coordinates?: unknown } | undefined;
+    collectRings(featureGeometry?.coordinates, rings);
+  });
+  const extent = geometry.bounds && geometry.bounds.length === 4 ? geometry.bounds : null;
+  const [minX, minY, maxX, maxY] = extent ?? [-1, -1, 1, 1];
+  const width = Math.max(maxX - minX, 0.0001);
+  const height = Math.max(maxY - minY, 0.0001);
+  const fill = metric?.interpretation === "adverse_signal" ? "#b9462c" : metric?.interpretation === "favorable_signal" ? "#446342" : "#6e7a74";
+  const pathForRing = (ring: number[][]) => ring.map(([x, y], index) => {
+    const px = ((x - minX) / width) * 100;
+    const py = 100 - ((y - minY) / height) * 100;
+    return `${index === 0 ? "M" : "L"}${px.toFixed(3)} ${py.toFixed(3)}`;
+  }).join(" ") + " Z";
+  return (
+    <div className={styles.mapFallback} data-map-fallback="true">
+      <svg viewBox="0 0 100 100" role="img" aria-label={`Cached official boundary for ${data.location.label}`}>
+        <rect width="100" height="100" fill="#e8ede6" />
+        {rings.map((ring, index) => <path key={index} d={pathForRing(ring)} fill={fill} fillOpacity="0.28" stroke="#111a1d" strokeWidth="0.55" vectorEffect="non-scaling-stroke" />)}
+      </svg>
+      <p>Interactive map unavailable. Showing the cached official boundary for this geography.</p>
+    </div>
+  );
+}
+
+function MetricDetails({ metric }: { metric: Metric }) {
+  return (
+    <details className={styles.measureDetails}>
+      <summary><Info size={14} aria-hidden="true" /> Details</summary>
+      <dl>
+        <div><dt>Definition</dt><dd>{metric.plainLanguage}</dd></div>
+        <div><dt>Universe</dt><dd>{metric.universe}</dd></div>
+        <div><dt>Uncertainty</dt><dd>{metric.confidence || "Not supplied by source"}</dd></div>
+        <div><dt>Source</dt><dd><a href={metric.sourceUrl} target="_blank" rel="noreferrer">{metric.source}</a></dd></div>
+        <div><dt>Release</dt><dd>{metric.release}</dd></div>
+        <div><dt>Data period</dt><dd>{metric.dataPeriod}</dd></div>
+        <div><dt>Geography</dt><dd>{metric.geographyLevel === "county" ? "County" : metric.geographyLevel}</dd></div>
+        <div><dt>Direction</dt><dd>{metric.direction}</dd></div>
+      </dl>
+    </details>
+  );
+}
+
+function ContextMeasureDetails({ measure }: { measure: ContextMeasure }) {
+  return (
+    <details className={styles.measureDetails}>
+      <summary><Info size={14} aria-hidden="true" /> Details</summary>
+      <dl>
+        <div><dt>Definition</dt><dd>{measure.definition}</dd></div>
+        <div><dt>Uncertainty</dt><dd>{measure.uncertainty ?? "Not supplied by source"}</dd></div>
+        <div><dt>Source</dt><dd>{measure.sourceUrl ? <a href={measure.sourceUrl} target="_blank" rel="noreferrer">{measure.source}</a> : measure.source}</dd></div>
+        <div><dt>Release</dt><dd>{measure.release}</dd></div>
+        <div><dt>Data period</dt><dd>{measure.period}</dd></div>
+        <div><dt>Geography</dt><dd>County</dd></div>
+        <div><dt>Direction</dt><dd>{measure.direction}</dd></div>
+      </dl>
+    </details>
+  );
+}
+
 function BriefView({ data }: { data: PlaceResponse }) {
   const attention = data.metrics
     .filter((metric) => metric.interpretation === "adverse_signal")
@@ -489,10 +570,10 @@ function BriefView({ data }: { data: PlaceResponse }) {
     .sort((a, b) => Math.abs(b.trendDifference ?? 0) - Math.abs(a.trendDifference ?? 0))[0];
   const protective = data.metrics
     .filter((metric) => metric.direction === "protective")
-    .sort((a, b) => Math.abs(b.difference) - Math.abs(a.difference))[0];
+    .sort((a, b) => Math.abs(b.difference ?? 0) - Math.abs(a.difference ?? 0))[0];
   const contextual = data.metrics
     .filter((metric) => metric.direction === "contextual")
-    .sort((a, b) => Math.abs(b.difference) - Math.abs(a.difference))[0];
+    .sort((a, b) => Math.abs(b.difference ?? 0) - Math.abs(a.difference ?? 0))[0];
   const plan = data.localPlan.documents[0];
   return (
     <section id="brief-panel" role="tabpanel" aria-labelledby="brief-tab" className={styles.viewPanel}>
@@ -546,10 +627,10 @@ function BriefView({ data }: { data: PlaceResponse }) {
               </div>
               {data.metrics.map((metric) => (
                 <div role="row" key={metric.key}>
-                  <span role="cell"><strong>{metric.label}</strong><small>{metric.plainLanguage}</small></span>
+                  <span role="cell"><strong>{metric.label}</strong><small>{metric.plainLanguage}</small><MetricDetails metric={metric} /></span>
                   <span role="cell">{metric.value.toFixed(1)}%</span>
                   <span role="cell">{metric.state === null ? "Unavailable" : `${metric.state.toFixed(1)}%`}</span>
-                  <span role="cell">{metric.national.toFixed(1)}%</span>
+                  <span role="cell">{metric.national === null ? "Comparison unavailable" : `${metric.national.toFixed(1)}%`}</span>
                   <span role="cell">{metric.confidence || "Not supplied"}</span>
                 </div>
               ))}
@@ -558,6 +639,7 @@ function BriefView({ data }: { data: PlaceResponse }) {
                   <span role="cell">
                     <strong>{measure.label}</strong>
                     <small>{measure.source} · {measure.definition} · {measure.period}</small>
+                    <ContextMeasureDetails measure={measure} />
                   </span>
                   <span role="cell">{measure.value === null
                     ? "Unavailable"
@@ -694,7 +776,9 @@ function MapCanvas({ geometry, data, metric }: { geometry: GeometryResponse | nu
   }, [data, geometry, metric]);
 
   if (!geometry?.area.features.length || mapError) {
-    return <div className={styles.mapEmpty}><MapTrifold size={44} aria-hidden="true" /><p>{mapError || "The official boundary is temporarily unavailable."}</p></div>;
+    return geometry?.area.features.length
+      ? <BoundaryFallback geometry={geometry} data={data} metric={metric} />
+      : <div className={styles.mapEmpty}><MapTrifold size={44} aria-hidden="true" /><p>{mapError || "The official boundary is temporarily unavailable."}</p></div>;
   }
   return <div ref={containerRef} className={styles.mapCanvas} data-map-ready="false" role="img" aria-label={`Official ${data.location.evidenceGeography.replace("_", " ")} boundary for ${data.location.label}`} />;
 }
@@ -875,7 +959,7 @@ function VisualsView({ data }: { data: PlaceResponse }) {
   const [measureKey, setMeasureKey] = useState(data.metrics[0]?.key ?? "");
   const selected = data.metrics.find((metric) => metric.key === measureKey) ?? data.metrics[0];
   const chartMax = selected
-    ? Math.max(selected.value, selected.national, selected.state ?? 0, 1)
+    ? Math.max(selected.value, selected.national ?? 0, selected.state ?? 0, 1)
     : 1;
   const workforceCount = data.workforceContext.hpsa.length
     + data.workforceContext.medicallyUnderservedAreasAndPopulations.length;
@@ -907,8 +991,11 @@ function VisualsView({ data }: { data: PlaceResponse }) {
               </div>
               <dl className={styles.measureDefinition}>
                 <div><dt>Meaning</dt><dd>{selected.plainLanguage}</dd></div>
-                <div><dt>Data period</dt><dd>{selected.release === "2025" ? "2022–2023" : "Source-specific period"}</dd></div>
-                <div><dt>Adjustment</dt><dd>{selected.confidence.includes("age-adjusted") ? "Age-adjusted" : "See source definition"}</dd></div>
+                <div><dt>Universe</dt><dd>{selected.universe}</dd></div>
+                <div><dt>Source</dt><dd><a href={selected.sourceUrl} target="_blank" rel="noreferrer">{selected.source}</a></dd></div>
+                <div><dt>Release</dt><dd>{selected.release}</dd></div>
+                <div><dt>Data period</dt><dd>{selected.dataPeriod}</dd></div>
+                <div><dt>Adjustment</dt><dd>{selected.adjustment}</dd></div>
                 <div><dt>Uncertainty</dt><dd>{selected.confidence}</dd></div>
                 <div><dt>Direction</dt><dd>{selected.direction}</dd></div>
                 <div><dt>Geography</dt><dd>County</dd></div>
@@ -946,8 +1033,8 @@ function VisualsView({ data }: { data: PlaceResponse }) {
         <summary>All available measures <CaretRight size={18} aria-hidden="true" /></summary>
         <div className={styles.measureTable} role="table" aria-label="All compatible county measures">
           <div role="row"><span role="columnheader">Measure</span><span role="columnheader">Value</span><span role="columnheader">Direction</span><span role="columnheader">Release</span><span role="columnheader">Geography</span></div>
-          {data.metrics.map((metric) => <div role="row" key={metric.key}><span role="cell"><strong>{metric.label}</strong><small>{metric.plainLanguage}</small></span><span role="cell">{metric.value.toFixed(1)}%</span><span role="cell">{metric.direction}</span><span role="cell">{metric.release}</span><span role="cell">County</span></div>)}
-          {data.contextMeasures.map((measure) => <div role="row" key={measure.key}><span role="cell"><strong>{measure.label}</strong><small>{measure.definition}</small></span><span role="cell">{measure.value ?? "Unavailable"} {measure.unit}</span><span role="cell">{measure.direction}</span><span role="cell">{measure.release}</span><span role="cell">County</span></div>)}
+          {data.metrics.map((metric) => <div role="row" key={metric.key}><span role="cell"><strong>{metric.label}</strong><small>{metric.plainLanguage}</small><MetricDetails metric={metric} /></span><span role="cell">{metric.value.toFixed(1)}%</span><span role="cell">{metric.direction}</span><span role="cell">{metric.release}</span><span role="cell">County</span></div>)}
+          {data.contextMeasures.map((measure) => <div role="row" key={measure.key}><span role="cell"><strong>{measure.label}</strong><small>{measure.definition}</small><ContextMeasureDetails measure={measure} /></span><span role="cell">{measure.value ?? "Unavailable"} {measure.unit}</span><span role="cell">{measure.direction}</span><span role="cell">{measure.release}</span><span role="cell">County</span></div>)}
         </div>
       </details>
     </section>
@@ -1167,7 +1254,7 @@ export function ExploreClient() {
         {!data && !loading && !pendingResolution && (
           <>
             <section className={styles.hero}>
-              <div className={styles.heroCopy}><span>SozoRock Place Intelligence</span><h1>See what is shaping health in this place.</h1><p>Search a U.S. ZIP Code, city or county. See what current sources support, what remains uncertain and where local review is still needed.</p></div>
+              <div className={styles.heroCopy}><span>SozoRock Place Intelligence</span><h1>Start with a place.</h1><p>Explore public evidence about the conditions that shape access to care. See the geography, source, date, comparison, and limits before drawing a conclusion.</p></div>
               <LocationSearch onSelect={loadPlace} />
               <div className={styles.coverage}><span><strong>Nationwide</strong> geography</span><span><strong>Source-traceable</strong> evidence</span><span><strong>Strictly non-clinical</strong> place analysis</span></div>
             </section>

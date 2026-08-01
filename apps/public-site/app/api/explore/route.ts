@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { buildPlaceIntelligence } from "../../lib/place-intelligence";
 import {
   acsCountySource,
+  ahrfCountySource,
+  ahrqCountySource,
   countyRecordByFips,
   getApprovedCountyBrief,
   getAcsCountyContext,
@@ -43,8 +45,9 @@ const paths: Record<string, { group: "conditions" | "barriers" | "prevention"; f
 
 function interpretation(
   higherValueMeaning: "adverse" | "favorable" | "context_dependent",
-  difference: number,
+  difference: number | null,
 ) {
+  if (difference === null) return "comparison_unavailable" as const;
   if (higherValueMeaning === "context_dependent") return "context_only" as const;
   if (Math.abs(difference) < 2) return "equal" as const;
   return higherValueMeaning === "adverse"
@@ -99,6 +102,8 @@ export async function GET(request: NextRequest) {
   const workforceContext = getHrsaCountyContext(evidenceGeoid);
   const ahrfContext = getAhrfCountyContext(evidenceGeoid);
   const ahrqContext = getAhrqCountyContext(evidenceGeoid);
+  const cdcSource = brief.publicData.sources.find((source) => source.sourceId === "cdc-places");
+  const cdcObservations = new Map(brief.publicData.observations.map((observation) => [observation.label, observation]));
 
   const metrics = exploreMetrics.flatMap((definition) => {
     const path = paths[definition.key];
@@ -106,8 +111,9 @@ export async function GET(request: NextRequest) {
     const metric = record[path.group][path.field];
     const national = nationalCountyBenchmark[path.group][path.field] ?? null;
     const state = stateBenchmark[path.group][path.field] ?? null;
-    if (!metric || metric.value === null || national === null) return [];
-    const difference = Number((metric.value - national).toFixed(1));
+    if (!metric || metric.value === null) return [];
+    const difference = national === null ? null : Number((metric.value - national).toFixed(1));
+    const observation = cdcObservations.get(definition.label);
     return [{
       ...definition,
       value: metric.value,
@@ -115,13 +121,19 @@ export async function GET(request: NextRequest) {
       national,
       state,
       difference,
-      score: scoreMetric(metric.value, national, definition.higherValueMeaning),
-      release: "2025" as const,
+      score: national === null ? 0 : scoreMetric(metric.value, national, definition.higherValueMeaning),
+      release: cdcSource?.releaseDate ?? "Release unavailable",
       previousValue: null,
       trendDifference: null,
       trend: "unavailable" as const,
       interpretation: interpretation(definition.higherValueMeaning, difference),
       geographyLevel: "county" as const,
+      universe: observation?.universe ?? "See the official CDC PLACES measure definition for the eligible population.",
+      adjustment: observation?.adjustment ?? "See the official source definition.",
+      source: cdcSource?.title ?? "CDC PLACES",
+      sourceUrl: cdcSource?.officialUrl ?? "https://www.cdc.gov/places/",
+      dataPeriod: cdcSource ? `${cdcSource.dataPeriod.start}–${cdcSource.dataPeriod.end}` : "Data period unavailable",
+      retrievedAt: cdcSource?.retrievedAt ?? null,
     }];
   });
   const priorities = metrics
@@ -163,6 +175,7 @@ export async function GET(request: NextRequest) {
       period: `${acsCountySource.dataPeriod.start}–${acsCountySource.dataPeriod.end}`,
       direction: "contextual",
       definition: "Total population",
+      sourceUrl: acsCountySource.officialUrl,
     },
     {
       key: "acs-median-age",
@@ -175,6 +188,7 @@ export async function GET(request: NextRequest) {
       period: `${acsCountySource.dataPeriod.start}–${acsCountySource.dataPeriod.end}`,
       direction: "contextual",
       definition: "Median age of the total population",
+      sourceUrl: acsCountySource.officialUrl,
     },
     {
       key: "acs-poverty",
@@ -187,6 +201,7 @@ export async function GET(request: NextRequest) {
       period: `${acsCountySource.dataPeriod.start}–${acsCountySource.dataPeriod.end}`,
       direction: "adverse",
       definition: "Population for whom poverty status is determined",
+      sourceUrl: acsCountySource.officialUrl,
     },
     {
       key: "acs-no-vehicle",
@@ -199,6 +214,7 @@ export async function GET(request: NextRequest) {
       period: `${acsCountySource.dataPeriod.start}–${acsCountySource.dataPeriod.end}`,
       direction: "adverse",
       definition: "Households",
+      sourceUrl: acsCountySource.officialUrl,
     },
     {
       key: "acs-internet",
@@ -211,6 +227,7 @@ export async function GET(request: NextRequest) {
       period: `${acsCountySource.dataPeriod.start}–${acsCountySource.dataPeriod.end}`,
       direction: "protective",
       definition: "Households",
+      sourceUrl: acsCountySource.officialUrl,
     },
     ...ahrfContext.observations.map((observation) => ({
       key: `ahrf-${observation.variableId}`,
@@ -223,6 +240,7 @@ export async function GET(request: NextRequest) {
       period: observation.year,
       direction: observation.direction,
       definition: "County context measure; the source does not supply a margin of error.",
+      sourceUrl: ahrfCountySource.officialUrl,
     })),
     ...ahrqContext.observations.map((observation) => ({
       key: `ahrq-${observation.variableId}`,
@@ -233,6 +251,7 @@ export async function GET(request: NextRequest) {
       source: `AHRQ Community-Level Health (${observation.originalSource})`,
       release: "2025-09-01",
       period: observation.dataPeriod,
+      sourceUrl: ahrqCountySource.officialUrl,
       direction: observation.direction,
       definition: `${observation.domain.replace(/^\d+\.\s*/, "")} · ${observation.topic}. The source workbook does not supply a margin of error for this field.`,
     })),

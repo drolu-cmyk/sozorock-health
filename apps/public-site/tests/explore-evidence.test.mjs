@@ -87,9 +87,23 @@ test("the public map uses MapLibre with official boundaries and no decorative ro
   assert.match(component, /import\("maplibre-gl"\)/);
   assert.match(component, /official-boundary/);
   assert.match(component, /verifiedResources/);
+  assert.match(component, /data-map-fallback/);
+  assert.match(component, /cached official boundary/);
   assert.match(component, /The shaded value applies to the selected geography as a whole/);
   assert.doesNotMatch(geometry, /Transportation\/MapServer/);
   assert.doesNotMatch(component, /Major roads|showRoads|heatmap/i);
+});
+
+test("available measures remain visible when a compatible benchmark is missing", async () => {
+  const route = await source("app/api/explore/route.ts");
+  const component = await source("app/explore/ExploreClient.tsx");
+  assert.doesNotMatch(route, /metric\.value === null \|\| national === null/);
+  assert.match(route, /comparison_unavailable/);
+  assert.match(component, /Comparison unavailable/);
+  assert.match(component, /MetricDetails/);
+  assert.match(component, /Universe/);
+  assert.match(component, /Source/);
+  assert.match(component, /Data period/);
 });
 
 test("directionality and geography are explicit in the public evidence response", async () => {
