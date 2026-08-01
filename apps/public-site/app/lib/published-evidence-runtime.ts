@@ -51,6 +51,55 @@ type Row = unknown[];
 
 const runtimeRecordCache = new Map<string, CountyEvidenceSnapshotRecord>();
 
+const OPTIONAL_SOURCE_META: Record<string, {
+  publisher: string;
+  title: string;
+}> = {
+  "census-acs5": {
+    publisher: "U.S. Census Bureau",
+    title: "American Community Survey five-year estimates",
+  },
+  "hrsa-workforce": {
+    publisher: "Health Resources and Services Administration",
+    title: "Health Professional Shortage Areas and Medically Underserved Areas and Populations",
+  },
+  "ahrf-workforce": {
+    publisher: "Health Resources and Services Administration, Bureau of Health Workforce",
+    title: "Area Health Resources Files",
+  },
+  "ahrq-clh": {
+    publisher: "Agency for Healthcare Research and Quality",
+    title: "Community-Level Health Database",
+  },
+};
+
+export type PublishedWorkforceContext = {
+  hpsa: Array<{
+    designationId: string;
+    designationName: string;
+    designationType: string;
+    componentType: string;
+    discipline: string;
+    status: string;
+    score: number | null;
+    designationDate: string | null;
+    lastUpdateDate: string | null;
+    wholeCounty: boolean;
+  }>;
+  muaP: Array<{
+    designationId: string;
+    designationName: string;
+    designationType: string;
+    componentType: string;
+    populationType: string;
+    status: string;
+    imuScore: number | null;
+    designationDate: string | null;
+    lastUpdateDate: string | null;
+    wholeCounty: boolean;
+  }>;
+};
+
 function field(row: Row | undefined, index: number) {
   return evidenceFieldValue(row?.[index] as Parameters<typeof evidenceFieldValue>[0]);
 }
@@ -63,6 +112,19 @@ function numberValue(value: unknown) {
   if (value === null || value === undefined || value === "") return null;
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : null;
+}
+
+function jsonValue(value: unknown): number | string | boolean | null {
+  if (value === null || value === undefined || value === "") return null;
+  if (typeof value !== "string") return value as number | string | boolean;
+  try {
+    const parsed = JSON.parse(value) as unknown;
+    return parsed === null || typeof parsed === "number" || typeof parsed === "string" || typeof parsed === "boolean"
+      ? parsed
+      : value;
+  } catch {
+    return value;
+  }
 }
 
 function dateValue(value: unknown) {
@@ -99,6 +161,28 @@ async function loadPublishedBriefFromEvidenceCore(geoid: string): Promise<Explor
   const cdcPeriodEnd = text(field(snapshotRow, 7), "");
   const cdcRetrievedAt = text(field(snapshotRow, 8), generatedAt);
   const cdcOfficialUrl = text(field(snapshotRow, 9), "https://data.cdc.gov/500-Cities-Places/PLACES-County-Data-GIS-Friendly-Format-2025-releas/i46a-9kgh");
+
+  const sourceVersionResult = await executeEvidenceSql(
+    `SELECT sv.id::text, sv.source_id, sv.release_date::text,
+            sv.data_period_start::text, sv.data_period_end::text,
+            sv.retrieved_at::text, sv.official_url, sv.review_status::text
+       FROM evidence.snapshot_source_version link
+       JOIN evidence.source_version sv ON sv.id=link.source_version_id
+      WHERE link.snapshot_id=CAST(:snapshot_id AS uuid)
+        AND sv.review_status='verified'`,
+    [{ name: "snapshot_id", value: { stringValue: snapshotUuid } }],
+  );
+  const sourceVersions = (sourceVersionResult.records ?? []).map((row) => ({
+    id: text(field(row, 0)),
+    sourceId: text(field(row, 1)),
+    releaseDate: text(field(row, 2)),
+    periodStart: dateValue(field(row, 3)),
+    periodEnd: dateValue(field(row, 4)),
+    retrievedAt: text(field(row, 5), generatedAt),
+    officialUrl: text(field(row, 6)),
+    reviewStatus: text(field(row, 7), "verified"),
+  }));
+  const sourceVersionById = new Map(sourceVersions.map((source) => [source.id, source]));
 
   const geographyResult = await executeEvidenceSql(
     `SELECT id::text, name, display_name, state_fips, county_fips, vintage,
@@ -200,8 +284,91 @@ async function loadPublishedBriefFromEvidenceCore(geoid: string): Promise<Explor
     const metric = value === null ? undefined : { value, ci: low !== null && high !== null ? [low, high] as [number, number] : null };
     if (metric) record[mapping.group][mapping.field] = metric;
   }
-  record.dataCoverage = Object.keys(MEASURE_GROUPS).length ? Math.round((observations.length / Object.keys(MEASURE_GROUPS).length) * 100) : 0;
-  record.sourceStatus = observations.length ? "available" : "unavailable";
+
+  const cdcObservationCount = observations.length;
+
+  // Context sources are loaded into the same approved snapshot as CDC PLACES.
+  // Keep their original source version, period, universe and uncertainty; never
+  // reinterpret them as CDC measures or as a different geography.
+  const contextSourceIds = sourceVersions
+    .filter((source) => source.sourceId !== "cdc-places" && source.sourceId !== "census-geography")
+    .map((source) => source.id);
+  if (contextSourceIds.length > 0) {
+    const placeholders = contextSourceIds.map((_, index) => `:context_source_${index}`).join(", ");
+    const contextParameters = [
+      { name: "geography_id", value: { stringValue: geographyId } },
+      ...contextSourceIds.map((id, index) => ({ name: `context_source_${index}`, value: { stringValue: id } })),
+    ];
+    const contextResult = await executeEvidenceSql(
+      `SELECT o.id::text, o.measure_definition_id::text, d.source_measure_id,
+              d.name, d.direction::text, d.unit, d.universe, d.adjustment,
+              o.numeric_value, o.value_json::text, o.confidence_low, o.confidence_high,
+              o.margin_of_error, o.release_date::text, o.data_period_start::text,
+              o.data_period_end::text, o.retrieved_at::text, o.review_status::text,
+              o.source_record_id, o.source_url, sv.id::text, sv.source_id,
+              sv.official_url, sv.release_date::text, sv.data_period_start::text,
+              sv.data_period_end::text, sv.retrieved_at::text
+         FROM evidence.metric_observation o
+         JOIN evidence.measure_definition d ON d.id=o.measure_definition_id
+         JOIN evidence.source_version sv ON sv.id=o.source_version_id
+        WHERE o.geography_id=CAST(:geography_id AS uuid)
+          AND o.source_version_id IN (${placeholders})
+          AND o.review_status='verified'
+        ORDER BY sv.source_id, d.source_measure_id`,
+      contextParameters,
+    );
+    for (const row of contextResult.records ?? []) {
+      const id = text(field(row, 0));
+      const sourceVersionId = text(field(row, 20));
+      const sourceId = text(field(row, 21));
+      const sourceVersion = sourceVersionById.get(sourceVersionId);
+      const cite = citationId(id);
+      const direction = text(field(row, 4), "unknown") as "adverse" | "protective" | "contextual" | "unknown";
+      observations.push({
+        id,
+        measureDefinitionId: text(field(row, 1)),
+        label: text(field(row, 3), text(field(row, 2), sourceId)),
+        direction,
+        unit: text(field(row, 5), "context"),
+        universe: text(field(row, 6), "See the official source definition for the eligible population."),
+        adjustment: text(field(row, 7), "not_applicable"),
+        value: numberValue(field(row, 8)) ?? jsonValue(field(row, 9)),
+        confidence: {
+          low: numberValue(field(row, 10)),
+          high: numberValue(field(row, 11)),
+          marginOfError: numberValue(field(row, 12)),
+        },
+        geographyId,
+        sourceVersionId,
+        releaseDate: text(field(row, 13), sourceVersion?.releaseDate ?? ""),
+        dataPeriod: { start: dateValue(field(row, 14)), end: dateValue(field(row, 15)) },
+        reviewStatus: "verified",
+        interpretation: direction === "contextual" || direction === "unknown" ? "context_only" : "not_rankable",
+        benchmarkObservationId: null,
+        citationIds: [cite],
+      });
+      const metadata = sourceVersion ?? {
+        releaseDate: text(field(row, 23)),
+        periodStart: dateValue(field(row, 24)),
+        periodEnd: dateValue(field(row, 25)),
+        retrievedAt: text(field(row, 26), generatedAt),
+        officialUrl: text(field(row, 22)),
+      };
+      citations.push({
+        id: cite,
+        sourceVersionId,
+        documentId: null,
+        officialUrl: text(field(row, 19), metadata.officialUrl),
+        pageNumber: null,
+        section: null,
+        sourceField: field(row, 2) === null ? null : text(field(row, 2), text(field(row, 3))),
+        quotedText: null,
+        reviewStatus: "verified",
+      });
+    }
+  }
+  record.dataCoverage = Object.keys(MEASURE_GROUPS).length ? Math.round((cdcObservationCount / Object.keys(MEASURE_GROUPS).length) * 100) : 0;
+  record.sourceStatus = cdcObservationCount ? "available" : "unavailable";
   runtimeRecordCache.set(geoid, record);
 
   const snapshot: CountyEvidenceSnapshot = {
@@ -223,7 +390,26 @@ async function loadPublishedBriefFromEvidenceCore(geoid: string): Promise<Explor
   const brief = buildCountyPlaceBrief(record, snapshot, geoid);
   brief.publicData.observations = observations;
   brief.citations = citations;
-  brief.publicData.sources = observations.length ? [{
+  const publishedSources = sourceVersions
+    .filter((source) => source.sourceId !== "census-geography")
+    .map((source) => {
+      const meta = OPTIONAL_SOURCE_META[source.sourceId] ?? {
+        publisher: "Published evidence source",
+        title: source.sourceId,
+      };
+      return {
+        sourceId: source.sourceId,
+        sourceVersionId: source.id,
+        publisher: source.sourceId === "cdc-places" ? "Centers for Disease Control and Prevention" : meta.publisher,
+        title: source.sourceId === "cdc-places" ? "PLACES: Local Data for Better Health" : meta.title,
+        officialUrl: source.officialUrl || (source.sourceId === "cdc-places" ? cdcOfficialUrl : ""),
+        releaseDate: source.releaseDate,
+        dataPeriod: { start: source.periodStart, end: source.periodEnd },
+        retrievedAt: source.retrievedAt,
+        reviewStatus: "verified" as const,
+      };
+    });
+  brief.publicData.sources = publishedSources.length ? publishedSources : observations.length ? [{
     sourceId: "cdc-places",
     sourceVersionId: cdcSourceVersionId,
     publisher: "Centers for Disease Control and Prevention",
@@ -271,6 +457,47 @@ async function loadPublishedBriefFromEvidenceCore(geoid: string): Promise<Explor
   }));
   if (coverage.length) brief.publicData.sourceCoverage = coverage;
   return brief;
+}
+
+export async function getPublishedWorkforceContext(geoid: string): Promise<PublishedWorkforceContext> {
+  if (evidenceRuntimeEnvironment() === "test") {
+    const fixture = await import("./approved-evidence-snapshot");
+    return fixture.getHrsaCountyContext(geoid);
+  }
+  const result = await executeEvidenceSql(
+    `SELECT d.source_record_id, d.designation_family, d.discipline,
+            d.designation_name, d.designation_type, d.component_type, d.status,
+            d.score, d.designation_date::text, d.last_update_date::text,
+            d.whole_county, d.source_scope, d.source_metadata::text,
+            COALESCE(d.source_metadata->>'populationType', d.source_metadata->>'population_type', d.designation_type)
+       FROM evidence.workforce_designation d
+       JOIN evidence.geography g ON g.id=d.geography_id
+      WHERE g.authority='census' AND g.kind='county' AND g.authority_id=:geoid
+        AND d.review_status='verified'
+      ORDER BY d.designation_family, d.source_record_id`,
+    [{ name: "geoid", value: { stringValue: geoid } }],
+  );
+  const context: PublishedWorkforceContext = { hpsa: [], muaP: [] };
+  for (const row of result.records ?? []) {
+    const family = text(field(row, 1));
+    const item = {
+      designationId: text(field(row, 0)),
+      designationName: text(field(row, 3), "HRSA designation"),
+      designationType: text(field(row, 4)),
+      componentType: text(field(row, 5)),
+      status: text(field(row, 6), "Unknown"),
+      score: numberValue(field(row, 7)),
+      designationDate: dateValue(field(row, 8)),
+      lastUpdateDate: dateValue(field(row, 9)),
+      wholeCounty: Boolean(field(row, 10)),
+    };
+    if (family === "hpsa") {
+      context.hpsa.push({ ...item, discipline: text(field(row, 2), "Medical underservice") });
+    } else if (family === "mua_p") {
+      context.muaP.push({ ...item, populationType: text(field(row, 13), text(field(row, 4))), imuScore: numberValue(field(row, 7)) });
+    }
+  }
+  return context;
 }
 
 export async function getPublishedCountyBrief(geoid: string) {

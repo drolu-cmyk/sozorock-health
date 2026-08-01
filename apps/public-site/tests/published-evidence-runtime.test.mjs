@@ -14,6 +14,9 @@ test("production Explore evidence reads the persistent Evidence Core and keeps t
   assert.match(runtime, /evidence\.source_coverage/);
   assert.match(runtime, /evidence\.geography/);
   assert.match(runtime, /evidence\.evidence_snapshot/);
+  assert.match(runtime, /snapshot_source_version/);
+  assert.match(runtime, /context_source_/);
+  assert.match(runtime, /getPublishedWorkforceContext/);
 });
 
 test("Explore routes do not resolve county evidence through the bundled fixture", async () => {

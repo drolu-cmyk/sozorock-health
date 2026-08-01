@@ -14,6 +14,7 @@ import {
 import {
   getPublishedCountyBrief,
   getPublishedCountyRecord,
+  getPublishedWorkforceContext,
 } from "../../lib/published-evidence-runtime";
 import { exploreMetrics, safeGeoid, scoreMetric, type ExploreKind } from "../../lib/explore-health";
 import { enforceEvidenceRateLimit } from "../../lib/evidence-rate-limit";
@@ -128,14 +129,62 @@ export async function GET(request: NextRequest) {
   if (!brief) return NextResponse.json({ error: "The approved evidence snapshot is temporarily unavailable." }, { status: 503 });
   const stateBenchmark = stateCountyBenchmark(record.stateCode);
   const useFixtureOnlyForTests = evidenceRuntimeEnvironment() === "test";
-  const acsContext = useFixtureOnlyForTests ? getAcsCountyContext(evidenceGeoid) : {
-    population: null, populationMoe: null, medianAge: null, medianAgeMoe: null,
-    povertyPercent: null, povertyPercentMoe: null, noVehiclePercent: null,
-    noVehiclePercentMoe: null, internetSubscriptionPercent: null, internetSubscriptionPercentMoe: null,
+  const persistentWorkforce = useFixtureOnlyForTests ? null : await getPublishedWorkforceContext(evidenceGeoid);
+  const persistentContextObservations = useFixtureOnlyForTests ? [] : brief.publicData.observations.filter((observation) => {
+    const sourceVersion = brief.publicData.sources.find((source) => source.sourceVersionId === observation.sourceVersionId);
+    return sourceVersion && sourceVersion.sourceId !== "cdc-places";
+  });
+  const contextBySourceField = new Map(persistentContextObservations.map((observation) => {
+    const citation = brief.citations.find((item) => item.id === observation.citationIds[0]);
+    const source = brief.publicData.sources.find((item) => item.sourceVersionId === observation.sourceVersionId);
+    return [`${source?.sourceId ?? ""}:${citation?.sourceField ?? observation.label}`, observation] as const;
+  }));
+  const contextNumber = (field: string) => {
+    const observation = contextBySourceField.get(`census-acs5:${field}`);
+    return observation && typeof observation.value === "number" ? observation.value : null;
   };
-  const workforceContext = useFixtureOnlyForTests ? getHrsaCountyContext(evidenceGeoid) : { hpsa: [], muaP: [] };
-  const ahrfContext = useFixtureOnlyForTests ? getAhrfCountyContext(evidenceGeoid) : { observations: [] };
-  const ahrqContext = useFixtureOnlyForTests ? getAhrqCountyContext(evidenceGeoid) : { observations: [] };
+  const contextMoe = (field: string) => contextBySourceField.get(`census-acs5:${field}`)?.confidence.marginOfError ?? null;
+  const acsContext = useFixtureOnlyForTests ? getAcsCountyContext(evidenceGeoid) : {
+    population: contextNumber("population"),
+    populationMoe: contextMoe("population"),
+    medianAge: contextNumber("medianAge"),
+    medianAgeMoe: contextMoe("medianAge"),
+    povertyPercent: contextNumber("povertyPercent"),
+    povertyPercentMoe: contextMoe("povertyPercent"),
+    noVehiclePercent: contextNumber("noVehiclePercent"),
+    noVehiclePercentMoe: contextMoe("noVehiclePercent"),
+    internetSubscriptionPercent: contextNumber("internetSubscriptionPercent"),
+    internetSubscriptionPercentMoe: contextMoe("internetSubscriptionPercent"),
+  };
+  const workforceContext = useFixtureOnlyForTests ? getHrsaCountyContext(evidenceGeoid) : persistentWorkforce ?? { hpsa: [], muaP: [] };
+  const ahrfContext = useFixtureOnlyForTests ? getAhrfCountyContext(evidenceGeoid) : {
+    observations: persistentContextObservations
+      .filter((observation) => brief.publicData.sources.find((source) => source.sourceVersionId === observation.sourceVersionId)?.sourceId === "ahrf-workforce")
+      .map((observation) => ({
+        variableId: observation.measureDefinitionId,
+        label: observation.label,
+        value: typeof observation.value === "number" ? observation.value : null,
+        unit: observation.unit,
+        year: observation.dataPeriod.end?.slice(0, 4) ?? observation.releaseDate.slice(0, 4),
+        direction: observation.direction,
+      })),
+  };
+  const ahrqContext = useFixtureOnlyForTests ? getAhrqCountyContext(evidenceGeoid) : {
+    observations: persistentContextObservations
+      .filter((observation) => brief.publicData.sources.find((source) => source.sourceVersionId === observation.sourceVersionId)?.sourceId === "ahrq-clh")
+      .map((observation) => ({
+        variableId: observation.measureDefinitionId,
+        label: observation.label,
+        value: observation.value,
+        unit: observation.unit,
+        dataPeriod: [observation.dataPeriod.start, observation.dataPeriod.end].filter(Boolean).join("–") || observation.releaseDate,
+        direction: observation.direction,
+        originalSource: "AHRQ Community-Level Health",
+        domain: "Approved county context",
+        topic: observation.label,
+        uncertainty: observation.confidence.marginOfError,
+      })),
+  };
   const cdcSource = brief.publicData.sources.find((source) => source.sourceId === "cdc-places");
   const cdcObservations = indexCdcObservations(
     brief.publicData.observations,
@@ -209,6 +258,20 @@ export async function GET(request: NextRequest) {
   const sourceCoverageById = new Map<string, (typeof brief.publicData.sourceCoverage)[number]>(
     brief.publicData.sourceCoverage.map((coverage) => [coverage.sourceId, coverage]),
   );
+  const sourceMeta = (sourceId: string, fallback: { officialUrl: string; releaseDate: string; dataPeriod: { start: string; end: string } }) => {
+    const source = brief.publicData.sources.find((item) => item.sourceId === sourceId);
+    return source ? {
+      officialUrl: source.officialUrl,
+      releaseDate: source.releaseDate,
+      dataPeriod: {
+        start: source.dataPeriod.start ?? fallback.dataPeriod.start,
+        end: source.dataPeriod.end ?? fallback.dataPeriod.end,
+      },
+    } : fallback;
+  };
+  const acsSourceMeta = sourceMeta("census-acs5", acsCountySource);
+  const ahrfSourceMeta = sourceMeta("ahrf-workforce", { ...ahrfCountySource, dataPeriod: { start: "2023-01-01", end: "2024-12-31" } });
+  const ahrqSourceMeta = sourceMeta("ahrq-clh", { ...ahrqCountySource, dataPeriod: { start: "2023-01-01", end: "2023-12-31" } });
   const contextMeasures = [
     {
       key: "acs-population",
@@ -217,11 +280,11 @@ export async function GET(request: NextRequest) {
       unit: "people",
       uncertainty: acsContext.populationMoe === null ? null : `±${acsContext.populationMoe.toLocaleString("en-US")}`,
       source: "American Community Survey",
-      release: acsCountySource.releaseDate,
-      period: `${acsCountySource.dataPeriod.start}–${acsCountySource.dataPeriod.end}`,
+      release: acsSourceMeta.releaseDate,
+      period: `${acsSourceMeta.dataPeriod.start}–${acsSourceMeta.dataPeriod.end}`,
       direction: "contextual",
       definition: "Total population",
-      sourceUrl: acsCountySource.officialUrl,
+      sourceUrl: acsSourceMeta.officialUrl,
     },
     {
       key: "acs-median-age",
@@ -230,11 +293,11 @@ export async function GET(request: NextRequest) {
       unit: "years",
       uncertainty: acsContext.medianAgeMoe === null ? null : `±${acsContext.medianAgeMoe.toFixed(1)}`,
       source: "American Community Survey",
-      release: acsCountySource.releaseDate,
-      period: `${acsCountySource.dataPeriod.start}–${acsCountySource.dataPeriod.end}`,
+      release: acsSourceMeta.releaseDate,
+      period: `${acsSourceMeta.dataPeriod.start}–${acsSourceMeta.dataPeriod.end}`,
       direction: "contextual",
       definition: "Median age of the total population",
-      sourceUrl: acsCountySource.officialUrl,
+      sourceUrl: acsSourceMeta.officialUrl,
     },
     {
       key: "acs-poverty",
@@ -243,11 +306,11 @@ export async function GET(request: NextRequest) {
       unit: "percent",
       uncertainty: acsContext.povertyPercentMoe === null ? null : `±${acsContext.povertyPercentMoe.toFixed(1)} percentage points`,
       source: "American Community Survey",
-      release: acsCountySource.releaseDate,
-      period: `${acsCountySource.dataPeriod.start}–${acsCountySource.dataPeriod.end}`,
+      release: acsSourceMeta.releaseDate,
+      period: `${acsSourceMeta.dataPeriod.start}–${acsSourceMeta.dataPeriod.end}`,
       direction: "adverse",
       definition: "Population for whom poverty status is determined",
-      sourceUrl: acsCountySource.officialUrl,
+      sourceUrl: acsSourceMeta.officialUrl,
     },
     {
       key: "acs-no-vehicle",
@@ -256,11 +319,11 @@ export async function GET(request: NextRequest) {
       unit: "percent",
       uncertainty: acsContext.noVehiclePercentMoe === null ? null : `±${acsContext.noVehiclePercentMoe.toFixed(1)} percentage points`,
       source: "American Community Survey",
-      release: acsCountySource.releaseDate,
-      period: `${acsCountySource.dataPeriod.start}–${acsCountySource.dataPeriod.end}`,
+      release: acsSourceMeta.releaseDate,
+      period: `${acsSourceMeta.dataPeriod.start}–${acsSourceMeta.dataPeriod.end}`,
       direction: "adverse",
       definition: "Households",
-      sourceUrl: acsCountySource.officialUrl,
+      sourceUrl: acsSourceMeta.officialUrl,
     },
     {
       key: "acs-internet",
@@ -269,11 +332,11 @@ export async function GET(request: NextRequest) {
       unit: "percent",
       uncertainty: acsContext.internetSubscriptionPercentMoe === null ? null : `±${acsContext.internetSubscriptionPercentMoe.toFixed(1)} percentage points`,
       source: "American Community Survey",
-      release: acsCountySource.releaseDate,
-      period: `${acsCountySource.dataPeriod.start}–${acsCountySource.dataPeriod.end}`,
+      release: acsSourceMeta.releaseDate,
+      period: `${acsSourceMeta.dataPeriod.start}–${acsSourceMeta.dataPeriod.end}`,
       direction: "protective",
       definition: "Households",
-      sourceUrl: acsCountySource.officialUrl,
+      sourceUrl: acsSourceMeta.officialUrl,
     },
     ...ahrfContext.observations.map((observation) => ({
       key: `ahrf-${observation.variableId}`,
@@ -282,11 +345,11 @@ export async function GET(request: NextRequest) {
       unit: observation.unit,
       uncertainty: null,
       source: "Area Health Resources Files",
-      release: "2025-12-18",
+      release: ahrfSourceMeta.releaseDate,
       period: observation.year,
       direction: observation.direction,
       definition: "County context measure; the source does not supply a margin of error.",
-      sourceUrl: ahrfCountySource.officialUrl,
+      sourceUrl: ahrfSourceMeta.officialUrl,
     })),
     ...ahrqContext.observations.map((observation) => ({
       key: `ahrq-${observation.variableId}`,
@@ -295,9 +358,9 @@ export async function GET(request: NextRequest) {
       unit: observation.unit,
       uncertainty: observation.uncertainty,
       source: `AHRQ Community-Level Health (${observation.originalSource})`,
-      release: "2025-09-01",
+      release: ahrqSourceMeta.releaseDate,
       period: observation.dataPeriod,
-      sourceUrl: ahrqCountySource.officialUrl,
+      sourceUrl: ahrqSourceMeta.officialUrl,
       direction: observation.direction,
       definition: `${observation.domain.replace(/^\d+\.\s*/, "")} · ${observation.topic}. The source workbook does not supply a margin of error for this field.`,
     })),
