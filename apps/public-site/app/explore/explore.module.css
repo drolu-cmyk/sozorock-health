@@ -38,6 +38,15 @@
 .header nav { display: flex; align-items: center; gap: 24px; font-size: 14px; font-weight: 750; }
 .header nav a { display: inline-flex; min-height: 44px; align-items: center; gap: 8px; text-decoration: none; }
 .header nav a:last-child { padding-inline: 18px; background: var(--signal); color: var(--ink); }
+
+.formGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+.formGrid label, .agentQuestion > label { display: grid; gap: 8px; color: var(--ink-soft); font-weight: 700; }
+.formGrid input, .formGrid select, .agentQuestion > label textarea { width: 100%; border: 1px solid var(--line); background: var(--paper-bright); color: var(--ink); padding: 13px 14px; border-radius: 4px; }
+.consentLine { display: flex; gap: 10px; align-items: flex-start; margin-top: 18px; font-size: 14px; line-height: 1.5; }
+.consentLine input { margin-top: 4px; min-width: 18px; min-height: 18px; }
+.consentLine a { text-decoration: underline; }
+.planReviewCta { display: inline-flex; align-items: center; gap: 8px; margin-top: 16px; color: var(--green-dark); font-weight: 800; text-decoration: none; }
+@media (max-width: 680px) { .formGrid { grid-template-columns: 1fr; } }
 .brand { display: inline-flex; align-items: baseline; gap: 10px; font-size: 27px; font-weight: 750; letter-spacing: -.055em; }
 .brandWord { position: relative; white-space: nowrap; }
 .brandWord sup { position: absolute; top: -.08em; right: -.42em; font-size: .31em; line-height: 1; }

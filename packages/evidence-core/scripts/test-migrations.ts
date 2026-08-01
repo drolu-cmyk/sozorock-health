@@ -62,6 +62,9 @@ try {
     "workspace_tenant", "county_workspace", "workspace_event", "workspace_participant",
     "planning_scenario", "planning_scenario_version", "funder_snapshot",
     "source_adapter_contract", "source_adapter_execution",
+    "workspace_share_link", "workspace_handoff", "explore_onboarding_request",
+    "explore_usage_event", "explore_performance_sample", "source_change_proposal",
+    "entity_ip_readiness_check",
   ];
   const tables = await client.query(
     "SELECT table_name FROM information_schema.tables WHERE table_schema='evidence'",
@@ -148,8 +151,20 @@ try {
     );
   }
 
-  // Roll back the newest dependent schema first. This verifies 0008's down
-  // migration and prevents its foreign keys from masking older rollback tests.
+  // Roll back the newest dependent schemas first. Migration 0009 extends the
+  // 0008 workspace tables, so it must be removed before 0008 is exercised.
+  const down0009 = await readFile(
+    path.join(migrationsDir, "rollback", "0009_explore_agentic_operations.down.sql"),
+    "utf8",
+  );
+  await client.query(down0009);
+  const rolledBackAdvanced = await client.query(
+    "SELECT to_regclass('evidence.workspace_share_link') AS table_name",
+  );
+  if (rolledBackAdvanced.rows[0].table_name !== null) {
+    throw new Error("Migration 0009 rollback did not remove advanced Explore tables.");
+  }
+
   const down0008 = await readFile(
     path.join(migrationsDir, "rollback", "0008_explore_agentic_collaboration.down.sql"),
     "utf8",
@@ -235,6 +250,24 @@ try {
     throw new Error("Migration 0008 did not restore the county-workspace table.");
   }
 
+  const migration0009 = await readFile(
+    path.join(migrationsDir, "0009_explore_agentic_operations.sql"),
+    "utf8",
+  );
+  await client.query(migration0009);
+  const advancedTables = await client.query(
+    `SELECT table_name FROM information_schema.tables
+     WHERE table_schema='evidence' AND table_name IN (
+       'workspace_share_link','workspace_handoff','explore_onboarding_request',
+       'explore_usage_event','explore_performance_sample','source_change_proposal',
+       'entity_ip_readiness_check'
+     )`,
+  );
+  if (advancedTables.rows.length !== 7) {
+    throw new Error("Migration 0009 did not restore all advanced Explore tables.");
+  }
+  await client.query(migration0009);
+
   console.log(JSON.stringify({
     migrations: await migrationFiles(),
     postgisVersion: postgis.rows[0].version,
@@ -250,6 +283,8 @@ try {
     workspaceEventImmutableGuardPassed,
     rollback0008Passed: true,
     reapply0008Passed: true,
+    rollback0009Passed: true,
+    reapply0009Passed: true,
   }, null, 2));
 } finally {
   await client.end();

@@ -1,5 +1,9 @@
 export const WORKSPACE_EVENT_TYPES = [
   "workspace_created",
+  "workspace_shared",
+  "workspace_forked",
+  "workspace_handoff_created",
+  "workspace_handoff_accepted",
   "participant_joined",
   "evidence_loaded",
   "question_asked",

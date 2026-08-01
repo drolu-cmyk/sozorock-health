@@ -43,7 +43,7 @@ async function connect(event: APIGatewayProxyWebsocketEventV2): Promise<APIGatew
   }));
   const item = session.Item;
   const now = Math.floor(Date.now() / 1000);
-  if (!item || Number(item.expires_at?.N ?? "0") <= now) {
+  if (!item || item.kind?.S !== "session" || Number(item.expires_at?.N ?? "0") <= now) {
     return { statusCode: 401, body: "Unauthorized" };
   }
   const connectionId = event.requestContext.connectionId;
