@@ -208,7 +208,10 @@ export async function appendWorkspaceEvent(input: {
       transactionId,
     );
     const access = String(evidenceFieldValue(authorization.records?.[0]?.[0]) ?? "");
-    if (!access || (access === "viewer" && input.eventType !== "participant_joined")) {
+    // Read-only participants may observe the event stream, but they may never
+    // append an event (including participant_joined).  Invitations and joins
+    // are recorded by the authenticated server-side accept flow instead.
+    if (!access || access === "viewer") {
       throw new Error("The participant is not authorized to write this workspace event.");
     }
     const inserted = await executeEvidenceSql(
@@ -422,12 +425,7 @@ export async function createPlanningScenario(input: {
   });
 }
 
-export async function getWorkspacePlan(input: {
-  workspaceId: string;
-  tenantId: string;
-  actor: WorkspaceActor;
-}) {
-  await requireWorkspaceMembership(input);
+async function loadWorkspacePlan(input: { workspaceId: string; tenantId: string }) {
   const [workspace, sections, comments, questions, suggestions, scenarios] = await Promise.all([
     executeEvidenceSql(
       `SELECT w.id::text, w.title, w.version, w.status, w.updated_at::text,
@@ -534,6 +532,15 @@ export async function getWorkspacePlan(input: {
       createdAt: String(evidenceFieldValue(row[6]) ?? ""),
     })),
   };
+}
+
+export async function getWorkspacePlan(input: {
+  workspaceId: string;
+  tenantId: string;
+  actor: WorkspaceActor;
+}) {
+  await requireWorkspaceMembership(input);
+  return loadWorkspacePlan({ workspaceId: input.workspaceId, tenantId: input.tenantId });
 }
 
 export async function saveWorkspaceSection(input: {
@@ -813,6 +820,31 @@ export async function readWorkspaceShareLink(input: { token: string }) {
     title: String(evidenceFieldValue(row[5]) ?? ""),
     geoid: String(evidenceFieldValue(row[6]) ?? ""),
     geographyName: String(evidenceFieldValue(row[7]) ?? ""),
+  };
+}
+
+/**
+ * Read-only share links expose the current named plan, not just a token
+ * metadata record. The token is resolved once, then the same tenant-scoped
+ * query used by authenticated participants loads the plan without granting
+ * write access or returning the tenant identifier to the caller.
+ */
+export async function getSharedWorkspacePlan(input: { token: string }) {
+  const share = await readWorkspaceShareLink(input);
+  const plan = await loadWorkspacePlan({
+    workspaceId: share.workspaceId,
+    tenantId: share.tenantId,
+  });
+  return {
+    share: {
+      workspaceId: share.workspaceId,
+      scope: share.scope,
+      expiresAt: share.expiresAt,
+      title: share.title,
+      geoid: share.geoid,
+      geographyName: share.geographyName,
+    },
+    plan,
   };
 }
 

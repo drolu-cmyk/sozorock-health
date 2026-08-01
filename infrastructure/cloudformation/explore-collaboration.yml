@@ -249,6 +249,12 @@ Resources:
             Action:
               - dynamodb:PutItem
             Resource: !GetAtt RealtimeSessions.Arn
+          - Sid: AcceptRealtimeHandoff
+            Effect: Allow
+            Action:
+              - dynamodb:GetItem
+              - dynamodb:UpdateItem
+            Resource: !GetAtt RealtimeSessions.Arn
           - Sid: ListAndExpireConnections
             Effect: Allow
             Action:

@@ -37,6 +37,10 @@ const publicBuildSpec = await readFile(
   new URL("../../../infrastructure/amplify/public-site.yml", import.meta.url),
   "utf8",
 );
+const shareRoute = await readFile(
+  new URL("../app/api/evidence/v1/workspace-share/route.ts", import.meta.url),
+  "utf8",
+);
 
 test("workspace authentication is Cognito-backed and tenant scoped", () => {
   assert.match(auth, /GetUserCommand/);
@@ -50,6 +54,7 @@ test("workspace authentication is Cognito-backed and tenant scoped", () => {
   assert.doesNotMatch(runtime, /DO UPDATE SET idempotency_key/);
   assert.match(runtime, /authority='census'/);
   assert.doesNotMatch(runtime, /authority='US_CENSUS'/);
+  assert.match(runtime, /if \(!access \|\| access === "viewer"\)/);
 });
 
 test("real-time session is opaque, short-lived and never authorizes mutations", () => {
@@ -67,6 +72,8 @@ test("real-time session is opaque, short-lived and never authorizes mutations", 
   assert.match(realtimeHandoffAccept, /acceptRealtimeHandoff/);
   assert.match(infrastructure, /ThrottlingBurstLimit:\s*100/);
   assert.match(infrastructure, /TimeToLiveSpecification/);
+  assert.match(infrastructure, /dynamodb:GetItem/);
+  assert.match(infrastructure, /dynamodb:UpdateItem/);
 });
 
 test("Amplify exposes only approved server configuration to the Next.js runtime", () => {
@@ -83,6 +90,8 @@ test("workspace event route enforces same-origin, authentication and human-only 
   assert.match(eventRoute, /eventRequiresHumanAcceptance/);
   assert.match(eventRoute, /This action requires an authorized human participant/);
   assert.doesNotMatch(eventRoute, /Access-Control-Allow-Origin/);
+  assert.match(shareRoute, /getSharedWorkspacePlan/);
+  assert.doesNotMatch(shareRoute, /tenantId/);
 });
 
 test("collaboration records that carry history are immutable", () => {
