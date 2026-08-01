@@ -1,0 +1,20 @@
+{
+  "schemaVersion": "sozorock.place-intelligence.demo.v1",
+  "durationSeconds": 60,
+  "status": "approval_required",
+  "purpose": "Show a real county-first Explore workflow without claiming traction.",
+  "captureSource": "health.sozorockfoundation.org/explore",
+  "requiredScenes": [
+    "resolve a county by official name or GEOID",
+    "show Brief with source dates and evidence gaps",
+    "show Map with the selected county boundary and accessible table",
+    "ask a grounded non-clinical planning question",
+    "show Action with evidence-supported fit or insufficient evidence",
+    "show a workspace handoff or read-only share boundary",
+    "close with the SozoRock Health non-clinical boundary"
+  ],
+  "claimsPolicy": "Every spoken or on-screen claim must map to a cited production response. Do not show fabricated partners, outcomes, reach or user counts.",
+  "mediaApproval": "Required before external publication",
+  "narrationApproval": "Required before external publication",
+  "watermark": "none"
+}

@@ -1,12 +1,21 @@
 import { randomBytes, randomUUID } from "node:crypto";
 import type {
+  EvidenceUsageEvent,
+  PerformanceSample,
   ScenarioInputs,
   WorkspaceAccess,
   WorkspaceActor,
   WorkspaceEventType,
   WorkspaceRole,
 } from "@sozorock/evidence-core";
-import { buildPlanningScenario } from "@sozorock/evidence-core";
+import {
+  buildPlanningScenario,
+  buildUsageEvent,
+  buildPerformanceSample,
+  buildWorkspaceFork as buildWorkspaceForkContract,
+  evaluatePilotOnboarding,
+  hashOpaqueToken,
+} from "@sozorock/evidence-core";
 import {
   evidenceFieldValue,
   executeEvidenceSql,
@@ -724,6 +733,462 @@ export async function acceptWorkspaceInvitation(input: {
     });
     return { workspaceId, role, access, event };
   });
+}
+
+export async function createWorkspaceShareLink(input: {
+  workspaceId: string;
+  tenantId: string;
+  actor: WorkspaceActor;
+  scope: "read_only" | "contributor";
+  expiresInHours?: number;
+}) {
+  if (input.actor.actorType !== "human" || input.actor.access !== "owner") {
+    throw new Error("Only a human workspace owner may create a share link.");
+  }
+  await requireWorkspaceMembership({ ...input, write: true });
+  const token = randomBytes(32).toString("base64url");
+  const id = randomUUID();
+  const hours = Math.max(1, Math.min(168, Math.floor(input.expiresInHours ?? 72)));
+  await executeEvidenceSql(
+    `INSERT INTO evidence.workspace_share_link (
+       id, workspace_id, tenant_id, token_hash, scope, expires_at, created_by
+     ) VALUES (
+       CAST(:id AS uuid), CAST(:workspace_id AS uuid), CAST(:tenant_id AS uuid),
+       :token_hash, :scope, now() + (:hours * interval '1 hour'), :created_by
+     )`,
+    [
+      { name: "id", value: { stringValue: id } },
+      { name: "workspace_id", value: { stringValue: input.workspaceId } },
+      { name: "tenant_id", value: { stringValue: input.tenantId } },
+      { name: "token_hash", value: { stringValue: hashOpaqueToken(token) } },
+      { name: "scope", value: { stringValue: input.scope } },
+      { name: "hours", value: { longValue: hours } },
+      { name: "created_by", value: { stringValue: input.actor.principalId } },
+    ],
+  );
+  await executeEvidenceSql(
+    `UPDATE evidence.county_workspace SET share_mode='shared'
+     WHERE id=CAST(:workspace_id AS uuid) AND tenant_id=CAST(:tenant_id AS uuid)`,
+    [
+      { name: "workspace_id", value: { stringValue: input.workspaceId } },
+      { name: "tenant_id", value: { stringValue: input.tenantId } },
+    ],
+  );
+  await appendWorkspaceEvent({
+    workspaceId: input.workspaceId,
+    tenantId: input.tenantId,
+    eventType: "workspace_shared",
+    actor: input.actor,
+    idempotencyKey: `workspace-shared:${id}`,
+    evidenceSnapshotId: null,
+    payload: { shareLinkId: id, scope: input.scope, expiresInHours: hours },
+  });
+  return { id, token, scope: input.scope, expiresInHours: hours };
+}
+
+export async function readWorkspaceShareLink(input: { token: string }) {
+  if (input.token.length < 32 || input.token.length > 160) throw new Error("Share token is invalid.");
+  const result = await executeEvidenceSql(
+    `SELECT l.id::text, l.workspace_id::text, l.scope, l.expires_at::text,
+       w.tenant_id::text, w.title, g.authority_id, g.name
+     FROM evidence.workspace_share_link l
+     JOIN evidence.county_workspace w ON w.id=l.workspace_id
+     JOIN evidence.geography g ON g.id=w.geography_id
+     WHERE l.token_hash=:token_hash AND l.revoked_at IS NULL AND l.expires_at > now()
+       AND w.status='active'`,
+    [{ name: "token_hash", value: { stringValue: hashOpaqueToken(input.token) } }],
+  );
+  const row = result.records?.[0];
+  if (!row) throw new Error("This share link is invalid, expired, or revoked.");
+  await executeEvidenceSql(
+    `UPDATE evidence.workspace_share_link SET last_access_at=now()
+     WHERE id=CAST(:id AS uuid) AND revoked_at IS NULL`,
+    [{ name: "id", value: { stringValue: String(evidenceFieldValue(row[0]) ?? "") } }],
+  );
+  return {
+    workspaceId: String(evidenceFieldValue(row[1]) ?? ""),
+    scope: String(evidenceFieldValue(row[2]) ?? "read_only"),
+    expiresAt: String(evidenceFieldValue(row[3]) ?? ""),
+    tenantId: String(evidenceFieldValue(row[4]) ?? ""),
+    title: String(evidenceFieldValue(row[5]) ?? ""),
+    geoid: String(evidenceFieldValue(row[6]) ?? ""),
+    geographyName: String(evidenceFieldValue(row[7]) ?? ""),
+  };
+}
+
+export async function createWorkspaceHandoff(input: {
+  workspaceId: string;
+  tenantId: string;
+  actor: WorkspaceActor;
+  targetRole: "county_planner" | "community_partner" | "research_funder_viewer" | "foundation_reviewer";
+  expiresInHours?: number;
+}) {
+  if (input.actor.actorType !== "human" || !["owner", "contributor"].includes(input.actor.access)) {
+    throw new Error("Only an authorized human contributor may create a handoff.");
+  }
+  await requireWorkspaceMembership({ ...input, write: true });
+  const token = randomBytes(32).toString("base64url");
+  const id = randomUUID();
+  const hours = Math.max(1, Math.min(72, Math.floor(input.expiresInHours ?? 24)));
+  await executeEvidenceSql(
+    `INSERT INTO evidence.workspace_handoff (
+       id, workspace_id, tenant_id, source_principal_id, target_role,
+       token_hash, status, expires_at
+     ) VALUES (
+       CAST(:id AS uuid), CAST(:workspace_id AS uuid), CAST(:tenant_id AS uuid),
+       :source_principal_id, :target_role, :token_hash, 'pending',
+       now() + (:hours * interval '1 hour')
+     )`,
+    [
+      { name: "id", value: { stringValue: id } },
+      { name: "workspace_id", value: { stringValue: input.workspaceId } },
+      { name: "tenant_id", value: { stringValue: input.tenantId } },
+      { name: "source_principal_id", value: { stringValue: input.actor.principalId } },
+      { name: "target_role", value: { stringValue: input.targetRole } },
+      { name: "token_hash", value: { stringValue: hashOpaqueToken(token) } },
+      { name: "hours", value: { longValue: hours } },
+    ],
+  );
+  await executeEvidenceSql(
+    `UPDATE evidence.county_workspace SET share_mode='handoff_ready', last_handoff_at=now()
+     WHERE id=CAST(:workspace_id AS uuid) AND tenant_id=CAST(:tenant_id AS uuid)`,
+    [
+      { name: "workspace_id", value: { stringValue: input.workspaceId } },
+      { name: "tenant_id", value: { stringValue: input.tenantId } },
+    ],
+  );
+  await appendWorkspaceEvent({
+    workspaceId: input.workspaceId,
+    tenantId: input.tenantId,
+    eventType: "workspace_handoff_created",
+    actor: input.actor,
+    idempotencyKey: `workspace-handoff-created:${id}`,
+    evidenceSnapshotId: null,
+    payload: { handoffId: id, targetRole: input.targetRole, expiresInHours: hours },
+  });
+  return { id, token, targetRole: input.targetRole, expiresInHours: hours };
+}
+
+export async function acceptWorkspaceHandoff(input: {
+  token: string;
+  tenantId: string;
+  actor: WorkspaceActor;
+  idempotencyKey: string;
+}) {
+  if (input.actor.actorType !== "human") throw new Error("Only an authenticated human may accept a handoff.");
+  return executeEvidenceTransaction(async (transactionId) => {
+    const result = await executeEvidenceSql(
+      `SELECT id::text, workspace_id::text, target_role
+       FROM evidence.workspace_handoff
+       WHERE token_hash=:token_hash AND tenant_id=CAST(:tenant_id AS uuid)
+         AND status='pending' AND expires_at > now()
+       FOR UPDATE`,
+      [
+        { name: "token_hash", value: { stringValue: hashOpaqueToken(input.token) } },
+        { name: "tenant_id", value: { stringValue: input.tenantId } },
+      ],
+      transactionId,
+    );
+    const row = result.records?.[0];
+    if (!row) throw new Error("This handoff is invalid, expired, or already accepted.");
+    const handoffId = String(evidenceFieldValue(row[0]) ?? "");
+    const workspaceId = String(evidenceFieldValue(row[1]) ?? "");
+    const targetRole = String(evidenceFieldValue(row[2]) ?? "");
+    const access = targetRole === "research_funder_viewer" ? "viewer" : "contributor";
+    await executeEvidenceSql(
+      `INSERT INTO evidence.workspace_participant (
+         workspace_id, principal_id, role, access, display_name, joined_at
+       ) VALUES (
+         CAST(:workspace_id AS uuid), :principal_id, CAST(:role AS evidence.workspace_role),
+         CAST(:access AS evidence.workspace_access), :display_name, now()
+       ) ON CONFLICT (workspace_id, principal_id) DO UPDATE SET
+         revoked_at=NULL, role=EXCLUDED.role, access=EXCLUDED.access,
+         display_name=EXCLUDED.display_name`,
+      [
+        { name: "workspace_id", value: { stringValue: workspaceId } },
+        { name: "principal_id", value: { stringValue: input.actor.principalId } },
+        { name: "role", value: { stringValue: targetRole } },
+        { name: "access", value: { stringValue: access } },
+        { name: "display_name", value: { stringValue: input.actor.displayName } },
+      ],
+      transactionId,
+    );
+    await executeEvidenceSql(
+      `UPDATE evidence.workspace_handoff
+       SET status='accepted', accepted_by=:principal_id, accepted_at=now()
+       WHERE id=CAST(:id AS uuid) AND status='pending'`,
+      [
+        { name: "id", value: { stringValue: handoffId } },
+        { name: "principal_id", value: { stringValue: input.actor.principalId } },
+      ],
+      transactionId,
+    );
+    await appendWorkspaceEvent({
+      workspaceId,
+      tenantId: input.tenantId,
+      eventType: "workspace_handoff_accepted",
+      actor: input.actor,
+      idempotencyKey: `workspace-handoff-accepted:${handoffId}`,
+      evidenceSnapshotId: null,
+      payload: { handoffId, role: targetRole, access },
+      transactionId,
+    });
+    const event = await appendWorkspaceEvent({
+      workspaceId,
+      tenantId: input.tenantId,
+      eventType: "participant_joined",
+      actor: input.actor,
+      idempotencyKey: input.idempotencyKey,
+      evidenceSnapshotId: null,
+      payload: { role: targetRole, access, handoff: true },
+      transactionId,
+    });
+    return { workspaceId, role: targetRole, access, event };
+  });
+}
+
+export async function forkCountyWorkspace(input: {
+  workspaceId: string;
+  tenantId: string;
+  actor: WorkspaceActor;
+  title: string;
+  idempotencyKey: string;
+}) {
+  if (input.actor.actorType !== "human" || !["owner", "contributor"].includes(input.actor.access)) {
+    throw new Error("Only an authorized human contributor may fork a workspace.");
+  }
+  return executeEvidenceTransaction(async (transactionId) => {
+    await requireWorkspaceMembership({ ...input, write: true, transactionId });
+    const source = await executeEvidenceSql(
+      `SELECT w.id::text, w.tenant_id::text, w.geography_id::text,
+         w.evidence_snapshot_id::text, w.title, w.version, g.authority_id
+       FROM evidence.county_workspace w
+       JOIN evidence.geography g ON g.id=w.geography_id
+       WHERE w.id=CAST(:workspace_id AS uuid) AND w.tenant_id=CAST(:tenant_id AS uuid)
+         AND w.status='active'`,
+      [
+        { name: "workspace_id", value: { stringValue: input.workspaceId } },
+        { name: "tenant_id", value: { stringValue: input.tenantId } },
+      ],
+      transactionId,
+    );
+    const row = source.records?.[0];
+    if (!row) throw new Error("The source workspace is unavailable.");
+    const sourceVersion = Number(evidenceFieldValue(row[5]) ?? 0);
+    const targetId = randomUUID();
+    await executeEvidenceSql(
+      `INSERT INTO evidence.county_workspace (
+         id, tenant_id, geography_id, evidence_snapshot_id, title, status,
+         version, policy_version, created_at, created_by, updated_at,
+         parent_workspace_id, forked_from_version, share_mode
+       ) VALUES (
+         CAST(:id AS uuid), CAST(:tenant_id AS uuid), CAST(:geography_id AS uuid),
+         CAST(:snapshot_id AS uuid), :title, 'active', 1, :policy_version,
+         now(), :created_by, now(), CAST(:parent_id AS uuid), :source_version, 'private'
+       )`,
+      [
+        { name: "id", value: { stringValue: targetId } },
+        { name: "tenant_id", value: { stringValue: String(evidenceFieldValue(row[1]) ?? input.tenantId) } },
+        { name: "geography_id", value: { stringValue: String(evidenceFieldValue(row[2]) ?? "") } },
+        { name: "snapshot_id", value: { stringValue: String(evidenceFieldValue(row[3]) ?? "") } },
+        { name: "title", value: { stringValue: input.title.trim().slice(0, 240) || `Fork of ${String(evidenceFieldValue(row[4]) ?? "workspace")}` } },
+        { name: "policy_version", value: { stringValue: POLICY_VERSION } },
+        { name: "created_by", value: { stringValue: input.actor.principalId } },
+        { name: "parent_id", value: { stringValue: input.workspaceId } },
+        { name: "source_version", value: { longValue: sourceVersion } },
+      ],
+      transactionId,
+    );
+    const sections = await executeEvidenceSql(
+      `SELECT section_key, version, content::text
+       FROM evidence.workspace_section WHERE workspace_id=CAST(:workspace_id AS uuid)`,
+      [{ name: "workspace_id", value: { stringValue: input.workspaceId } }],
+      transactionId,
+    );
+    const copiedSectionKeys: string[] = [];
+    for (const section of sections.records ?? []) {
+      const sectionKey = String(evidenceFieldValue(section[0]) ?? "");
+      const content = String(evidenceFieldValue(section[2]) ?? "{}");
+      copiedSectionKeys.push(sectionKey);
+      await executeEvidenceSql(
+        `INSERT INTO evidence.workspace_section (
+           workspace_id, section_key, version, content, updated_by, updated_at
+         ) VALUES (CAST(:workspace_id AS uuid), :section_key, :version, CAST(:content AS jsonb), :updated_by, now())`,
+        [
+          { name: "workspace_id", value: { stringValue: targetId } },
+          { name: "section_key", value: { stringValue: sectionKey } },
+          { name: "version", value: { longValue: Number(evidenceFieldValue(section[1]) ?? 1) } },
+          { name: "content", value: { stringValue: content } },
+          { name: "updated_by", value: { stringValue: input.actor.principalId } },
+        ],
+        transactionId,
+      );
+    }
+    const fork = buildWorkspaceForkContract({
+      sourceWorkspaceId: input.workspaceId,
+      sourceVersion,
+      targetWorkspaceId: targetId,
+      forkedBy: input.actor.principalId,
+      forkedAt: new Date().toISOString(),
+      copiedSectionKeys,
+      evidenceSnapshotId: String(evidenceFieldValue(row[3]) ?? ""),
+    });
+    const event = await appendWorkspaceEvent({
+      workspaceId: targetId,
+      tenantId: input.tenantId,
+      eventType: "workspace_created",
+      actor: input.actor,
+      idempotencyKey: input.idempotencyKey,
+      evidenceSnapshotId: fork.evidenceSnapshotId,
+      payload: { forkedFrom: input.workspaceId, sourceVersion, copiedSectionKeys: fork.copiedSectionKeys },
+      transactionId,
+    });
+    await appendWorkspaceEvent({
+      workspaceId: input.workspaceId,
+      tenantId: input.tenantId,
+      eventType: "workspace_forked",
+      actor: input.actor,
+      idempotencyKey: `workspace-forked:${targetId}`,
+      evidenceSnapshotId: fork.evidenceSnapshotId,
+      payload: { targetWorkspaceId: targetId, sourceVersion },
+      transactionId,
+    });
+    await executeEvidenceSql(
+      `INSERT INTO evidence.workspace_participant (
+         workspace_id, principal_id, role, access, display_name, joined_at
+       ) VALUES (CAST(:workspace_id AS uuid), :principal_id, CAST(:role AS evidence.workspace_role),
+         CAST(:access AS evidence.workspace_access), :display_name, now())`,
+      [
+        { name: "workspace_id", value: { stringValue: targetId } },
+        { name: "principal_id", value: { stringValue: input.actor.principalId } },
+        { name: "role", value: { stringValue: input.actor.role } },
+        { name: "access", value: { stringValue: input.actor.access } },
+        { name: "display_name", value: { stringValue: input.actor.displayName } },
+      ],
+      transactionId,
+    );
+    return { fork, event };
+  });
+}
+
+export async function recordExploreUsage(
+  input: Omit<EvidenceUsageEvent, "retentionUntil" | "countsAsTraction"> & { retentionDays?: number },
+) {
+  await requireEvidenceCapability("explore:usage-instrumentation");
+  const event = buildUsageEvent(input);
+  const geographyId = event.geographyId;
+  await executeEvidenceSql(
+    `INSERT INTO evidence.explore_usage_event (
+       id, event_name, geography_id, workspace_id, session_id_hash,
+       environment, metadata, occurred_at, retention_until, counts_as_traction
+     ) VALUES (
+       CAST(:id AS uuid), :event_name,
+       NULLIF(:geography_id, '')::uuid, NULLIF(:workspace_id, '')::uuid,
+       NULLIF(:session_hash, ''), :environment, CAST(:metadata AS jsonb),
+       CAST(:occurred_at AS timestamptz), CAST(:retention_until AS timestamptz), :traction
+     )`,
+    [
+      { name: "id", value: { stringValue: randomUUID() } },
+      { name: "event_name", value: { stringValue: event.eventName } },
+      { name: "geography_id", value: { stringValue: geographyId ?? "" } },
+      { name: "workspace_id", value: { stringValue: event.workspaceId ?? "" } },
+      { name: "session_hash", value: { stringValue: event.sessionIdHash ?? "" } },
+      { name: "environment", value: { stringValue: event.environment } },
+      { name: "metadata", value: { stringValue: JSON.stringify(event.metadata) } },
+      { name: "occurred_at", value: { stringValue: event.occurredAt } },
+      { name: "retention_until", value: { stringValue: event.retentionUntil } },
+      { name: "traction", value: { booleanValue: event.countsAsTraction } },
+    ],
+  );
+  return event;
+}
+
+export async function recordExplorePerformance(input: PerformanceSample) {
+  await requireEvidenceCapability("explore:usage-instrumentation");
+  const sample = buildPerformanceSample(input);
+  await executeEvidenceSql(
+    `INSERT INTO evidence.explore_performance_sample (
+       id, operation, environment, latency_ms, success, error_class,
+       estimated_cost_micros, input_tokens, output_tokens, correction_required, occurred_at
+     ) VALUES (
+       CAST(:id AS uuid), :operation, :environment, :latency_ms, :success, :error_class,
+       :cost, :input_tokens, :output_tokens, :correction_required, CAST(:occurred_at AS timestamptz)
+     )`,
+    [
+      { name: "id", value: { stringValue: randomUUID() } },
+      { name: "operation", value: { stringValue: sample.operation } },
+      { name: "environment", value: { stringValue: sample.environment } },
+      { name: "latency_ms", value: { longValue: sample.latencyMs } },
+      { name: "success", value: { booleanValue: sample.success } },
+      { name: "error_class", value: { stringValue: sample.errorClass ?? "" } },
+      { name: "cost", value: sample.estimatedCostMicros === null ? { isNull: true } : { longValue: sample.estimatedCostMicros } },
+      { name: "input_tokens", value: sample.inputTokens === null ? { isNull: true } : { longValue: sample.inputTokens } },
+      { name: "output_tokens", value: sample.outputTokens === null ? { isNull: true } : { longValue: sample.outputTokens } },
+      { name: "correction_required", value: { booleanValue: sample.correctionRequired } },
+      { name: "occurred_at", value: { stringValue: sample.occurredAt } },
+    ],
+  );
+  return sample;
+}
+
+export async function createPilotOnboardingRequest(input: {
+  countyGeoid: string;
+  organization: string;
+  contactName: string;
+  email: string;
+  role: "county" | "provider" | "library" | "community_host" | "education_workforce" | "funder" | "research";
+  intendedUse: string;
+  consent: boolean;
+  source: "explore" | "funder_snapshot" | "partner_referral" | "direct";
+  environment: "staging" | "production" | "test";
+}) {
+  await requireEvidenceCapability("explore:pilot-onboarding");
+  const decision = evaluatePilotOnboarding(input);
+  if (!decision.accepted) {
+    const error = new Error(decision.reasons.join(" "));
+    error.name = "PilotOnboardingValidationError";
+    throw error;
+  }
+  const idempotencyKey = hashOpaqueToken(JSON.stringify({
+    countyGeoid: input.countyGeoid,
+    email: input.email.trim().toLowerCase(),
+    organization: input.organization.trim().toLowerCase(),
+    source: input.source,
+  }));
+  const retentionUntil = new Date(Date.now() + decision.retentionDays * 86_400_000).toISOString();
+  const id = randomUUID();
+  const result = await executeEvidenceSql(
+    `INSERT INTO evidence.explore_onboarding_request (
+       id, county_geoid, organization, contact_name, email, role, intended_use,
+       consent, source, environment, status, idempotency_key, retention_until
+     ) VALUES (
+       CAST(:id AS uuid), :county_geoid, :organization, :contact_name, :email,
+       :role, :intended_use, :consent, :source, :environment,
+       'ready_for_review', :idempotency_key, CAST(:retention_until AS timestamptz)
+     ) ON CONFLICT (idempotency_key) DO UPDATE SET id=id
+     RETURNING id::text, status, retention_until::text`,
+    [
+      { name: "id", value: { stringValue: id } },
+      { name: "county_geoid", value: { stringValue: input.countyGeoid } },
+      { name: "organization", value: { stringValue: input.organization.trim().slice(0, 180) } },
+      { name: "contact_name", value: { stringValue: input.contactName.trim().slice(0, 120) } },
+      { name: "email", value: { stringValue: input.email.trim().toLowerCase() } },
+      { name: "role", value: { stringValue: input.role } },
+      { name: "intended_use", value: { stringValue: input.intendedUse.trim().slice(0, 1000) } },
+      { name: "consent", value: { booleanValue: input.consent } },
+      { name: "source", value: { stringValue: input.source } },
+      { name: "environment", value: { stringValue: input.environment } },
+      { name: "idempotency_key", value: { stringValue: idempotencyKey } },
+      { name: "retention_until", value: { stringValue: retentionUntil } },
+    ],
+  );
+  const row = result.records?.[0];
+  return {
+    id: String(evidenceFieldValue(row?.[0]) ?? id),
+    status: String(evidenceFieldValue(row?.[1]) ?? "ready_for_review"),
+    retentionUntil: String(evidenceFieldValue(row?.[2]) ?? retentionUntil),
+    disclosure: decision.prohibitedDataNotice,
+  };
 }
 
 export const workspaceRuntimeVersions = {

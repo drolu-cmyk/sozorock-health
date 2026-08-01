@@ -238,6 +238,20 @@ type GeometryResponse = {
   contextNote?: string | null;
 };
 
+function sendExploreTelemetry(eventName: "place_resolved" | "brief_viewed" | "map_viewed" | "action_question_asked" | "visuals_viewed", geoid: string, metadata: Record<string, string | number | boolean | null> = {}) {
+  if (typeof window === "undefined" || !geoid) return;
+  const payload = JSON.stringify({ eventName, environment: "production", occurredAt: new Date().toISOString(), metadata: { geoid, ...metadata } });
+  try {
+    if (navigator.sendBeacon) {
+      navigator.sendBeacon("/api/evidence/v1/telemetry", new Blob([payload], { type: "application/json" }));
+      return;
+    }
+    void fetch("/api/evidence/v1/telemetry", { method: "POST", headers: { "Content-Type": "application/json" }, body: payload, keepalive: true });
+  } catch {
+    // Telemetry is intentionally best-effort and never interrupts evidence use.
+  }
+}
+
 type PlaceAgentAnswer = {
   schemaVersion: string;
   answer: string;
@@ -839,6 +853,7 @@ function ActionView({ data }: { data: PlaceResponse }) {
     event.preventDefault();
     const nextQuestion = question.trim();
     if (nextQuestion.length < 3) return;
+    sendExploreTelemetry("action_question_asked", data.location.geoid, { questionLength: nextQuestion.length });
     setStatus("asking");
     setError("");
     setAnswer(null);
@@ -928,6 +943,7 @@ function ActionView({ data }: { data: PlaceResponse }) {
             <span>Shared county plan</span>
             <h3 id="plan-review-title">Agent suggestions require acceptance.</h3>
             <p>Approved collaborators can add a cited result to a named plan section, comment, assign a review question and restore an earlier version. Agent and human changes remain visibly separate.</p>
+            <a className={styles.planReviewCta} href={`/explore/onboarding?geoid=${encodeURIComponent(data.location.geoid)}`}>Request a planning workspace <ArrowRight size={16} aria-hidden="true" /></a>
           </div>
           <div>
             {data.intelligence.placeBasedResponses.map((response) => {
@@ -1212,6 +1228,7 @@ export function ExploreClient() {
 
   function changeView(view: WorkspaceView) {
     setActiveView(view);
+    sendExploreTelemetry(view === "brief" ? "brief_viewed" : view === "map" ? "map_viewed" : view === "action" ? "action_question_asked" : "visuals_viewed", data?.location.geoid ?? "", { source: "view_tab" });
     const params = new URLSearchParams(window.location.search);
     params.set("view", view);
     window.history.replaceState({}, "", `/explore?${params.toString()}`);

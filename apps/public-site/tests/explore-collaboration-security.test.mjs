@@ -21,6 +21,18 @@ const migration = await readFile(
   new URL("../../../packages/evidence-core/migrations/0008_explore_agentic_collaboration.sql", import.meta.url),
   "utf8",
 );
+const advancedMigration = await readFile(
+  new URL("../../../packages/evidence-core/migrations/0009_explore_agentic_operations.sql", import.meta.url),
+  "utf8",
+);
+const realtimeHandoff = await readFile(
+  new URL("../app/api/evidence/v1/workspaces/[workspaceId]/realtime-session/handoff/route.ts", import.meta.url),
+  "utf8",
+);
+const realtimeHandoffAccept = await readFile(
+  new URL("../app/api/evidence/v1/workspaces/[workspaceId]/realtime-session/handoff/accept/route.ts", import.meta.url),
+  "utf8",
+);
 const publicBuildSpec = await readFile(
   new URL("../../../infrastructure/amplify/public-site.yml", import.meta.url),
   "utf8",
@@ -48,6 +60,11 @@ test("real-time session is opaque, short-lived and never authorizes mutations", 
   assert.doesNotMatch(realtime, /NEXT_PUBLIC_EXPLORE_REALTIME_ENDPOINT/);
   assert.doesNotMatch(realtime, /OPENAI_API_KEY|CENSUS_API_KEY|secretValue/i);
   assert.match(realtimeHandler, /Workspace writes use the authenticated HTTPS API/);
+  assert.match(realtimeHandler, /item\.kind\?\.S !== "session"/);
+  assert.match(realtime, /kind: \{ S: "handoff" \}/);
+  assert.match(realtime, /ConditionExpression: "attribute_not_exists\(used\) OR used = :notUsed"/);
+  assert.match(realtimeHandoff, /mintRealtimeHandoff/);
+  assert.match(realtimeHandoffAccept, /acceptRealtimeHandoff/);
   assert.match(infrastructure, /ThrottlingBurstLimit:\s*100/);
   assert.match(infrastructure, /TimeToLiveSpecification/);
 });
@@ -78,4 +95,14 @@ test("collaboration records that carry history are immutable", () => {
   ]) {
     assert.match(migration, new RegExp(trigger));
   }
+  for (const trigger of [
+    "explore_usage_event_append_only",
+    "explore_performance_sample_append_only",
+    "source_change_proposal_append_only",
+  ]) {
+    assert.match(advancedMigration, new RegExp(trigger));
+  }
+  assert.match(advancedMigration, /workspace_share_link/);
+  assert.match(advancedMigration, /workspace_handoff/);
+  assert.match(advancedMigration, /explore_onboarding_request/);
 });
