@@ -19,29 +19,35 @@ import { resolveEvidenceCounty } from "../../lib/county-resolution";
 
 export const runtime = "nodejs";
 
-const paths: Record<string, { group: "conditions" | "barriers" | "prevention"; field: string }> = {
-  bphigh: { group: "conditions", field: "highBloodPressure" },
-  diabetes: { group: "conditions", field: "diabetes" },
-  obesity: { group: "conditions", field: "obesity" },
-  depression: { group: "conditions", field: "depression" },
-  copd: { group: "conditions", field: "copd" },
-  chd: { group: "conditions", field: "coronaryHeartDisease" },
-  stroke: { group: "conditions", field: "stroke" },
-  cancer: { group: "conditions", field: "cancer" },
-  casthma: { group: "conditions", field: "asthma" },
-  colon_screen: { group: "prevention", field: "colorectalScreening" },
-  mammouse: { group: "prevention", field: "mammography" },
-  dental: { group: "prevention", field: "dentalVisit" },
-  checkup: { group: "prevention", field: "annualCheckup" },
-  cholscreen: { group: "prevention", field: "cholesterolScreening" },
-  access2: { group: "barriers", field: "uninsured" },
-  lacktrpt: { group: "barriers", field: "transportation" },
-  foodinsecu: { group: "barriers", field: "foodInsecurity" },
-  housinsecu: { group: "barriers", field: "housingInsecurity" },
-  shututility: { group: "barriers", field: "utilityShutoff" },
-  disability: { group: "barriers", field: "disability" },
-  loneliness: { group: "barriers", field: "loneliness" },
+const paths: Record<string, { group: "conditions" | "barriers" | "prevention"; field: string; sourceMeasureId: string }> = {
+  bphigh: { group: "conditions", field: "highBloodPressure", sourceMeasureId: "BPHIGH" },
+  diabetes: { group: "conditions", field: "diabetes", sourceMeasureId: "DIABETES" },
+  obesity: { group: "conditions", field: "obesity", sourceMeasureId: "OBESITY" },
+  depression: { group: "conditions", field: "depression", sourceMeasureId: "DEPRESSION" },
+  copd: { group: "conditions", field: "copd", sourceMeasureId: "COPD" },
+  chd: { group: "conditions", field: "coronaryHeartDisease", sourceMeasureId: "CHD" },
+  stroke: { group: "conditions", field: "stroke", sourceMeasureId: "STROKE" },
+  cancer: { group: "conditions", field: "cancer", sourceMeasureId: "CANCER" },
+  casthma: { group: "conditions", field: "asthma", sourceMeasureId: "CASTHMA" },
+  colon_screen: { group: "prevention", field: "colorectalScreening", sourceMeasureId: "COLON_SCREEN" },
+  mammouse: { group: "prevention", field: "mammography", sourceMeasureId: "MAMMOUSE" },
+  dental: { group: "prevention", field: "dentalVisit", sourceMeasureId: "DENTAL" },
+  checkup: { group: "prevention", field: "annualCheckup", sourceMeasureId: "CHECKUP" },
+  cholscreen: { group: "prevention", field: "cholesterolScreening", sourceMeasureId: "CHOLSCREEN" },
+  access2: { group: "barriers", field: "uninsured", sourceMeasureId: "ACCESS2" },
+  lacktrpt: { group: "barriers", field: "transportation", sourceMeasureId: "LACKTRPT" },
+  foodinsecu: { group: "barriers", field: "foodInsecurity", sourceMeasureId: "FOODINSECU" },
+  housinsecu: { group: "barriers", field: "housingInsecurity", sourceMeasureId: "HOUSINSECU" },
+  shututility: { group: "barriers", field: "utilityShutoff", sourceMeasureId: "SHUTUTILITY" },
+  disability: { group: "barriers", field: "disability", sourceMeasureId: "DISABILITY" },
+  loneliness: { group: "barriers", field: "loneliness", sourceMeasureId: "LONELINESS" },
 };
+
+function canonicalSourceMeasureId(sourceField: string | null | undefined) {
+  return sourceField
+    ?.replace(/_(?:CrudePrev|AgeAdjPrev|CrudeRate|AgeAdjRate|Count|Value)$/i, "")
+    .toLowerCase();
+}
 
 function interpretation(
   higherValueMeaning: "adverse" | "favorable" | "context_dependent",
@@ -103,7 +109,16 @@ export async function GET(request: NextRequest) {
   const ahrfContext = getAhrfCountyContext(evidenceGeoid);
   const ahrqContext = getAhrqCountyContext(evidenceGeoid);
   const cdcSource = brief.publicData.sources.find((source) => source.sourceId === "cdc-places");
-  const cdcObservations = new Map(brief.publicData.observations.map((observation) => [observation.label, observation]));
+  const citationsById = new Map(brief.citations.map((citation) => [citation.id, citation]));
+  const cdcObservations = new Map(
+    brief.publicData.observations.flatMap((observation) => {
+      const sourceField = observation.citationIds
+        .map((citationId) => citationsById.get(citationId)?.sourceField)
+        .find((field): field is string => Boolean(field));
+      const canonicalId = canonicalSourceMeasureId(sourceField);
+      return canonicalId ? [[canonicalId, observation] as const] : [];
+    }),
+  );
 
   const metrics = exploreMetrics.flatMap((definition) => {
     const path = paths[definition.key];
@@ -113,16 +128,21 @@ export async function GET(request: NextRequest) {
     const state = stateBenchmark[path.group][path.field] ?? null;
     if (!metric || metric.value === null) return [];
     const difference = national === null ? null : Number((metric.value - national).toFixed(1));
-    const observation = cdcObservations.get(definition.label);
+    const observation = cdcObservations.get(path.sourceMeasureId.toLowerCase());
+    const confidence = metric.ci
+      ? `${metric.ci[0]}–${metric.ci[1]}`
+      : observation?.confidence.low != null && observation.confidence.high != null
+        ? `${observation.confidence.low}–${observation.confidence.high}`
+        : "";
     return [{
       ...definition,
       value: metric.value,
-      confidence: metric.ci ? `${metric.ci[0]}–${metric.ci[1]}` : "",
+      confidence,
       national,
       state,
       difference,
       score: national === null ? 0 : scoreMetric(metric.value, national, definition.higherValueMeaning),
-      release: cdcSource?.releaseDate ?? "Release unavailable",
+      release: observation?.releaseDate ?? cdcSource?.releaseDate ?? "Release unavailable",
       previousValue: null,
       trendDifference: null,
       trend: "unavailable" as const,
@@ -132,7 +152,11 @@ export async function GET(request: NextRequest) {
       adjustment: observation?.adjustment ?? "See the official source definition.",
       source: cdcSource?.title ?? "CDC PLACES",
       sourceUrl: cdcSource?.officialUrl ?? "https://www.cdc.gov/places/",
-      dataPeriod: cdcSource ? `${cdcSource.dataPeriod.start}–${cdcSource.dataPeriod.end}` : "Data period unavailable",
+      dataPeriod: observation
+        ? `${observation.dataPeriod.start ?? "Unknown"}–${observation.dataPeriod.end ?? "Unknown"}`
+        : cdcSource
+          ? `${cdcSource.dataPeriod.start}–${cdcSource.dataPeriod.end}`
+          : "Data period unavailable",
       retrievedAt: cdcSource?.retrievedAt ?? null,
     }];
   });

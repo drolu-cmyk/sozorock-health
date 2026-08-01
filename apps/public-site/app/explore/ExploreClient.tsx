@@ -31,6 +31,12 @@ import {
   X,
 } from "@phosphor-icons/react";
 import styles from "./explore.module.css";
+import {
+  collectionPolygons,
+  compoundPathForPolygons,
+  fitFallbackGeometry,
+  hasRenderableGeometry,
+} from "../lib/explore-map-fallback";
 
 type PlaceKind = "county" | "place" | "zip";
 type WorkspaceView = "brief" | "map" | "action" | "visuals";
@@ -489,39 +495,21 @@ function EvidenceCard({
   );
 }
 
-function collectRings(value: unknown, rings: number[][][]) {
-  if (!Array.isArray(value) || value.length === 0) return;
-  const first = value[0];
-  if (Array.isArray(first) && first.length >= 2 && typeof first[0] === "number") {
-    rings.push(value as number[][]);
-    return;
-  }
-  value.forEach((item) => collectRings(item, rings));
-}
-
 function BoundaryFallback({ geometry, data, metric }: { geometry: GeometryResponse; data: PlaceResponse; metric?: Metric }) {
-  const rings: number[][][] = [];
-  geometry.area.features.forEach((feature) => {
-    const featureGeometry = feature.geometry as { coordinates?: unknown } | undefined;
-    collectRings(featureGeometry?.coordinates, rings);
-  });
-  const extent = geometry.bounds && geometry.bounds.length === 4 ? geometry.bounds : null;
-  const [minX, minY, maxX, maxY] = extent ?? [-1, -1, 1, 1];
-  const width = Math.max(maxX - minX, 0.0001);
-  const height = Math.max(maxY - minY, 0.0001);
+  const areaPolygons = collectionPolygons(geometry.area);
+  const contextPolygons = collectionPolygons(geometry.contextArea);
+  const layout = fitFallbackGeometry([geometry.area, geometry.contextArea]);
   const fill = metric?.interpretation === "adverse_signal" ? "#b9462c" : metric?.interpretation === "favorable_signal" ? "#446342" : "#6e7a74";
-  const pathForRing = (ring: number[][]) => ring.map(([x, y], index) => {
-    const px = ((x - minX) / width) * 100;
-    const py = 100 - ((y - minY) / height) * 100;
-    return `${index === 0 ? "M" : "L"}${px.toFixed(3)} ${py.toFixed(3)}`;
-  }).join(" ") + " Z";
+  const areaPath = layout ? compoundPathForPolygons(areaPolygons, layout) : "";
+  const contextPath = layout ? compoundPathForPolygons(contextPolygons, layout) : "";
   return (
     <div className={styles.mapFallback} data-map-fallback="true">
       <svg viewBox="0 0 100 100" role="img" aria-label={`Cached official boundary for ${data.location.label}`}>
         <rect width="100" height="100" fill="#e8ede6" />
-        {rings.map((ring, index) => <path key={index} d={pathForRing(ring)} fill={fill} fillOpacity="0.28" stroke="#111a1d" strokeWidth="0.55" vectorEffect="non-scaling-stroke" />)}
+        {areaPath ? <path d={areaPath} fill={fill} fillOpacity="0.28" fillRule="evenodd" clipRule="evenodd" stroke="#111a1d" strokeWidth="0.55" vectorEffect="non-scaling-stroke" /> : null}
+        {contextPath ? <path d={contextPath} fill="none" stroke="#f4b71b" strokeWidth="0.75" strokeDasharray="2.2 1.6" vectorEffect="non-scaling-stroke" /> : null}
       </svg>
-      <p>Interactive map unavailable. Showing the cached official boundary for this geography.</p>
+      <p>Interactive map unavailable. Showing the cached official boundary for this geography.{contextPath ? " The original search geography is outlined for context; evidence remains county-level." : ""}</p>
     </div>
   );
 }
@@ -722,32 +710,37 @@ function MapCanvas({ geometry, data, metric }: { geometry: GeometryResponse | nu
   const [mapError, setMapError] = useState("");
 
   useEffect(() => {
-    if (!containerRef.current || !geometry?.area.features.length) return;
+    if (!containerRef.current || !geometry || !hasRenderableGeometry(geometry.area)) return;
     let cancelled = false;
     let map: import("maplibre-gl").Map | null = null;
     void import("maplibre-gl").then(({ default: maplibregl }) => {
       if (cancelled || !containerRef.current) return;
       const fill = metric?.interpretation === "adverse_signal" ? "#b9462c" : metric?.interpretation === "favorable_signal" ? "#446342" : "#6e7a74";
-      map = new maplibregl.Map({
-        container: containerRef.current,
-        style: {
-          version: 8,
-          sources: {},
-          layers: [{ id: "background", type: "background", paint: { "background-color": "#e8ede6" } }],
-        },
-        center: data.location.coordinates.length === 2 ? [data.location.coordinates[0], data.location.coordinates[1]] : [-98.5, 39.5],
-        zoom: 7,
-        attributionControl: false,
-        dragRotate: false,
-        pitchWithRotate: false,
-      });
+      try {
+        map = new maplibregl.Map({
+          container: containerRef.current,
+          style: {
+            version: 8,
+            sources: {},
+            layers: [{ id: "background", type: "background", paint: { "background-color": "#e8ede6" } }],
+          },
+          center: data.location.coordinates.length === 2 ? [data.location.coordinates[0], data.location.coordinates[1]] : [-98.5, 39.5],
+          zoom: 7,
+          attributionControl: false,
+          dragRotate: false,
+          pitchWithRotate: false,
+        });
+      } catch {
+        setMapError("The official boundary could not be rendered.");
+        return;
+      }
       map.addControl(new maplibregl.NavigationControl({ showCompass: false, visualizePitch: false }), "top-right");
       map.on("load", () => {
         if (!map || cancelled) return;
         map.addSource("official-boundary", { type: "geojson", data: geometry.area as never });
         map.addLayer({ id: "boundary-fill", type: "fill", source: "official-boundary", paint: { "fill-color": fill, "fill-opacity": metric ? 0.28 : 0.12 } });
         map.addLayer({ id: "boundary-line", type: "line", source: "official-boundary", paint: { "line-color": "#111a1d", "line-width": 2.4 } });
-        if (geometry.contextArea?.features.length) {
+        if (hasRenderableGeometry(geometry.contextArea)) {
           map.addSource("search-context", { type: "geojson", data: geometry.contextArea as never });
           map.addLayer({ id: "search-context-line", type: "line", source: "search-context", paint: { "line-color": "#f4b71b", "line-width": 2, "line-dasharray": [3, 2] } });
         }
@@ -775,8 +768,9 @@ function MapCanvas({ geometry, data, metric }: { geometry: GeometryResponse | nu
     };
   }, [data, geometry, metric]);
 
-  if (!geometry?.area.features.length || mapError) {
-    return geometry?.area.features.length
+  const hasAreaGeometry = hasRenderableGeometry(geometry?.area);
+  if (!hasAreaGeometry || mapError) {
+    return hasAreaGeometry && geometry
       ? <BoundaryFallback geometry={geometry} data={data} metric={metric} />
       : <div className={styles.mapEmpty}><MapTrifold size={44} aria-hidden="true" /><p>{mapError || "The official boundary is temporarily unavailable."}</p></div>;
   }
@@ -797,6 +791,7 @@ function MapView({
   const [metricKey, setMetricKey] = useState(compatibleMetrics[0]?.key ?? "");
   useEffect(() => setMetricKey(compatibleMetrics[0]?.key ?? ""), [compatibleMetrics]);
   const metric = compatibleMetrics.find((item) => item.key === metricKey);
+  const contextVisible = hasRenderableGeometry(geometry?.contextArea);
   return (
     <section id="map-panel" role="tabpanel" aria-labelledby="map-tab" className={styles.viewPanel}>
       <div className={styles.mapLayout}>
@@ -822,11 +817,11 @@ function MapView({
           <div className={styles.legend}>
             <span><i className={styles.legendFill} /> Selected geography and compatible measure</span>
             <span><i className={styles.legendLine} /> Official boundary</span>
-            {geometry?.contextArea?.features.length ? <span><i className={styles.legendContext} /> Original search geography</span> : null}
+            {contextVisible ? <span><i className={styles.legendContext} /> Original search geography</span> : null}
             <span><i className={styles.legendMarker} /> Verified resource</span>
           </div>
           <div className={styles.resourceStatus}><MapPin size={20} aria-hidden="true" /><p>{geometry?.resourceNote ?? "Verified resource information is loading."}</p></div>
-          {geometry?.contextNote ? <p className={styles.mapNotice}>{geometry.contextNote}</p> : null}
+          {contextVisible && geometry?.contextNote ? <p className={styles.mapNotice}>{geometry.contextNote}</p> : null}
           {geometry?.sourceUrl && <a href={geometry.sourceUrl} target="_blank" rel="noreferrer">Open boundary source <ArrowSquareOut size={16} aria-hidden="true" /></a>}
         </aside>
       </div>

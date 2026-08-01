@@ -84,6 +84,23 @@ test("required responsive widths preserve the county brief, map, and keyboard fl
   }
 });
 
+test("cached boundary fallback preserves Fairfax holes and renders the original search geography", async ({ page }, testInfo) => {
+  await page.addInitScript(() => {
+    const originalGetContext = HTMLCanvasElement.prototype.getContext;
+    const disabledWebglContext = function getContext(this: HTMLCanvasElement, type: string) {
+      if (type === "webgl" || type === "webgl2") return null;
+      return originalGetContext.call(this, type);
+    } as typeof HTMLCanvasElement.prototype.getContext;
+    HTMLCanvasElement.prototype.getContext = disabledWebglContext;
+  });
+  await page.goto("/explore?kind=county&geoid=51059&view=brief", { waitUntil: "domcontentloaded" });
+  await page.getByRole("tab", { name: "Map" }).click();
+  await expect(page.getByRole("tab", { name: "Map" })).toHaveAttribute("aria-selected", "true");
+  await expect(page.locator('[data-map-fallback="true"]')).toBeVisible();
+  await expect(page.locator('[data-map-fallback="true"] path[fill-rule="evenodd"]')).toHaveCount(1);
+  await page.screenshot({ path: testInfo.outputPath("fairfax-cached-boundary-fallback.png"), fullPage: true });
+});
+
 test("one stratified county from every state and DC resolves through the public interface", async ({ page }) => {
   test.setTimeout(360_000);
   expect(nationalReport.randomStateSample).toHaveLength(51);

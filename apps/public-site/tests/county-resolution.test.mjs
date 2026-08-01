@@ -36,3 +36,18 @@ test("a county resolves directly without changing its GEOID", async () => {
   assert.equal(resolution.selectedCountyGeoid, "11001");
   assert.equal(resolution.counties[0].calculationMethod, "Direct official Census county GEOID resolution");
 });
+
+test("ZIP Code 19104 keeps its ZCTA input distinct while resolving to Philadelphia County evidence", async () => {
+  const resolution = await resolveEvidenceCounty({ kind: "zip", geoid: "19104", label: "19104" });
+  assert.equal(resolution.status, "resolved");
+  assert.equal(resolution.selectedCountyGeoid, "42101");
+  assert.equal(resolution.original.geoid, "19104");
+  assert.ok(resolution.caveats.some((caveat) => caveat.includes("postal ZIP Code is not a Census ZCTA")));
+});
+
+test("a Census place that crosses county-equivalent geography requires explicit county selection", async () => {
+  const resolution = await resolveEvidenceCounty({ kind: "place", geoid: "1015440", label: "Clayton town, DE" });
+  assert.equal(resolution.status, "selection_required");
+  assert.equal(resolution.original.kind, "place");
+  assert.ok(resolution.counties.length > 1);
+});

@@ -106,6 +106,34 @@ test("available measures remain visible when a compatible benchmark is missing",
   assert.match(component, /Data period/);
 });
 
+test("CDC metadata joins by canonical source measure identifier, not presentation label", async () => {
+  const route = await source("app/api/explore/route.ts");
+  assert.match(route, /canonicalSourceMeasureId/);
+  assert.match(route, /citationIds/);
+  assert.match(route, /sourceField/);
+  assert.match(route, /path\.sourceMeasureId\.toLowerCase\(\)/);
+  assert.match(route, /sourceMeasureId: "COPD"/);
+  assert.match(route, /sourceMeasureId: "COLON_SCREEN"/);
+  assert.doesNotMatch(route, /cdcObservations\.get\(definition\.label\)/);
+  assert.match(route, /observation\?\.universe/);
+  assert.match(route, /observation\?\.adjustment/);
+  assert.match(route, /observation\.dataPeriod/);
+  assert.match(route, /observation\?\.confidence/);
+});
+
+test("fallback boundary preserves holes, aspect ratio and original search context", async () => {
+  const component = await source("app/explore/ExploreClient.tsx");
+  const helper = await source("app/lib/explore-map-fallback.ts");
+  assert.match(component, /fillRule="evenodd"/);
+  assert.match(component, /contextPath/);
+  assert.match(component, /hasRenderableGeometry/);
+  assert.match(helper, /latitudeScale/);
+  assert.match(helper, /offsetX/);
+  assert.match(helper, /offsetY/);
+  assert.match(helper, /MultiPolygon/);
+  assert.match(helper, /compoundPathForPolygons/);
+});
+
 test("directionality and geography are explicit in the public evidence response", async () => {
   const route = await source("app/api/explore/route.ts");
   const metrics = await source("app/lib/explore-health.ts");
