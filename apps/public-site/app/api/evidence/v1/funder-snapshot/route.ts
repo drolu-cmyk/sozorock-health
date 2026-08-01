@@ -6,6 +6,7 @@ import { enforceEvidenceRateLimit } from "../../../../lib/evidence-rate-limit";
 import {
   requireEvidenceAuthority,
   requireEvidenceCapability,
+  requireEvidenceGeographyId,
   sha256,
   writeExecutionAudit,
 } from "../../../../lib/evidence-runtime-authority";
@@ -162,12 +163,13 @@ export async function GET(request: NextRequest) {
       generatedAt: new Date().toISOString(),
     });
     const authority = await requireEvidenceAuthority(placeAgentRuntimeVersions.snapshotContentHash);
+    const geographyUuid = await requireEvidenceGeographyId(geoid);
     await writeExecutionAudit({
       executionType: "partner_brief",
       contractVersion: "explore.funder-snapshot.v1",
       policyVersion: placeAgentRuntimeVersions.policyVersion,
       snapshotUuid: authority.snapshotUuid,
-      geographyUuid: null,
+      geographyUuid,
       requestHash: sha256({
         geoid,
         format: request.nextUrl.searchParams.get("format") === "pdf" ? "pdf" : "json",

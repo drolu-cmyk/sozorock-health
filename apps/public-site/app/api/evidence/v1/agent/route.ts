@@ -2,9 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { enforceAgentRateLimit } from "../../../../lib/evidence-rate-limit";
 import {
   requireEvidenceAuthority,
+  requireEvidenceGeographyId,
   sha256,
   writeExecutionAudit,
 } from "../../../../lib/evidence-runtime-authority";
+import { recordExplorePerformance } from "../../../../lib/explore-workspace-runtime";
 import {
   placeAgentRuntimeVersions,
 } from "../../../../lib/place-agent-openai";
@@ -27,6 +29,7 @@ function validInput(value: unknown): value is { geoid: string; question: string 
 }
 
 export async function POST(request: NextRequest) {
+  const startedAt = Date.now();
   let authority: Awaited<ReturnType<typeof requireEvidenceAuthority>> | null = null;
   let requestHash = sha256("unparsed");
   let geographyUuid: string | null = null;
@@ -63,13 +66,14 @@ export async function POST(request: NextRequest) {
     }
     requestHash = sha256({ geoid: body.geoid, question: body.question.trim() });
     authority = await requireEvidenceAuthority(placeAgentRuntimeVersions.snapshotContentHash);
+    geographyUuid = await requireEvidenceGeographyId(body.geoid);
     if (!authority.narrativeEnabled || !authority.openAiEnabled) {
       await writeExecutionAudit({
         executionType: "internal_agent",
         contractVersion: "explore.place-agent.v1",
         policyVersion: placeAgentRuntimeVersions.policyVersion,
         snapshotUuid: authority.snapshotUuid,
-        geographyUuid: null,
+        geographyUuid,
         requestHash,
         responseHash: null,
         outcome: "rejected",
@@ -80,9 +84,6 @@ export async function POST(request: NextRequest) {
     }
     const provider = configuredPlaceNarrativeProvider();
     const output = await provider.generate({ geoid: body.geoid, question: body.question.trim() });
-    geographyUuid = output.answer.geographicScope.geoid
-      ? null
-      : null;
     await writeExecutionAudit({
       executionType: "internal_agent",
       contractVersion: "explore.place-agent.v1",
@@ -105,6 +106,22 @@ export async function POST(request: NextRequest) {
         usage: output.usage ?? null,
       },
     });
+    try {
+      await recordExplorePerformance({
+        operation: "agent_response",
+        environment: process.env.RUNTIME_ENV === "staging" ? "staging" : "production",
+        latencyMs: Date.now() - startedAt,
+        success: true,
+        errorClass: null,
+        estimatedCostMicros: null,
+        inputTokens: output.usage?.input_tokens ?? null,
+        outputTokens: output.usage?.output_tokens ?? null,
+        correctionRequired: false,
+        occurredAt: new Date().toISOString(),
+      });
+    } catch {
+      console.error("place-evidence-agent-performance-audit-failed");
+    }
     return NextResponse.json(output.answer, {
       headers: {
         "Cache-Control": "no-store",
@@ -131,6 +148,22 @@ export async function POST(request: NextRequest) {
         });
       } catch {
         console.error("place-evidence-agent-audit-failed");
+      }
+      try {
+        await recordExplorePerformance({
+          operation: "agent_response",
+          environment: process.env.RUNTIME_ENV === "staging" ? "staging" : "production",
+          latencyMs: Date.now() - startedAt,
+          success: false,
+          errorClass: (error as { name?: string }).name ?? "UnknownError",
+          estimatedCostMicros: null,
+          inputTokens: null,
+          outputTokens: null,
+          correctionRequired: false,
+          occurredAt: new Date().toISOString(),
+        });
+      } catch {
+        console.error("place-evidence-agent-performance-audit-failed");
       }
     }
     return NextResponse.json({ error: "Place Intelligence is temporarily unavailable." }, { status: 503 });

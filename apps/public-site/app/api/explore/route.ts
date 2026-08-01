@@ -17,6 +17,11 @@ import { exploreMetrics, safeGeoid, scoreMetric, type ExploreKind } from "../../
 import { enforceEvidenceRateLimit } from "../../lib/evidence-rate-limit";
 import { resolveEvidenceCounty } from "../../lib/county-resolution";
 import { cdcMeasureDefinitionId, indexCdcObservations } from "../../lib/explore-cdc-metadata";
+import {
+  requireEvidenceGeographyId,
+  requirePublishedEvidenceSnapshot,
+} from "../../lib/evidence-runtime-authority";
+import { placeAgentRuntimeVersions } from "../../lib/place-agent-openai";
 
 export const runtime = "nodejs";
 
@@ -69,6 +74,16 @@ export async function GET(request: NextRequest) {
     console.error("evidence-rate-limit-failed", { name: (error as { name?: string }).name ?? "UnknownError" });
     return NextResponse.json({ error: "Evidence service is temporarily unavailable." }, { status: 503 });
   }
+  if (process.env.NODE_ENV === "production") {
+    try {
+      await requirePublishedEvidenceSnapshot(placeAgentRuntimeVersions.snapshotContentHash);
+    } catch {
+      return NextResponse.json(
+        { error: "The approved evidence snapshot is temporarily unavailable." },
+        { status: 503, headers: { "Cache-Control": "no-store" } },
+      );
+    }
+  }
   const kindValue = request.nextUrl.searchParams.get("kind");
   const kind = kindValue === "county" || kindValue === "place" || kindValue === "zip"
     ? kindValue as ExploreKind
@@ -94,6 +109,16 @@ export async function GET(request: NextRequest) {
     }, { status: resolution.status === "selection_required" ? 409 : 404 });
   }
   const evidenceGeoid = resolution.selectedCountyGeoid;
+  if (process.env.NODE_ENV === "production") {
+    try {
+      await requireEvidenceGeographyId(evidenceGeoid);
+    } catch {
+      return NextResponse.json(
+        { error: "The selected county is not present in the approved evidence store." },
+        { status: 503, headers: { "Cache-Control": "no-store" } },
+      );
+    }
+  }
   const record = countyRecordByFips.get(evidenceGeoid);
   if (!record) return NextResponse.json({ error: "No current Census county or county equivalent matched that GEOID." }, { status: 404 });
   const brief = getApprovedCountyBrief(evidenceGeoid);
