@@ -8,10 +8,10 @@ import {
   type PlaceAgentToolName,
 } from "@sozorock/evidence-core";
 import {
-  approvedCountyEvidenceSnapshot,
-  countyRecordByFips,
-  getApprovedCountyBrief,
-} from "./approved-evidence-snapshot";
+  findPublishedCounty,
+  getPublishedCountyBrief,
+  getPublishedCountyBriefByIdentifier,
+} from "./published-evidence-runtime";
 import { isClinicalSafetyQuestion } from "./place-agent-safety";
 
 const secrets = new SecretsManagerClient({});
@@ -79,7 +79,8 @@ const PLACE_AGENT_PIPELINE = [
 ] as const;
 
 function contentHash() {
-  return approvedCountyEvidenceSnapshot.snapshotId.replace(/^snapshot:/, "sha256:");
+  return process.env.EVIDENCE_SNAPSHOT_CONTENT_HASH?.trim()
+    || "sha256:1ca229a06b3368ccb33a9ea46f4f5671b67678c5679f5edb36cd475e6b970f8a";
 }
 
 function approvedClaims(brief: ExplorePlaceBriefV1) {
@@ -167,30 +168,20 @@ async function apiKey() {
   throw new Error("OpenAI secret does not contain an API key.");
 }
 
-function evidenceToolResult(name: PlaceAgentToolName, args: Record<string, unknown>) {
+async function evidenceToolResult(name: PlaceAgentToolName, args: Record<string, unknown>) {
   if (name === "resolve_place") {
     const query = String(args.query ?? "").trim();
-    const record = /^\d{5}$/.test(query)
-      ? countyRecordByFips.get(query)
-      : approvedCountyEvidenceSnapshot.counties.find((item) =>
-        `${item.county}, ${item.stateCode}`.toLowerCase() === query.toLowerCase()
-        || item.county.toLowerCase() === query.toLowerCase());
-    if (!record) return { status: "not_found", answer: "No exact reviewed county match was found.", alternatives: [] };
-    const brief = getApprovedCountyBrief(record.fips);
+    const match = await findPublishedCounty(query);
+    if (!match) return { status: "not_found", answer: "No exact reviewed county match was found.", alternatives: [] };
     return {
       status: "ok",
-      answer: `${query} resolves to ${record.county}, ${record.stateCode} (county GEOID ${record.fips}).`,
-      resolution: brief?.resolution,
+      answer: `${query} resolves to ${match.record.county}, ${match.record.stateCode} (county GEOID ${match.record.fips}).`,
+      resolution: match.brief?.resolution,
     };
   }
 
   const geographyId = String(args.geographyId ?? "");
-  const record = approvedCountyEvidenceSnapshot.counties.find((item) => {
-    const brief = getApprovedCountyBrief(item.fips);
-    return item.fips === geographyId || brief?.resolution.selected?.id === geographyId;
-  });
-  if (!record) return { status: "not_found", answer: "The requested reviewed county was not found." };
-  const brief = getApprovedCountyBrief(record.fips);
+  const brief = await getPublishedCountyBriefByIdentifier(geographyId);
   if (!brief) return { status: "not_found", answer: "No approved brief is available." };
 
   if (name === "get_place_evidence") return { status: "ok", brief, approvedClaims: approvedClaims(brief) };
@@ -227,14 +218,9 @@ function evidenceToolResult(name: PlaceAgentToolName, args: Record<string, unkno
   }
   if (name === "compare_places") {
     const ids = Array.isArray(args.geographyIds) ? args.geographyIds.map(String) : [];
-    const briefs = ids.flatMap((id) => {
-      const matched = approvedCountyEvidenceSnapshot.counties.find((item) => {
-        const candidate = getApprovedCountyBrief(item.fips);
-        return item.fips === id || candidate?.resolution.selected?.id === id;
-      });
-      const candidate = matched ? getApprovedCountyBrief(matched.fips) : null;
-      return candidate ? [candidate] : [];
-    });
+    const briefs = (await Promise.all(ids.map((id) => getPublishedCountyBriefByIdentifier(id)))).filter(
+      (candidate): candidate is ExplorePlaceBriefV1 => Boolean(candidate),
+    );
     return {
       status: briefs.length >= 2 ? "ok" : "insufficient_evidence",
       places: briefs.map((item) => ({
@@ -377,7 +363,7 @@ export async function answerWithOpenAI(input: {
   snapshotContentHash: string;
   pipelineSteps: readonly string[];
 }> {
-  const brief = getApprovedCountyBrief(input.geoid);
+  const brief = await getPublishedCountyBrief(input.geoid);
   if (!brief) throw new Error("County GEOID not found.");
   const inputHash = createHash("sha256").update(JSON.stringify(input)).digest("hex");
   const pipeline = placeAgentPipelinePackage(brief);
@@ -485,10 +471,10 @@ export async function answerWithOpenAI(input: {
         const args = JSON.parse(call.arguments) as Record<string, unknown>;
         const geoid = String(args.geographyId ?? "");
         if (/^\d{5}$/.test(geoid)) {
-          const other = getApprovedCountyBrief(geoid);
+          const other = await getPublishedCountyBriefByIdentifier(geoid);
           if (other) usedBriefs.set(geoid, other);
         }
-        const output = evidenceToolResult(name, args);
+        const output = await evidenceToolResult(name, args);
         toolCalls += 1;
         inputItems.push({
           type: "function_call_output",

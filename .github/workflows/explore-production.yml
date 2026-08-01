@@ -206,6 +206,9 @@ jobs:
             "s3://$EVIDENCE_ARTIFACT_BUCKET/approved/$RELEASE_SHA/" \
             --recursive --sse AES256 --only-show-errors
           npm run import:production:data-api --workspace @sozorock/evidence-core
+          snapshot_id=$(jq -r '.snapshotId' packages/evidence-core/data/national/county-evidence-snapshot.v1.json)
+          test "$snapshot_id" != "null"
+          echo "EVIDENCE_SNAPSHOT_CONTENT_HASH=${snapshot_id/snapshot:/sha256:}" >> "$GITHUB_ENV"
           npm run seed:collaboration-control-plane --workspace @sozorock/evidence-core
           aws rds-data execute-statement \
             --resource-arn "$EVIDENCE_DATABASE_CLUSTER_ARN" \
@@ -275,6 +278,7 @@ jobs:
             --arg connections "$EXPLORE_ConnectionTable" \
             --arg websocket "$EXPLORE_WebSocketUrl" \
             --arg management "$EXPLORE_ManagementEndpoint" \
+            --arg snapshot_hash "$EVIDENCE_SNAPSHOT_CONTENT_HASH" \
             '. + {
               EVIDENCE_DATABASE_CLUSTER_ARN:$ca,
               EVIDENCE_DATABASE_SECRET_ARN:$sa,
@@ -288,6 +292,7 @@ jobs:
               PLACE_AGENT_MAX_GLOBAL_DAY:"10",
               PLACE_AGENT_RATE_LIMIT_NAMESPACE:"production",
               EVIDENCE_SOURCE_CDC_PLACES_ENABLED:"true",
+              EVIDENCE_SNAPSHOT_CONTENT_HASH:$snapshot_hash,
               EXPLORE_REALTIME_SESSION_TABLE:$sessions,
               EXPLORE_REALTIME_CONNECTION_TABLE:$connections,
               EXPLORE_REALTIME_PUBLIC_ENDPOINT:$websocket,

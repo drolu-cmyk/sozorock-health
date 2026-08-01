@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { validateExplorePlaceBriefV1 } from "@sozorock/evidence-core";
-import { getApprovedCountyBrief } from "../../../../lib/approved-evidence-snapshot";
+import { getPublishedCountyBrief } from "../../../../lib/published-evidence-runtime";
 import { enforceEvidenceRateLimit } from "../../../../lib/evidence-rate-limit";
 import {
   requireEvidenceGeographyId,
@@ -42,7 +42,7 @@ export async function GET(request: NextRequest) {
       );
     }
   }
-  const brief = getApprovedCountyBrief(geoid);
+  const brief = await getPublishedCountyBrief(geoid);
   if (!brief) return NextResponse.json({ error: "County GEOID not found in the approved Census geography snapshot." }, { status: 404 });
   const validation = validateExplorePlaceBriefV1(brief);
   if (!validation.valid) {

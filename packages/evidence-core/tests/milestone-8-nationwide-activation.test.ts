@@ -309,5 +309,6 @@ test("Chester County current CDC rows are present when compatible measures are r
 test("legacy public Explore source contains no upstream evidence request", async () => {
   const route = await readFile(path.resolve(packageRoot, "..", "..", "apps", "public-site", "app", "api", "explore", "route.ts"), "utf8");
   assert.doesNotMatch(route, /data\.cdc\.gov|api\.census\.gov|fetch\s*\(/);
-  assert.match(route, /getApprovedCountyBrief/);
+  assert.match(route, /getPublishedCountyBrief/);
+  assert.match(route, /getPublishedCountyRecord/);
 });

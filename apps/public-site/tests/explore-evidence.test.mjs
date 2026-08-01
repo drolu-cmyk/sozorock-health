@@ -20,7 +20,7 @@ test("the evidence API uses the approved versioned snapshot and validated geogra
   const route = await source("app/api/explore/route.ts");
   const approvedSnapshot = await source("app/lib/approved-evidence-snapshot.ts");
   const versionedRoute = await source("app/api/evidence/v1/place-brief/route.ts");
-  assert.match(route, /getApprovedCountyBrief/);
+  assert.match(route, /getPublishedCountyBrief/);
   assert.match(route, /sourceCoverage/);
   assert.match(route, /previousMeasureCount/);
   assert.match(route, /buildPlaceIntelligence/);
@@ -32,7 +32,7 @@ test("the evidence API uses the approved versioned snapshot and validated geogra
   assert.match(route, /X-Evidence-Snapshot/);
   assert.match(approvedSnapshot, /county-evidence-snapshot\.v1\.json/);
   assert.match(approvedSnapshot, /buildCountyPlaceBrief/);
-  assert.match(versionedRoute, /getApprovedCountyBrief/);
+  assert.match(versionedRoute, /getPublishedCountyBrief/);
   for (const datasetId of ["i46a-9kgh", "vgc8-iyc4", "kee5-23sr", "d3i6-k6z5", "hbpe-6r8n", "6jwg-4k37"]) {
     assert.doesNotMatch(route, new RegExp(datasetId));
   }

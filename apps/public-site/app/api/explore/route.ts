@@ -4,8 +4,6 @@ import {
   acsCountySource,
   ahrfCountySource,
   ahrqCountySource,
-  countyRecordByFips,
-  getApprovedCountyBrief,
   getAcsCountyContext,
   getAhrfCountyContext,
   getAhrqCountyContext,
@@ -13,11 +11,16 @@ import {
   nationalCountyBenchmark,
   stateCountyBenchmark,
 } from "../../lib/approved-evidence-snapshot";
+import {
+  getPublishedCountyBrief,
+  getPublishedCountyRecord,
+} from "../../lib/published-evidence-runtime";
 import { exploreMetrics, safeGeoid, scoreMetric, type ExploreKind } from "../../lib/explore-health";
 import { enforceEvidenceRateLimit } from "../../lib/evidence-rate-limit";
 import { resolveEvidenceCounty } from "../../lib/county-resolution";
 import { cdcMeasureDefinitionId, indexCdcObservations } from "../../lib/explore-cdc-metadata";
 import {
+  evidenceRuntimeEnvironment,
   requireEvidenceGeographyId,
   requirePublishedEvidenceSnapshot,
 } from "../../lib/evidence-runtime-authority";
@@ -119,15 +122,20 @@ export async function GET(request: NextRequest) {
       );
     }
   }
-  const record = countyRecordByFips.get(evidenceGeoid);
+  const record = await getPublishedCountyRecord(evidenceGeoid);
   if (!record) return NextResponse.json({ error: "No current Census county or county equivalent matched that GEOID." }, { status: 404 });
-  const brief = getApprovedCountyBrief(evidenceGeoid);
+  const brief = await getPublishedCountyBrief(evidenceGeoid);
   if (!brief) return NextResponse.json({ error: "The approved evidence snapshot is temporarily unavailable." }, { status: 503 });
   const stateBenchmark = stateCountyBenchmark(record.stateCode);
-  const acsContext = getAcsCountyContext(evidenceGeoid);
-  const workforceContext = getHrsaCountyContext(evidenceGeoid);
-  const ahrfContext = getAhrfCountyContext(evidenceGeoid);
-  const ahrqContext = getAhrqCountyContext(evidenceGeoid);
+  const useFixtureOnlyForTests = evidenceRuntimeEnvironment() === "test";
+  const acsContext = useFixtureOnlyForTests ? getAcsCountyContext(evidenceGeoid) : {
+    population: null, populationMoe: null, medianAge: null, medianAgeMoe: null,
+    povertyPercent: null, povertyPercentMoe: null, noVehiclePercent: null,
+    noVehiclePercentMoe: null, internetSubscriptionPercent: null, internetSubscriptionPercentMoe: null,
+  };
+  const workforceContext = useFixtureOnlyForTests ? getHrsaCountyContext(evidenceGeoid) : { hpsa: [], muaP: [] };
+  const ahrfContext = useFixtureOnlyForTests ? getAhrfCountyContext(evidenceGeoid) : { observations: [] };
+  const ahrqContext = useFixtureOnlyForTests ? getAhrqCountyContext(evidenceGeoid) : { observations: [] };
   const cdcSource = brief.publicData.sources.find((source) => source.sourceId === "cdc-places");
   const cdcObservations = indexCdcObservations(
     brief.publicData.observations,
@@ -183,7 +191,7 @@ export async function GET(request: NextRequest) {
     geoid: evidenceGeoid,
     label: `${record.county}, ${record.stateCode}`,
     state: record.stateCode,
-    population: record.population ?? 0,
+    population: record.population ?? acsContext.population ?? 0,
     coordinates: [record.centroid.lon, record.centroid.lat],
     geographyLabel: "Official county or county-equivalent geography",
     geographyAuthority: "U.S. Census Bureau",

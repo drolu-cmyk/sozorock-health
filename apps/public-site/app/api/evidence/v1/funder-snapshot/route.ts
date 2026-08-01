@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from "pdf-lib";
 import { buildFunderEvidenceSnapshot } from "@sozorock/evidence-core";
-import { getApprovedCountyBrief } from "../../../../lib/approved-evidence-snapshot";
+import { getPublishedCountyBrief } from "../../../../lib/published-evidence-runtime";
 import { enforceEvidenceRateLimit } from "../../../../lib/evidence-rate-limit";
 import {
   requireEvidenceAuthority,
@@ -155,7 +155,7 @@ export async function GET(request: NextRequest) {
     if (!/^\d{5}$/.test(geoid)) {
       return NextResponse.json({ error: "Provide a valid five-digit Census county GEOID." }, { status: 400 });
     }
-    const brief = getApprovedCountyBrief(geoid);
+    const brief = await getPublishedCountyBrief(geoid);
     if (!brief) return NextResponse.json({ error: "County GEOID not found." }, { status: 404 });
     const snapshot = buildFunderEvidenceSnapshot({
       brief,
