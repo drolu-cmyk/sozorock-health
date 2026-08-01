@@ -16,6 +16,7 @@ import {
 import { exploreMetrics, safeGeoid, scoreMetric, type ExploreKind } from "../../lib/explore-health";
 import { enforceEvidenceRateLimit } from "../../lib/evidence-rate-limit";
 import { resolveEvidenceCounty } from "../../lib/county-resolution";
+import { cdcMeasureDefinitionId, indexCdcObservations } from "../../lib/explore-cdc-metadata";
 
 export const runtime = "nodejs";
 
@@ -42,12 +43,6 @@ const paths: Record<string, { group: "conditions" | "barriers" | "prevention"; f
   disability: { group: "barriers", field: "disability", sourceMeasureId: "DISABILITY" },
   loneliness: { group: "barriers", field: "loneliness", sourceMeasureId: "LONELINESS" },
 };
-
-function canonicalSourceMeasureId(sourceField: string | null | undefined) {
-  return sourceField
-    ?.replace(/_(?:CrudePrev|AgeAdjPrev|CrudeRate|AgeAdjRate|Count|Value)$/i, "")
-    .toLowerCase();
-}
 
 function interpretation(
   higherValueMeaning: "adverse" | "favorable" | "context_dependent",
@@ -109,15 +104,9 @@ export async function GET(request: NextRequest) {
   const ahrfContext = getAhrfCountyContext(evidenceGeoid);
   const ahrqContext = getAhrqCountyContext(evidenceGeoid);
   const cdcSource = brief.publicData.sources.find((source) => source.sourceId === "cdc-places");
-  const citationsById = new Map(brief.citations.map((citation) => [citation.id, citation]));
-  const cdcObservations = new Map(
-    brief.publicData.observations.flatMap((observation) => {
-      const sourceField = observation.citationIds
-        .map((citationId) => citationsById.get(citationId)?.sourceField)
-        .find((field): field is string => Boolean(field));
-      const canonicalId = canonicalSourceMeasureId(sourceField);
-      return canonicalId ? [[canonicalId, observation] as const] : [];
-    }),
+  const cdcObservations = indexCdcObservations(
+    brief.publicData.observations,
+    cdcSource?.sourceVersionId,
   );
 
   const metrics = exploreMetrics.flatMap((definition) => {
@@ -128,7 +117,7 @@ export async function GET(request: NextRequest) {
     const state = stateBenchmark[path.group][path.field] ?? null;
     if (!metric || metric.value === null) return [];
     const difference = national === null ? null : Number((metric.value - national).toFixed(1));
-    const observation = cdcObservations.get(path.sourceMeasureId.toLowerCase());
+    const observation = cdcObservations.get(cdcMeasureDefinitionId(path.sourceMeasureId));
     const confidence = metric.ci
       ? `${metric.ci[0]}–${metric.ci[1]}`
       : observation?.confidence.low != null && observation.confidence.high != null

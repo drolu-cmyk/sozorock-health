@@ -108,13 +108,15 @@ test("available measures remain visible when a compatible benchmark is missing",
 
 test("CDC metadata joins by canonical source measure identifier, not presentation label", async () => {
   const route = await source("app/api/explore/route.ts");
-  assert.match(route, /canonicalSourceMeasureId/);
-  assert.match(route, /citationIds/);
-  assert.match(route, /sourceField/);
-  assert.match(route, /path\.sourceMeasureId\.toLowerCase\(\)/);
+  const helper = await source("app/lib/explore-cdc-metadata.ts");
+  assert.match(route, /cdcMeasureDefinitionId/);
+  assert.match(route, /indexCdcObservations/);
+  assert.match(helper, /measureDefinitionId/);
+  assert.match(helper, /sourceVersionId/);
   assert.match(route, /sourceMeasureId: "COPD"/);
   assert.match(route, /sourceMeasureId: "COLON_SCREEN"/);
   assert.doesNotMatch(route, /cdcObservations\.get\(definition\.label\)/);
+  assert.doesNotMatch(route, /canonicalSourceMeasureId/);
   assert.match(route, /observation\?\.universe/);
   assert.match(route, /observation\?\.adjustment/);
   assert.match(route, /observation\.dataPeriod/);
