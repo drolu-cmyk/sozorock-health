@@ -412,7 +412,6 @@ async function loadPublishedBriefFromEvidenceCore(geoid: string, expectedHash: s
     .filter((source) => source.sourceId !== "cdc-places" && source.sourceId !== "census-geography")
     .map((source) => source.id);
   if (contextSourceIds.length > 0) {
-    const placeholders = contextSourceIds.map((_, index) => `:context_source_${index}`).join(", ");
     const contextParameters = [
       { name: "geography_id", value: { stringValue: geographyId } },
       ...contextSourceIds.map((id, index) => ({ name: `context_source_${index}`, value: { stringValue: id } })),
@@ -434,7 +433,7 @@ async function loadPublishedBriefFromEvidenceCore(geoid: string, expectedHash: s
          JOIN evidence.measure_definition d ON d.id=o.measure_definition_id
          JOIN evidence.source_version sv ON sv.id=o.source_version_id
         WHERE o.geography_id=CAST(:geography_id AS uuid)
-          AND o.source_version_id IN (${placeholders})
+          AND o.source_version_id IN (${contextSourceIds.map((_, index) => `CAST(:context_source_${index} AS uuid)`).join(", ")})
           AND o.review_status='verified'
         ORDER BY sv.source_id, d.source_measure_id`,
       contextParameters,

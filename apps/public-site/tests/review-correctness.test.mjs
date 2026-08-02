@@ -35,6 +35,7 @@ test("runtime queries are hash-pinned, workforce is snapshot-linked, and the Exp
   assert.match(runtime, /snapshot\.content_hash=:snapshot_hash/);
   assert.match(runtime, /snapshot_source_version link ON link\.source_version_id=d\.source_version_id/);
   assert.match(runtime, /sv\.source_id='hrsa-workforce'/);
+  assert.match(runtime, /o\.source_version_id IN \(\$\{contextSourceIds\.map\(\(_, index\) => `CAST\(:context_source_\$\{index\} AS uuid\)`/);
   assert.match(runtime, /runtimeRecordCache\.set\(`\$\{geoid\}:\$\{contentHash\}`/);
   assert.match(exploreRoute, /const brief = await getPublishedCountyBrief\(evidenceGeoid\)/);
   assert.match(exploreRoute, /const record = await getPublishedCountyRecord\(evidenceGeoid\)/);
