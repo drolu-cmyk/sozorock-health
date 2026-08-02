@@ -21,7 +21,7 @@ async function worker() {
   while (cursor < counties.length) {
     const county = counties[cursor++];
     const response = await fetch(
-      `${baseUrl}/api/evidence/v1/place-brief?geography=county&geoid=${county.geoid}`,
+      `${baseUrl}/api/evidence/v1/place-brief?kind=county&geoid=${county.geoid}`,
     );
     if (!response.ok) {
       failures.push({ geoid: county.geoid, status: response.status });

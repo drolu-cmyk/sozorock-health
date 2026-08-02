@@ -94,6 +94,16 @@ test("the public map uses MapLibre with official boundaries and no decorative ro
   assert.doesNotMatch(component, /Major roads|showRoads|heatmap/i);
 });
 
+test("release validators call the versioned place-brief contract with kind", async () => {
+  const nationalValidator = await source("scripts/validate-national-api.mjs");
+  const stagingWorkflow = await source("../../.github/workflows/milestone-10-staging.yml");
+  const productionWorkflow = await source("../../.github/workflows/explore-production.yml");
+  for (const content of [nationalValidator, stagingWorkflow, productionWorkflow]) {
+    assert.match(content, /place-brief\?kind=county&geoid/);
+    assert.doesNotMatch(content, /place-brief\?geography=/);
+  }
+});
+
 test("available measures remain visible when a compatible benchmark is missing", async () => {
   const route = await source("app/api/explore/route.ts");
   const component = await source("app/explore/ExploreClient.tsx");
