@@ -220,6 +220,9 @@ export class AcsIngestionAdapter implements PublicDataAdapter {
             marginOfErrorVariableId: variable.marginOfError ?? null,
             name: row.NAME ?? null,
             censusApiGeography: query.geography.kind,
+            table: variable.table ?? variable.estimate.split("_")[0] ?? null,
+            group: variable.group ?? variable.estimate.split("_")[0] ?? null,
+            transformationVersion: variable.transformationVersion ?? null,
             ...(numerator !== null && denominator !== null ? {
               numeratorVariableId: variable.numeratorVariableId ?? null,
               denominatorVariableId: variable.denominatorVariableId ?? null,

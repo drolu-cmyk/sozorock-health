@@ -224,6 +224,58 @@ function citationId(observationId: string) {
   return `runtime-citation:${observationId}`;
 }
 
+function countyRecordFromBrief(
+  geoid: string,
+  brief: ExplorePlaceBriefV1,
+  seed?: CountyEvidenceSnapshotRecord,
+): CountyEvidenceSnapshotRecord {
+  const selected = brief.resolution.selected;
+  const displayName = selected?.displayName ?? geoid;
+  const [countyName] = displayName.split(",");
+  const stateFips = geoid.slice(0, 2);
+  const record: CountyEvidenceSnapshotRecord = {
+    fips: geoid,
+    stateFips: seed?.stateFips ?? stateFips,
+    countyFips: seed?.countyFips ?? geoid.slice(2),
+    state: seed?.state ?? "",
+    stateCode: seed?.stateCode ?? STATE_CODES[stateFips] ?? stateFips,
+    county: seed?.county ?? countyName ?? geoid,
+    centroid: seed?.centroid ?? { lat: 0, lon: 0 },
+    landSquareMiles: seed?.landSquareMiles ?? 0,
+    population: seed?.population ?? null,
+    adultPopulation: seed?.adultPopulation ?? null,
+    conditions: {},
+    barriers: {},
+    prevention: {},
+    dataCoverage: 0,
+    sourceStatus: "unavailable",
+  };
+  const cdcSourceIds = new Set(
+    brief.publicData.sources
+      .filter((source) => source.sourceId === "cdc-places")
+      .map((source) => source.sourceVersionId),
+  );
+  for (const observation of brief.publicData.observations) {
+    if (!cdcSourceIds.has(observation.sourceVersionId) || typeof observation.value !== "number") continue;
+    const citation = brief.citations.find((item) => item.id === observation.citationIds[0]);
+    const canonicalMeasureId = citation?.sourceField?.replace(/:Crude$/i, "") ?? "";
+    const mapping = MEASURE_GROUPS[canonicalMeasureId];
+    if (!mapping) continue;
+    const low = observation.confidence.low;
+    const high = observation.confidence.high;
+    record[mapping.group][mapping.field] = {
+      value: observation.value,
+      ci: low !== null && high !== null ? [low, high] : null,
+    };
+  }
+  const cdcObservationCount = brief.publicData.observations.filter((observation) =>
+    cdcSourceIds.has(observation.sourceVersionId),
+  ).length;
+  record.dataCoverage = cdcObservationCount;
+  record.sourceStatus = cdcObservationCount ? "available" : "unavailable";
+  return record;
+}
+
 function runtimeSnapshotHash(expectedHash?: string) {
   const hash = (expectedHash ?? process.env.EVIDENCE_SNAPSHOT_CONTENT_HASH ?? "").trim();
   return /^sha256:[0-9a-fA-F]{64}$/.test(hash) ? hash : null;
@@ -509,8 +561,6 @@ async function loadPublishedBriefFromEvidenceCore(geoid: string, expectedHash: s
   }
   record.dataCoverage = Object.keys(MEASURE_GROUPS).length ? Math.round((cdcObservationCount / Object.keys(MEASURE_GROUPS).length) * 100) : 0;
   record.sourceStatus = cdcObservationCount ? "available" : "unavailable";
-  runtimeRecordCache.set(`${geoid}:${contentHash}`, record);
-
   const snapshot: CountyEvidenceSnapshot = {
     schemaVersion: "sozorock.county-evidence-snapshot.v1",
     snapshotId,
@@ -597,6 +647,9 @@ async function loadPublishedBriefFromEvidenceCore(geoid: string, expectedHash: s
   }));
   if (coverage.length) brief.publicData.sourceCoverage = coverage;
   brief.evidenceAssessment = recomputeEvidenceAssessment(brief);
+  // Only cache the record after the final persisted observations, sources and
+  // coverage have been applied and the assessment has been recomputed.
+  runtimeRecordCache.set(`${geoid}:${contentHash}`, countyRecordFromBrief(geoid, brief, record));
   return brief;
 }
 
@@ -672,6 +725,29 @@ export async function getPublishedCountyBrief(geoid: string) {
   return loadPublishedBriefFromEvidenceCore(geoid, hash);
 }
 
+/**
+ * Load the approved brief and its county projection as one snapshot-consistent
+ * operation. The record is derived from that loaded brief and never triggers
+ * a second full evidence query.
+ */
+export async function getPublishedCountyEvidence(geoid: string): Promise<{
+  brief: ExplorePlaceBriefV1;
+  record: CountyEvidenceSnapshotRecord;
+} | null> {
+  const brief = await getPublishedCountyBrief(geoid);
+  if (!brief) return null;
+  if (evidenceRuntimeEnvironment() === "test") {
+    const fixture = await import("./approved-evidence-snapshot");
+    const record = fixture.countyRecordByFips.get(geoid);
+    return record ? { brief, record } : null;
+  }
+  const hash = runtimeSnapshotHash();
+  if (!hash) return null;
+  const record = runtimeRecordCache.get(`${geoid}:${hash}`) ?? countyRecordFromBrief(geoid, brief);
+  runtimeRecordCache.set(`${geoid}:${hash}`, record);
+  return { brief, record };
+}
+
 export async function getPublishedCountyBriefByIdentifier(identifier: string) {
   if (/^\d{5}$/.test(identifier)) return getPublishedCountyBrief(identifier);
   if (evidenceRuntimeEnvironment() === "test") {
@@ -697,41 +773,8 @@ export async function getPublishedCountyRecord(geoid: string): Promise<CountyEvi
     const fixture = await import("./approved-evidence-snapshot");
     return fixture.countyRecordByFips.get(geoid) ?? null;
   }
-  const hash = runtimeSnapshotHash();
-  if (!hash) return null;
-  const cached = runtimeRecordCache.get(`${geoid}:${hash}`);
-  if (cached) return cached;
-  const brief = await getPublishedCountyBrief(geoid);
-  if (!brief?.resolution.selected) return null;
-  const record: CountyEvidenceSnapshotRecord = {
-    fips: geoid,
-    stateFips: geoid.slice(0, 2),
-    countyFips: geoid.slice(2),
-    state: "",
-    stateCode: STATE_CODES[geoid.slice(0, 2)] ?? geoid.slice(0, 2),
-    county: brief.resolution.selected.displayName.split(",")[0] ?? brief.resolution.selected.displayName,
-    centroid: { lat: 0, lon: 0 },
-    landSquareMiles: 0,
-    population: null,
-    adultPopulation: null,
-    conditions: {}, barriers: {}, prevention: {}, dataCoverage: 0, sourceStatus: "unavailable",
-  };
-  for (const observation of brief.publicData.observations) {
-    const sourceMeasure = brief.citations.find((citation) => citation.id === observation.citationIds[0])?.sourceField?.replace(/:Crude$/i, "");
-    const mapping = sourceMeasure ? MEASURE_GROUPS[sourceMeasure] : undefined;
-    if (mapping && typeof observation.value === "number") {
-      record[mapping.group][mapping.field] = {
-        value: observation.value,
-        ci: observation.confidence.low !== null && observation.confidence.high !== null
-          ? [observation.confidence.low, observation.confidence.high]
-          : null,
-      };
-    }
-  }
-  record.dataCoverage = brief.publicData.observations.length;
-  record.sourceStatus = brief.publicData.observations.length ? "available" : "unavailable";
-  runtimeRecordCache.set(`${geoid}:${hash}`, record);
-  return record;
+  const evidence = await getPublishedCountyEvidence(geoid);
+  return evidence?.record ?? null;
 }
 
 export async function findPublishedCounty(query: string) {

@@ -153,6 +153,18 @@ try {
 
   // The latest correctness migrations must be reversible and re-applicable in
   // the disposable database before any protected environment is touched.
+  const down0012 = await readFile(path.join(migrationsDir, "rollback", "0012_acs_provenance_backfill.down.sql"), "utf8");
+  await client.query(down0012);
+  const provenanceAfter0012Rollback = await client.query(
+    `SELECT column_name FROM information_schema.columns
+     WHERE table_schema='evidence' AND table_name='metric_observation'
+       AND column_name IN ('source_variable_id','source_numerator_variable_id','source_denominator_variable_id')`,
+  );
+  if (provenanceAfter0012Rollback.rows.length !== 3) {
+    throw new Error("Migration 0012 rollback unexpectedly removed the field-level provenance schema.");
+  }
+  await client.query(await readFile(path.join(migrationsDir, "0012_acs_provenance_backfill.sql"), "utf8"));
+
   const down0011 = await readFile(path.join(migrationsDir, "rollback", "0011_workspace_recipient_binding.down.sql"), "utf8");
   await client.query(down0011);
   const recipientColumns = await client.query(
@@ -307,6 +319,8 @@ try {
     reapply0008Passed: true,
     rollback0009Passed: true,
     reapply0009Passed: true,
+    rollback0012Passed: true,
+    reapply0012Passed: true,
   }, null, 2));
 } finally {
   await client.end();
