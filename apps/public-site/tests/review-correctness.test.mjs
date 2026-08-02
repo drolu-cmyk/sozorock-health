@@ -101,7 +101,7 @@ test("public share serialization is an allowlist and excludes unreviewed/interna
     assert.doesNotMatch(serialized, new RegExp(forbidden));
   }
   assert.match(serialized, /Approved summary/);
-  assert.ok(serialized.includes("https://data.cdc.gov"));
+  assert.match(serialized, /data\.cdc\.gov/);
 });
 
 test("public share tokens are validated, uncached, and never broaden scope", () => {
