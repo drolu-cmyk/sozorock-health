@@ -24,6 +24,7 @@ import {
   assertSnapshotContentHash,
   sha256,
 } from "./evidence-runtime-authority";
+import { projectPublicWorkspacePlan, type PublicWorkspacePlan } from "./public-workspace-share";
 
 const POLICY_VERSION = "place-intelligence.collaboration.v1";
 const trustedMembershipAuthorization = Symbol("trusted-membership-authorization");
@@ -553,27 +554,8 @@ async function loadWorkspacePlan(input: { workspaceId: string; tenantId: string 
 
 // Public bearer links use a separate projection.  The internal workspace
 // model is intentionally never loaded by this path.
-const PUBLIC_SECTION_KEYS = new Set([
-  "summary", "context", "evidence", "action", "measurements", "plan", "response-fit", "public-summary",
-]);
-const PUBLIC_CONTENT_KEYS = new Set([
-  "title", "summary", "statement", "description", "evidence", "sources", "source", "citations",
-  "geography", "measure", "dataPeriod", "releaseDate", "officialUrl", "url", "limitations",
-  "response", "status", "outcome", "assumptions", "outputs", "formula", "range", "humanReviewStatus",
-]);
-
-function projectPublicValue(value: unknown): unknown {
-  if (Array.isArray(value)) return value.map(projectPublicValue);
-  if (!value || typeof value !== "object") return value;
-  return Object.fromEntries(
-    Object.entries(value as Record<string, unknown>)
-      .filter(([key]) => PUBLIC_CONTENT_KEYS.has(key))
-      .map(([key, child]) => [key, projectPublicValue(child)]),
-  );
-}
-
-async function loadPublicWorkspacePlan(input: { workspaceId: string; tenantId: string }) {
-  const publicSectionKeys = [...PUBLIC_SECTION_KEYS];
+async function loadPublicWorkspacePlan(input: { workspaceId: string; tenantId: string }): Promise<PublicWorkspacePlan> {
+  const publicSectionKeys = ["summary", "context", "evidence", "action", "measurements", "plan", "response-fit", "public-summary"];
   const sectionKeyPlaceholders = publicSectionKeys.map((_, index) => `:public_section_key_${index}`).join(", ");
   const [workspace, sections, scenarios] = await Promise.all([
     executeEvidenceSql(
@@ -590,8 +572,10 @@ async function loadPublicWorkspacePlan(input: { workspaceId: string; tenantId: s
     executeEvidenceSql(
       `SELECT section_key, version, content::text, updated_at::text
        FROM evidence.workspace_section
-       WHERE workspace_id=CAST(:workspace_id AS uuid)
-         AND section_key IN (${sectionKeyPlaceholders})
+        WHERE workspace_id=CAST(:workspace_id AS uuid)
+          AND section_key IN (${sectionKeyPlaceholders})
+          AND content->>'public'='true'
+          AND content->>'reviewStatus' IN ('verified', 'approved')
        ORDER BY section_key`,
       [
         { name: "workspace_id", value: { stringValue: input.workspaceId } },
@@ -614,7 +598,7 @@ async function loadPublicWorkspacePlan(input: { workspaceId: string; tenantId: s
   ]);
   const header = workspace.records?.[0];
   if (!header) throw new Error("The county workspace is unavailable.");
-  return {
+  return projectPublicWorkspacePlan({
     workspace: {
       title: String(evidenceFieldValue(header[0]) ?? ""),
       version: Number(evidenceFieldValue(header[1]) ?? 0),
@@ -625,19 +609,17 @@ async function loadPublicWorkspacePlan(input: { workspaceId: string; tenantId: s
     sections: (sections.records ?? []).map((row) => ({
       sectionKey: String(evidenceFieldValue(row[0]) ?? ""),
       version: Number(evidenceFieldValue(row[1]) ?? 0),
-      content: projectPublicValue(JSON.parse(String(evidenceFieldValue(row[2]) ?? "{}"))),
+      content: JSON.parse(String(evidenceFieldValue(row[2]) ?? "{}")) as Record<string, unknown>,
       updatedAt: String(evidenceFieldValue(row[3]) ?? ""),
     })),
     scenarios: (scenarios.records ?? []).map((row) => ({
       name: String(evidenceFieldValue(row[0]) ?? ""),
       version: Number(evidenceFieldValue(row[1]) ?? 0),
-      output: projectPublicValue(JSON.parse(String(evidenceFieldValue(row[2]) ?? "{}"))),
-      humanReviewStatus: String(evidenceFieldValue(row[3]) ?? "verified"),
+      output: JSON.parse(String(evidenceFieldValue(row[2]) ?? "{}")) as Record<string, unknown>,
+      humanReviewStatus: String(evidenceFieldValue(row[3]) ?? ""),
       createdAt: String(evidenceFieldValue(row[4]) ?? ""),
     })),
-    // Review questions and citations are intentionally omitted unless they
-    // are embedded in an allowlisted, reviewed section payload.
-  };
+  });
 }
 
 export async function getWorkspacePlan(input: {
@@ -845,11 +827,16 @@ export async function acceptWorkspaceInvitation(input: {
       ],
       transactionId,
     );
+    const authorizedActor: WorkspaceActor = {
+      ...input.actor,
+      role: role as WorkspaceRole,
+      access: access as WorkspaceAccess,
+    };
     const event = await appendTrustedMembershipEvent({
       workspaceId,
       tenantId: input.tenantId,
       eventType: "participant_joined",
-      actor: input.actor,
+      actor: authorizedActor,
       idempotencyKey: input.idempotencyKey,
       evidenceSnapshotId: null,
       payload: { role, access },
@@ -1053,6 +1040,11 @@ export async function acceptWorkspaceHandoff(input: {
       throw new Error("This handoff is bound to a different participant.");
     }
     const access = targetRole === "research_funder_viewer" ? "viewer" : "contributor";
+    const authorizedActor: WorkspaceActor = {
+      ...input.actor,
+      role: targetRole as WorkspaceRole,
+      access: access as WorkspaceAccess,
+    };
     await executeEvidenceSql(
       `INSERT INTO evidence.workspace_participant (
          workspace_id, principal_id, role, access, display_name, joined_at
@@ -1085,7 +1077,7 @@ export async function acceptWorkspaceHandoff(input: {
       workspaceId,
       tenantId: input.tenantId,
       eventType: "workspace_handoff_accepted",
-      actor: input.actor,
+      actor: authorizedActor,
       idempotencyKey: `workspace-handoff-accepted:${handoffId}`,
       evidenceSnapshotId: null,
       payload: { handoffId, role: targetRole, access },
@@ -1095,7 +1087,7 @@ export async function acceptWorkspaceHandoff(input: {
       workspaceId,
       tenantId: input.tenantId,
       eventType: "participant_joined",
-      actor: input.actor,
+      actor: authorizedActor,
       idempotencyKey: input.idempotencyKey,
       evidenceSnapshotId: null,
       payload: { role: targetRole, access, handoff: true },

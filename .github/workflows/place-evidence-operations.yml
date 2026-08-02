@@ -39,6 +39,14 @@ jobs:
       - name: Run evidence policy and safety tests
         run: npm run test --workspace @sozorock/evidence-core
 
+      - name: Run the clean-install runtime security gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm audit --omit=dev --audit-level=moderate
+          npm run verify:public-runtime-security
+          echo "SECURITY_GATE_PASSED=true" >> "$GITHUB_ENV"
+
       - name: Record official-source health and national coverage
         shell: bash
         run: |

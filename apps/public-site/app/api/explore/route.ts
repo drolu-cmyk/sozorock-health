@@ -12,8 +12,7 @@ import {
   stateCountyBenchmark,
 } from "../../lib/approved-evidence-snapshot";
 import {
-  getPublishedCountyBrief,
-  getPublishedCountyRecord,
+  getPublishedCountyEvidence,
   getPublishedWorkforceContext,
 } from "../../lib/published-evidence-runtime";
 import { exploreMetrics, safeGeoid, scoreMetric, type ExploreKind } from "../../lib/explore-health";
@@ -115,7 +114,7 @@ export async function GET(request: NextRequest) {
   const evidenceGeoid = resolution.selectedCountyGeoid;
   if (process.env.NODE_ENV === "production") {
     try {
-      await requireEvidenceGeographyId(evidenceGeoid);
+      await requireEvidenceGeographyId(evidenceGeoid, placeAgentRuntimeVersions.snapshotContentHash);
     } catch {
       return NextResponse.json(
         { error: "The selected county is not present in the approved evidence store." },
@@ -123,12 +122,9 @@ export async function GET(request: NextRequest) {
       );
     }
   }
-  const brief = await getPublishedCountyBrief(evidenceGeoid);
-  if (!brief) return NextResponse.json({ error: "The approved evidence snapshot is temporarily unavailable." }, { status: 503 });
-  // Load the brief first.  The runtime record is then derived from the same
-  // snapshot-keyed cache entry instead of reloading the full evidence bundle.
-  const record = await getPublishedCountyRecord(evidenceGeoid);
-  if (!record) return NextResponse.json({ error: "No current Census county or county equivalent matched that GEOID." }, { status: 404 });
+  const evidence = await getPublishedCountyEvidence(evidenceGeoid);
+  if (!evidence) return NextResponse.json({ error: "The approved evidence snapshot is temporarily unavailable." }, { status: 503 });
+  const { brief, record } = evidence;
   const stateBenchmark = stateCountyBenchmark(record.stateCode);
   const useFixtureOnlyForTests = evidenceRuntimeEnvironment() === "test";
   const persistentWorkforce = useFixtureOnlyForTests

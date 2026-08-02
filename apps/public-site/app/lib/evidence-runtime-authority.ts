@@ -189,18 +189,41 @@ export async function requireEvidenceCapability(capabilityKey: string) {
  * at the immutable `evidence.geography` row rather than storing a second,
  * free-form geography identifier.
  */
-export async function requireEvidenceGeographyId(countyGeoid: string) {
+export async function requireEvidenceGeographyId(countyGeoid: string, snapshotContentHash?: string) {
   if (!/^\d{5}$/.test(countyGeoid)) throw new Error("County GEOID is invalid.");
+  const pinnedHash = snapshotContentHash ? assertSnapshotContentHash(snapshotContentHash) : null;
+  const query = pinnedHash
+    ? `SELECT g.id::text
+         FROM evidence.geography g
+         JOIN evidence.evidence_snapshot s
+           ON s.content_hash=:snapshot_hash
+          AND s.review_status='verified'
+          AND s.published_at IS NOT NULL
+         JOIN evidence.snapshot_source_version link ON link.snapshot_id=s.id
+         JOIN evidence.source_version census_source
+           ON census_source.id=link.source_version_id
+          AND census_source.source_id='census-geography'
+        WHERE g.authority='census'
+          AND g.authority_id=:county_geoid
+          AND g.kind='county'
+          AND g.review_status='verified'
+          AND g.vintage=to_char(census_source.release_date, 'YYYY')
+        ORDER BY g.vintage DESC
+        LIMIT 1`
+    : `SELECT id::text
+         FROM evidence.geography
+        WHERE authority='census'
+          AND authority_id=:county_geoid
+          AND kind='county'
+          AND review_status='verified'
+        ORDER BY vintage DESC
+        LIMIT 1`;
   const result = await executeEvidenceSql(
-    `SELECT id::text
-       FROM evidence.geography
-      WHERE authority='census'
-        AND authority_id=:county_geoid
-        AND kind='county'
-        AND review_status='verified'
-      ORDER BY vintage DESC
-      LIMIT 1`,
-    [{ name: "county_geoid", value: { stringValue: countyGeoid } }],
+    query,
+    [
+      { name: "county_geoid", value: { stringValue: countyGeoid } },
+      ...(pinnedHash ? [{ name: "snapshot_hash", value: { stringValue: pinnedHash } }] : []),
+    ],
   );
   const id = String(evidenceFieldValue(result.records?.[0]?.[0]) ?? "");
   if (!/^[0-9a-f-]{36}$/i.test(id)) {

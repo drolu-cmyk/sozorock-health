@@ -92,9 +92,9 @@ test("production Explore requests are tied to persisted canonical geography and 
   assert.match(runtimeAuthority, /kind='county'/);
   assert.match(runtimeAuthority, /requireEvidenceGeographyId/);
   assert.match(exploreRoute, /requirePublishedEvidenceSnapshot/);
-  assert.match(exploreRoute, /requireEvidenceGeographyId\(evidenceGeoid\)/);
+  assert.match(exploreRoute, /requireEvidenceGeographyId\(evidenceGeoid, placeAgentRuntimeVersions\.snapshotContentHash\)/);
   assert.match(placeBriefRoute, /requirePublishedEvidenceSnapshot/);
-  assert.match(placeBriefRoute, /requireEvidenceGeographyId\(geoid\)/);
+  assert.match(placeBriefRoute, /requireEvidenceGeographyId\(geoid, placeAgentRuntimeVersions\.snapshotContentHash\)/);
 });
 
 test("staging acceptance capacity is isolated from production agent limits", () => {

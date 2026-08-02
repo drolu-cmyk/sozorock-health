@@ -37,7 +37,7 @@ export async function GET(request: NextRequest) {
   if (process.env.NODE_ENV === "production") {
     try {
       await requirePublishedEvidenceSnapshot(placeAgentRuntimeVersions.snapshotContentHash);
-      await requireEvidenceGeographyId(geoid);
+      await requireEvidenceGeographyId(geoid, placeAgentRuntimeVersions.snapshotContentHash);
     } catch {
       return NextResponse.json(
         { error: "The approved evidence snapshot is temporarily unavailable." },
