@@ -33,6 +33,8 @@ test("the evidence API uses the approved versioned snapshot and validated geogra
   assert.match(approvedSnapshot, /county-evidence-snapshot\.v1\.json/);
   assert.match(approvedSnapshot, /buildCountyPlaceBrief/);
   assert.match(versionedRoute, /getPublishedCountyBrief/);
+  assert.match(versionedRoute, /normalizePlaceBriefKind/);
+  assert.match(versionedRoute, /X-Deprecated-Query-Parameter/);
   for (const datasetId of ["i46a-9kgh", "vgc8-iyc4", "kee5-23sr", "d3i6-k6z5", "hbpe-6r8n", "6jwg-4k37"]) {
     assert.doesNotMatch(route, new RegExp(datasetId));
   }
