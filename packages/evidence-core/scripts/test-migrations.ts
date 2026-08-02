@@ -72,6 +72,14 @@ try {
   const existing = new Set(tables.rows.map((row) => row.table_name));
   const missing = requiredTables.filter((name) => !existing.has(name));
   if (missing.length) throw new Error(`Missing migrated tables: ${missing.join(", ")}`);
+  const publicQuestionColumn = await client.query(
+    `SELECT column_name FROM information_schema.columns
+     WHERE table_schema='evidence' AND table_name='workspace_review_question'
+       AND column_name='is_public'`,
+  );
+  if (publicQuestionColumn.rows.length !== 1) {
+    throw new Error("Migration 0013 did not add the explicit public review-question flag.");
+  }
 
   let immutableGuardPassed = false;
   await client.query("BEGIN");
@@ -154,6 +162,17 @@ try {
   // The latest correctness migrations must be reversible and re-applicable in
   // the disposable database before any protected environment is touched.
   const down0012 = await readFile(path.join(migrationsDir, "rollback", "0012_acs_provenance_backfill.down.sql"), "utf8");
+  const down0013 = await readFile(path.join(migrationsDir, "rollback", "0013_public_review_questions.down.sql"), "utf8");
+  await client.query(down0013);
+  const publicQuestionAfter0013Rollback = await client.query(
+    `SELECT column_name FROM information_schema.columns
+     WHERE table_schema='evidence' AND table_name='workspace_review_question'
+       AND column_name='is_public'`,
+  );
+  if (publicQuestionAfter0013Rollback.rows.length !== 0) {
+    throw new Error("Migration 0013 rollback did not remove the public review-question flag.");
+  }
+  await client.query(await readFile(path.join(migrationsDir, "0013_public_review_questions.sql"), "utf8"));
   await client.query(down0012);
   const provenanceAfter0012Rollback = await client.query(
     `SELECT column_name FROM information_schema.columns
@@ -321,6 +340,8 @@ try {
     reapply0009Passed: true,
     rollback0012Passed: true,
     reapply0012Passed: true,
+    rollback0013Passed: true,
+    reapply0013Passed: true,
   }, null, 2));
 } finally {
   await client.end();

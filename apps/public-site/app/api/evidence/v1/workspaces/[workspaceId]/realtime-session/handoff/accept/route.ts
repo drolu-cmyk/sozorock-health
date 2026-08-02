@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireWorkspaceActor } from "../../../../../../../../lib/explore-workspace-auth";
-import { requireCollaborationCapability } from "../../../../../../../../lib/explore-workspace-runtime";
+import { requireCollaborationCapability, requireWorkspaceMembership } from "../../../../../../../../lib/explore-workspace-runtime";
 import { acceptRealtimeHandoff } from "../../../../../../../../lib/explore-realtime";
 import { isTrustedSameOrigin, readBoundedText } from "../../../../../../../../lib/request-security";
 
@@ -16,6 +16,10 @@ export async function POST(request: NextRequest, context: Context) {
     const actor = await requireWorkspaceActor(request);
     const { workspaceId } = await context.params;
     if (!/^[0-9a-f-]{36}$/i.test(workspaceId)) return NextResponse.json({ error: "Workspace identifier is invalid." }, { status: 400 });
+    // A bearer handoff token never grants workspace access by itself.  The
+    // accepting identity must already be an active participant in the same
+    // tenant and workspace before a realtime session is minted.
+    await requireWorkspaceMembership({ workspaceId, tenantId: actor.tenantId, actor });
     const bounded = await readBoundedText(request, 2_000, ["application/json"]);
     if (!bounded.ok) return NextResponse.json({ error: "The request was not accepted." }, { status: 400 });
     const body = JSON.parse(bounded.text) as Record<string, unknown>;

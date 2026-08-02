@@ -25,6 +25,10 @@ const advancedMigration = await readFile(
   new URL("../../../packages/evidence-core/migrations/0009_explore_agentic_operations.sql", import.meta.url),
   "utf8",
 );
+const publicShareMigration = await readFile(
+  new URL("../../../packages/evidence-core/migrations/0013_public_review_questions.sql", import.meta.url),
+  "utf8",
+);
 const realtimeHandoff = await readFile(
   new URL("../app/api/evidence/v1/workspaces/[workspaceId]/realtime-session/handoff/route.ts", import.meta.url),
   "utf8",
@@ -74,10 +78,12 @@ test("real-time session is opaque, short-lived and never authorizes mutations", 
   assert.doesNotMatch(realtime, /OPENAI_API_KEY|CENSUS_API_KEY|secretValue/i);
   assert.match(realtimeHandler, /Workspace writes use the authenticated HTTPS API/);
   assert.match(realtimeHandler, /item\.kind\?\.S !== "session"/);
+  assert.match(realtimeHandler, /ConditionExpression: "kind = :kind AND expires_at > :now"/);
   assert.match(realtime, /kind: \{ S: "handoff" \}/);
   assert.match(realtime, /ConditionExpression: "attribute_not_exists\(used\) OR used = :notUsed"/);
   assert.match(realtimeHandoff, /mintRealtimeHandoff/);
   assert.match(realtimeHandoffAccept, /acceptRealtimeHandoff/);
+  assert.match(realtimeHandoffAccept, /requireWorkspaceMembership/);
   assert.match(infrastructure, /ThrottlingBurstLimit:\s*100/);
   assert.match(infrastructure, /TimeToLiveSpecification/);
   assert.match(infrastructure, /dynamodb:GetItem/);
@@ -126,4 +132,9 @@ test("collaboration records that carry history are immutable", () => {
   assert.match(advancedMigration, /workspace_share_link/);
   assert.match(advancedMigration, /workspace_handoff/);
   assert.match(advancedMigration, /explore_onboarding_request/);
+});
+
+test("public review questions require an explicit public flag", () => {
+  assert.match(publicShareMigration, /is_public boolean NOT NULL DEFAULT false/);
+  assert.match(publicShareMigration, /workspace_review_question_public_idx/);
 });

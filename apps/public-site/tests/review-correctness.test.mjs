@@ -13,6 +13,7 @@ const workspace = await readFile(new URL("../app/lib/explore-workspace-runtime.t
 const publicShare = await readFile(new URL("../app/lib/public-workspace-share.ts", import.meta.url), "utf8");
 const shareRoute = await readFile(new URL("../app/api/evidence/v1/workspace-share/route.ts", import.meta.url), "utf8");
 const migration = await readFile(new URL("../../../packages/evidence-core/migrations/0010_field_level_provenance.sql", import.meta.url), "utf8");
+const publicShareMigration = await readFile(new URL("../../../packages/evidence-core/migrations/0013_public_review_questions.sql", import.meta.url), "utf8");
 
 const hashA = `sha256:${"a".repeat(64)}`;
 const hashB = `sha256:${"b".repeat(64)}`;
@@ -93,15 +94,61 @@ test("public share serialization is an allowlist and excludes unreviewed/interna
       { name: "approved scenario", version: 1, output: { range: { low: 1 }, actorId: "must-not-leak" }, humanReviewStatus: "verified", createdAt: "2026-08-01" },
       { name: "pending scenario", version: 1, output: { range: { low: 1 } }, humanReviewStatus: "pending", createdAt: "2026-08-01" },
     ],
+    reviewQuestions: [
+      { sectionKey: "action", question: "Approved question", status: "answered", completedAt: "2026-08-01", isPublic: true },
+      { sectionKey: "action", question: "Private question", status: "open", completedAt: null, isPublic: false },
+    ],
   });
   assert.equal(projected.sections.length, 1);
   assert.equal(projected.scenarios.length, 1);
+  assert.equal(projected.reviewQuestions.length, 1);
+  assert.equal(projected.reviewQuestions[0].question, "Approved question");
+  assert.deepEqual(projected.citations, []);
   const serialized = JSON.stringify(projected);
   for (const forbidden of ["actorId", "pending", "prompt", "internal", "tenantId", "reviewedBy"]) {
     assert.doesNotMatch(serialized, new RegExp(forbidden));
   }
   assert.match(serialized, /Approved summary/);
   assert.match(serialized, /data\.cdc\.gov/);
+});
+
+test("public share includes only explicit public review questions and approved citation metadata", () => {
+  const projected = projectPublicWorkspacePlan({
+    workspace: { title: "Albany plan", version: 1, updatedAt: "2026-08-01", geoid: "36001", geographyName: "Albany County" },
+    sections: [{
+      sectionKey: "evidence",
+      version: 1,
+      updatedAt: "2026-08-01",
+      content: {
+        public: true,
+        reviewStatus: "verified",
+        citations: [{
+          citationId: "citation-1",
+          publisher: "CDC",
+          sourceTitle: "PLACES",
+          officialUrl: "https://data.cdc.gov/places",
+          releaseDate: "2025-12-04",
+          dataPeriod: { start: "2022", end: "2023" },
+          geography: "Albany County, NY",
+          measureOrPassage: "Annual checkup",
+          confidence: "moderate",
+          limitations: ["Modeled population estimate"],
+          actorId: "must-not-leak",
+        }],
+      },
+    }],
+    reviewQuestions: [{ sectionKey: "evidence", question: "Approved for public review", status: "closed", completedAt: "2026-08-01", isPublic: true }],
+    scenarios: [],
+  });
+  assert.equal(projected.citations.length, 1);
+  assert.equal(projected.citations[0].citationId, "citation-1");
+  assert.equal(projected.reviewQuestions.length, 1);
+  const serialized = JSON.stringify(projected);
+  assert.doesNotMatch(serialized, /actorId/);
+  assert.doesNotMatch(serialized, /isPublic/);
+  assert.match(serialized, /PLACES/);
+  assert.match(publicShareMigration, /is_public boolean NOT NULL DEFAULT false/);
+  assert.match(publicShareMigration, /workspace_review_question_public_idx/);
 });
 
 test("public share tokens are validated, uncached, and never broaden scope", () => {

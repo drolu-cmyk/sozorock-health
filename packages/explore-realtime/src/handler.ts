@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import {
+  ConditionalCheckFailedException,
   DeleteItemCommand,
   DynamoDBClient,
   GetItemCommand,
@@ -46,6 +47,25 @@ async function connect(event: APIGatewayProxyWebsocketEventV2): Promise<APIGatew
   if (!item || item.kind?.S !== "session" || Number(item.expires_at?.N ?? "0") <= now) {
     return { statusCode: 401, body: "Unauthorized" };
   }
+  // Consume the session token atomically before registering the connection.
+  // Two concurrent $connect requests therefore cannot both become active
+  // sessions, even if they read the same item before either request deletes it.
+  try {
+    await dynamodb.send(new DeleteItemCommand({
+      TableName: sessions,
+      Key: { token_hash: { S: hash(token) } },
+      ConditionExpression: "kind = :kind AND expires_at > :now",
+      ExpressionAttributeValues: {
+        ":kind": { S: "session" },
+        ":now": { N: String(now) },
+      },
+    }));
+  } catch (error) {
+    if (error instanceof ConditionalCheckFailedException || (error as { name?: string }).name === "ConditionalCheckFailedException") {
+      return { statusCode: 401, body: "Unauthorized" };
+    }
+    throw error;
+  }
   const connectionId = event.requestContext.connectionId;
   await dynamodb.send(new PutItemCommand({
     TableName: connections,
@@ -59,10 +79,6 @@ async function connect(event: APIGatewayProxyWebsocketEventV2): Promise<APIGatew
       expires_at: { N: String(now + 900) },
     },
     ConditionExpression: "attribute_not_exists(connection_id)",
-  }));
-  await dynamodb.send(new DeleteItemCommand({
-    TableName: sessions,
-    Key: { token_hash: { S: hash(token) } },
   }));
   return {
     statusCode: 200,
