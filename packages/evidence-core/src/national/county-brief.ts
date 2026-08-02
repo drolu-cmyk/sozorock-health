@@ -308,3 +308,87 @@ export function buildCountyPlaceBrief(
     },
   };
 }
+
+/**
+ * Rebuild the assessment only after observations, sources and coverage have
+ * been applied. This is the single assessment policy used by API responses,
+ * agent context and exports; it never relies on fixture-era missingness.
+ */
+export function recomputeEvidenceAssessment(brief: ExplorePlaceBriefV1): ExplorePlaceBriefV1["evidenceAssessment"] {
+  const selected = brief.resolution.selected;
+  const available = brief.publicData.sourceCoverage.filter((coverage) =>
+    coverage.status === "available" || coverage.status === "partially_available",
+  );
+  const missing = brief.publicData.sourceCoverage
+    .filter((coverage) => !["available", "partially_available"].includes(coverage.status))
+    .map((coverage) => `${coverage.sourceId} (${coverage.status.replaceAll("_", " ")}): ${coverage.reason}`);
+  const adverseSignals = brief.publicData.observations.filter((observation) =>
+    observation.direction === "adverse" && observation.value !== null,
+  );
+  const localPlanVerified = brief.localPlanningEvidence.status === "verified"
+    && brief.localPlanningEvidence.documents.some((document) => document.reviewStatus === "verified");
+  const evidenceIds = adverseSignals.map((observation) => observation.id);
+  const known = [
+    selected
+      ? `The selected geography resolves to ${selected.displayName} (GEOID ${selected.authorityId}).`
+      : "No county geography is selected.",
+    ...available.map((coverage) => `${coverage.sourceId}: ${coverage.reason}`),
+  ];
+  const responseFits: ExplorePlaceBriefV1["evidenceAssessment"]["responseFits"] = [
+    {
+      response: "health_access_day",
+      status: localPlanVerified && evidenceIds.length ? "fit_for_local_review" : "insufficient_evidence",
+      explanation: localPlanVerified && evidenceIds.length
+        ? "Verified local planning evidence and compatible population measures support local review of a Health Access Day."
+        : "Population measures alone do not establish a local Health Access Day priority; verified local planning evidence and partner review are required.",
+      evidenceIds: localPlanVerified ? evidenceIds : [],
+      missingEvidence: localPlanVerified ? [] : ["Verified local planning evidence", "Local partner review"],
+      requiresHumanReview: true,
+    },
+    {
+      response: "health_equity_hub",
+      status: evidenceIds.length && localPlanVerified ? "fit_for_local_review" : "insufficient_evidence",
+      explanation: evidenceIds.length && localPlanVerified
+        ? "The evidence can support review of a Health Equity Hub format without selecting a delivery site or replacing local planning."
+        : "A hub format requires compatible place evidence plus local asset and partner review.",
+      evidenceIds: evidenceIds.length && localPlanVerified ? evidenceIds : [],
+      missingEvidence: evidenceIds.length && localPlanVerified ? [] : ["Verified local planning evidence", "Verified local assets and partners"],
+      requiresHumanReview: true,
+    },
+    {
+      response: "provider_led_pathway",
+      status: "insufficient_evidence",
+      explanation: "Provider-led pathway design requires verified local provider capacity and partner review; the evidence brief does not make a clinical decision.",
+      evidenceIds: [],
+      missingEvidence: ["Verified provider capacity", "Local partner review"],
+      requiresHumanReview: true,
+    },
+    {
+      response: "workforce_conversation",
+      status: "insufficient_evidence",
+      explanation: "Workforce conversations require a source-compatible designation or workforce measure and local review.",
+      evidenceIds: [],
+      missingEvidence: ["Compatible workforce evidence", "Local partner review"],
+      requiresHumanReview: true,
+    },
+    {
+      response: "no_recommendation_yet",
+      status: evidenceIds.length && !localPlanVerified ? "fit_for_local_review" : "insufficient_evidence",
+      explanation: evidenceIds.length && !localPlanVerified
+        ? "Signals are visible, but no response should be selected until current local planning evidence and partners are verified."
+        : "The current evidence set does not support a place-specific response recommendation.",
+      evidenceIds: evidenceIds.length && !localPlanVerified ? evidenceIds : [],
+      missingEvidence: evidenceIds.length && !localPlanVerified ? ["Verified local planning evidence", "Local partner review"] : ["Compatible evidence"],
+      requiresHumanReview: true,
+    },
+  ];
+  return {
+    known,
+    missing,
+    requiresLocalReview: [
+      ...(localPlanVerified ? [] : ["Current local planning evidence: not yet verified."]),
+      "Local partners must confirm whether population-level signals correspond to current priorities, assets, barriers and feasible responses.",
+    ],
+    responseFits,
+  };
+}

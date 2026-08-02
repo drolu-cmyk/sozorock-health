@@ -27,7 +27,11 @@ export async function POST(request: NextRequest, context: Context) {
       ? body.targetRole as "county_planner" | "community_partner" | "research_funder_viewer" | "foundation_reviewer"
       : "community_partner";
     const expiresInHours = typeof body.expiresInHours === "number" ? body.expiresInHours : undefined;
-    const handoff = await createWorkspaceHandoff({ workspaceId, tenantId: actor.tenantId, actor, targetRole, expiresInHours });
+    const targetPrincipalId = typeof body.targetPrincipalId === "string"
+      && /^[^\u0000-\u001f\u007f]{1,200}$/.test(body.targetPrincipalId.trim())
+      ? body.targetPrincipalId.trim()
+      : undefined;
+    const handoff = await createWorkspaceHandoff({ workspaceId, tenantId: actor.tenantId, actor, targetRole, targetPrincipalId, expiresInHours });
     return NextResponse.json({ contractVersion: "explore.workspace-handoff.v1", handoff }, { status: 201, headers: { "Cache-Control": "no-store" } });
   } catch (error) {
     const message = (error as Error).message;

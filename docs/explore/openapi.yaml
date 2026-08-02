@@ -1,0 +1,45 @@
+openapi: 3.1.0
+info:
+  title: SozoRock Place Intelligence Evidence API
+  version: 1.0.0
+  description: County-first, non-clinical evidence contracts for the public Explore experience.
+paths:
+  /api/evidence/v1/place-brief:
+    get:
+      summary: Return a verified county evidence brief
+      parameters:
+        - name: kind
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [county]
+          description: Canonical typed-geography selector.
+        - name: geography
+          in: query
+          required: false
+          deprecated: true
+          schema:
+            type: string
+            enum: [county]
+          description: Deprecated compatibility alias for kind. If supplied with kind, both values must match.
+        - name: geoid
+          in: query
+          required: true
+          schema:
+            type: string
+            pattern: "^[0-9]{5}$"
+          description: Five-digit U.S. Census county or county-equivalent GEOID.
+      responses:
+        '200':
+          description: Schema-valid explore.place-brief.v1 response.
+          content:
+            application/json:
+              schema:
+                $ref: '../../packages/evidence-core/schemas/explore-place-brief.v1.schema.json'
+        '400':
+          description: Missing, unsupported, or conflicting geography type, or invalid GEOID.
+        '404':
+          description: GEOID is not in the approved Census geography snapshot.
+        '503':
+          description: Approved evidence snapshot is temporarily unavailable.

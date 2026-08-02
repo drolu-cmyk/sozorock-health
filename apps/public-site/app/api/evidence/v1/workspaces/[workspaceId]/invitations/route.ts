@@ -34,6 +34,10 @@ export async function POST(request: NextRequest, context: Context) {
     const body = JSON.parse(bounded.text) as Record<string, unknown>;
     const role = body.role as WorkspaceRole;
     const access = body.access as WorkspaceAccess;
+    const intendedPrincipalId = typeof body.intendedPrincipalId === "string"
+      && /^[^\u0000-\u001f\u007f]{1,200}$/.test(body.intendedPrincipalId.trim())
+      ? body.intendedPrincipalId.trim()
+      : undefined;
     if (!roles.has(role) || !accessLevels.has(access)) {
       return NextResponse.json({ error: "Choose an approved workspace role and access level." }, { status: 400 });
     }
@@ -43,6 +47,7 @@ export async function POST(request: NextRequest, context: Context) {
       actor,
       role: role as Exclude<WorkspaceRole, "evidence_agent">,
       access: access as Exclude<WorkspaceAccess, "owner">,
+      intendedPrincipalId,
     });
     return NextResponse.json({ contractVersion: "explore.workspace-invitation.v1", invitation }, {
       status: 201,

@@ -340,7 +340,7 @@ jobs:
         run: |
           set -euo pipefail
           curl --fail --silent "$STAGING_EXPLORE_URL/explore" >/dev/null
-          curl --fail --silent "$STAGING_EXPLORE_URL/api/evidence/v1/place-brief?geography=county&geoid=36001" \
+          curl --fail --silent "$STAGING_EXPLORE_URL/api/evidence/v1/place-brief?kind=county&geoid=36001" \
             | jq -e '.contractVersion=="explore.place-brief.v1"' >/dev/null
           PLAYWRIGHT_BASE_URL="$STAGING_EXPLORE_URL" \
             npx playwright test apps/public-site/e2e/explore.visual.spec.ts \

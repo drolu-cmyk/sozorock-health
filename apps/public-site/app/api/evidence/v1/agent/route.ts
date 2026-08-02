@@ -85,6 +85,9 @@ export async function POST(request: NextRequest) {
     }
     const provider = configuredPlaceNarrativeProvider();
     const output = await provider.generate({ geoid: body.geoid, question: body.question.trim() });
+    if (output.snapshotContentHash !== authority.snapshotContentHash) {
+      throw new Error("Agent output snapshot does not match the approved evidence authority.");
+    }
     await writeExecutionAudit({
       executionType: "internal_agent",
       contractVersion: "explore.place-agent.v1",

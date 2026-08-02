@@ -1,5 +1,6 @@
 import {
   buildCountyPlaceBrief,
+  recomputeEvidenceAssessment,
   type CountyEvidenceSnapshotRecord,
   type ExploreCitation,
   type ExplorePlaceBriefV1,
@@ -49,6 +50,8 @@ const MEASURE_GROUPS: Record<string, { group: "conditions" | "barriers" | "preve
 
 type Row = unknown[];
 
+// The content hash is part of the cache key.  A county record must never be
+// reused across evidence snapshots during a rollback or pin change.
 const runtimeRecordCache = new Map<string, CountyEvidenceSnapshotRecord>();
 
 const OPTIONAL_SOURCE_META: Record<string, {
@@ -85,6 +88,12 @@ export type PublishedWorkforceContext = {
     designationDate: string | null;
     lastUpdateDate: string | null;
     wholeCounty: boolean;
+    sourceVersionId?: string;
+    sourceId?: string;
+    releaseDate?: string | null;
+    dataPeriod?: { start: string | null; end: string | null };
+    retrievedAt?: string | null;
+    officialUrl?: string;
   }>;
   muaP: Array<{
     designationId: string;
@@ -97,6 +106,12 @@ export type PublishedWorkforceContext = {
     designationDate: string | null;
     lastUpdateDate: string | null;
     wholeCounty: boolean;
+    sourceVersionId?: string;
+    sourceId?: string;
+    releaseDate?: string | null;
+    dataPeriod?: { start: string | null; end: string | null };
+    retrievedAt?: string | null;
+    officialUrl?: string;
   }>;
 };
 
@@ -127,6 +142,80 @@ function jsonValue(value: unknown): number | string | boolean | null {
   }
 }
 
+function sourceProvenance(value: unknown, columns?: {
+  sourceVariableId?: unknown;
+  numeratorVariableId?: unknown;
+  denominatorVariableId?: unknown;
+  formula?: unknown;
+  transformationVersion?: unknown;
+  table?: unknown;
+  group?: unknown;
+  estimateField?: unknown;
+  marginOfErrorField?: unknown;
+}) {
+  let metadata: Record<string, unknown> = {};
+  if (typeof value === "string") {
+    try {
+      const parsed = JSON.parse(value) as unknown;
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) metadata = parsed as Record<string, unknown>;
+    } catch { /* malformed optional metadata remains incomplete */ }
+  }
+  const pick = (column: unknown, ...keys: string[]) => {
+    if (column !== undefined && column !== null && column !== "") return String(column);
+    const candidate = keys.map((key) => metadata[key]).find((item) => item !== undefined && item !== null && item !== "");
+    return candidate === undefined ? null : String(candidate);
+  };
+  const sourceVariableId = pick(columns?.sourceVariableId, "variableId", "sourceVariableId");
+  return {
+    sourceVariableId,
+    numeratorVariableId: pick(columns?.numeratorVariableId, "numeratorVariableId"),
+    denominatorVariableId: pick(columns?.denominatorVariableId, "denominatorVariableId"),
+    formula: pick(columns?.formula, "formula"),
+    transformationVersion: pick(columns?.transformationVersion, "transformationVersion"),
+    table: pick(columns?.table, "table"),
+    group: pick(columns?.group, "group"),
+    estimateField: pick(columns?.estimateField, "estimateField") ?? sourceVariableId,
+    marginOfErrorField: pick(columns?.marginOfErrorField, "marginOfErrorVariableId", "marginOfErrorField"),
+  };
+}
+
+const ACS_VARIABLE_ID = /^[A-Z][0-9]{5}_[0-9]{3}[A-Z]$/;
+
+function normalizeAcsProvenance(provenance: ReturnType<typeof sourceProvenance>) {
+  const sourceVariableId = provenance.sourceVariableId && ACS_VARIABLE_ID.test(provenance.sourceVariableId)
+    ? provenance.sourceVariableId
+    : null;
+  const numeratorVariableId = provenance.numeratorVariableId && ACS_VARIABLE_ID.test(provenance.numeratorVariableId)
+    ? provenance.numeratorVariableId
+    : null;
+  const denominatorVariableId = provenance.denominatorVariableId && ACS_VARIABLE_ID.test(provenance.denominatorVariableId)
+    ? provenance.denominatorVariableId
+    : null;
+  const estimateField = provenance.estimateField && ACS_VARIABLE_ID.test(provenance.estimateField)
+    ? provenance.estimateField
+    : null;
+  const marginOfErrorField = provenance.marginOfErrorField && ACS_VARIABLE_ID.test(provenance.marginOfErrorField)
+    ? provenance.marginOfErrorField
+    : null;
+  const complete = Boolean(
+    (sourceVariableId || (numeratorVariableId && denominatorVariableId))
+    && estimateField
+    && provenance.table
+    && provenance.group,
+  );
+  return {
+    provenance: {
+      ...provenance,
+      sourceVariableId,
+      numeratorVariableId,
+      denominatorVariableId,
+      estimateField,
+      marginOfErrorField,
+    },
+    complete,
+  };
+}
+
 function dateValue(value: unknown) {
   return value === null || value === undefined ? null : String(value);
 }
@@ -135,7 +224,12 @@ function citationId(observationId: string) {
   return `runtime-citation:${observationId}`;
 }
 
-async function loadPublishedBriefFromEvidenceCore(geoid: string): Promise<ExplorePlaceBriefV1 | null> {
+function runtimeSnapshotHash(expectedHash?: string) {
+  const hash = (expectedHash ?? process.env.EVIDENCE_SNAPSHOT_CONTENT_HASH ?? "").trim();
+  return /^sha256:[0-9a-fA-F]{64}$/.test(hash) ? hash : null;
+}
+
+async function loadPublishedBriefFromEvidenceCore(geoid: string, expectedHash: string): Promise<ExplorePlaceBriefV1 | null> {
   const snapshotResult = await executeEvidenceSql(
     `SELECT s.id::text, s.content_hash, s.policy_version, s.created_at::text,
             sv.id::text, sv.release_date::text, sv.data_period_start::text,
@@ -143,10 +237,11 @@ async function loadPublishedBriefFromEvidenceCore(geoid: string): Promise<Explor
        FROM evidence.evidence_snapshot s
        JOIN evidence.snapshot_source_version link ON link.snapshot_id=s.id
        JOIN evidence.source_version sv ON sv.id=link.source_version_id
-      WHERE s.review_status='verified' AND s.published_at IS NOT NULL
-        AND sv.source_id='cdc-places'
-      ORDER BY s.published_at DESC
+      WHERE s.content_hash=:content_hash
+        AND s.review_status='verified' AND s.published_at IS NOT NULL
+        AND sv.source_id='cdc-places' AND sv.review_status='verified'
       LIMIT 1`,
+    [{ name: "content_hash", value: { stringValue: expectedHash } }],
   );
   const snapshotRow = snapshotResult.records?.[0];
   if (!snapshotRow) return null;
@@ -168,8 +263,7 @@ async function loadPublishedBriefFromEvidenceCore(geoid: string): Promise<Explor
             sv.retrieved_at::text, sv.official_url, sv.review_status::text
        FROM evidence.snapshot_source_version link
        JOIN evidence.source_version sv ON sv.id=link.source_version_id
-      WHERE link.snapshot_id=CAST(:snapshot_id AS uuid)
-        AND sv.review_status='verified'`,
+      WHERE link.snapshot_id=CAST(:snapshot_id AS uuid)`,
     [{ name: "snapshot_id", value: { stringValue: snapshotUuid } }],
   );
   const sourceVersions = (sourceVersionResult.records ?? []).map((row) => ({
@@ -182,6 +276,15 @@ async function loadPublishedBriefFromEvidenceCore(geoid: string): Promise<Explor
     officialUrl: text(field(row, 6)),
     reviewStatus: text(field(row, 7), "verified"),
   }));
+  // A published snapshot is usable only when every linked source version is
+  // reviewed and at least one source version is present.  This prevents a
+  // partially published or rollback-incomplete snapshot from being served.
+  if (!sourceVersions.length || sourceVersions.some((source) => source.reviewStatus !== "verified")) return null;
+  const selectedCdcSource = sourceVersions.find((source) => source.id === cdcSourceVersionId && source.sourceId === "cdc-places");
+  if (!selectedCdcSource) return null;
+  const censusGeographySource = sourceVersions.find((source) => source.sourceId === "census-geography");
+  const snapshotVintage = censusGeographySource?.releaseDate?.slice(0, 4) || null;
+  if (!snapshotVintage) return null;
   const sourceVersionById = new Map(sourceVersions.map((source) => [source.id, source]));
 
   const geographyResult = await executeEvidenceSql(
@@ -191,9 +294,13 @@ async function loadPublishedBriefFromEvidenceCore(geoid: string): Promise<Explor
        FROM evidence.geography
       WHERE authority='census' AND kind='county' AND authority_id=:geoid
         AND review_status='verified'
+        AND vintage=:vintage
       ORDER BY vintage DESC
       LIMIT 1`,
-    [{ name: "geoid", value: { stringValue: geoid } }],
+    [
+      { name: "geoid", value: { stringValue: geoid } },
+      { name: "vintage", value: { stringValue: snapshotVintage } },
+    ],
   );
   const geographyRow = geographyResult.records?.[0];
   if (!geographyRow) return null;
@@ -225,7 +332,11 @@ async function loadPublishedBriefFromEvidenceCore(geoid: string): Promise<Explor
             o.numeric_value, o.confidence_low, o.confidence_high, o.margin_of_error,
             o.release_date::text, o.data_period_start::text, o.data_period_end::text,
             o.retrieved_at::text, o.review_status::text, o.source_record_id,
-            o.source_url
+            o.source_url, o.source_metadata::text,
+            o.source_variable_id, o.source_numerator_variable_id,
+            o.source_denominator_variable_id, o.source_formula,
+            o.source_transformation_version, o.source_table, o.source_group,
+            o.source_estimate_field, o.source_margin_of_error_field
        FROM evidence.metric_observation o
        JOIN evidence.measure_definition d ON d.id=o.measure_definition_id
       WHERE o.geography_id=CAST(:geography_id AS uuid)
@@ -280,6 +391,13 @@ async function loadPublishedBriefFromEvidenceCore(geoid: string): Promise<Explor
       sourceField: text(field(row, 2), sourceMeasureId),
       quotedText: null,
       reviewStatus: "verified",
+      sourceProvenance: sourceProvenance(field(row, 19), {
+        sourceVariableId: field(row, 20), numeratorVariableId: field(row, 21),
+        denominatorVariableId: field(row, 22), formula: field(row, 23),
+        transformationVersion: field(row, 24), table: field(row, 25),
+        group: field(row, 26), estimateField: field(row, 27),
+        marginOfErrorField: field(row, 28),
+      }),
     });
     const metric = value === null ? undefined : { value, ci: low !== null && high !== null ? [low, high] as [number, number] : null };
     if (metric) record[mapping.group][mapping.field] = metric;
@@ -294,7 +412,6 @@ async function loadPublishedBriefFromEvidenceCore(geoid: string): Promise<Explor
     .filter((source) => source.sourceId !== "cdc-places" && source.sourceId !== "census-geography")
     .map((source) => source.id);
   if (contextSourceIds.length > 0) {
-    const placeholders = contextSourceIds.map((_, index) => `:context_source_${index}`).join(", ");
     const contextParameters = [
       { name: "geography_id", value: { stringValue: geographyId } },
       ...contextSourceIds.map((id, index) => ({ name: `context_source_${index}`, value: { stringValue: id } })),
@@ -307,12 +424,16 @@ async function loadPublishedBriefFromEvidenceCore(geoid: string): Promise<Explor
               o.data_period_end::text, o.retrieved_at::text, o.review_status::text,
               o.source_record_id, o.source_url, sv.id::text, sv.source_id,
               sv.official_url, sv.release_date::text, sv.data_period_start::text,
-              sv.data_period_end::text, sv.retrieved_at::text
+              sv.data_period_end::text, sv.retrieved_at::text,
+              o.source_metadata::text, o.source_variable_id,
+              o.source_numerator_variable_id, o.source_denominator_variable_id,
+              o.source_formula, o.source_transformation_version, o.source_table,
+              o.source_group, o.source_estimate_field, o.source_margin_of_error_field
          FROM evidence.metric_observation o
          JOIN evidence.measure_definition d ON d.id=o.measure_definition_id
          JOIN evidence.source_version sv ON sv.id=o.source_version_id
         WHERE o.geography_id=CAST(:geography_id AS uuid)
-          AND o.source_version_id IN (${placeholders})
+          AND o.source_version_id IN (${contextSourceIds.map((_, index) => `CAST(:context_source_${index} AS uuid)`).join(", ")})
           AND o.review_status='verified'
         ORDER BY sv.source_id, d.source_measure_id`,
       contextParameters,
@@ -354,6 +475,23 @@ async function loadPublishedBriefFromEvidenceCore(geoid: string): Promise<Explor
         retrievedAt: text(field(row, 26), generatedAt),
         officialUrl: text(field(row, 22)),
       };
+      const rawContextProvenance = sourceProvenance(field(row, 27), {
+        sourceVariableId: field(row, 28), numeratorVariableId: field(row, 29),
+        denominatorVariableId: field(row, 30), formula: field(row, 31),
+        transformationVersion: field(row, 32), table: field(row, 33),
+        group: field(row, 34), estimateField: field(row, 35),
+        marginOfErrorField: field(row, 36),
+      });
+      const contextAcsProvenance = sourceId === "census-acs5"
+        ? normalizeAcsProvenance(rawContextProvenance)
+        : { provenance: rawContextProvenance, complete: true };
+      const contextProvenance = contextAcsProvenance.provenance;
+      const contextSourceField = sourceId === "census-acs5"
+        ? contextProvenance.sourceVariableId
+          ?? (contextProvenance.numeratorVariableId && contextProvenance.denominatorVariableId
+            ? `${contextProvenance.numeratorVariableId} / ${contextProvenance.denominatorVariableId}`
+            : null)
+        : (field(row, 2) === null ? null : text(field(row, 2), text(field(row, 3))));
       citations.push({
         id: cite,
         sourceVersionId,
@@ -361,15 +499,17 @@ async function loadPublishedBriefFromEvidenceCore(geoid: string): Promise<Explor
         officialUrl: text(field(row, 19), metadata.officialUrl),
         pageNumber: null,
         section: null,
-        sourceField: field(row, 2) === null ? null : text(field(row, 2), text(field(row, 3))),
+        sourceField: contextSourceField,
         quotedText: null,
         reviewStatus: "verified",
+        provenanceStatus: contextAcsProvenance.complete ? "complete" : "incomplete",
+        sourceProvenance: contextProvenance,
       });
     }
   }
   record.dataCoverage = Object.keys(MEASURE_GROUPS).length ? Math.round((cdcObservationCount / Object.keys(MEASURE_GROUPS).length) * 100) : 0;
   record.sourceStatus = cdcObservationCount ? "available" : "unavailable";
-  runtimeRecordCache.set(geoid, record);
+  runtimeRecordCache.set(`${geoid}:${contentHash}`, record);
 
   const snapshot: CountyEvidenceSnapshot = {
     schemaVersion: "sozorock.county-evidence-snapshot.v1",
@@ -456,26 +596,42 @@ async function loadPublishedBriefFromEvidenceCore(geoid: string): Promise<Explor
     retrievedAt: dateValue(field(row, 7)),
   }));
   if (coverage.length) brief.publicData.sourceCoverage = coverage;
+  brief.evidenceAssessment = recomputeEvidenceAssessment(brief);
   return brief;
 }
 
-export async function getPublishedWorkforceContext(geoid: string): Promise<PublishedWorkforceContext> {
+export async function getPublishedWorkforceContext(geoid: string, expectedHash?: string): Promise<PublishedWorkforceContext> {
   if (evidenceRuntimeEnvironment() === "test") {
     const fixture = await import("./approved-evidence-snapshot");
     return fixture.getHrsaCountyContext(geoid);
   }
+  const snapshotHash = runtimeSnapshotHash(expectedHash);
+  if (!snapshotHash) return { hpsa: [], muaP: [] };
   const result = await executeEvidenceSql(
     `SELECT d.source_record_id, d.designation_family, d.discipline,
             d.designation_name, d.designation_type, d.component_type, d.status,
             d.score, d.designation_date::text, d.last_update_date::text,
             d.whole_county, d.source_scope, d.source_metadata::text,
-            COALESCE(d.source_metadata->>'populationType', d.source_metadata->>'population_type', d.designation_type)
+            COALESCE(d.source_metadata->>'populationType', d.source_metadata->>'population_type', d.designation_type),
+            d.source_version_id::text, sv.source_id, sv.release_date::text,
+            sv.data_period_start::text, sv.data_period_end::text,
+            sv.retrieved_at::text, sv.official_url
        FROM evidence.workforce_designation d
        JOIN evidence.geography g ON g.id=d.geography_id
-      WHERE g.authority='census' AND g.kind='county' AND g.authority_id=:geoid
+       JOIN evidence.snapshot_source_version link ON link.source_version_id=d.source_version_id
+       JOIN evidence.evidence_snapshot snapshot ON snapshot.id=link.snapshot_id
+       JOIN evidence.source_version sv ON sv.id=d.source_version_id
+      WHERE snapshot.content_hash=:snapshot_hash
+        AND snapshot.review_status='verified' AND snapshot.published_at IS NOT NULL
+        AND sv.review_status='verified' AND sv.source_id='hrsa-workforce'
+        AND link.snapshot_id=snapshot.id
+        AND g.authority='census' AND g.kind='county' AND g.authority_id=:geoid
         AND d.review_status='verified'
       ORDER BY d.designation_family, d.source_record_id`,
-    [{ name: "geoid", value: { stringValue: geoid } }],
+    [
+      { name: "geoid", value: { stringValue: geoid } },
+      { name: "snapshot_hash", value: { stringValue: snapshotHash } },
+    ],
   );
   const context: PublishedWorkforceContext = { hpsa: [], muaP: [] };
   for (const row of result.records ?? []) {
@@ -490,6 +646,12 @@ export async function getPublishedWorkforceContext(geoid: string): Promise<Publi
       designationDate: dateValue(field(row, 8)),
       lastUpdateDate: dateValue(field(row, 9)),
       wholeCounty: Boolean(field(row, 10)),
+      sourceVersionId: text(field(row, 14)),
+      sourceId: text(field(row, 15), "hrsa-workforce"),
+      releaseDate: dateValue(field(row, 16)),
+      dataPeriod: { start: dateValue(field(row, 17)), end: dateValue(field(row, 18)) },
+      retrievedAt: dateValue(field(row, 19)),
+      officialUrl: text(field(row, 20)),
     };
     if (family === "hpsa") {
       context.hpsa.push({ ...item, discipline: text(field(row, 2), "Medical underservice") });
@@ -505,7 +667,9 @@ export async function getPublishedCountyBrief(geoid: string) {
     const fixture = await import("./approved-evidence-snapshot");
     return fixture.getApprovedCountyBrief(geoid);
   }
-  return loadPublishedBriefFromEvidenceCore(geoid);
+  const hash = runtimeSnapshotHash();
+  if (!hash) return null;
+  return loadPublishedBriefFromEvidenceCore(geoid, hash);
 }
 
 export async function getPublishedCountyBriefByIdentifier(identifier: string) {
@@ -533,10 +697,12 @@ export async function getPublishedCountyRecord(geoid: string): Promise<CountyEvi
     const fixture = await import("./approved-evidence-snapshot");
     return fixture.countyRecordByFips.get(geoid) ?? null;
   }
+  const hash = runtimeSnapshotHash();
+  if (!hash) return null;
+  const cached = runtimeRecordCache.get(`${geoid}:${hash}`);
+  if (cached) return cached;
   const brief = await getPublishedCountyBrief(geoid);
   if (!brief?.resolution.selected) return null;
-  const cached = runtimeRecordCache.get(geoid);
-  if (cached) return cached;
   const record: CountyEvidenceSnapshotRecord = {
     fips: geoid,
     stateFips: geoid.slice(0, 2),
@@ -564,6 +730,7 @@ export async function getPublishedCountyRecord(geoid: string): Promise<CountyEvi
   }
   record.dataCoverage = brief.publicData.observations.length;
   record.sourceStatus = brief.publicData.observations.length ? "available" : "unavailable";
+  runtimeRecordCache.set(`${geoid}:${hash}`, record);
   return record;
 }
 

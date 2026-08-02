@@ -38,6 +38,20 @@ export type ExploreCitation = {
   sourceField: string | null;
   quotedText: string | null;
   reviewStatus: ReviewStatus;
+  /** ACS rows imported before field-level provenance was verified are exposed
+   * as incomplete instead of being presented as reproducible citations. */
+  provenanceStatus?: "complete" | "incomplete";
+  sourceProvenance?: {
+    sourceVariableId: string | null;
+    numeratorVariableId: string | null;
+    denominatorVariableId: string | null;
+    formula: string | null;
+    transformationVersion: string | null;
+    table: string | null;
+    group: string | null;
+    estimateField: string | null;
+    marginOfErrorField: string | null;
+  };
 };
 
 export type ExploreObservation = {

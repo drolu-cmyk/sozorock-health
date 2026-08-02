@@ -41,6 +41,12 @@ export type AcsVariableContract = {
   universe: string;
   unit: MeasureDefinition["unit"];
   higherValueMeaning: HigherValueMeaning;
+  numeratorVariableId?: string;
+  denominatorVariableId?: string;
+  formula?: string;
+  transformationVersion?: string;
+  table?: string;
+  group?: string;
 };
 
 export type AcsAdapterConfig = {
@@ -87,7 +93,12 @@ function acsGeographyClause(geography: Geography) {
 function acsUrls(config: AcsAdapterConfig, geography: Geography) {
   const clause = acsGeographyClause(geography);
   if (!clause) throw new Error(`ACS adapter does not support ${geography.kind} without an exact Census API geography contract.`);
-  const variables = ["NAME", ...config.variables.flatMap((variable) => [variable.estimate, variable.marginOfError].filter(Boolean))];
+  const variables = ["NAME", ...config.variables.flatMap((variable) => {
+    const sourceFields = variable.numeratorVariableId && variable.denominatorVariableId
+      ? [variable.numeratorVariableId, variable.denominatorVariableId]
+      : [variable.estimate];
+    return [...sourceFields, variable.marginOfError].filter(Boolean);
+  })];
   const sourceUrl = `https://api.census.gov/data/${config.vintage}/acs/acs5?get=${variables.join(",")}&${clause}`;
   const requestUrl = config.apiKey ? `${sourceUrl}&key=${encodeURIComponent(config.apiKey)}` : sourceUrl;
   return { requestUrl, sourceUrl };
@@ -187,7 +198,11 @@ export class AcsIngestionAdapter implements PublicDataAdapter {
       for (const variable of this.config.variables) {
         const measure = measureById.get(variable.estimate);
         if (!measure) continue;
-        const value = numberOrNull(row[variable.estimate]);
+        const numerator = variable.numeratorVariableId ? numberOrNull(row[variable.numeratorVariableId]) : null;
+        const denominator = variable.denominatorVariableId ? numberOrNull(row[variable.denominatorVariableId]) : null;
+        const value = numerator !== null && denominator !== null && denominator !== 0
+          ? Number(((numerator / denominator) * 100).toFixed(4))
+          : numberOrNull(row[variable.estimate]);
         observations.push(buildObservation({
           measure,
           geography: query.geography,
@@ -205,6 +220,26 @@ export class AcsIngestionAdapter implements PublicDataAdapter {
             marginOfErrorVariableId: variable.marginOfError ?? null,
             name: row.NAME ?? null,
             censusApiGeography: query.geography.kind,
+            ...(numerator !== null && denominator !== null ? {
+              numeratorVariableId: variable.numeratorVariableId ?? null,
+              denominatorVariableId: variable.denominatorVariableId ?? null,
+              formula: variable.formula ?? `${variable.numeratorVariableId} / ${variable.denominatorVariableId} * 100`,
+            } : {}),
+          },
+          sourceProvenance: {
+            sourceVariableId: variable.numeratorVariableId && variable.denominatorVariableId ? null : variable.estimate,
+            numeratorVariableId: variable.numeratorVariableId ?? null,
+            denominatorVariableId: variable.denominatorVariableId ?? null,
+            formula: variable.formula ?? (variable.numeratorVariableId && variable.denominatorVariableId
+              ? `${variable.numeratorVariableId} / ${variable.denominatorVariableId} * 100`
+              : null),
+            transformationVersion: variable.transformationVersion ?? null,
+            table: variable.table ?? variable.estimate.split("_")[0] ?? null,
+            group: variable.group ?? variable.estimate.split("_")[0] ?? null,
+            estimateField: variable.numeratorVariableId && variable.denominatorVariableId
+              ? variable.numeratorVariableId
+              : variable.estimate,
+            marginOfErrorField: variable.marginOfError ?? null,
           },
         }));
       }

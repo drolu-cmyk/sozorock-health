@@ -151,6 +151,28 @@ try {
     );
   }
 
+  // The latest correctness migrations must be reversible and re-applicable in
+  // the disposable database before any protected environment is touched.
+  const down0011 = await readFile(path.join(migrationsDir, "rollback", "0011_workspace_recipient_binding.down.sql"), "utf8");
+  await client.query(down0011);
+  const recipientColumns = await client.query(
+    `SELECT column_name FROM information_schema.columns
+     WHERE table_schema='evidence' AND table_name IN ('workspace_invitation','workspace_handoff')
+       AND column_name IN ('intended_principal_id','target_principal_id')`,
+  );
+  if (recipientColumns.rows.length !== 0) throw new Error("Migration 0011 rollback did not remove recipient bindings.");
+  await client.query(await readFile(path.join(migrationsDir, "0011_workspace_recipient_binding.sql"), "utf8"));
+
+  const down0010 = await readFile(path.join(migrationsDir, "rollback", "0010_field_level_provenance.down.sql"), "utf8");
+  await client.query(down0010);
+  const provenanceColumns = await client.query(
+    `SELECT column_name FROM information_schema.columns
+     WHERE table_schema='evidence' AND table_name='metric_observation'
+       AND column_name='source_variable_id'`,
+  );
+  if (provenanceColumns.rows.length !== 0) throw new Error("Migration 0010 rollback did not remove ACS provenance columns.");
+  await client.query(await readFile(path.join(migrationsDir, "0010_field_level_provenance.sql"), "utf8"));
+
   // Roll back the newest dependent schemas first. Migration 0009 extends the
   // 0008 workspace tables, so it must be removed before 0008 is exercised.
   const down0009 = await readFile(

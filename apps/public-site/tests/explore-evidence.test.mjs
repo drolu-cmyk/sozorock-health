@@ -33,6 +33,8 @@ test("the evidence API uses the approved versioned snapshot and validated geogra
   assert.match(approvedSnapshot, /county-evidence-snapshot\.v1\.json/);
   assert.match(approvedSnapshot, /buildCountyPlaceBrief/);
   assert.match(versionedRoute, /getPublishedCountyBrief/);
+  assert.match(versionedRoute, /normalizePlaceBriefKind/);
+  assert.match(versionedRoute, /X-Deprecated-Query-Parameter/);
   for (const datasetId of ["i46a-9kgh", "vgc8-iyc4", "kee5-23sr", "d3i6-k6z5", "hbpe-6r8n", "6jwg-4k37"]) {
     assert.doesNotMatch(route, new RegExp(datasetId));
   }
@@ -92,6 +94,16 @@ test("the public map uses MapLibre with official boundaries and no decorative ro
   assert.match(component, /The shaded value applies to the selected geography as a whole/);
   assert.doesNotMatch(geometry, /Transportation\/MapServer/);
   assert.doesNotMatch(component, /Major roads|showRoads|heatmap/i);
+});
+
+test("release validators call the versioned place-brief contract with kind", async () => {
+  const nationalValidator = await source("scripts/validate-national-api.mjs");
+  const stagingWorkflow = await source("../../.github/workflows/milestone-10-staging.yml");
+  const productionWorkflow = await source("../../.github/workflows/explore-production.yml");
+  for (const content of [nationalValidator, stagingWorkflow, productionWorkflow]) {
+    assert.match(content, /place-brief\?kind=county&geoid/);
+    assert.doesNotMatch(content, /place-brief\?geography=/);
+  }
 });
 
 test("available measures remain visible when a compatible benchmark is missing", async () => {

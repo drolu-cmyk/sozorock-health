@@ -402,11 +402,11 @@ jobs:
           curl --fail --silent --show-error "$PUBLIC_SITE_URL/" -o homepage-after.html || failed=1
           curl --fail --silent --show-error "$PUBLIC_SITE_URL/explore" -o explore-after.html || failed=1
           curl --fail --silent --show-error \
-            "$PUBLIC_SITE_URL/api/evidence/v1/place-brief?geography=county&geoid=36001" \
+            "$PUBLIC_SITE_URL/api/evidence/v1/place-brief?kind=county&geoid=36001" \
             -o albany.json || failed=1
           jq -e '.contractVersion=="explore.place-brief.v1" and .resolution.selected.authorityId=="36001"' albany.json >/dev/null || failed=1
           if curl --fail --silent \
-            "$PUBLIC_SITE_URL/api/evidence/v1/place-brief?geography=county&geoid=99999" >/dev/null; then
+            "$PUBLIC_SITE_URL/api/evidence/v1/place-brief?kind=county&geoid=99999" >/dev/null; then
             failed=1
           fi
           npm run test:national-api --workspace @sozorock/public-site -- \

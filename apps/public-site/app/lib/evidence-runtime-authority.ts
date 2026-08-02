@@ -103,25 +103,32 @@ export type EvidenceAuthority = {
   openAiEnabled: boolean;
 };
 
+export function assertSnapshotContentHash(snapshotContentHash: string) {
+  const normalized = snapshotContentHash.trim();
+  if (!/^sha256:[0-9a-fA-F]{64}$/.test(normalized)) {
+    throw new Error("The configured evidence snapshot content hash is invalid.");
+  }
+  return normalized;
+}
+
 /** Verify that the immutable snapshot shipped to the route is the snapshot
  * currently approved by the Evidence Core.  This intentionally does not read
  * narrative or agent capability switches; deterministic Brief/Map/Visuals
  * delivery must remain available when the agent is disabled. */
 export async function requirePublishedEvidenceSnapshot(snapshotContentHash: string) {
+  const validatedHash = assertSnapshotContentHash(snapshotContentHash);
   const result = await executeEvidenceSql(
     `SELECT s.id::text, s.content_hash
        FROM evidence.evidence_snapshot s
       WHERE s.content_hash=:content_hash
         AND s.review_status='verified'
-        AND s.published_at IS NOT NULL
-      ORDER BY s.published_at DESC
-      LIMIT 1`,
-    [{ name: "content_hash", value: { stringValue: snapshotContentHash } }],
+        AND s.published_at IS NOT NULL`,
+    [{ name: "content_hash", value: { stringValue: validatedHash } }],
   );
   const row = result.records?.[0];
   const snapshotUuid = String(evidenceFieldValue(row?.[0]) ?? "");
   const contentHash = String(evidenceFieldValue(row?.[1]) ?? "");
-  if (!/^[0-9a-f-]{36}$/i.test(snapshotUuid) || contentHash !== snapshotContentHash) {
+  if (!/^[0-9a-f-]{36}$/i.test(snapshotUuid) || contentHash !== validatedHash) {
     throw new Error("The bundled evidence snapshot is not approved by the production authority.");
   }
   return { snapshotUuid, snapshotContentHash: contentHash };
@@ -130,6 +137,7 @@ export async function requirePublishedEvidenceSnapshot(snapshotContentHash: stri
 export async function requireEvidenceAuthority(
   snapshotContentHash: string,
 ): Promise<EvidenceAuthority> {
+  const validatedHash = assertSnapshotContentHash(snapshotContentHash);
   const result = await executeEvidenceSql(
     `SELECT
        s.id::text,
@@ -141,12 +149,10 @@ export async function requireEvidenceAuthority(
      LEFT JOIN evidence.capability_switch o ON o.capability_key='provider:openai_responses'
      WHERE s.content_hash=:content_hash
        AND s.review_status='verified'
-       AND s.published_at IS NOT NULL
-     ORDER BY s.published_at DESC
-     LIMIT 1`,
+       AND s.published_at IS NOT NULL`,
     [{
       name: "content_hash",
-      value: { stringValue: snapshotContentHash },
+      value: { stringValue: validatedHash },
     }],
   );
   const row = result.records?.[0];
@@ -155,7 +161,7 @@ export async function requireEvidenceAuthority(
   const contentHash = String(evidenceFieldValue(row[1]) ?? "");
   const narrativeEnabled = evidenceFieldValue(row[2]) === true;
   const openAiEnabled = evidenceFieldValue(row[3]) === true;
-  if (!snapshotUuid || contentHash !== snapshotContentHash) {
+  if (!snapshotUuid || contentHash !== validatedHash) {
     throw new Error("Evidence snapshot authority mismatch.");
   }
   return {

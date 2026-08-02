@@ -145,6 +145,7 @@ export function buildObservation({
   dataPeriodEnd,
   suppressionReason = null,
   sourceMetadata = {},
+  sourceProvenance,
 }: {
   measure: MeasureDefinition;
   geography: Geography;
@@ -160,6 +161,7 @@ export function buildObservation({
   dataPeriodEnd: string | null;
   suppressionReason?: string | null;
   sourceMetadata?: MetricObservation["sourceMetadata"];
+  sourceProvenance?: MetricObservation["sourceProvenance"];
 }): MetricObservation {
   return {
     id: deterministicUuid("observation", measure.id, geography.id, sourceVersion.id, sourceRecordId),
@@ -181,5 +183,6 @@ export function buildObservation({
     reviewStatus: "provisional",
     suppressionReason,
     sourceMetadata,
+    sourceProvenance,
   };
 }

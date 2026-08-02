@@ -1,5 +1,6 @@
 import {
   buildCountyPlaceBrief,
+  recomputeEvidenceAssessment,
   deterministicUuid,
   type CountyEvidenceSnapshot,
   type CountyEvidenceSnapshotRecord,
@@ -214,7 +215,12 @@ export function getApprovedCountyBrief(geoid: string): ExplorePlaceBriefV1 | nul
       unit: "people",
       universe: "Total population",
       direction: "contextual" as const,
-      sourceField: "B01001_E001",
+      sourceField: "B01001_001E",
+      sourceProvenance: {
+        sourceVariableId: "B01001_001E", numeratorVariableId: null, denominatorVariableId: null,
+        formula: null, transformationVersion: null, table: "B01001", group: "B01001",
+        estimateField: "B01001_001E", marginOfErrorField: "B01001_001M",
+      },
     },
     {
       key: "median-age",
@@ -224,7 +230,12 @@ export function getApprovedCountyBrief(geoid: string): ExplorePlaceBriefV1 | nul
       unit: "years",
       universe: "Total population",
       direction: "contextual" as const,
-      sourceField: "B01002_E001",
+      sourceField: "B01002_001E",
+      sourceProvenance: {
+        sourceVariableId: "B01002_001E", numeratorVariableId: null, denominatorVariableId: null,
+        formula: null, transformationVersion: null, table: "B01002", group: "B01002",
+        estimateField: "B01002_001E", marginOfErrorField: "B01002_001M",
+      },
     },
     {
       key: "poverty",
@@ -234,7 +245,18 @@ export function getApprovedCountyBrief(geoid: string): ExplorePlaceBriefV1 | nul
       unit: "percent",
       universe: "Population for whom poverty status is determined",
       direction: "adverse" as const,
-      sourceField: "B17001_E002 / B17001_E001",
+      sourceField: "B17001_002E / B17001_001E",
+      sourceProvenance: {
+        sourceVariableId: null,
+        numeratorVariableId: "B17001_002E",
+        denominatorVariableId: "B17001_001E",
+        formula: "B17001_002E / B17001_001E * 100",
+        transformationVersion: "sozorock.acs-derived-percent.v1",
+        table: "B17001",
+        group: "B17001",
+        estimateField: "B17001_002E",
+        marginOfErrorField: "B17001_002M",
+      },
     },
     {
       key: "no-vehicle",
@@ -244,7 +266,18 @@ export function getApprovedCountyBrief(geoid: string): ExplorePlaceBriefV1 | nul
       unit: "percent",
       universe: "Households",
       direction: "adverse" as const,
-      sourceField: "B08201_E002 / B08201_E001",
+      sourceField: "B08201_002E / B08201_001E",
+      sourceProvenance: {
+        sourceVariableId: null,
+        numeratorVariableId: "B08201_002E",
+        denominatorVariableId: "B08201_001E",
+        formula: "B08201_002E / B08201_001E * 100",
+        transformationVersion: "sozorock.acs-derived-percent.v1",
+        table: "B08201",
+        group: "B08201",
+        estimateField: "B08201_002E",
+        marginOfErrorField: "B08201_002M",
+      },
     },
     {
       key: "internet-subscription",
@@ -254,7 +287,18 @@ export function getApprovedCountyBrief(geoid: string): ExplorePlaceBriefV1 | nul
       unit: "percent",
       universe: "Households",
       direction: "protective" as const,
-      sourceField: "B28002_E002 / B28002_E001",
+      sourceField: "B28002_002E / B28002_001E",
+      sourceProvenance: {
+        sourceVariableId: null,
+        numeratorVariableId: "B28002_002E",
+        denominatorVariableId: "B28002_001E",
+        formula: "B28002_002E / B28002_001E * 100",
+        transformationVersion: "sozorock.acs-derived-percent.v1",
+        table: "B28002",
+        group: "B28002",
+        estimateField: "B28002_002E",
+        marginOfErrorField: "B28002_002M",
+      },
     },
   ];
   const availableAcs = acsDefinitions.filter((definition) => definition.value !== null);
@@ -297,6 +341,7 @@ export function getApprovedCountyBrief(geoid: string): ExplorePlaceBriefV1 | nul
       sourceField: definition.sourceField,
       quotedText: null,
       reviewStatus: "verified",
+      sourceProvenance: definition.sourceProvenance,
     });
   }
   const acsCoverage = brief.publicData.sourceCoverage.find((item) => item.sourceId === "census-acs5");
@@ -485,17 +530,6 @@ export function getApprovedCountyBrief(geoid: string): ExplorePlaceBriefV1 | nul
       coverage.observationCount = 0;
     }
   }
-  const selected = brief.resolution.selected;
-  brief.evidenceAssessment.known = [
-    selected
-      ? `The selected geography resolves to ${selected.displayName} (GEOID ${selected.authorityId}).`
-      : "No county geography is selected.",
-    ...brief.publicData.sourceCoverage
-      .filter((coverage) => coverage.status === "available" || coverage.status === "partially_available")
-      .map((coverage) => `${coverage.sourceId}: ${coverage.reason}`),
-  ];
-  brief.evidenceAssessment.missing = brief.publicData.sourceCoverage
-    .filter((coverage) => coverage.status !== "available")
-    .map((coverage) => `${coverage.sourceId} (${coverage.status.replaceAll("_", " ")}): ${coverage.reason}`);
+  brief.evidenceAssessment = recomputeEvidenceAssessment(brief);
   return brief;
 }
