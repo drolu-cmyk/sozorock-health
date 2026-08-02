@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { normalizePlaceBriefKind } from "../app/lib/place-brief-query.ts";
+
+const routeSource = await readFile(new URL("../app/api/evidence/v1/place-brief/route.ts", import.meta.url), "utf8");
 
 test("kind=county is the canonical place-brief selector", () => {
   assert.deepEqual(normalizePlaceBriefKind(new URLSearchParams("kind=county")), {
@@ -29,4 +32,13 @@ test("missing, unsupported and conflicting geography types fail closed", () => {
 test("matching canonical and legacy parameters remain compatible", () => {
   const result = normalizePlaceBriefKind(new URLSearchParams("kind=county&geography=county"));
   assert.deepEqual(result, { ok: true, kind: "county", usedLegacyAlias: false });
+});
+
+test("place-brief validates the query contract before runtime infrastructure", () => {
+  const validationStart = routeSource.indexOf("const normalizedKind = normalizePlaceBriefKind");
+  const rateLimitStart = routeSource.indexOf("enforceEvidenceRateLimit", validationStart);
+  assert.notEqual(validationStart, -1);
+  assert.notEqual(rateLimitStart, -1);
+  assert.ok(validationStart < rateLimitStart);
+  assert.match(routeSource.slice(validationStart, rateLimitStart), /status: 400/);
 });
