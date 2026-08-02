@@ -12,6 +12,20 @@ import { normalizePlaceBriefKind } from "../../../../lib/place-brief-query";
 export const runtime = "nodejs";
 
 export async function GET(request: NextRequest) {
+  // Validate the public contract before touching rate-limit or database
+  // infrastructure. A malformed query is a client error regardless of
+  // whether the evidence authority is currently configured or available.
+  const normalizedKind = normalizePlaceBriefKind(request.nextUrl.searchParams);
+  const geoid = request.nextUrl.searchParams.get("geoid")?.trim() ?? "";
+  if (!normalizedKind.ok || !/^\d{5}$/.test(geoid)) {
+    return NextResponse.json({
+      error: normalizedKind.ok
+        ? "Use kind=county with a valid five-digit Census county GEOID."
+        : normalizedKind.message,
+      status: normalizedKind.ok ? "incompatible_geography" : normalizedKind.code,
+    }, { status: 400 });
+  }
+
   try {
     const rate = await enforceEvidenceRateLimit(request);
     if (!rate.allowed) {
@@ -23,16 +37,6 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error("evidence-rate-limit-failed", { name: (error as { name?: string }).name ?? "UnknownError" });
     return NextResponse.json({ error: "Evidence service is temporarily unavailable." }, { status: 503 });
-  }
-  const normalizedKind = normalizePlaceBriefKind(request.nextUrl.searchParams);
-  const geoid = request.nextUrl.searchParams.get("geoid")?.trim() ?? "";
-  if (!normalizedKind.ok || !/^\d{5}$/.test(geoid)) {
-    return NextResponse.json({
-      error: normalizedKind.ok
-        ? "Use kind=county with a valid five-digit Census county GEOID."
-        : normalizedKind.message,
-      status: normalizedKind.ok ? "incompatible_geography" : normalizedKind.code,
-    }, { status: 400 });
   }
   if (process.env.NODE_ENV === "production") {
     try {
