@@ -399,13 +399,21 @@ jobs:
         run: |
           set -euo pipefail
           failed=0
-          curl --fail --silent --show-error "$PUBLIC_SITE_URL/" -o homepage-after.html || failed=1
-          curl --fail --silent --show-error "$PUBLIC_SITE_URL/explore" -o explore-after.html || failed=1
-          curl --fail --silent --show-error \
+          # CloudFront may reset the first connection immediately after an Amplify
+          # job reports success. Retry bounded, transient transport failures while
+          # preserving fail-closed behavior for persistent HTTP/application errors.
+          retry_curl() {
+            curl --fail --silent --show-error \
+              --retry 8 --retry-all-errors --retry-delay 3 \
+              --connect-timeout 15 --max-time 90 "$@"
+          }
+          retry_curl "$PUBLIC_SITE_URL/" -o homepage-after.html || failed=1
+          retry_curl "$PUBLIC_SITE_URL/explore" -o explore-after.html || failed=1
+          retry_curl \
             "$PUBLIC_SITE_URL/api/evidence/v1/place-brief?kind=county&geoid=36001" \
             -o albany.json || failed=1
           jq -e '.contractVersion=="explore.place-brief.v1" and .resolution.selected.authorityId=="36001"' albany.json >/dev/null || failed=1
-          if curl --fail --silent \
+          if retry_curl \
             "$PUBLIC_SITE_URL/api/evidence/v1/place-brief?kind=county&geoid=99999" >/dev/null; then
             failed=1
           fi
