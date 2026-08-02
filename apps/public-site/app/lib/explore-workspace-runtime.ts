@@ -557,7 +557,7 @@ async function loadWorkspacePlan(input: { workspaceId: string; tenantId: string 
 async function loadPublicWorkspacePlan(input: { workspaceId: string; tenantId: string }): Promise<PublicWorkspacePlan> {
   const publicSectionKeys = ["summary", "context", "evidence", "action", "measurements", "plan", "response-fit", "public-summary"];
   const sectionKeyPlaceholders = publicSectionKeys.map((_, index) => `:public_section_key_${index}`).join(", ");
-  const [workspace, sections, scenarios] = await Promise.all([
+  const [workspace, sections, scenarios, reviewQuestions] = await Promise.all([
     executeEvidenceSql(
       `SELECT w.title, w.version, w.updated_at::text, g.authority_id, g.name
        FROM evidence.county_workspace w
@@ -595,6 +595,15 @@ async function loadPublicWorkspacePlan(input: { workspaceId: string; tenantId: s
        ORDER BY s.created_at`,
       [{ name: "workspace_id", value: { stringValue: input.workspaceId } }],
     ),
+    executeEvidenceSql(
+      `SELECT section_key, question, status, completed_at::text, is_public
+       FROM evidence.workspace_review_question
+       WHERE workspace_id=CAST(:workspace_id AS uuid)
+         AND is_public=true
+         AND status IN ('answered', 'closed')
+       ORDER BY created_at`,
+      [{ name: "workspace_id", value: { stringValue: input.workspaceId } }],
+    ),
   ]);
   const header = workspace.records?.[0];
   if (!header) throw new Error("The county workspace is unavailable.");
@@ -618,6 +627,13 @@ async function loadPublicWorkspacePlan(input: { workspaceId: string; tenantId: s
       output: JSON.parse(String(evidenceFieldValue(row[2]) ?? "{}")) as Record<string, unknown>,
       humanReviewStatus: String(evidenceFieldValue(row[3]) ?? ""),
       createdAt: String(evidenceFieldValue(row[4]) ?? ""),
+    })),
+    reviewQuestions: (reviewQuestions.records ?? []).map((row) => ({
+      sectionKey: String(evidenceFieldValue(row[0]) ?? ""),
+      question: String(evidenceFieldValue(row[1]) ?? ""),
+      status: String(evidenceFieldValue(row[2]) ?? "closed") as "answered" | "closed",
+      completedAt: evidenceFieldValue(row[3]) ? String(evidenceFieldValue(row[3])) : null,
+      isPublic: evidenceFieldValue(row[4]) === true || String(evidenceFieldValue(row[4])) === "true",
     })),
   });
 }

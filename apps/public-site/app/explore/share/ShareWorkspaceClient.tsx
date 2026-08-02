@@ -6,7 +6,6 @@ import styles from "../explore.module.css";
 
 type SharedPlan = {
   share: {
-    workspaceId: string;
     scope: "read_only" | "contributor";
     expiresAt: string;
     title: string;
@@ -16,10 +15,9 @@ type SharedPlan = {
   plan: {
     workspace: { title: string; geoid: string; geographyName: string; updatedAt: string };
     sections: Array<{ sectionKey: string; version: number; content: Record<string, unknown>; updatedAt: string }>;
-    comments: Array<{ sectionKey: string; body: string; createdAt: string }>;
     reviewQuestions: Array<{ sectionKey: string; question: string; status: string }>;
-    suggestions: Array<{ sectionKey: string; content: Record<string, unknown>; status: string }>;
     scenarios: Array<{ name: string; status: string; output: Record<string, unknown>; humanReviewStatus: string }>;
+    citations: Array<{ citationId: string; publisher: string | null; sourceTitle: string | null; officialUrl: string; releaseDate: string | null; dataPeriod: { start: string | null; end: string | null } | null; geography: string | null; measureOrPassage: string | null; confidence: string | null; limitations: string[] }>;
   };
 };
 
@@ -90,6 +88,7 @@ export function ShareWorkspaceClient() {
         </section>
         {plan.reviewQuestions.length > 0 && <section aria-labelledby="shared-questions-title"><h2 id="shared-questions-title">Review questions</h2><ul>{plan.reviewQuestions.map((question) => <li key={`${question.sectionKey}-${question.question}`}>{question.question} <span>({question.status})</span></li>)}</ul></section>}
         {plan.scenarios.length > 0 && <section aria-labelledby="shared-scenarios-title"><h2 id="shared-scenarios-title">Planning scenarios</h2><ul>{plan.scenarios.map((scenario) => <li key={scenario.name}>{scenario.name} · {scenario.humanReviewStatus}</li>)}</ul><p>Scenarios are planning ranges, not predictions.</p></section>}
+        {plan.citations.length > 0 && <section aria-labelledby="shared-citations-title"><h2 id="shared-citations-title">Approved evidence citations</h2><ul>{plan.citations.map((citation) => <li key={citation.citationId}><a href={citation.officialUrl} rel="noreferrer">{citation.sourceTitle ?? citation.publisher ?? citation.citationId}</a>{citation.releaseDate ? ` · Released ${citation.releaseDate}` : ""}{citation.dataPeriod?.start || citation.dataPeriod?.end ? ` · Data ${citation.dataPeriod.start ?? "?"}–${citation.dataPeriod.end ?? "?"}` : ""}</li>)}</ul></section>}
       </div>
     </main>
   );
