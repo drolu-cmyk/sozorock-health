@@ -83,7 +83,7 @@ jobs:
           const forbidden = ["build:" + "platform", "CBCAP" + "_APP_ID", "d307" + "qqji18y8il"];
           if (forbidden.some((token) => workflow.includes(token))) process.exit(1);
           NODE
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: milestone-10-release-gates
           path: |
@@ -373,7 +373,7 @@ jobs:
             compare "$STAGING_EXPLORE_URL" output/non-explore-regression
       - name: Upload staging acceptance evidence
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: milestone-10-isolated-staging
           path: |
