@@ -106,6 +106,17 @@ export class PostgresIngestionRepository implements IngestionRepository {
         reviewStatus: observation.review_status,
         suppressionReason: observation.suppression_reason,
         sourceMetadata: observation.source_metadata,
+        sourceProvenance: {
+          sourceVariableId: observation.source_variable_id ?? null,
+          numeratorVariableId: observation.source_numerator_variable_id ?? null,
+          denominatorVariableId: observation.source_denominator_variable_id ?? null,
+          formula: observation.source_formula ?? null,
+          transformationVersion: observation.source_transformation_version ?? null,
+          table: observation.source_table ?? null,
+          group: observation.source_group ?? null,
+          estimateField: observation.source_estimate_field ?? null,
+          marginOfErrorField: observation.source_margin_of_error_field ?? null,
+        },
       };
     });
     return {
@@ -207,8 +218,11 @@ export class PostgresIngestionRepository implements IngestionRepository {
               id, measure_definition_id, geography_id, source_version_id, value_json, numeric_value,
               confidence_low, confidence_high, margin_of_error, release_date, data_period_start,
               data_period_end, retrieved_at, review_status, suppression_reason, source_record_id,
-              source_url, geography_level, source_metadata
-            ) VALUES ($1,$2,$3,$4,$5::jsonb,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19::jsonb)
+              source_url, geography_level, source_metadata,
+              source_variable_id, source_numerator_variable_id, source_denominator_variable_id,
+              source_formula, source_transformation_version, source_table, source_group,
+              source_estimate_field, source_margin_of_error_field
+            ) VALUES ($1,$2,$3,$4,$5::jsonb,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19::jsonb,$20,$21,$22,$23,$24,$25,$26,$27,$28)
             ON CONFLICT (source_version_id, source_record_id, measure_definition_id, geography_id) DO NOTHING`,
             [
               observation.id, observation.measureDefinitionId, observation.geographyId,
@@ -218,6 +232,15 @@ export class PostgresIngestionRepository implements IngestionRepository {
               observation.dataPeriodEnd, observation.retrievedAt, observation.reviewStatus,
               observation.suppressionReason, observation.sourceRecordId, observation.sourceUrl,
               observation.geographyLevel, JSON.stringify(observation.sourceMetadata),
+              observation.sourceProvenance?.sourceVariableId ?? null,
+              observation.sourceProvenance?.numeratorVariableId ?? null,
+              observation.sourceProvenance?.denominatorVariableId ?? null,
+              observation.sourceProvenance?.formula ?? null,
+              observation.sourceProvenance?.transformationVersion ?? null,
+              observation.sourceProvenance?.table ?? null,
+              observation.sourceProvenance?.group ?? null,
+              observation.sourceProvenance?.estimateField ?? null,
+              observation.sourceProvenance?.marginOfErrorField ?? null,
             ],
           );
         }

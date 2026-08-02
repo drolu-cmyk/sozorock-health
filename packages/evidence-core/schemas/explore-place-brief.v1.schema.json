@@ -236,7 +236,25 @@
         "section": { "type": ["string", "null"] },
         "sourceField": { "type": ["string", "null"] },
         "quotedText": { "type": ["string", "null"] },
-        "reviewStatus": { "$ref": "#/$defs/reviewStatus" }
+        "reviewStatus": { "$ref": "#/$defs/reviewStatus" },
+        "provenanceStatus": { "type": ["string", "null"], "enum": ["complete", "incomplete", null] },
+        "sourceProvenance": { "$ref": "#/$defs/sourceProvenance" }
+      },
+      "additionalProperties": false
+    },
+    "sourceProvenance": {
+      "type": "object",
+      "required": ["sourceVariableId", "numeratorVariableId", "denominatorVariableId", "formula", "transformationVersion", "table", "group", "estimateField", "marginOfErrorField"],
+      "properties": {
+        "sourceVariableId": { "type": ["string", "null"] },
+        "numeratorVariableId": { "type": ["string", "null"] },
+        "denominatorVariableId": { "type": ["string", "null"] },
+        "formula": { "type": ["string", "null"] },
+        "transformationVersion": { "type": ["string", "null"] },
+        "table": { "type": ["string", "null"] },
+        "group": { "type": ["string", "null"] },
+        "estimateField": { "type": ["string", "null"] },
+        "marginOfErrorField": { "type": ["string", "null"] }
       },
       "additionalProperties": false
     },

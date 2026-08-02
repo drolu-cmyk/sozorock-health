@@ -11,6 +11,7 @@ import {
   findPublishedCounty,
   getPublishedCountyBrief,
   getPublishedCountyBriefByIdentifier,
+  getPublishedWorkforceContext,
 } from "./published-evidence-runtime";
 import { isClinicalSafetyQuestion } from "./place-agent-safety";
 
@@ -79,8 +80,12 @@ const PLACE_AGENT_PIPELINE = [
 ] as const;
 
 function contentHash() {
-  return process.env.EVIDENCE_SNAPSHOT_CONTENT_HASH?.trim()
-    || "sha256:1ca229a06b3368ccb33a9ea46f4f5671b67678c5679f5edb36cd475e6b970f8a";
+  const configured = process.env.EVIDENCE_SNAPSHOT_CONTENT_HASH?.trim();
+  // The fixture hash is useful only for the test runtime.  Production and
+  // staging must fail closed when the operator has not pinned a snapshot.
+  if (configured) return configured;
+  if (process.env.NODE_ENV === "production" || process.env.RUNTIME_ENV === "staging") return "";
+  return "sha256:1ca229a06b3368ccb33a9ea46f4f5671b67678c5679f5edb36cd475e6b970f8a";
 }
 
 function approvedClaims(brief: ExplorePlaceBriefV1) {
@@ -95,10 +100,14 @@ function approvedClaims(brief: ExplorePlaceBriefV1) {
   ];
 }
 
-function placeAgentPipelinePackage(brief: ExplorePlaceBriefV1) {
+async function placeAgentPipelinePackage(brief: ExplorePlaceBriefV1) {
   const contract = validateExplorePlaceBriefV1(brief);
   if (!contract.valid) throw new Error("Approved county evidence failed the place-brief contract.");
   const visual = buildStructuredVisualResult(brief);
+  const workforceContext = await getPublishedWorkforceContext(
+    brief.resolution.selected?.authorityId ?? "",
+    contentHash(),
+  );
   const verifiedPlans = brief.localPlanningEvidence.documents.filter(
     (document) => document.reviewStatus === "verified",
   );
@@ -136,6 +145,7 @@ function placeAgentPipelinePackage(brief: ExplorePlaceBriefV1) {
         })),
       limitation: "A layer may render only at its published geography. County values cannot create subcounty heat points.",
     },
+    workforceContext,
     comparison: {
       compatibleCount: visual.countyComparison.filter((item) => item.compatibility === "compatible").length,
       incompatibleCount: visual.countyComparison.filter((item) => item.compatibility !== "compatible").length,
@@ -184,7 +194,17 @@ async function evidenceToolResult(name: PlaceAgentToolName, args: Record<string,
   const brief = await getPublishedCountyBriefByIdentifier(geographyId);
   if (!brief) return { status: "not_found", answer: "No approved brief is available." };
 
-  if (name === "get_place_evidence") return { status: "ok", brief, approvedClaims: approvedClaims(brief) };
+  if (name === "get_place_evidence") {
+    return {
+      status: "ok",
+      brief,
+      workforceContext: await getPublishedWorkforceContext(
+        brief.resolution.selected?.authorityId ?? "",
+        contentHash(),
+      ),
+      approvedClaims: approvedClaims(brief),
+    };
+  }
   if (name === "get_local_plan") {
     return {
       status: brief.localPlanningEvidence.status === "verified" ? "ok" : "insufficient_evidence",
@@ -366,7 +386,7 @@ export async function answerWithOpenAI(input: {
   const brief = await getPublishedCountyBrief(input.geoid);
   if (!brief) throw new Error("County GEOID not found.");
   const inputHash = createHash("sha256").update(JSON.stringify(input)).digest("hex");
-  const pipeline = placeAgentPipelinePackage(brief);
+  const pipeline = await placeAgentPipelinePackage(brief);
   if (isClinicalSafetyQuestion(input.question)) {
     const answer = refusal(brief);
     return {

@@ -62,7 +62,7 @@ test("workspace authentication is Cognito-backed and tenant scoped", () => {
   assert.doesNotMatch(runtime, /DO UPDATE SET idempotency_key/);
   assert.match(runtime, /authority='census'/);
   assert.doesNotMatch(runtime, /authority='US_CENSUS'/);
-  assert.match(runtime, /if \(!access \|\| access === "viewer"\)/);
+  assert.match(runtime, /!trustedMembership && \(!access \|\| access === "viewer"\)/);
 });
 
 test("real-time session is opaque, short-lived and never authorizes mutations", () => {

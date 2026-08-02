@@ -121,6 +121,62 @@ test("a ZCTA query does not claim a county-only ACS row as ZIP-specific", async 
   assert.ok([...cache.entries.values()].every((entry) => !entry.url.includes("fixture-secret")));
 });
 
+test("ACS observations retain reconstructable direct and derived field provenance", async () => {
+  const adapter = new AcsIngestionAdapter({
+    vintage: 2024,
+    releaseDate: "2025-12-11",
+    apiKey: "fixture-secret",
+    variables: [
+      {
+        estimate: "B01001_001E",
+        marginOfError: "B01001_001M",
+        name: "Total population",
+        description: "Direct estimate",
+        universe: "Total population",
+        unit: "count",
+        higherValueMeaning: "neutral",
+      },
+      {
+        estimate: "POVERTY_PCT",
+        numeratorVariableId: "B17001_002E",
+        denominatorVariableId: "B17001_001E",
+        marginOfError: "B17001_002M",
+        name: "Poverty percentage",
+        description: "Derived percentage",
+        universe: "Population for whom poverty status is determined",
+        unit: "percent",
+        higherValueMeaning: "adverse",
+      },
+    ],
+  });
+  const batch = await adapter.fetch(
+    { geography: albany },
+    {
+      fetcher: staticFetcher(JSON.stringify([
+        ["NAME", "B01001_001E", "B01001_001M", "B17001_002E", "B17001_001E", "B17001_002M", "state", "county"],
+        ["Albany County, New York", "100", "2", "25", "100", "1", "36", "001"],
+      ])),
+      cache: new InMemoryHttpCache(),
+      now: "2026-07-20T12:00:00Z",
+    },
+  );
+  const direct = batch.observations.find((observation) => observation.sourceRecordId.endsWith("B01001_001E"));
+  const derived = batch.observations.find((observation) => observation.sourceRecordId.endsWith("POVERTY_PCT"));
+  assert.equal(direct?.sourceProvenance?.sourceVariableId, "B01001_001E");
+  assert.equal(derived?.value, 25);
+  assert.deepEqual(derived?.sourceProvenance, {
+    sourceVariableId: null,
+    numeratorVariableId: "B17001_002E",
+    denominatorVariableId: "B17001_001E",
+    formula: "B17001_002E / B17001_001E * 100",
+    transformationVersion: null,
+    table: "POVERTY",
+    group: "POVERTY",
+    estimateField: "B17001_002E",
+    marginOfErrorField: "B17001_002M",
+  });
+});
+
 test("a positive preventive-service measure cannot become an adverse priority by default", async () => {
   const adapter = new CdcPlacesIngestionAdapter({ releaseLabel: "2025 release", releaseDate: "2025-12-04" });
   const batch = await adapter.fetch(

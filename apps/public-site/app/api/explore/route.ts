@@ -123,13 +123,17 @@ export async function GET(request: NextRequest) {
       );
     }
   }
-  const record = await getPublishedCountyRecord(evidenceGeoid);
-  if (!record) return NextResponse.json({ error: "No current Census county or county equivalent matched that GEOID." }, { status: 404 });
   const brief = await getPublishedCountyBrief(evidenceGeoid);
   if (!brief) return NextResponse.json({ error: "The approved evidence snapshot is temporarily unavailable." }, { status: 503 });
+  // Load the brief first.  The runtime record is then derived from the same
+  // snapshot-keyed cache entry instead of reloading the full evidence bundle.
+  const record = await getPublishedCountyRecord(evidenceGeoid);
+  if (!record) return NextResponse.json({ error: "No current Census county or county equivalent matched that GEOID." }, { status: 404 });
   const stateBenchmark = stateCountyBenchmark(record.stateCode);
   const useFixtureOnlyForTests = evidenceRuntimeEnvironment() === "test";
-  const persistentWorkforce = useFixtureOnlyForTests ? null : await getPublishedWorkforceContext(evidenceGeoid);
+  const persistentWorkforce = useFixtureOnlyForTests
+    ? null
+    : await getPublishedWorkforceContext(evidenceGeoid, placeAgentRuntimeVersions.snapshotContentHash);
   const persistentContextObservations = useFixtureOnlyForTests ? [] : brief.publicData.observations.filter((observation) => {
     const sourceVersion = brief.publicData.sources.find((source) => source.sourceVersionId === observation.sourceVersionId);
     return sourceVersion && sourceVersion.sourceId !== "cdc-places";
@@ -139,22 +143,26 @@ export async function GET(request: NextRequest) {
     const source = brief.publicData.sources.find((item) => item.sourceVersionId === observation.sourceVersionId);
     return [`${source?.sourceId ?? ""}:${citation?.sourceField ?? observation.label}`, observation] as const;
   }));
-  const contextNumber = (field: string) => {
-    const observation = contextBySourceField.get(`census-acs5:${field}`);
+  const contextNumber = (...fields: string[]) => {
+    const observation = fields
+      .map((field) => contextBySourceField.get(`census-acs5:${field}`))
+      .find(Boolean);
     return observation && typeof observation.value === "number" ? observation.value : null;
   };
-  const contextMoe = (field: string) => contextBySourceField.get(`census-acs5:${field}`)?.confidence.marginOfError ?? null;
+  const contextMoe = (...fields: string[]) => fields
+    .map((field) => contextBySourceField.get(`census-acs5:${field}`))
+    .find(Boolean)?.confidence.marginOfError ?? null;
   const acsContext = useFixtureOnlyForTests ? getAcsCountyContext(evidenceGeoid) : {
-    population: contextNumber("population"),
-    populationMoe: contextMoe("population"),
-    medianAge: contextNumber("medianAge"),
-    medianAgeMoe: contextMoe("medianAge"),
-    povertyPercent: contextNumber("povertyPercent"),
-    povertyPercentMoe: contextMoe("povertyPercent"),
-    noVehiclePercent: contextNumber("noVehiclePercent"),
-    noVehiclePercentMoe: contextMoe("noVehiclePercent"),
-    internetSubscriptionPercent: contextNumber("internetSubscriptionPercent"),
-    internetSubscriptionPercentMoe: contextMoe("internetSubscriptionPercent"),
+    population: contextNumber("population", "B01001_001E"),
+    populationMoe: contextMoe("population", "B01001_001E"),
+    medianAge: contextNumber("medianAge", "B01002_001E"),
+    medianAgeMoe: contextMoe("medianAge", "B01002_001E"),
+    povertyPercent: contextNumber("povertyPercent", "B17001_002E / B17001_001E"),
+    povertyPercentMoe: contextMoe("povertyPercent", "B17001_002E / B17001_001E"),
+    noVehiclePercent: contextNumber("noVehiclePercent", "B08201_002E / B08201_001E"),
+    noVehiclePercentMoe: contextMoe("noVehiclePercent", "B08201_002E / B08201_001E"),
+    internetSubscriptionPercent: contextNumber("internetSubscriptionPercent", "B28002_002E / B28002_001E"),
+    internetSubscriptionPercentMoe: contextMoe("internetSubscriptionPercent", "B28002_002E / B28002_001E"),
   };
   const workforceContext = useFixtureOnlyForTests ? getHrsaCountyContext(evidenceGeoid) : persistentWorkforce ?? { hpsa: [], muaP: [] };
   const ahrfContext = useFixtureOnlyForTests ? getAhrfCountyContext(evidenceGeoid) : {

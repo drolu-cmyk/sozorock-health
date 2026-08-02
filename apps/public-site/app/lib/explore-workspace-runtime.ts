@@ -21,10 +21,29 @@ import {
   executeEvidenceSql,
   executeEvidenceTransaction,
   requireEvidenceCapability,
+  assertSnapshotContentHash,
   sha256,
 } from "./evidence-runtime-authority";
 
 const POLICY_VERSION = "place-intelligence.collaboration.v1";
+const trustedMembershipAuthorization = Symbol("trusted-membership-authorization");
+type WorkspaceEventInput = {
+  workspaceId: string;
+  tenantId: string;
+  eventType: WorkspaceEventType;
+  actor: WorkspaceActor;
+  idempotencyKey: string;
+  evidenceSnapshotId: string | null;
+  payload: Record<string, unknown>;
+  modelVersion?: string | null;
+  promptVersion?: string | null;
+  toolName?: string | null;
+  requestHash?: string | null;
+  responseHash?: string | null;
+  outcome?: "accepted" | "rejected" | "failed" | "recorded";
+  transactionId?: string;
+  [trustedMembershipAuthorization]?: true;
+};
 
 export async function requireCollaborationCapability() {
   const result = await executeEvidenceSql(
@@ -78,6 +97,7 @@ export async function createCountyWorkspace(input: {
   idempotencyKey: string;
 }) {
   if (input.actor.access !== "owner") throw new Error("Only an authorized owner may create a county workspace.");
+  const snapshotContentHash = assertSnapshotContentHash(input.snapshotContentHash);
   return executeEvidenceTransaction(async (transactionId) => {
     const geography = await executeEvidenceSql(
       `SELECT id::text
@@ -93,9 +113,8 @@ export async function createCountyWorkspace(input: {
     const snapshot = await executeEvidenceSql(
       `SELECT id::text
        FROM evidence.evidence_snapshot
-       WHERE content_hash=:hash AND review_status='verified' AND published_at IS NOT NULL
-       ORDER BY published_at DESC LIMIT 1`,
-      [{ name: "hash", value: { stringValue: input.snapshotContentHash } }],
+       WHERE content_hash=:hash AND review_status='verified' AND published_at IS NOT NULL`,
+      [{ name: "hash", value: { stringValue: snapshotContentHash } }],
       transactionId,
     );
     const snapshotId = String(evidenceFieldValue(snapshot.records?.[0]?.[0]) ?? "");
@@ -169,22 +188,7 @@ export async function createCountyWorkspace(input: {
   });
 }
 
-export async function appendWorkspaceEvent(input: {
-  workspaceId: string;
-  tenantId: string;
-  eventType: WorkspaceEventType;
-  actor: WorkspaceActor;
-  idempotencyKey: string;
-  evidenceSnapshotId: string | null;
-  payload: Record<string, unknown>;
-  modelVersion?: string | null;
-  promptVersion?: string | null;
-  toolName?: string | null;
-  requestHash?: string | null;
-  responseHash?: string | null;
-  outcome?: "accepted" | "rejected" | "failed" | "recorded";
-  transactionId?: string;
-}) {
+export async function appendWorkspaceEvent(input: WorkspaceEventInput) {
   const run = async (transactionId: string) => {
     await executeEvidenceSql(
       `SELECT pg_advisory_xact_lock(hashtext(:workspace_id))`,
@@ -208,10 +212,14 @@ export async function appendWorkspaceEvent(input: {
       transactionId,
     );
     const access = String(evidenceFieldValue(authorization.records?.[0]?.[0]) ?? "");
+    const trustedMembership = input[trustedMembershipAuthorization] === true;
     // Read-only participants may observe the event stream, but they may never
-    // append an event (including participant_joined).  Invitations and joins
-    // are recorded by the authenticated server-side accept flow instead.
-    if (!access || access === "viewer") {
+    // append an event. The only exception is the private server-side,
+    // transaction-bound membership path below.
+    if (trustedMembership && !["participant_joined", "workspace_handoff_accepted"].includes(input.eventType)) {
+      throw new Error("The trusted membership path only records membership events.");
+    }
+    if (!trustedMembership && (!access || access === "viewer")) {
       throw new Error("The participant is not authorized to write this workspace event.");
     }
     const inserted = await executeEvidenceSql(
@@ -298,6 +306,15 @@ export async function appendWorkspaceEvent(input: {
     };
   };
   return input.transactionId ? run(input.transactionId) : executeEvidenceTransaction(run);
+}
+
+/**
+ * Internal-only event writer used after the invitation/handoff transaction has
+ * validated token, tenant, workspace, role, expiry and recipient. The symbol
+ * authorization cannot be supplied by a client route.
+ */
+async function appendTrustedMembershipEvent(input: Omit<WorkspaceEventInput, typeof trustedMembershipAuthorization>) {
+  return appendWorkspaceEvent({ ...input, [trustedMembershipAuthorization]: true });
 }
 
 export async function listWorkspaceEvents(input: {
@@ -534,6 +551,95 @@ async function loadWorkspacePlan(input: { workspaceId: string; tenantId: string 
   };
 }
 
+// Public bearer links use a separate projection.  The internal workspace
+// model is intentionally never loaded by this path.
+const PUBLIC_SECTION_KEYS = new Set([
+  "summary", "context", "evidence", "action", "measurements", "plan", "response-fit", "public-summary",
+]);
+const PUBLIC_CONTENT_KEYS = new Set([
+  "title", "summary", "statement", "description", "evidence", "sources", "source", "citations",
+  "geography", "measure", "dataPeriod", "releaseDate", "officialUrl", "url", "limitations",
+  "response", "status", "outcome", "assumptions", "outputs", "formula", "range", "humanReviewStatus",
+]);
+
+function projectPublicValue(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(projectPublicValue);
+  if (!value || typeof value !== "object") return value;
+  return Object.fromEntries(
+    Object.entries(value as Record<string, unknown>)
+      .filter(([key]) => PUBLIC_CONTENT_KEYS.has(key))
+      .map(([key, child]) => [key, projectPublicValue(child)]),
+  );
+}
+
+async function loadPublicWorkspacePlan(input: { workspaceId: string; tenantId: string }) {
+  const publicSectionKeys = [...PUBLIC_SECTION_KEYS];
+  const sectionKeyPlaceholders = publicSectionKeys.map((_, index) => `:public_section_key_${index}`).join(", ");
+  const [workspace, sections, scenarios] = await Promise.all([
+    executeEvidenceSql(
+      `SELECT w.title, w.version, w.updated_at::text, g.authority_id, g.name
+       FROM evidence.county_workspace w
+       JOIN evidence.geography g ON g.id=w.geography_id
+       WHERE w.id=CAST(:workspace_id AS uuid) AND w.tenant_id=CAST(:tenant_id AS uuid)
+         AND w.status='active'`,
+      [
+        { name: "workspace_id", value: { stringValue: input.workspaceId } },
+        { name: "tenant_id", value: { stringValue: input.tenantId } },
+      ],
+    ),
+    executeEvidenceSql(
+      `SELECT section_key, version, content::text, updated_at::text
+       FROM evidence.workspace_section
+       WHERE workspace_id=CAST(:workspace_id AS uuid)
+         AND section_key IN (${sectionKeyPlaceholders})
+       ORDER BY section_key`,
+      [
+        { name: "workspace_id", value: { stringValue: input.workspaceId } },
+        ...publicSectionKeys.map((sectionKey, index) => ({
+          name: `public_section_key_${index}`,
+          value: { stringValue: sectionKey },
+        })),
+      ],
+    ),
+    executeEvidenceSql(
+      `SELECT s.name, s.current_version, v.outputs::text, v.human_review_status, v.created_at::text
+       FROM evidence.planning_scenario s
+       JOIN evidence.planning_scenario_version v
+         ON v.scenario_id=s.id AND v.version=s.current_version
+       WHERE s.workspace_id=CAST(:workspace_id AS uuid)
+         AND s.status='accepted' AND v.human_review_status='verified'
+       ORDER BY s.created_at`,
+      [{ name: "workspace_id", value: { stringValue: input.workspaceId } }],
+    ),
+  ]);
+  const header = workspace.records?.[0];
+  if (!header) throw new Error("The county workspace is unavailable.");
+  return {
+    workspace: {
+      title: String(evidenceFieldValue(header[0]) ?? ""),
+      version: Number(evidenceFieldValue(header[1]) ?? 0),
+      updatedAt: String(evidenceFieldValue(header[2]) ?? ""),
+      geoid: String(evidenceFieldValue(header[3]) ?? ""),
+      geographyName: String(evidenceFieldValue(header[4]) ?? ""),
+    },
+    sections: (sections.records ?? []).map((row) => ({
+      sectionKey: String(evidenceFieldValue(row[0]) ?? ""),
+      version: Number(evidenceFieldValue(row[1]) ?? 0),
+      content: projectPublicValue(JSON.parse(String(evidenceFieldValue(row[2]) ?? "{}"))),
+      updatedAt: String(evidenceFieldValue(row[3]) ?? ""),
+    })),
+    scenarios: (scenarios.records ?? []).map((row) => ({
+      name: String(evidenceFieldValue(row[0]) ?? ""),
+      version: Number(evidenceFieldValue(row[1]) ?? 0),
+      output: projectPublicValue(JSON.parse(String(evidenceFieldValue(row[2]) ?? "{}"))),
+      humanReviewStatus: String(evidenceFieldValue(row[3]) ?? "verified"),
+      createdAt: String(evidenceFieldValue(row[4]) ?? ""),
+    })),
+    // Review questions and citations are intentionally omitted unless they
+    // are embedded in an allowlisted, reviewed section payload.
+  };
+}
+
 export async function getWorkspacePlan(input: {
   workspaceId: string;
   tenantId: string;
@@ -642,6 +748,7 @@ export async function createWorkspaceInvitation(input: {
   actor: WorkspaceActor;
   role: Exclude<WorkspaceRole, "evidence_agent">;
   access: Exclude<WorkspaceAccess, "owner">;
+  intendedPrincipalId?: string;
 }) {
   if (input.actor.actorType !== "human" || input.actor.access !== "owner") {
     throw new Error("Only a human workspace owner may create an invitation.");
@@ -651,11 +758,11 @@ export async function createWorkspaceInvitation(input: {
   const id = randomUUID();
   await executeEvidenceSql(
     `INSERT INTO evidence.workspace_invitation (
-       id, workspace_id, token_hash, role, access, invited_by, expires_at, created_at
+       id, workspace_id, token_hash, role, access, invited_by, intended_principal_id, expires_at, created_at
      ) VALUES (
        CAST(:id AS uuid), CAST(:workspace_id AS uuid), :token_hash,
        CAST(:role AS evidence.workspace_role), CAST(:access AS evidence.workspace_access),
-       :invited_by, now() + interval '7 days', now()
+       :invited_by, :intended_principal_id, now() + interval '7 days', now()
      )`,
     [
       { name: "id", value: { stringValue: id } },
@@ -664,6 +771,9 @@ export async function createWorkspaceInvitation(input: {
       { name: "role", value: { stringValue: input.role } },
       { name: "access", value: { stringValue: input.access } },
       { name: "invited_by", value: { stringValue: input.actor.principalId } },
+      input.intendedPrincipalId
+        ? { name: "intended_principal_id", value: { stringValue: input.intendedPrincipalId } }
+        : { name: "intended_principal_id", value: { isNull: true } },
     ],
   );
   return { id, token, expiresInSeconds: 604_800, role: input.role, access: input.access };
@@ -680,16 +790,19 @@ export async function acceptWorkspaceInvitation(input: {
   }
   return executeEvidenceTransaction(async (transactionId) => {
     const invitation = await executeEvidenceSql(
-      `SELECT i.id::text, i.workspace_id::text, i.role::text, i.access::text
+      `SELECT i.id::text, i.workspace_id::text, i.role::text, i.access::text,
+              i.intended_principal_id
        FROM evidence.workspace_invitation i
        JOIN evidence.county_workspace w ON w.id=i.workspace_id
        WHERE i.token_hash=:token_hash
          AND i.accepted_at IS NULL AND i.revoked_at IS NULL AND i.expires_at > now()
+         AND (i.intended_principal_id IS NULL OR i.intended_principal_id=:principal_id)
          AND w.tenant_id=CAST(:tenant_id AS uuid) AND w.status='active'
        FOR UPDATE`,
       [
         { name: "token_hash", value: { stringValue: sha256(input.token) } },
         { name: "tenant_id", value: { stringValue: input.tenantId } },
+        { name: "principal_id", value: { stringValue: input.actor.principalId } },
       ],
       transactionId,
     );
@@ -699,6 +812,10 @@ export async function acceptWorkspaceInvitation(input: {
     const workspaceId = String(evidenceFieldValue(row[1]) ?? "");
     const role = String(evidenceFieldValue(row[2]) ?? "");
     const access = String(evidenceFieldValue(row[3]) ?? "");
+    const intendedPrincipalId = evidenceFieldValue(row[4]);
+    if (intendedPrincipalId && String(intendedPrincipalId) !== input.actor.principalId) {
+      throw new Error("This invitation is bound to a different participant.");
+    }
     await executeEvidenceSql(
       `INSERT INTO evidence.workspace_participant (
          workspace_id, principal_id, role, access, display_name, joined_at
@@ -728,7 +845,7 @@ export async function acceptWorkspaceInvitation(input: {
       ],
       transactionId,
     );
-    const event = await appendWorkspaceEvent({
+    const event = await appendTrustedMembershipEvent({
       workspaceId,
       tenantId: input.tenantId,
       eventType: "participant_joined",
@@ -831,13 +948,12 @@ export async function readWorkspaceShareLink(input: { token: string }) {
  */
 export async function getSharedWorkspacePlan(input: { token: string }) {
   const share = await readWorkspaceShareLink(input);
-  const plan = await loadWorkspacePlan({
+  const plan = await loadPublicWorkspacePlan({
     workspaceId: share.workspaceId,
     tenantId: share.tenantId,
   });
   return {
     share: {
-      workspaceId: share.workspaceId,
       scope: share.scope,
       expiresAt: share.expiresAt,
       title: share.title,
@@ -853,6 +969,7 @@ export async function createWorkspaceHandoff(input: {
   tenantId: string;
   actor: WorkspaceActor;
   targetRole: "county_planner" | "community_partner" | "research_funder_viewer" | "foundation_reviewer";
+  targetPrincipalId?: string;
   expiresInHours?: number;
 }) {
   if (input.actor.actorType !== "human" || !["owner", "contributor"].includes(input.actor.access)) {
@@ -865,11 +982,11 @@ export async function createWorkspaceHandoff(input: {
   await executeEvidenceSql(
     `INSERT INTO evidence.workspace_handoff (
        id, workspace_id, tenant_id, source_principal_id, target_role,
-       token_hash, status, expires_at
+       token_hash, status, target_principal_id, expires_at
      ) VALUES (
        CAST(:id AS uuid), CAST(:workspace_id AS uuid), CAST(:tenant_id AS uuid),
        :source_principal_id, :target_role, :token_hash, 'pending',
-       now() + (:hours * interval '1 hour')
+       :target_principal_id, now() + (:hours * interval '1 hour')
      )`,
     [
       { name: "id", value: { stringValue: id } },
@@ -879,6 +996,9 @@ export async function createWorkspaceHandoff(input: {
       { name: "target_role", value: { stringValue: input.targetRole } },
       { name: "token_hash", value: { stringValue: hashOpaqueToken(token) } },
       { name: "hours", value: { longValue: hours } },
+      input.targetPrincipalId
+        ? { name: "target_principal_id", value: { stringValue: input.targetPrincipalId } }
+        : { name: "target_principal_id", value: { isNull: true } },
     ],
   );
   await executeEvidenceSql(
@@ -910,14 +1030,16 @@ export async function acceptWorkspaceHandoff(input: {
   if (input.actor.actorType !== "human") throw new Error("Only an authenticated human may accept a handoff.");
   return executeEvidenceTransaction(async (transactionId) => {
     const result = await executeEvidenceSql(
-      `SELECT id::text, workspace_id::text, target_role
+      `SELECT id::text, workspace_id::text, target_role, target_principal_id
        FROM evidence.workspace_handoff
        WHERE token_hash=:token_hash AND tenant_id=CAST(:tenant_id AS uuid)
          AND status='pending' AND expires_at > now()
+         AND (target_principal_id IS NULL OR target_principal_id=:principal_id)
        FOR UPDATE`,
       [
         { name: "token_hash", value: { stringValue: hashOpaqueToken(input.token) } },
         { name: "tenant_id", value: { stringValue: input.tenantId } },
+        { name: "principal_id", value: { stringValue: input.actor.principalId } },
       ],
       transactionId,
     );
@@ -926,6 +1048,10 @@ export async function acceptWorkspaceHandoff(input: {
     const handoffId = String(evidenceFieldValue(row[0]) ?? "");
     const workspaceId = String(evidenceFieldValue(row[1]) ?? "");
     const targetRole = String(evidenceFieldValue(row[2]) ?? "");
+    const targetPrincipalId = evidenceFieldValue(row[3]);
+    if (targetPrincipalId && String(targetPrincipalId) !== input.actor.principalId) {
+      throw new Error("This handoff is bound to a different participant.");
+    }
     const access = targetRole === "research_funder_viewer" ? "viewer" : "contributor";
     await executeEvidenceSql(
       `INSERT INTO evidence.workspace_participant (
@@ -955,7 +1081,7 @@ export async function acceptWorkspaceHandoff(input: {
       ],
       transactionId,
     );
-    await appendWorkspaceEvent({
+    await appendTrustedMembershipEvent({
       workspaceId,
       tenantId: input.tenantId,
       eventType: "workspace_handoff_accepted",
@@ -965,7 +1091,7 @@ export async function acceptWorkspaceHandoff(input: {
       payload: { handoffId, role: targetRole, access },
       transactionId,
     });
-    const event = await appendWorkspaceEvent({
+    const event = await appendTrustedMembershipEvent({
       workspaceId,
       tenantId: input.tenantId,
       eventType: "participant_joined",

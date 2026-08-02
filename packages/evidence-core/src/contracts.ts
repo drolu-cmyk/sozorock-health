@@ -189,6 +189,18 @@ export type MetricObservation = {
   reviewStatus: ReviewStatus;
   suppressionReason: string | null;
   sourceMetadata: Record<string, string | number | boolean | null>;
+  /** Reproducible field-level provenance for direct or derived measures. */
+  sourceProvenance?: {
+    sourceVariableId: string | null;
+    numeratorVariableId: string | null;
+    denominatorVariableId: string | null;
+    formula: string | null;
+    transformationVersion: string | null;
+    table: string | null;
+    group: string | null;
+    estimateField: string | null;
+    marginOfErrorField: string | null;
+  };
 };
 
 export const SOURCE_IMPORT_STATUSES = [
