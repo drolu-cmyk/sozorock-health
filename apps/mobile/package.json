@@ -19,15 +19,15 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@react-native/virtualized-lists": "0.86.0",
-    "babel-preset-expo": "57.0.2",
-    "expo": "~57.0.7",
+    "@react-native/virtualized-lists": "0.86.2",
+    "babel-preset-expo": "57.0.5",
+    "expo": "~57.0.9",
     "expo-localization": "~57.0.1",
     "expo-speech": "~57.0.1",
     "expo-speech-recognition": "^56.0.1",
-    "expo-splash-screen": "~57.0.4",
+    "expo-splash-screen": "~57.0.5",
     "react": "19.2.3",
-    "react-native": "0.86.0"
+    "react-native": "0.86.2"
   },
   "devDependencies": {
     "@types/react": "19.2.7",
