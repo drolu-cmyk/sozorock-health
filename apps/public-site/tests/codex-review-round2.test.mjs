@@ -94,7 +94,9 @@ test("scenario creation recovers the original result before inserting on retry",
   const recovery = creation.indexOf("idempotency_key=:idempotency_key");
   const insert = creation.indexOf("INSERT INTO evidence.planning_scenario (");
   assert.ok(recovery >= 0 && recovery < insert);
-  assert.match(creation, /eventType !== "scenario_created" \|\| payload\.requestHash !== scenarioRequestHash/);
+  assert.match(creation, /eventType !== "scenario_created"/);
+  assert.match(creation, /typeof payload\.requestHash === "string"[\s\S]*scenarioInputs: priorOutput\.inputs/);
+  assert.match(creation, /priorRequestHash !== scenarioRequestHash/);
   assert.match(creation, /requestHash: scenarioRequestHash/);
   assert.match(creation, /idempotent scenario version could not be recovered/);
 });
@@ -106,6 +108,8 @@ test("public share links are explicitly read-only until a governed write path ex
   assert.match(route, /Only read-only public share links are supported/);
   assert.match(runtime, /scope: "read_only";/);
   assert.match(runtime, /l\.scope='read_only'/);
+  const shareRequest = exploreOpenApiDocument.paths["/api/evidence/v1/workspaces/{workspaceId}/share"].post.requestBody.content["application/json"].schema;
+  assert.deepEqual(shareRequest.properties.scope.enum, ["read_only"]);
 });
 
 test("served OpenAPI declares every path variable and heat maps require multiple counties", () => {

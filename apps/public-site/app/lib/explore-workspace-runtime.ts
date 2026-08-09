@@ -377,12 +377,6 @@ export async function createPlanningScenario(input: {
   if (input.actor.actorType !== "human") {
     throw new Error("A human participant must own planning assumptions.");
   }
-  const scenarioRequestHash = sha256({
-    name: input.name.slice(0, 160),
-    scenarioInputs: input.scenarioInputs,
-    evidenceUsed: input.evidenceUsed,
-    evidenceMissing: input.evidenceMissing,
-  });
   const output = buildPlanningScenario({
     inputs: input.scenarioInputs,
     evidenceUsed: input.evidenceUsed,
@@ -390,6 +384,12 @@ export async function createPlanningScenario(input: {
     assumptionOwner: input.actor.principalId,
     createdAt: new Date().toISOString(),
     humanReviewStatus: "not_reviewed",
+  });
+  const scenarioRequestHash = sha256({
+    name: input.name.slice(0, 160),
+    scenarioInputs: output.inputs,
+    evidenceUsed: output.evidenceUsed,
+    evidenceMissing: output.evidenceMissing,
   });
   return executeEvidenceTransaction(async (transactionId) => {
     await requireWorkspaceMembership({
@@ -422,7 +422,7 @@ export async function createPlanningScenario(input: {
     if (priorCreationRecord) {
       const eventType = String(evidenceFieldValue(priorCreationRecord[2]) ?? "");
       const payload = JSON.parse(String(evidenceFieldValue(priorCreationRecord[4]) ?? "{}")) as Record<string, unknown>;
-      if (eventType !== "scenario_created" || payload.requestHash !== scenarioRequestHash) {
+      if (eventType !== "scenario_created") {
         throw new Error("The idempotency key is already bound to a different workspace mutation.");
       }
       const scenarioId = String(payload.scenarioId ?? "");
@@ -438,10 +438,22 @@ export async function createPlanningScenario(input: {
         transactionId,
       );
       if (!priorVersion.records?.[0]?.[0]) throw new Error("The idempotent scenario version could not be recovered.");
+      const priorOutput = JSON.parse(String(evidenceFieldValue(priorVersion.records[0][0]) ?? "{}")) as typeof output;
+      const priorRequestHash = typeof payload.requestHash === "string"
+        ? payload.requestHash
+        : sha256({
+            name: String(payload.name ?? ""),
+            scenarioInputs: priorOutput.inputs,
+            evidenceUsed: priorOutput.evidenceUsed,
+            evidenceMissing: priorOutput.evidenceMissing,
+          });
+      if (priorRequestHash !== scenarioRequestHash) {
+        throw new Error("The idempotency key is already bound to a different workspace mutation.");
+      }
       return {
         id: scenarioId,
         versionId,
-        output: JSON.parse(String(evidenceFieldValue(priorVersion.records[0][0]) ?? "{}")) as typeof output,
+        output: priorOutput,
         event: {
           id: String(evidenceFieldValue(priorCreationRecord[0]) ?? ""),
           sequenceNumber: Number(evidenceFieldValue(priorCreationRecord[1]) ?? 0),

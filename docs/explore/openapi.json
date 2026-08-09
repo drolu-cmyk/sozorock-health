@@ -530,7 +530,7 @@
         "tags": [
           "Workspace"
         ],
-        "summary": "Create an expiring public share link.",
+        "summary": "Create an expiring public read-only share link.",
         "security": [
           {
             "cognitoAccessToken": []
@@ -541,7 +541,22 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object"
+                "type": "object",
+                "properties": {
+                  "scope": {
+                    "type": "string",
+                    "enum": [
+                      "read_only"
+                    ],
+                    "default": "read_only"
+                  },
+                  "expiresInHours": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 168,
+                    "default": 72
+                  }
+                }
               }
             }
           }
