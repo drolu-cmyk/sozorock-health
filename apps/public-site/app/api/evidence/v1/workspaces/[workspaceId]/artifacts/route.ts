@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { requireWorkspaceActor } from "../../../../../../lib/explore-workspace-auth";
-import { addWorkspaceComment, addWorkspaceReviewQuestion, requireCollaborationCapability, reviewWorkspaceAgentSuggestion } from "../../../../../../lib/explore-workspace-runtime";
+import { addWorkspaceComment, addWorkspaceReviewQuestion, completeWorkspaceReviewQuestion, requireCollaborationCapability, reviewWorkspaceAgentSuggestion } from "../../../../../../lib/explore-workspace-runtime";
 import { isTrustedSameOrigin, readBoundedText } from "../../../../../../lib/request-security";
 
 export const runtime = "nodejs";
@@ -30,6 +30,18 @@ export async function POST(request: NextRequest, context: Context) {
         return NextResponse.json({ error: "Suggestion review decision is invalid." }, { status: 400, headers: { "Cache-Control": "no-store" } });
       }
       result = await reviewWorkspaceAgentSuggestion({ workspaceId, tenantId: actor.tenantId, actor, suggestionId: String(body.suggestionId ?? ""), decision: body.decision, expectedSectionVersion: Number(body.expectedSectionVersion ?? 0), idempotencyKey });
+    } else if (action === "complete_review_question") {
+      if (body.status !== "answered" && body.status !== "closed") {
+        return NextResponse.json({ error: "Review question completion status is invalid." }, { status: 400, headers: { "Cache-Control": "no-store" } });
+      }
+      result = await completeWorkspaceReviewQuestion({
+        workspaceId,
+        tenantId: actor.tenantId,
+        actor,
+        reviewQuestionId: String(body.reviewQuestionId ?? ""),
+        status: body.status,
+        idempotencyKey,
+      });
     } else {
       return NextResponse.json({ error: "Artifact action is invalid." }, { status: 400 });
     }

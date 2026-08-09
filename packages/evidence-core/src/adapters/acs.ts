@@ -123,6 +123,32 @@ function rowMatchesGeography(headers: string[], values: string[], geography: Geo
   return geography.kind === "state" && row.state === geography.authorityId;
 }
 
+/**
+ * Approximate the 90% ACS margin of error for a derived percentage whose
+ * numerator is a subset of its denominator. Census guidance uses the
+ * proportion formula (minus under the radical) and the ratio formula (plus)
+ * when the proportion radicand is negative.
+ */
+export function derivedAcsPercentMarginOfError(input: {
+  numerator: number | null;
+  denominator: number | null;
+  numeratorMarginOfError: number | null;
+  denominatorMarginOfError: number | null;
+}) {
+  if (input.numerator === null || input.denominator === null || input.denominator === 0
+    || input.numeratorMarginOfError === null || input.denominatorMarginOfError === null) {
+    return null;
+  }
+  const proportion = input.numerator / input.denominator;
+  const numeratorVariance = input.numeratorMarginOfError ** 2;
+  const denominatorVariance = (proportion ** 2) * (input.denominatorMarginOfError ** 2);
+  const proportionRadicand = numeratorVariance - denominatorVariance;
+  const radicand = proportionRadicand >= 0
+    ? proportionRadicand
+    : numeratorVariance + denominatorVariance;
+  return Number(((Math.sqrt(radicand) / input.denominator) * 100).toFixed(4));
+}
+
 export class AcsIngestionAdapter implements PublicDataAdapter {
   readonly id = "census-acs5-v2";
   readonly sourceId = "census-acs5";
@@ -208,9 +234,23 @@ export class AcsIngestionAdapter implements PublicDataAdapter {
         if (!measure) continue;
         const numerator = variable.numeratorVariableId ? numberOrNull(row[variable.numeratorVariableId]) : null;
         const denominator = variable.denominatorVariableId ? numberOrNull(row[variable.denominatorVariableId]) : null;
+        const numeratorMarginOfError = variable.numeratorMarginOfErrorVariableId
+          ? numberOrNull(row[variable.numeratorMarginOfErrorVariableId])
+          : null;
+        const denominatorMarginOfError = variable.denominatorMarginOfErrorVariableId
+          ? numberOrNull(row[variable.denominatorMarginOfErrorVariableId])
+          : null;
         const value = numerator !== null && denominator !== null && denominator !== 0
           ? Number(((numerator / denominator) * 100).toFixed(4))
           : numberOrNull(row[variable.estimate]);
+        const marginOfError = variable.numeratorVariableId && variable.denominatorVariableId
+          ? derivedAcsPercentMarginOfError({
+              numerator,
+              denominator,
+              numeratorMarginOfError,
+              denominatorMarginOfError,
+            })
+          : variable.marginOfError ? numberOrNull(row[variable.marginOfError]) : null;
         observations.push(buildObservation({
           measure,
           geography: query.geography,
@@ -219,13 +259,15 @@ export class AcsIngestionAdapter implements PublicDataAdapter {
           sourceUrl,
           value,
           numericValue: value,
-          marginOfError: variable.marginOfError ? numberOrNull(row[variable.marginOfError]) : null,
+          marginOfError,
           dataPeriodStart: sourceVersion.dataPeriodStart,
           dataPeriodEnd: sourceVersion.dataPeriodEnd,
           suppressionReason: value === null ? "ACS did not publish a numeric estimate for this geography and variable." : null,
           sourceMetadata: {
             variableId: variable.estimate,
-            marginOfErrorVariableId: variable.marginOfError ?? null,
+            marginOfErrorVariableId: variable.numeratorVariableId && variable.denominatorVariableId
+              ? null
+              : variable.marginOfError ?? null,
             name: row.NAME ?? null,
             censusApiGeography: query.geography.kind,
             table: variable.table ?? variable.estimate.split("_")[0] ?? null,
@@ -250,7 +292,9 @@ export class AcsIngestionAdapter implements PublicDataAdapter {
             estimateField: variable.numeratorVariableId && variable.denominatorVariableId
               ? variable.numeratorVariableId
               : variable.estimate,
-            marginOfErrorField: variable.marginOfError ?? null,
+            marginOfErrorField: variable.numeratorVariableId && variable.denominatorVariableId
+              ? null
+              : variable.marginOfError ?? null,
             numeratorMarginOfErrorVariableId: variable.numeratorMarginOfErrorVariableId ?? null,
             denominatorMarginOfErrorVariableId: variable.denominatorMarginOfErrorVariableId ?? null,
             marginOfErrorFormula: variable.marginOfErrorFormula ?? null,

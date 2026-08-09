@@ -167,6 +167,7 @@ test("ACS observations retain reconstructable direct and derived field provenanc
   const derived = batch.observations.find((observation) => observation.sourceRecordId.endsWith("POVERTY_PCT"));
   assert.equal(direct?.sourceProvenance?.sourceVariableId, "B01001_001E");
   assert.equal(derived?.value, 25);
+  assert.equal(derived?.marginOfError, 0.866);
   assert.deepEqual(derived?.sourceProvenance, {
     sourceVariableId: null,
     numeratorVariableId: "B17001_002E",
@@ -176,7 +177,7 @@ test("ACS observations retain reconstructable direct and derived field provenanc
     table: "POVERTY",
     group: "POVERTY",
     estimateField: "B17001_002E",
-    marginOfErrorField: "B17001_002M",
+    marginOfErrorField: null,
     numeratorMarginOfErrorVariableId: "B17001_002M",
     denominatorMarginOfErrorVariableId: "B17001_001M",
     marginOfErrorFormula: "Census ratio MOE",

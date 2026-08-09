@@ -24,7 +24,8 @@ export type MetricComparisons = {
 type HigherValueMeaning = "adverse" | "favorable" | "context_dependent";
 
 export function roundComparisonDifference(value: number) {
-  return Number(value.toFixed(1));
+  const rounded = Number(value.toFixed(1));
+  return Object.is(rounded, -0) ? 0 : rounded;
 }
 
 export function comparisonInterpretation(
@@ -56,7 +57,9 @@ export function buildMetricComparison(input: {
     interpretation: comparisonInterpretation(input.higherValueMeaning, difference),
     sentence: difference === null
       ? `${input.basis === "state" ? "State" : "National"} comparison unavailable for this release.`
-      : `${Math.abs(difference).toFixed(1)} percentage points ${difference >= 0 ? "above" : "below"} the ${label}.`,
+      : difference === 0
+        ? `No percentage-point difference from the ${label} after rounding.`
+        : `${Math.abs(difference).toFixed(1)} percentage points ${difference > 0 ? "above" : "below"} the ${label}.`,
   };
 }
 

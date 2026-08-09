@@ -3,6 +3,7 @@ import test from "node:test";
 import { readFile } from "node:fs/promises";
 import { exploreOpenApiDocument } from "../app/lib/explore-openapi.ts";
 import { canonicalJsonStringify, sha256 } from "../app/lib/evidence-runtime-authority.ts";
+import { buildMetricComparison } from "../app/lib/explore-comparisons.ts";
 
 const read = (path) => readFile(new URL(`../${path}`, import.meta.url), "utf8");
 
@@ -23,6 +24,43 @@ test("workspace controls use membership access and a contributor can create the 
   assert.match(client, /defaultSection: Section = \{ sectionKey: "plan", version: 0/);
   assert.match(client, /writable \? <SectionEditor section=\{defaultSection\} writable/);
   assert.doesNotMatch(client, /const writable = plan\.actor\.access/);
+});
+
+test("owner-only workspace mutations use the workspace membership rather than account-wide access", async () => {
+  const runtime = await read("app/lib/explore-workspace-runtime.ts");
+  assert.match(runtime, /allowedAccess\?: WorkspaceAccess\[\]/);
+  for (const exported of ["createWorkspaceInvitation", "createWorkspaceShareLink", "listWorkspaceShareLinks", "revokeWorkspaceShareLink"]) {
+    const start = runtime.indexOf(`export async function ${exported}`);
+    assert.ok(start >= 0, `${exported} exists`);
+    const next = runtime.indexOf("export async function", start + 20);
+    const body = runtime.slice(start, next < 0 ? undefined : next);
+    assert.match(body, /allowedAccess: \["owner"\]/, `${exported} requires owner membership`);
+  }
+  const auditStart = runtime.indexOf("export async function getWorkspaceAudit");
+  const audit = runtime.slice(auditStart, runtime.indexOf("export async function", auditStart + 20));
+  assert.match(audit, /allowedAccess: \["owner"\], allowedRoles: \["foundation_reviewer"\]/);
+});
+
+test("workspace forks can coexist, authorize the target event, and recover idempotently", async () => {
+  const runtime = await read("app/lib/explore-workspace-runtime.ts");
+  const migration = await read("../../packages/evidence-core/migrations/0016_workspace_forks_and_version_metadata.sql");
+  assert.match(migration, /parent_workspace_id IS NULL/);
+  assert.match(migration, /county_workspace_active_fork_idx/);
+  const start = runtime.indexOf("export async function forkCountyWorkspace");
+  const fork = runtime.slice(start, runtime.indexOf("export async function recordExploreUsage", start));
+  assert.match(fork, /findWorkspaceMutationEvent/);
+  assert.ok(fork.indexOf("findWorkspaceMutationEvent") < fork.indexOf("INSERT INTO evidence.county_workspace"));
+  const membershipInsert = fork.indexOf("INSERT INTO evidence.workspace_participant");
+  const targetEvent = fork.indexOf("const targetEvent = await appendWorkspaceEvent");
+  assert.ok(membershipInsert >= 0 && membershipInsert < targetEvent);
+  assert.match(fork, /eventType: "workspace_forked"[\s\S]*idempotencyKey: input\.idempotencyKey/);
+  assert.match(fork, /requestHash/);
+});
+
+test("accepted plan edits advance parent workspace version metadata", async () => {
+  const runtime = await read("app/lib/explore-workspace-runtime.ts");
+  const updates = runtime.match(/UPDATE evidence\.county_workspace\s+SET version=version \+ 1, updated_at=now\(\)/g) ?? [];
+  assert.ok(updates.length >= 2, "section saves and accepted suggestions advance workspace metadata");
 });
 
 test("workforce citations are valid structured agent evidence", async () => {
@@ -96,8 +134,8 @@ test("scenario creation recovers the original result before inserting on retry",
   const insert = creation.indexOf("INSERT INTO evidence.planning_scenario (");
   assert.ok(recovery >= 0 && recovery < insert);
   assert.match(creation, /eventType !== "scenario_created"/);
-  assert.match(creation, /typeof payload\.requestHash === "string"[\s\S]*scenarioInputs: priorOutput\.inputs/);
-  assert.match(creation, /priorRequestHash !== scenarioRequestHash/);
+  assert.match(creation, /persistedRequestHash = sha256\([\s\S]*scenarioInputs: priorOutput\.inputs/);
+  assert.match(creation, /persistedRequestHash !== scenarioRequestHash/);
   assert.match(creation, /requestHash: scenarioRequestHash/);
   assert.match(creation, /idempotent scenario version could not be recovered/);
 });
@@ -127,6 +165,56 @@ test("legacy scenario retries use canonical hashes after PostgreSQL jsonb reorde
   };
   assert.equal(canonicalJsonStringify(submitted), canonicalJsonStringify(persistedJsonbOrder));
   assert.equal(sha256(submitted), sha256(persistedJsonbOrder));
+});
+
+test("scenario retries reconstruct canonical semantics instead of trusting legacy hash bytes", async () => {
+  const runtime = await read("app/lib/explore-workspace-runtime.ts");
+  const start = runtime.indexOf("export async function createPlanningScenario");
+  const creation = runtime.slice(start, runtime.indexOf("export async function reviewPlanningScenario", start));
+  assert.match(creation, /JOIN evidence\.planning_scenario s ON s\.id=v\.scenario_id/);
+  assert.match(creation, /persistedRequestHash = sha256/);
+  assert.match(creation, /persistedRequestHash !== scenarioRequestHash/);
+  assert.doesNotMatch(creation, /typeof payload\.requestHash === "string"\s*\? payload\.requestHash/);
+});
+
+test("workspace artifacts recover committed idempotent writes and review questions can complete", async () => {
+  const runtime = await read("app/lib/explore-workspace-runtime.ts");
+  const route = await read("app/api/evidence/v1/workspaces/[workspaceId]/artifacts/route.ts");
+  for (const exported of ["addWorkspaceComment", "addWorkspaceReviewQuestion", "createWorkspaceAgentSuggestion"]) {
+    const start = runtime.indexOf(`export async function ${exported}`);
+    assert.ok(start >= 0, `${exported} exists`);
+    const next = runtime.indexOf("export async function", start + 20);
+    const body = runtime.slice(start, next < 0 ? undefined : next);
+    assert.match(body, /findWorkspaceMutationEvent/);
+    assert.ok(body.indexOf("findWorkspaceMutationEvent") < body.indexOf("INSERT INTO evidence."));
+  }
+  assert.match(runtime, /export async function completeWorkspaceReviewQuestion/);
+  assert.match(runtime, /SET status=:status, completed_at=now\(\)/);
+  assert.match(route, /action === "complete_review_question"/);
+  assert.match(route, /body\.status !== "answered" && body\.status !== "closed"/);
+});
+
+test("workspace forms retain a stable form reference across awaited requests", async () => {
+  const client = await read("app/explore/workspaces/[workspaceId]/WorkspaceClient.tsx");
+  assert.match(client, /const formElement = event\.currentTarget;/);
+  assert.match(client, /formElement\.reset\(\)/);
+  assert.doesNotMatch(client, /event\.currentTarget\.reset\(\)/);
+  assert.match(client, /completeReviewQuestion/);
+  assert.match(client, /Mark answered/);
+});
+
+test("zero and negative-zero benchmark differences are described as equal after rounding", () => {
+  for (const localValue of [60.2, 60.24, 60.16]) {
+    const result = buildMetricComparison({
+      localValue,
+      benchmarkValue: 60.2,
+      basis: "state",
+      higherValueMeaning: "adverse",
+    });
+    assert.equal(result.difference, 0);
+    assert.equal(result.interpretation, "equal");
+    assert.equal(result.sentence, "No percentage-point difference from the state comparison after rounding.");
+  }
 });
 
 test("public share links are explicitly read-only until a governed write path exists", async () => {
@@ -160,4 +248,7 @@ test("served OpenAPI declares every path variable and heat maps require multiple
   const scenarioResponses = exploreOpenApiDocument.paths["/api/evidence/v1/workspaces/{workspaceId}/scenarios"].post.responses;
   assert.ok("201" in scenarioResponses);
   assert.ok(!("200" in scenarioResponses));
+  const artifactOperation = exploreOpenApiDocument.paths["/api/evidence/v1/workspaces/{workspaceId}/artifacts"].post;
+  assert.equal(artifactOperation.responses["201"].description, "Successful response.");
+  assert.ok(artifactOperation.requestBody.content["application/json"].schema.oneOf.some((schema) => schema.properties.action.const === "complete_review_question"));
 });

@@ -92,22 +92,24 @@ export function WorkspaceClient({ workspaceId }: { workspaceId: string }) {
 
   async function addArtifact(event: FormEvent<HTMLFormElement>, action: "comment" | "review_question") {
     event.preventDefault();
-    const form = new FormData(event.currentTarget);
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
     try {
       await json(`/api/evidence/v1/workspaces/${workspaceId}/artifacts`, action === "comment"
         ? { action, sectionKey: form.get("sectionKey"), body: form.get("body") }
         : { action, sectionKey: form.get("sectionKey"), question: form.get("question"), assignedTo: form.get("assignedTo"), isPublic: form.get("isPublic") === "yes" });
-      event.currentTarget.reset();
+      formElement.reset();
     } catch (cause) { setError((cause as Error).message); }
   }
 
   async function askAgent(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const form = new FormData(event.currentTarget);
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
     try {
       await json("/api/evidence/v1/agent", { geoid: plan?.workspace.geoid, question: form.get("question"), workspaceId, sectionKey: form.get("sectionKey") });
       setNotice("The cited agent result is waiting for human review.");
-      event.currentTarget.reset();
+      formElement.reset();
     } catch (cause) { setError((cause as Error).message); }
   }
 
@@ -121,22 +123,36 @@ export function WorkspaceClient({ workspaceId }: { workspaceId: string }) {
 
   async function addScenario(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const form = new FormData(event.currentTarget);
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
     const assumptions = [{ key: "planning_note", value: String(form.get("assumption") || "Local review required"), owner: plan?.actor.principalId || "" }];
     try {
       await json(`/api/evidence/v1/workspaces/${workspaceId}/scenarios`, {
         name: form.get("name"), inputs: { hubLocations: [{ type: form.get("hubType"), count: Number(form.get("hubCount")) }], eventFrequencyPerYear: Number(form.get("events")) || null, verifiedPartnerCapacity: null, geographicReach: null, publicTransportationContext: null, digitalReadinessSupport: null, workforceAvailability: null, confirmedLocalPriorityIds: [], assumptions }, evidenceUsed: [], evidenceMissing: ["Verified partner capacity", "Locally reviewed delivery assumptions"],
       });
-      event.currentTarget.reset();
+      formElement.reset();
     } catch (cause) { setError((cause as Error).message); }
   }
 
   async function invite(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const form = new FormData(event.currentTarget);
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
     try {
       const result = await json(`/api/evidence/v1/workspaces/${workspaceId}/invitations`, { role: form.get("role"), access: form.get("access"), intendedPrincipalId: form.get("recipient") });
       setInviteLink(`${window.location.origin}/explore/invitation?token=${encodeURIComponent(result.invitation.token)}`);
+      formElement.reset();
+    } catch (cause) { setError((cause as Error).message); }
+  }
+
+  async function completeReviewQuestion(id: string, status: "answered" | "closed") {
+    try {
+      await json(`/api/evidence/v1/workspaces/${workspaceId}/artifacts`, {
+        action: "complete_review_question",
+        reviewQuestionId: id,
+        status,
+      });
+      setNotice(status === "answered" ? "Review question marked answered." : "Review question closed.");
     } catch (cause) { setError((cause as Error).message); }
   }
 
@@ -173,7 +189,7 @@ export function WorkspaceClient({ workspaceId }: { workspaceId: string }) {
     <div className={styles.workspaceGrid}>
       <section id="plan" className={styles.workspacePanel}><header><h2>Named plan sections</h2><span>Optimistic version checks protect concurrent edits.</span></header>{plan.sections.length ? plan.sections.map((section) => <SectionEditor key={section.sectionKey} section={section} writable={writable} onSave={saveSection} />) : writable ? <SectionEditor section={defaultSection} writable onSave={saveSection} /> : <p>No plan section has been started.</p>}</section>
       <section id="agent" className={styles.workspacePanel}><header><h2>Place Agent</h2><span>Suggestions stay outside the accepted plan until a human accepts them.</span></header>{writable && <form className={styles.stackForm} onSubmit={askAgent}><label>Plan section<select name="sectionKey">{(plan.sections.length ? plan.sections : [{ sectionKey: "plan" }]).map((section) => <option key={section.sectionKey}>{section.sectionKey}</option>)}</select></label><label>Grounded county question<textarea name="question" required minLength={3} /></label><button>Ask and create suggestion</button></form>}<div className={styles.suggestions}>{plan.suggestions.map((suggestion) => <article key={suggestion.id} data-status={suggestion.status}><strong>{suggestion.sectionKey} · {suggestion.status}</strong><pre>{JSON.stringify(suggestion.content, null, 2)}</pre>{suggestion.status === "pending" && writable ? <div><button onClick={() => void reviewSuggestion(suggestion.id, "accepted", suggestion.sectionKey)}>Accept into plan</button><button onClick={() => void reviewSuggestion(suggestion.id, "rejected", suggestion.sectionKey)}>Reject</button></div> : null}</article>)}</div></section>
-      <section id="review" className={styles.workspacePanel}><header><h2>Comments and review questions</h2><span>Viewer accounts can observe but cannot write.</span></header>{writable && <div className={styles.formPair}><form className={styles.stackForm} onSubmit={(event) => void addArtifact(event, "comment")}><label>Section<input name="sectionKey" defaultValue="plan" /></label><label>Comment<textarea name="body" required /></label><button>Add comment</button></form><form className={styles.stackForm} onSubmit={(event) => void addArtifact(event, "review_question")}><label>Section<input name="sectionKey" defaultValue="plan" /></label><label>Question<textarea name="question" required /></label><label>Assign to<select name="assignedTo"><option value="">Unassigned</option>{plan.participants.filter((participant) => participant.principalId !== "sozorock-place-agent").map((participant) => <option value={participant.principalId} key={participant.principalId}>{participant.displayName}</option>)}</select></label><label><input type="checkbox" name="isPublic" value="yes" /> Public after resolution</label><button>Assign review question</button></form></div>}<ul>{plan.comments.map((comment) => <li key={comment.id}><strong>{comment.sectionKey}</strong> {comment.body}</li>)}{plan.reviewQuestions.map((question) => <li key={question.id}><strong>{question.status}</strong> {question.question}</li>)}</ul></section>
+      <section id="review" className={styles.workspacePanel}><header><h2>Comments and review questions</h2><span>Viewer accounts can observe but cannot write.</span></header>{writable && <div className={styles.formPair}><form className={styles.stackForm} onSubmit={(event) => void addArtifact(event, "comment")}><label>Section<input name="sectionKey" defaultValue="plan" /></label><label>Comment<textarea name="body" required /></label><button>Add comment</button></form><form className={styles.stackForm} onSubmit={(event) => void addArtifact(event, "review_question")}><label>Section<input name="sectionKey" defaultValue="plan" /></label><label>Question<textarea name="question" required /></label><label>Assign to<select name="assignedTo"><option value="">Unassigned</option>{plan.participants.filter((participant) => participant.principalId !== "sozorock-place-agent").map((participant) => <option value={participant.principalId} key={participant.principalId}>{participant.displayName}</option>)}</select></label><label><input type="checkbox" name="isPublic" value="yes" /> Public after resolution</label><button>Assign review question</button></form></div>}<ul>{plan.comments.map((comment) => <li key={comment.id}><strong>{comment.sectionKey}</strong> {comment.body}</li>)}{plan.reviewQuestions.map((question) => <li key={question.id}><strong>{question.status}</strong> {question.question}{question.status === "open" && writable ? <span><button onClick={() => void completeReviewQuestion(question.id, "answered")}>Mark answered</button><button onClick={() => void completeReviewQuestion(question.id, "closed")}>Close</button></span> : null}</li>)}</ul></section>
       <section id="scenarios" className={styles.workspacePanel}><header><h2>Scenario comparison</h2><span>Modeled planning assumptions are never observed outcomes.</span></header>{writable && <form className={styles.scenarioForm} onSubmit={addScenario}><label>Name<input name="name" required minLength={3} /></label><label>Hub format<select name="hubType"><option value="library">Library</option><option value="community">Community</option><option value="home">Home</option></select></label><label>Count<input name="hubCount" type="number" min="0" max="1000" defaultValue="1" /></label><label>Events/year<input name="events" type="number" min="0" max="365" defaultValue="1" /></label><label>Planning assumption<input name="assumption" /></label><button>Create versioned scenario</button></form>}<ScenarioTable scenarios={plan.scenarios} writable={writable} onReview={async (id, decision) => { try { await json(`/api/evidence/v1/workspaces/${workspaceId}/scenarios`, { scenarioId: id, decision }, "PATCH"); } catch (cause) { setError((cause as Error).message); } }} /></section>
       <section id="activity" className={styles.workspacePanel}><header><h2>Live activity and invitations</h2><span>Polling resumes from event sequence {lastSequence}; committed changes appear in both sessions.</span></header><p>Current version {plan.workspace.version}. Last updated {new Date(plan.workspace.updatedAt).toLocaleString()}.</p>{workspaceAccess === "owner" ? <><form className={styles.scenarioForm} onSubmit={invite}><label>Role<select name="role"><option value="county_planner">County planner</option><option value="community_partner">Community partner</option><option value="foundation_reviewer">Foundation reviewer</option><option value="research_funder_viewer">Research/funder viewer</option></select></label><label>Access<select name="access"><option value="contributor">Contributor</option><option value="viewer">Viewer</option></select></label><label>Recipient identity<input name="recipient" required /></label><button>Create expiring invitation</button></form>{inviteLink && <p><strong>Invitation link</strong><br /><input readOnly value={inviteLink} onFocus={(event) => event.currentTarget.select()} /></p>}<div className={styles.shareControls}><button onClick={() => void createShare()}>Create 72-hour public read-only link</button>{shareLink && <input aria-label="New public share link" readOnly value={shareLink} onFocus={(event) => event.currentTarget.select()} />}{shares.map((share) => <p key={share.id}>Read-only link expires {new Date(share.expiresAt).toLocaleString()}. <button onClick={() => void revokeShare(share.id)}>Revoke</button></p>)}</div></> : null}</section>
       {canAudit && <section id="audit" className={styles.workspacePanel}><header><h2>Compliance audit</h2><span>Authorized view. Public shares never include this history.</span></header><div className={styles.auditTable} role="table" aria-label="Workspace audit history"><div role="row"><span role="columnheader">Sequence</span><span role="columnheader">Action</span><span role="columnheader">Actor</span><span role="columnheader">Outcome</span><span role="columnheader">Time</span></div>{auditEvents.map((event) => <div role="row" key={event.sequenceNumber}><span role="cell">{event.sequenceNumber}</span><span role="cell">{event.eventType.replaceAll("_", " ")}</span><span role="cell">{event.actorType}</span><span role="cell">{event.outcome}</span><span role="cell">{new Date(event.occurredAt).toLocaleString()}</span></div>)}</div></section>}

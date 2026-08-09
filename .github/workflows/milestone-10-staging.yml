@@ -301,7 +301,7 @@ jobs:
               EXPLORE_COGNITO_CLIENT_ID:$cognito_client,
               EXPLORE_AUTH_COOKIE_SECRET_ARN:$auth_cookie_secret,
               EVIDENCE_SNAPSHOT_CONTENT_HASH:$snapshot_hash,
-              EVIDENCE_DATABASE_MIGRATION_VERSION:"0015",
+              EVIDENCE_DATABASE_MIGRATION_VERSION:"0016",
               REPOSITORY_COMMIT_SHA:$release_sha,
               BUILD_TIMESTAMP:$build_timestamp,
               RUNTIME_ENV:"staging"

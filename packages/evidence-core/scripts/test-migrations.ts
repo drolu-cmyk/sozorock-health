@@ -161,6 +161,23 @@ try {
 
   // The latest correctness migrations must be reversible and re-applicable in
   // the disposable database before any protected environment is touched.
+  const down0016 = await readFile(path.join(migrationsDir, "rollback", "0016_workspace_forks_and_version_metadata.down.sql"), "utf8");
+  await client.query(down0016);
+  const preForkIndex = await client.query(
+    `SELECT indexdef FROM pg_indexes
+     WHERE schemaname='evidence' AND indexname='county_workspace_one_active_per_place'`,
+  );
+  if (!preForkIndex.rows[0]?.indexdef?.includes("status = 'active'")) {
+    throw new Error("Migration 0016 rollback did not restore the pre-fork active-workspace uniqueness rule.");
+  }
+  await client.query(await readFile(path.join(migrationsDir, "0016_workspace_forks_and_version_metadata.sql"), "utf8"));
+  const forkIndex = await client.query(
+    `SELECT indexdef FROM pg_indexes
+     WHERE schemaname='evidence' AND indexname='county_workspace_one_active_per_place'`,
+  );
+  if (!forkIndex.rows[0]?.indexdef?.includes("parent_workspace_id IS NULL")) {
+    throw new Error("Migration 0016 did not scope canonical workspace uniqueness away from explicit forks.");
+  }
   const down0015 = await readFile(path.join(migrationsDir, "rollback", "0015_explore_product_completion.down.sql"), "utf8");
   await client.query(down0015);
   const agentParticipantsAfter0015Rollback = await client.query(

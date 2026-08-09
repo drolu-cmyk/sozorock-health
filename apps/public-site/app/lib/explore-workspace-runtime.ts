@@ -63,10 +63,12 @@ export async function requireWorkspaceMembership(input: {
   tenantId: string;
   actor: WorkspaceActor;
   write?: boolean;
+  allowedAccess?: WorkspaceAccess[];
+  allowedRoles?: WorkspaceRole[];
   transactionId?: string;
 }) {
   const result = await executeEvidenceSql(
-    `SELECT p.access::text
+    `SELECT p.access::text, p.role::text
      FROM evidence.county_workspace w
      JOIN evidence.workspace_participant p ON p.workspace_id=w.id
      WHERE w.id=CAST(:workspace_id AS uuid)
@@ -83,7 +85,12 @@ export async function requireWorkspaceMembership(input: {
     input.transactionId,
   );
   const access = String(evidenceFieldValue(result.records?.[0]?.[0]) ?? "");
-  if (!access || (input.write && access === "viewer")) {
+  const role = String(evidenceFieldValue(result.records?.[0]?.[1]) ?? "");
+  const scopeRestricted = Boolean(input.allowedAccess?.length || input.allowedRoles?.length);
+  const inAllowedScope = !scopeRestricted
+    || input.allowedAccess?.includes(access as WorkspaceAccess) === true
+    || input.allowedRoles?.includes(role as WorkspaceRole) === true;
+  if (!access || (input.write && access === "viewer") || !inAllowedScope) {
     throw new Error("The participant is not authorized for this county workspace.");
   }
   return access;
@@ -319,6 +326,37 @@ export async function appendWorkspaceEvent(input: WorkspaceEventInput) {
   return input.transactionId ? run(input.transactionId) : executeEvidenceTransaction(run);
 }
 
+async function findWorkspaceMutationEvent(input: {
+  workspaceId: string;
+  tenantId: string;
+  idempotencyKey: string;
+  transactionId: string;
+}) {
+  const result = await executeEvidenceSql(
+    `SELECT id::text, sequence_number, event_type::text, occurred_at::text, payload::text
+     FROM evidence.workspace_event
+     WHERE workspace_id=CAST(:workspace_id AS uuid)
+       AND tenant_id=CAST(:tenant_id AS uuid)
+       AND idempotency_key=:idempotency_key`,
+    [
+      { name: "workspace_id", value: { stringValue: input.workspaceId } },
+      { name: "tenant_id", value: { stringValue: input.tenantId } },
+      { name: "idempotency_key", value: { stringValue: input.idempotencyKey.slice(0, 200) } },
+    ],
+    input.transactionId,
+  );
+  const row = result.records?.[0];
+  if (!row) return null;
+  return {
+    id: String(evidenceFieldValue(row[0]) ?? ""),
+    sequenceNumber: Number(evidenceFieldValue(row[1]) ?? 0),
+    eventType: String(evidenceFieldValue(row[2]) ?? ""),
+    occurredAt: String(evidenceFieldValue(row[3]) ?? ""),
+    payload: JSON.parse(String(evidenceFieldValue(row[4]) ?? "{}")) as Record<string, unknown>,
+    inserted: false as const,
+  };
+}
+
 /**
  * Internal-only event writer used after the invitation/handoff transaction has
  * validated token, tenant, workspace, role, expiry and recipient. The symbol
@@ -428,9 +466,10 @@ export async function createPlanningScenario(input: {
       const scenarioId = String(payload.scenarioId ?? "");
       const versionId = String(payload.scenarioVersionId ?? "");
       const priorVersion = await executeEvidenceSql(
-        `SELECT outputs::text
-         FROM evidence.planning_scenario_version
-         WHERE id=CAST(:version_id AS uuid) AND scenario_id=CAST(:scenario_id AS uuid)`,
+        `SELECT v.outputs::text, s.name
+         FROM evidence.planning_scenario_version v
+         JOIN evidence.planning_scenario s ON s.id=v.scenario_id
+         WHERE v.id=CAST(:version_id AS uuid) AND v.scenario_id=CAST(:scenario_id AS uuid)`,
         [
           { name: "version_id", value: { stringValue: versionId } },
           { name: "scenario_id", value: { stringValue: scenarioId } },
@@ -439,15 +478,17 @@ export async function createPlanningScenario(input: {
       );
       if (!priorVersion.records?.[0]?.[0]) throw new Error("The idempotent scenario version could not be recovered.");
       const priorOutput = JSON.parse(String(evidenceFieldValue(priorVersion.records[0][0]) ?? "{}")) as typeof output;
-      const priorRequestHash = typeof payload.requestHash === "string"
-        ? payload.requestHash
-        : sha256({
-            name: String(payload.name ?? ""),
-            scenarioInputs: priorOutput.inputs,
-            evidenceUsed: priorOutput.evidenceUsed,
-            evidenceMissing: priorOutput.evidenceMissing,
-          });
-      if (priorRequestHash !== scenarioRequestHash) {
+      // Reconstruct the canonical request from immutable persisted state. This
+      // accepts hashes written before canonical JSON serialization without
+      // trusting their key order, while still rejecting reuse for a different
+      // mutation.
+      const persistedRequestHash = sha256({
+        name: String(evidenceFieldValue(priorVersion.records[0][1]) ?? payload.name ?? ""),
+        scenarioInputs: priorOutput.inputs,
+        evidenceUsed: priorOutput.evidenceUsed,
+        evidenceMissing: priorOutput.evidenceMissing,
+      });
+      if (persistedRequestHash !== scenarioRequestHash) {
         throw new Error("The idempotency key is already bound to a different workspace mutation.");
       }
       return {
@@ -528,7 +569,7 @@ export async function reviewPlanningScenario(input: {
   workspaceId: string; tenantId: string; actor: WorkspaceActor; scenarioId: string;
   decision: "verified" | "rejected"; idempotencyKey: string;
 }) {
-  if (input.actor.actorType !== "human" || !["owner", "contributor"].includes(input.actor.access)) throw new Error("An authorized human reviewer is required.");
+  if (input.actor.actorType !== "human") throw new Error("An authorized human reviewer is required.");
   return executeEvidenceTransaction(async (transactionId) => {
     await requireWorkspaceMembership({ ...input, write: true, transactionId });
     await executeEvidenceSql(
@@ -869,6 +910,7 @@ export async function saveWorkspaceSection(input: {
   if (input.actor.actorType !== "human") {
     throw new Error("Agent suggestions require explicit human acceptance before entering the plan.");
   }
+  const requestHash = sha256({ action: "save_section", sectionKey: input.sectionKey, expectedVersion: input.expectedVersion, content: input.content });
   return executeEvidenceTransaction(async (transactionId) => {
     await requireWorkspaceMembership({ ...input, write: true, transactionId });
     await executeEvidenceSql(
@@ -879,6 +921,28 @@ export async function saveWorkspaceSection(input: {
       }],
       transactionId,
     );
+    const prior = await findWorkspaceMutationEvent({ ...input, transactionId });
+    if (prior) {
+      const stored = await executeEvidenceSql(
+        `SELECT version, content::text FROM evidence.workspace_section_version
+         WHERE source_event_id=CAST(:event_id AS uuid)
+           AND workspace_id=CAST(:workspace_id AS uuid)
+           AND section_key=:section_key`,
+        [
+          { name: "event_id", value: { stringValue: prior.id } },
+          { name: "workspace_id", value: { stringValue: input.workspaceId } },
+          { name: "section_key", value: { stringValue: input.sectionKey } },
+        ],
+        transactionId,
+      );
+      const storedVersion = Number(evidenceFieldValue(stored.records?.[0]?.[0]) ?? 0);
+      const storedContent = JSON.parse(String(evidenceFieldValue(stored.records?.[0]?.[1]) ?? "{}")) as Record<string, unknown>;
+      const storedHash = sha256({ action: "save_section", sectionKey: input.sectionKey, expectedVersion: storedVersion - 1, content: storedContent });
+      if (prior.eventType !== "result_added_to_plan" || storedHash !== requestHash) {
+        throw new Error("The idempotency key is already bound to a different workspace mutation.");
+      }
+      return { sectionKey: input.sectionKey, version: storedVersion, content: storedContent, event: prior };
+    }
     const current = await executeEvidenceSql(
       `SELECT version FROM evidence.workspace_section
        WHERE workspace_id=CAST(:workspace_id AS uuid) AND section_key=:section_key`,
@@ -901,7 +965,8 @@ export async function saveWorkspaceSection(input: {
       actor: input.actor,
       idempotencyKey: input.idempotencyKey,
       evidenceSnapshotId: null,
-      payload: { sectionKey: input.sectionKey, fromVersion: currentVersion, toVersion: currentVersion + 1 },
+      requestHash,
+      payload: { sectionKey: input.sectionKey, fromVersion: currentVersion, toVersion: currentVersion + 1, requestHash },
       transactionId,
     });
     const nextVersion = currentVersion + 1;
@@ -943,6 +1008,16 @@ export async function saveWorkspaceSection(input: {
       ],
       transactionId,
     );
+    await executeEvidenceSql(
+      `UPDATE evidence.county_workspace
+       SET version=version + 1, updated_at=now()
+       WHERE id=CAST(:workspace_id AS uuid) AND tenant_id=CAST(:tenant_id AS uuid)`,
+      [
+        { name: "workspace_id", value: { stringValue: input.workspaceId } },
+        { name: "tenant_id", value: { stringValue: input.tenantId } },
+      ],
+      transactionId,
+    );
     return { sectionKey: input.sectionKey, version: nextVersion, content: input.content, event };
   });
 }
@@ -953,16 +1028,41 @@ export async function addWorkspaceComment(input: {
 }) {
   if (input.actor.actorType !== "human") throw new Error("Only a human participant may add a comment.");
   if (!/^[a-z][a-z0-9_-]{1,63}$/.test(input.sectionKey) || !input.body.trim() || input.body.length > 4_000) throw new Error("The comment is invalid.");
+  const normalizedBody = input.body.trim();
+  const requestHash = sha256({ action: "comment", sectionKey: input.sectionKey, body: normalizedBody });
   return executeEvidenceTransaction(async (transactionId) => {
     await requireWorkspaceMembership({ ...input, write: true, transactionId });
+    await executeEvidenceSql("SELECT pg_advisory_xact_lock(hashtext(:workspace_id))", [
+      { name: "workspace_id", value: { stringValue: input.workspaceId } },
+    ], transactionId);
+    const prior = await findWorkspaceMutationEvent({ ...input, transactionId });
+    if (prior) {
+      const commentId = String(prior.payload.commentId ?? "");
+      const stored = await executeEvidenceSql(
+        `SELECT section_key, body FROM evidence.workspace_comment
+         WHERE id=CAST(:id AS uuid) AND workspace_id=CAST(:workspace_id AS uuid)`,
+        [
+          { name: "id", value: { stringValue: commentId } },
+          { name: "workspace_id", value: { stringValue: input.workspaceId } },
+        ],
+        transactionId,
+      );
+      const storedSection = String(evidenceFieldValue(stored.records?.[0]?.[0]) ?? "");
+      const storedBody = String(evidenceFieldValue(stored.records?.[0]?.[1]) ?? "");
+      const storedHash = sha256({ action: "comment", sectionKey: storedSection, body: storedBody });
+      if (prior.eventType !== "question_asked" || prior.payload.kind !== "comment" || storedHash !== requestHash) {
+        throw new Error("The idempotency key is already bound to a different workspace mutation.");
+      }
+      return { id: commentId, sectionKey: storedSection, body: storedBody, event: prior };
+    }
     const id = randomUUID();
     await executeEvidenceSql(`INSERT INTO evidence.workspace_comment (id, workspace_id, section_key, actor_id, body, created_at) VALUES (CAST(:id AS uuid), CAST(:workspace_id AS uuid), :section_key, :actor_id, :body, now())`, [
       { name: "id", value: { stringValue: id } }, { name: "workspace_id", value: { stringValue: input.workspaceId } },
       { name: "section_key", value: { stringValue: input.sectionKey } }, { name: "actor_id", value: { stringValue: input.actor.principalId } },
-      { name: "body", value: { stringValue: input.body.trim() } },
+      { name: "body", value: { stringValue: normalizedBody } },
     ], transactionId);
-    const event = await appendWorkspaceEvent({ workspaceId: input.workspaceId, tenantId: input.tenantId, eventType: "question_asked", actor: input.actor, idempotencyKey: input.idempotencyKey, evidenceSnapshotId: null, payload: { commentId: id, sectionKey: input.sectionKey, kind: "comment" }, transactionId });
-    return { id, sectionKey: input.sectionKey, body: input.body.trim(), event };
+    const event = await appendWorkspaceEvent({ workspaceId: input.workspaceId, tenantId: input.tenantId, eventType: "question_asked", actor: input.actor, idempotencyKey: input.idempotencyKey, evidenceSnapshotId: null, requestHash, payload: { commentId: id, sectionKey: input.sectionKey, kind: "comment", requestHash }, transactionId });
+    return { id, sectionKey: input.sectionKey, body: normalizedBody, event };
   });
 }
 
@@ -972,16 +1072,99 @@ export async function addWorkspaceReviewQuestion(input: {
 }) {
   if (input.actor.actorType !== "human") throw new Error("Only a human participant may assign a review question.");
   if (!/^[a-z][a-z0-9_-]{1,63}$/.test(input.sectionKey) || input.question.trim().length < 3 || input.question.length > 2_000) throw new Error("The review question is invalid.");
+  const normalizedQuestion = input.question.trim();
+  const requestHash = sha256({ action: "review_question", sectionKey: input.sectionKey, question: normalizedQuestion, assignedTo: input.assignedTo, isPublic: input.isPublic });
   return executeEvidenceTransaction(async (transactionId) => {
     await requireWorkspaceMembership({ ...input, write: true, transactionId });
+    await executeEvidenceSql("SELECT pg_advisory_xact_lock(hashtext(:workspace_id))", [
+      { name: "workspace_id", value: { stringValue: input.workspaceId } },
+    ], transactionId);
+    const prior = await findWorkspaceMutationEvent({ ...input, transactionId });
+    if (prior) {
+      const reviewQuestionId = String(prior.payload.reviewQuestionId ?? "");
+      const stored = await executeEvidenceSql(
+        `SELECT section_key, question, assigned_to, is_public, status
+         FROM evidence.workspace_review_question
+         WHERE id=CAST(:id AS uuid) AND workspace_id=CAST(:workspace_id AS uuid)`,
+        [
+          { name: "id", value: { stringValue: reviewQuestionId } },
+          { name: "workspace_id", value: { stringValue: input.workspaceId } },
+        ],
+        transactionId,
+      );
+      const row = stored.records?.[0];
+      const storedSection = String(evidenceFieldValue(row?.[0]) ?? "");
+      const storedQuestion = String(evidenceFieldValue(row?.[1]) ?? "");
+      const storedAssignedTo = evidenceFieldValue(row?.[2]) ? String(evidenceFieldValue(row?.[2])) : null;
+      const storedPublic = evidenceFieldValue(row?.[3]) === true || String(evidenceFieldValue(row?.[3])) === "true";
+      const storedHash = sha256({ action: "review_question", sectionKey: storedSection, question: storedQuestion, assignedTo: storedAssignedTo, isPublic: storedPublic });
+      if (prior.eventType !== "human_review_requested" || storedHash !== requestHash) {
+        throw new Error("The idempotency key is already bound to a different workspace mutation.");
+      }
+      return { id: reviewQuestionId, sectionKey: storedSection, question: storedQuestion, status: String(evidenceFieldValue(row?.[4]) ?? "open"), event: prior };
+    }
     const id = randomUUID();
     await executeEvidenceSql(`INSERT INTO evidence.workspace_review_question (id, workspace_id, section_key, question, assigned_to, status, created_by, created_at, is_public) VALUES (CAST(:id AS uuid), CAST(:workspace_id AS uuid), :section_key, :question, :assigned_to, 'open', :created_by, now(), :is_public)`, [
       { name: "id", value: { stringValue: id } }, { name: "workspace_id", value: { stringValue: input.workspaceId } }, { name: "section_key", value: { stringValue: input.sectionKey } },
-      { name: "question", value: { stringValue: input.question.trim() } }, input.assignedTo ? { name: "assigned_to", value: { stringValue: input.assignedTo } } : { name: "assigned_to", value: { isNull: true } },
+      { name: "question", value: { stringValue: normalizedQuestion } }, input.assignedTo ? { name: "assigned_to", value: { stringValue: input.assignedTo } } : { name: "assigned_to", value: { isNull: true } },
       { name: "created_by", value: { stringValue: input.actor.principalId } }, { name: "is_public", value: { booleanValue: input.isPublic } },
     ], transactionId);
-    const event = await appendWorkspaceEvent({ workspaceId: input.workspaceId, tenantId: input.tenantId, eventType: "human_review_requested", actor: input.actor, idempotencyKey: input.idempotencyKey, evidenceSnapshotId: null, payload: { reviewQuestionId: id, sectionKey: input.sectionKey, assignedTo: input.assignedTo, isPublic: input.isPublic }, transactionId });
-    return { id, sectionKey: input.sectionKey, question: input.question.trim(), status: "open", event };
+    const event = await appendWorkspaceEvent({ workspaceId: input.workspaceId, tenantId: input.tenantId, eventType: "human_review_requested", actor: input.actor, idempotencyKey: input.idempotencyKey, evidenceSnapshotId: null, requestHash, payload: { reviewQuestionId: id, sectionKey: input.sectionKey, assignedTo: input.assignedTo, isPublic: input.isPublic, requestHash }, transactionId });
+    return { id, sectionKey: input.sectionKey, question: normalizedQuestion, status: "open", event };
+  });
+}
+
+export async function completeWorkspaceReviewQuestion(input: {
+  workspaceId: string;
+  tenantId: string;
+  actor: WorkspaceActor;
+  reviewQuestionId: string;
+  status: "answered" | "closed";
+  idempotencyKey: string;
+}) {
+  if (input.actor.actorType !== "human") throw new Error("Only an authorized human reviewer may complete a review question.");
+  return executeEvidenceTransaction(async (transactionId) => {
+    await requireWorkspaceMembership({ ...input, write: true, transactionId });
+    await executeEvidenceSql("SELECT pg_advisory_xact_lock(hashtext(:workspace_id))", [
+      { name: "workspace_id", value: { stringValue: input.workspaceId } },
+    ], transactionId);
+    const prior = await findWorkspaceMutationEvent({ ...input, transactionId });
+    if (prior) {
+      if (prior.eventType !== "human_review_completed"
+        || prior.payload.reviewQuestionId !== input.reviewQuestionId
+        || prior.payload.status !== input.status) {
+        throw new Error("The idempotency key is already bound to a different workspace mutation.");
+      }
+      return { id: input.reviewQuestionId, status: input.status, event: prior };
+    }
+    const updated = await executeEvidenceSql(
+      `UPDATE evidence.workspace_review_question
+       SET status=:status, completed_at=now()
+       WHERE id=CAST(:id AS uuid) AND workspace_id=CAST(:workspace_id AS uuid)
+         AND status='open'
+       RETURNING section_key, is_public`,
+      [
+        { name: "status", value: { stringValue: input.status } },
+        { name: "id", value: { stringValue: input.reviewQuestionId } },
+        { name: "workspace_id", value: { stringValue: input.workspaceId } },
+      ],
+      transactionId,
+    );
+    const row = updated.records?.[0];
+    if (!row) throw new Error("The review question is unavailable or already completed.");
+    const sectionKey = String(evidenceFieldValue(row[0]) ?? "plan");
+    const isPublic = evidenceFieldValue(row[1]) === true || String(evidenceFieldValue(row[1])) === "true";
+    const event = await appendWorkspaceEvent({
+      workspaceId: input.workspaceId,
+      tenantId: input.tenantId,
+      eventType: "human_review_completed",
+      actor: input.actor,
+      idempotencyKey: input.idempotencyKey,
+      evidenceSnapshotId: null,
+      payload: { reviewQuestionId: input.reviewQuestionId, sectionKey, status: input.status, isPublic },
+      transactionId,
+    });
+    return { id: input.reviewQuestionId, sectionKey, status: input.status, isPublic, event };
   });
 }
 
@@ -990,15 +1173,40 @@ export async function createWorkspaceAgentSuggestion(input: {
   content: Record<string, unknown>; executionAuditId?: string | null; idempotencyKey: string;
 }) {
   if (!/^[a-z][a-z0-9_-]{1,63}$/.test(input.sectionKey)) throw new Error("The suggestion section is invalid.");
+  const requestHash = sha256({ action: "agent_suggestion", sectionKey: input.sectionKey, content: input.content });
   return executeEvidenceTransaction(async (transactionId) => {
     await requireWorkspaceMembership({ workspaceId: input.workspaceId, tenantId: input.tenantId, actor: input.requestingActor, write: true, transactionId });
+    await executeEvidenceSql("SELECT pg_advisory_xact_lock(hashtext(:workspace_id))", [
+      { name: "workspace_id", value: { stringValue: input.workspaceId } },
+    ], transactionId);
+    const prior = await findWorkspaceMutationEvent({ workspaceId: input.workspaceId, tenantId: input.tenantId, idempotencyKey: input.idempotencyKey, transactionId });
+    if (prior) {
+      const suggestionId = String(prior.payload.suggestionId ?? "");
+      const stored = await executeEvidenceSql(
+        `SELECT section_key, content::text, status FROM evidence.agent_suggestion
+         WHERE id=CAST(:id AS uuid) AND workspace_id=CAST(:workspace_id AS uuid)`,
+        [
+          { name: "id", value: { stringValue: suggestionId } },
+          { name: "workspace_id", value: { stringValue: input.workspaceId } },
+        ],
+        transactionId,
+      );
+      const row = stored.records?.[0];
+      const sectionKey = String(evidenceFieldValue(row?.[0]) ?? "");
+      const content = JSON.parse(String(evidenceFieldValue(row?.[1]) ?? "{}")) as Record<string, unknown>;
+      const storedHash = sha256({ action: "agent_suggestion", sectionKey, content });
+      if (prior.eventType !== "agent_claim_validated" || storedHash !== requestHash) {
+        throw new Error("The idempotency key is already bound to a different workspace mutation.");
+      }
+      return { id: suggestionId, sectionKey, content, status: String(evidenceFieldValue(row?.[2]) ?? "pending"), event: prior };
+    }
     const id = randomUUID();
     await executeEvidenceSql(`INSERT INTO evidence.agent_suggestion (id, workspace_id, section_key, execution_audit_id, content, status, created_at) VALUES (CAST(:id AS uuid), CAST(:workspace_id AS uuid), :section_key, NULLIF(:audit_id, '')::uuid, CAST(:content AS jsonb), 'pending', now())`, [
       { name: "id", value: { stringValue: id } }, { name: "workspace_id", value: { stringValue: input.workspaceId } }, { name: "section_key", value: { stringValue: input.sectionKey } },
       { name: "audit_id", value: { stringValue: input.executionAuditId ?? "" } }, { name: "content", value: { stringValue: JSON.stringify(input.content) } },
     ], transactionId);
     const agent: WorkspaceActor = { principalId: "sozorock-place-agent", actorType: "agent", role: "evidence_agent", access: "contributor", displayName: "SozoRock Place Intelligence" };
-    const event = await appendWorkspaceEvent({ workspaceId: input.workspaceId, tenantId: input.tenantId, eventType: "agent_claim_validated", actor: agent, idempotencyKey: input.idempotencyKey, evidenceSnapshotId: null, payload: { suggestionId: id, sectionKey: input.sectionKey, status: "pending" }, transactionId });
+    const event = await appendWorkspaceEvent({ workspaceId: input.workspaceId, tenantId: input.tenantId, eventType: "agent_claim_validated", actor: agent, idempotencyKey: input.idempotencyKey, evidenceSnapshotId: null, requestHash, payload: { suggestionId: id, sectionKey: input.sectionKey, status: "pending", requestHash }, transactionId });
     return { id, sectionKey: input.sectionKey, content: input.content, status: "pending", event };
   });
 }
@@ -1010,6 +1218,24 @@ export async function reviewWorkspaceAgentSuggestion(input: {
   if (input.actor.actorType !== "human") throw new Error("Agent suggestions require an authorized human decision.");
   return executeEvidenceTransaction(async (transactionId) => {
     await requireWorkspaceMembership({ ...input, write: true, transactionId });
+    await executeEvidenceSql("SELECT pg_advisory_xact_lock(hashtext(:workspace_id))", [
+      { name: "workspace_id", value: { stringValue: input.workspaceId } },
+    ], transactionId);
+    const prior = await findWorkspaceMutationEvent({ ...input, transactionId });
+    if (prior) {
+      if (prior.eventType !== "human_review_completed"
+        || prior.payload.suggestionId !== input.suggestionId
+        || prior.payload.decision !== input.decision) {
+        throw new Error("The idempotency key is already bound to a different workspace mutation.");
+      }
+      return {
+        id: input.suggestionId,
+        sectionKey: String(prior.payload.sectionKey ?? ""),
+        status: input.decision,
+        enteredPlan: prior.payload.enteredPlan === true,
+        event: prior,
+      };
+    }
     const selected = await executeEvidenceSql(`SELECT section_key, content::text, status FROM evidence.agent_suggestion WHERE id=CAST(:id AS uuid) AND workspace_id=CAST(:workspace_id AS uuid) FOR UPDATE`, [
       { name: "id", value: { stringValue: input.suggestionId } }, { name: "workspace_id", value: { stringValue: input.workspaceId } },
     ], transactionId);
@@ -1064,6 +1290,16 @@ export async function reviewWorkspaceAgentSuggestion(input: {
         ],
         transactionId,
       );
+      await executeEvidenceSql(
+        `UPDATE evidence.county_workspace
+         SET version=version + 1, updated_at=now()
+         WHERE id=CAST(:workspace_id AS uuid) AND tenant_id=CAST(:tenant_id AS uuid)`,
+        [
+          { name: "workspace_id", value: { stringValue: input.workspaceId } },
+          { name: "tenant_id", value: { stringValue: input.tenantId } },
+        ],
+        transactionId,
+      );
     } else {
       event = await appendWorkspaceEvent({ workspaceId: input.workspaceId, tenantId: input.tenantId, eventType: "human_review_completed", actor: input.actor, idempotencyKey: input.idempotencyKey, evidenceSnapshotId: null, payload: { suggestionId: input.suggestionId, sectionKey, decision: input.decision, enteredPlan: false }, transactionId });
     }
@@ -1079,10 +1315,10 @@ export async function createWorkspaceInvitation(input: {
   access: Exclude<WorkspaceAccess, "owner">;
   intendedPrincipalId?: string;
 }) {
-  if (input.actor.actorType !== "human" || input.actor.access !== "owner") {
+  if (input.actor.actorType !== "human") {
     throw new Error("Only a human workspace owner may create an invitation.");
   }
-  await requireWorkspaceMembership({ ...input, write: true });
+  await requireWorkspaceMembership({ ...input, write: true, allowedAccess: ["owner"] });
   const token = randomBytes(32).toString("base64url");
   const id = randomUUID();
   await executeEvidenceSql(
@@ -1200,10 +1436,10 @@ export async function createWorkspaceShareLink(input: {
   scope: "read_only";
   expiresInHours?: number;
 }) {
-  if (input.actor.actorType !== "human" || input.actor.access !== "owner") {
+  if (input.actor.actorType !== "human") {
     throw new Error("Only a human workspace owner may create a share link.");
   }
-  await requireWorkspaceMembership({ ...input, write: true });
+  await requireWorkspaceMembership({ ...input, write: true, allowedAccess: ["owner"] });
   const token = randomBytes(32).toString("base64url");
   const id = randomUUID();
   const hours = Math.max(1, Math.min(168, Math.floor(input.expiresInHours ?? 72)));
@@ -1249,10 +1485,10 @@ export async function listWorkspaceShareLinks(input: {
   tenantId: string;
   actor: WorkspaceActor;
 }) {
-  if (input.actor.actorType !== "human" || input.actor.access !== "owner") {
+  if (input.actor.actorType !== "human") {
     throw new Error("Only a human workspace owner may review share links.");
   }
-  await requireWorkspaceMembership({ ...input, write: true });
+  await requireWorkspaceMembership({ ...input, write: true, allowedAccess: ["owner"] });
   const result = await executeEvidenceSql(
     `SELECT id::text, scope, expires_at::text, created_at::text, last_access_at::text
      FROM evidence.workspace_share_link
@@ -1281,11 +1517,11 @@ export async function revokeWorkspaceShareLink(input: {
   shareId: string;
   idempotencyKey: string;
 }) {
-  if (input.actor.actorType !== "human" || input.actor.access !== "owner") {
+  if (input.actor.actorType !== "human") {
     throw new Error("Only a human workspace owner may revoke a share link.");
   }
   return executeEvidenceTransaction(async (transactionId) => {
-    await requireWorkspaceMembership({ ...input, write: true, transactionId });
+    await requireWorkspaceMembership({ ...input, write: true, allowedAccess: ["owner"], transactionId });
     const revoked = await executeEvidenceSql(
       `UPDATE evidence.workspace_share_link SET revoked_at=now()
        WHERE id=CAST(:share_id AS uuid) AND workspace_id=CAST(:workspace_id AS uuid)
@@ -1334,8 +1570,8 @@ export async function getWorkspaceAudit(input: {
   tenantId: string;
   actor: WorkspaceActor;
 }) {
-  await requireWorkspaceMembership({ ...input, write: false });
-  if (input.actor.actorType !== "human" || (input.actor.access !== "owner" && input.actor.role !== "foundation_reviewer")) {
+  await requireWorkspaceMembership({ ...input, write: false, allowedAccess: ["owner"], allowedRoles: ["foundation_reviewer"] });
+  if (input.actor.actorType !== "human") {
     throw new Error("Only a workspace owner or Foundation reviewer may view the audit history.");
   }
   const [events, executions] = await Promise.all([
@@ -1446,7 +1682,7 @@ export async function createWorkspaceHandoff(input: {
   targetPrincipalId?: string;
   expiresInHours?: number;
 }) {
-  if (input.actor.actorType !== "human" || !["owner", "contributor"].includes(input.actor.access)) {
+  if (input.actor.actorType !== "human") {
     throw new Error("Only an authorized human contributor may create a handoff.");
   }
   await requireWorkspaceMembership({ ...input, write: true });
@@ -1591,21 +1827,49 @@ export async function forkCountyWorkspace(input: {
   title: string;
   idempotencyKey: string;
 }) {
-  if (input.actor.actorType !== "human" || !["owner", "contributor"].includes(input.actor.access)) {
+  if (input.actor.actorType !== "human") {
     throw new Error("Only an authorized human contributor may fork a workspace.");
   }
+  const normalizedTitle = input.title.trim().slice(0, 240);
+  const requestHash = sha256({ action: "fork_workspace", sourceWorkspaceId: input.workspaceId, title: normalizedTitle });
   return executeEvidenceTransaction(async (transactionId) => {
     await requireWorkspaceMembership({ ...input, write: true, transactionId });
+    await executeEvidenceSql("SELECT pg_advisory_xact_lock(hashtext(:workspace_id))", [
+      { name: "workspace_id", value: { stringValue: input.workspaceId } },
+    ], transactionId);
+    const prior = await findWorkspaceMutationEvent({ ...input, transactionId });
+    if (prior) {
+      const priorHash = String(prior.payload.requestHash ?? "");
+      const targetWorkspaceId = String(prior.payload.targetWorkspaceId ?? "");
+      if (prior.eventType !== "workspace_forked" || priorHash !== requestHash || !targetWorkspaceId) {
+        throw new Error("The idempotency key is already bound to a different workspace mutation.");
+      }
+      const fork = buildWorkspaceForkContract({
+        sourceWorkspaceId: input.workspaceId,
+        sourceVersion: Number(prior.payload.sourceVersion ?? 0),
+        targetWorkspaceId,
+        forkedBy: input.actor.principalId,
+        forkedAt: String(prior.occurredAt),
+        copiedSectionKeys: Array.isArray(prior.payload.copiedSectionKeys)
+          ? prior.payload.copiedSectionKeys.map(String)
+          : [],
+        evidenceSnapshotId: String(prior.payload.evidenceSnapshotId ?? ""),
+      });
+      return { fork, event: prior };
+    }
     const source = await executeEvidenceSql(
       `SELECT w.id::text, w.tenant_id::text, w.geography_id::text,
-         w.evidence_snapshot_id::text, w.title, w.version, g.authority_id
+          w.evidence_snapshot_id::text, w.title, w.version, g.authority_id,
+          p.role::text, p.access::text
        FROM evidence.county_workspace w
        JOIN evidence.geography g ON g.id=w.geography_id
+       JOIN evidence.workspace_participant p ON p.workspace_id=w.id
        WHERE w.id=CAST(:workspace_id AS uuid) AND w.tenant_id=CAST(:tenant_id AS uuid)
-         AND w.status='active'`,
+          AND w.status='active' AND p.principal_id=:principal_id AND p.revoked_at IS NULL`,
       [
         { name: "workspace_id", value: { stringValue: input.workspaceId } },
         { name: "tenant_id", value: { stringValue: input.tenantId } },
+        { name: "principal_id", value: { stringValue: input.actor.principalId } },
       ],
       transactionId,
     );
@@ -1628,7 +1892,7 @@ export async function forkCountyWorkspace(input: {
         { name: "tenant_id", value: { stringValue: String(evidenceFieldValue(row[1]) ?? input.tenantId) } },
         { name: "geography_id", value: { stringValue: String(evidenceFieldValue(row[2]) ?? "") } },
         { name: "snapshot_id", value: { stringValue: String(evidenceFieldValue(row[3]) ?? "") } },
-        { name: "title", value: { stringValue: input.title.trim().slice(0, 240) || `Fork of ${String(evidenceFieldValue(row[4]) ?? "workspace")}` } },
+        { name: "title", value: { stringValue: normalizedTitle || `Fork of ${String(evidenceFieldValue(row[4]) ?? "workspace")}` } },
         { name: "policy_version", value: { stringValue: POLICY_VERSION } },
         { name: "created_by", value: { stringValue: input.actor.principalId } },
         { name: "parent_id", value: { stringValue: input.workspaceId } },
@@ -1670,26 +1934,6 @@ export async function forkCountyWorkspace(input: {
       copiedSectionKeys,
       evidenceSnapshotId: String(evidenceFieldValue(row[3]) ?? ""),
     });
-    const event = await appendWorkspaceEvent({
-      workspaceId: targetId,
-      tenantId: input.tenantId,
-      eventType: "workspace_created",
-      actor: input.actor,
-      idempotencyKey: input.idempotencyKey,
-      evidenceSnapshotId: fork.evidenceSnapshotId,
-      payload: { forkedFrom: input.workspaceId, sourceVersion, copiedSectionKeys: fork.copiedSectionKeys },
-      transactionId,
-    });
-    await appendWorkspaceEvent({
-      workspaceId: input.workspaceId,
-      tenantId: input.tenantId,
-      eventType: "workspace_forked",
-      actor: input.actor,
-      idempotencyKey: `workspace-forked:${targetId}`,
-      evidenceSnapshotId: fork.evidenceSnapshotId,
-      payload: { targetWorkspaceId: targetId, sourceVersion },
-      transactionId,
-    });
     await executeEvidenceSql(
       `INSERT INTO evidence.workspace_participant (
          workspace_id, principal_id, role, access, display_name, joined_at
@@ -1698,12 +1942,48 @@ export async function forkCountyWorkspace(input: {
       [
         { name: "workspace_id", value: { stringValue: targetId } },
         { name: "principal_id", value: { stringValue: input.actor.principalId } },
-        { name: "role", value: { stringValue: input.actor.role } },
-        { name: "access", value: { stringValue: input.actor.access } },
+        { name: "role", value: { stringValue: String(evidenceFieldValue(row[7]) ?? input.actor.role) } },
+        { name: "access", value: { stringValue: String(evidenceFieldValue(row[8]) ?? input.actor.access) } },
         { name: "display_name", value: { stringValue: input.actor.displayName } },
       ],
       transactionId,
     );
+    await executeEvidenceSql(
+      `INSERT INTO evidence.workspace_participant (
+         workspace_id, principal_id, role, access, display_name, joined_at
+       ) VALUES (CAST(:workspace_id AS uuid), 'sozorock-place-agent', 'evidence_agent',
+         'contributor', 'SozoRock Place Intelligence', now())`,
+      [{ name: "workspace_id", value: { stringValue: targetId } }],
+      transactionId,
+    );
+    const targetEvent = await appendWorkspaceEvent({
+      workspaceId: targetId,
+      tenantId: input.tenantId,
+      eventType: "workspace_created",
+      actor: input.actor,
+      idempotencyKey: `fork-target:${sha256(`${input.workspaceId}:${input.idempotencyKey}`)}`,
+      evidenceSnapshotId: fork.evidenceSnapshotId,
+      payload: { forkedFrom: input.workspaceId, sourceVersion, copiedSectionKeys: fork.copiedSectionKeys },
+      transactionId,
+    });
+    const event = await appendWorkspaceEvent({
+      workspaceId: input.workspaceId,
+      tenantId: input.tenantId,
+      eventType: "workspace_forked",
+      actor: input.actor,
+      idempotencyKey: input.idempotencyKey,
+      evidenceSnapshotId: fork.evidenceSnapshotId,
+      requestHash,
+      payload: {
+        targetWorkspaceId: targetId,
+        targetEventId: targetEvent.id,
+        sourceVersion,
+        copiedSectionKeys: fork.copiedSectionKeys,
+        evidenceSnapshotId: fork.evidenceSnapshotId,
+        requestHash,
+      },
+      transactionId,
+    });
     return { fork, event };
   });
 }

@@ -94,7 +94,7 @@ test("workspace owners can revoke expiring shares and authorized reviewers can i
   const workspaceUi = await read("app/explore/workspaces/[workspaceId]/WorkspaceClient.tsx");
   assert.match(runtime, /revokeWorkspaceShareLink/);
   assert.match(runtime, /revoked_at=now\(\)/);
-  assert.match(runtime, /access !== "owner" && input\.actor\.role !== "foundation_reviewer"/);
+  assert.match(runtime, /allowedAccess: \["owner"\], allowedRoles: \["foundation_reviewer"\]/);
   assert.match(shareRoute, /export async function DELETE/);
   assert.match(shareRoute, /Cache-Control": "no-store"/);
   assert.match(auditRoute, /getWorkspaceAudit/);
