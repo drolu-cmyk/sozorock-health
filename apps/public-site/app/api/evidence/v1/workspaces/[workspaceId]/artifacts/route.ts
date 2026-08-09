@@ -26,7 +26,10 @@ export async function POST(request: NextRequest, context: Context) {
     } else if (action === "review_question") {
       result = await addWorkspaceReviewQuestion({ workspaceId, tenantId: actor.tenantId, actor, sectionKey: String(body.sectionKey ?? "plan"), question: String(body.question ?? ""), assignedTo: typeof body.assignedTo === "string" && body.assignedTo ? body.assignedTo : null, isPublic: body.isPublic === true, idempotencyKey });
     } else if (action === "review_suggestion") {
-      result = await reviewWorkspaceAgentSuggestion({ workspaceId, tenantId: actor.tenantId, actor, suggestionId: String(body.suggestionId ?? ""), decision: body.decision === "accepted" ? "accepted" : "rejected", expectedSectionVersion: Number(body.expectedSectionVersion ?? 0), idempotencyKey });
+      if (body.decision !== "accepted" && body.decision !== "rejected") {
+        return NextResponse.json({ error: "Suggestion review decision is invalid." }, { status: 400, headers: { "Cache-Control": "no-store" } });
+      }
+      result = await reviewWorkspaceAgentSuggestion({ workspaceId, tenantId: actor.tenantId, actor, suggestionId: String(body.suggestionId ?? ""), decision: body.decision, expectedSectionVersion: Number(body.expectedSectionVersion ?? 0), idempotencyKey });
     } else {
       return NextResponse.json({ error: "Artifact action is invalid." }, { status: 400 });
     }

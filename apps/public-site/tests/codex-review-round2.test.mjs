@@ -40,6 +40,30 @@ test("voice transcription has a separate bounded quota from generated answers", 
   assert.match(limiter, /VOICE_TRANSCRIPTION_MAX_PER_NETWORK_HOUR/);
   assert.match(limiter, /new TransactWriteCommand/);
   assert.match(limiter, /return enforceAtomicDualQuota\(\{[\s\S]*voice-transcription-global#[\s\S]*voice-transcription-rate#/);
+  assert.match(limiter, /CancellationReasons\?\.some\(\(reason\) => reason\.Code === "ConditionalCheckFailed"\)/);
+  assert.doesNotMatch(limiter, /\["ConditionalCheckFailedException", "TransactionCanceledException"\]\.includes/);
+});
+
+test("the Explore runtime role can enforce atomic quotas on the configured rate-limit table", async () => {
+  const infrastructure = await read("../../infrastructure/cloudformation/explore-collaboration.yml");
+  const staging = await read("../../.github/workflows/milestone-10-staging.yml");
+  const production = await read("../../.github/workflows/explore-production.yml");
+  assert.match(infrastructure, /PublicRateLimitTableArn/);
+  assert.match(infrastructure, /dynamodb:TransactWriteItems/);
+  for (const workflow of [staging, production]) {
+    assert.match(workflow, /ContactTableName/);
+    assert.match(workflow, /aws dynamodb describe-table/);
+    assert.match(workflow, /PublicRateLimitTableArn="\$PUBLIC_RATE_LIMIT_TABLE_ARN"/);
+  }
+});
+
+test("malformed suggestion review decisions fail before any workspace mutation", async () => {
+  const route = await read("app/api/evidence/v1/workspaces/[workspaceId]/artifacts/route.ts");
+  const validation = route.indexOf('body.decision !== "accepted" && body.decision !== "rejected"');
+  const mutation = route.indexOf("reviewWorkspaceAgentSuggestion({");
+  assert.ok(validation >= 0 && validation < mutation);
+  assert.match(route, /Suggestion review decision is invalid/);
+  assert.doesNotMatch(route, /body\.decision === "accepted" \? "accepted" : "rejected"/);
 });
 
 test("a committed workspace suggestion is not reported as failed when the success audit is unavailable", async () => {

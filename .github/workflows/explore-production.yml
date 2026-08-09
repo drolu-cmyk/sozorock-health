@@ -164,7 +164,12 @@ jobs:
           compute_role_arn=$(aws cloudformation describe-stacks --stack-name sozorock-health-contact \
             --query "Stacks[0].Outputs[?OutputKey=='ComputeRoleArn'].OutputValue" --output text)
           compute_role_name="${compute_role_arn##*/}"
+          rate_limit_table=$(aws cloudformation describe-stacks --stack-name sozorock-health-contact \
+            --query "Stacks[0].Outputs[?OutputKey=='ContactTableName'].OutputValue" --output text)
+          rate_limit_table_arn=$(aws dynamodb describe-table --table-name "$rate_limit_table" \
+            --query 'Table.TableArn' --output text)
           echo "PUBLIC_COMPUTE_ROLE_NAME=$compute_role_name" >> "$GITHUB_ENV"
+          echo "PUBLIC_RATE_LIMIT_TABLE_ARN=$rate_limit_table_arn" >> "$GITHUB_ENV"
           aws cloudformation deploy \
             --stack-name sozorock-health-evidence-production \
             --template-file infrastructure/cloudformation/evidence-core.yml \
@@ -237,6 +242,7 @@ jobs:
               HandlerBucket="$EVIDENCE_ARTIFACT_BUCKET" \
               HandlerKey="$handler_key" \
               PublicSiteRuntimeRoleName="$PUBLIC_COMPUTE_ROLE_NAME" \
+              PublicRateLimitTableArn="$PUBLIC_RATE_LIMIT_TABLE_ARN" \
               PublicSiteUrl="$PUBLIC_SITE_URL"
           for output in WebSocketApiId WebSocketLogGroupArn WebSocketThrottlingBurstLimit WebSocketThrottlingRateLimit WebSocketUrl ManagementEndpoint SessionTable ConnectionTable CountyWorkspaceUserPoolId CountyWorkspaceAppClientId CountyWorkspaceHostedUiUrl ExploreAuthCookieSecretArn; do
             value=$(aws cloudformation describe-stacks --stack-name sozorock-explore-collaboration-production \

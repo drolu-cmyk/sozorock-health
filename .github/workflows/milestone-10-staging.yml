@@ -136,9 +136,14 @@ jobs:
           subnet_csv=$(IFS=,; echo "${subnets[*]}")
           compute_role_arn=$(aws cloudformation describe-stacks --stack-name sozorock-health-contact \
             --query "Stacks[0].Outputs[?OutputKey=='ComputeRoleArn'].OutputValue" --output text)
+          rate_limit_table=$(aws cloudformation describe-stacks --stack-name sozorock-health-contact \
+            --query "Stacks[0].Outputs[?OutputKey=='ContactTableName'].OutputValue" --output text)
+          rate_limit_table_arn=$(aws dynamodb describe-table --table-name "$rate_limit_table" \
+            --query 'Table.TableArn' --output text)
           echo "VPC_ID=$vpc_id" >> "$GITHUB_ENV"
           echo "SUBNET_CSV=$subnet_csv" >> "$GITHUB_ENV"
           echo "PUBLIC_COMPUTE_ROLE_NAME=${compute_role_arn##*/}" >> "$GITHUB_ENV"
+          echo "PUBLIC_RATE_LIMIT_TABLE_ARN=$rate_limit_table_arn" >> "$GITHUB_ENV"
       - name: Provision isolated staging Evidence Core
         run: |
           aws cloudformation deploy \
@@ -180,6 +185,7 @@ jobs:
               HandlerBucket="$EvidenceArtifactBucket" \
               HandlerKey="$handler_key" \
               PublicSiteRuntimeRoleName="$PUBLIC_COMPUTE_ROLE_NAME" \
+              PublicRateLimitTableArn="$PUBLIC_RATE_LIMIT_TABLE_ARN" \
               PublicSiteUrl="$staging_url"
           for output in WebSocketApiId WebSocketLogGroupArn WebSocketThrottlingBurstLimit WebSocketThrottlingRateLimit WebSocketUrl ManagementEndpoint SessionTable ConnectionTable CountyWorkspaceUserPoolId CountyWorkspaceAppClientId CountyWorkspaceHostedUiUrl ExploreAuthCookieSecretArn; do
             value=$(aws cloudformation describe-stacks --stack-name sozorock-explore-collaboration-staging \

@@ -11,6 +11,9 @@ Parameters:
     Type: String
   PublicSiteRuntimeRoleName:
     Type: String
+  PublicRateLimitTableArn:
+    Type: String
+    AllowedPattern: ^arn:[A-Za-z0-9-]+:dynamodb:[A-Za-z0-9-]+:[0-9]{12}:table/[A-Za-z0-9_.-]+$
   PublicSiteUrl:
     Type: String
     AllowedPattern: ^https://[A-Za-z0-9.-]+$
@@ -282,6 +285,11 @@ Resources:
             Action:
               - dynamodb:PutItem
             Resource: !GetAtt RealtimeSessions.Arn
+          - Sid: EnforceAtomicExploreQuotas
+            Effect: Allow
+            Action:
+              - dynamodb:TransactWriteItems
+            Resource: !Ref PublicRateLimitTableArn
           - Sid: AcceptRealtimeHandoff
             Effect: Allow
             Action:

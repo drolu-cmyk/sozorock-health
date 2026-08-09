@@ -128,7 +128,14 @@ async function enforceAtomicDualQuota(input: {
     }));
     return { allowed: true as const, retryAfter: null };
   } catch (error) {
-    if (["ConditionalCheckFailedException", "TransactionCanceledException"].includes((error as { name?: string }).name ?? "")) {
+    const transactionError = error as {
+      name?: string;
+      CancellationReasons?: Array<{ Code?: string }>;
+    };
+    const quotaConditionFailed = transactionError.name === "ConditionalCheckFailedException"
+      || (transactionError.name === "TransactionCanceledException"
+        && transactionError.CancellationReasons?.some((reason) => reason.Code === "ConditionalCheckFailed") === true);
+    if (quotaConditionFailed) {
       return { allowed: false as const, retryAfter: 3600 };
     }
     throw error;
