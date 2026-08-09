@@ -128,7 +128,7 @@ export type ExploreSourceCoverage = {
 
 export type ExploreAssessmentReference = {
   id: string;
-  evidenceType: "source_coverage" | "planning_status";
+  evidenceType: "source_coverage" | "planning_status" | "workforce_designation" | "metric_observation";
   claim: string;
   sourceId: string;
   sourceVersionId: string | null;

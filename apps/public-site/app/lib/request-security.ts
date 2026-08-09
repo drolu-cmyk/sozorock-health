@@ -7,6 +7,10 @@ export type BoundedBodyResult =
   | { ok: true; text: string }
   | { ok: false; error: BoundedBodyError };
 
+export type BoundedBytesResult =
+  | { ok: true; bytes: Uint8Array }
+  | { ok: false; error: BoundedBodyError };
+
 const DEFAULT_PUBLIC_ORIGIN = "https://health.sozorockfoundation.org";
 
 function values(header: string | null) {
@@ -176,4 +180,51 @@ export async function readBoundedText(
     offset += chunk.byteLength;
   }
   return { ok: true, text: new TextDecoder().decode(body) };
+}
+
+/**
+ * Buffer a binary or multipart request only after enforcing its actual streamed
+ * byte count. Callers may safely parse the returned bounded bytes; they must
+ * never call request.formData() on the original unbounded stream.
+ */
+export async function readBoundedBytes(
+  request: Request,
+  maxBytes: number,
+  allowedMediaTypes: readonly string[],
+): Promise<BoundedBytesResult> {
+  if (!allowedMediaTypes.includes(mediaType(request.headers.get("content-type")))) {
+    return { ok: false, error: "unsupported-media-type" };
+  }
+
+  const declared = request.headers.get("content-length");
+  if (declared && /^\d+$/.test(declared) && Number(declared) > maxBytes) {
+    return { ok: false, error: "too-large" };
+  }
+
+  if (!request.body) return { ok: true, bytes: new Uint8Array() };
+  const reader = request.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      total += value.byteLength;
+      if (total > maxBytes) {
+        await reader.cancel().catch(() => undefined);
+        return { ok: false, error: "too-large" };
+      }
+      chunks.push(value);
+    }
+  } catch {
+    return { ok: false, error: "read-failed" };
+  }
+
+  const bytes = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return { ok: true, bytes };
 }

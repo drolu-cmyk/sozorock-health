@@ -286,6 +286,46 @@ test("Voice Access denial preserves the typed planning path", async ({ page }) =
   await expect(page.getByRole("button", { name: "Ask Place Intelligence" })).toBeEnabled();
 });
 
+test("Voice Access stops recording and releases the microphone when the Action view closes", async ({ page }) => {
+  await page.addInitScript(() => {
+    Object.assign(window, { __voiceRecorderStopped: false, __voiceTrackStopped: false });
+    const stream = {
+      getTracks: () => [{
+        stop: () => { Object.assign(window, { __voiceTrackStopped: true }); },
+      }],
+    };
+    Object.defineProperty(navigator, "mediaDevices", {
+      configurable: true,
+      value: { getUserMedia: async () => stream },
+    });
+    class MockMediaRecorder {
+      state = "inactive";
+      mimeType = "audio/webm";
+      ondataavailable: ((event: { data: Blob }) => void) | null = null;
+      onstop: (() => void) | null = null;
+      start() { this.state = "recording"; }
+      stop() {
+        this.state = "inactive";
+        Object.assign(window, { __voiceRecorderStopped: true });
+        this.ondataavailable?.({ data: new Blob(["voice"], { type: this.mimeType }) });
+        this.onstop?.();
+      }
+    }
+    Object.defineProperty(window, "MediaRecorder", { configurable: true, value: MockMediaRecorder });
+  });
+
+  await page.goto("/explore?kind=county&geoid=36001&view=action", { waitUntil: "domcontentloaded" });
+  await page.getByRole("tab", { name: "Action" }).click();
+  await page.getByRole("button", { name: "Ask with Voice Access" }).click();
+  await expect(page.getByRole("button", { name: "Stop recording" })).toBeVisible();
+  await page.getByRole("tab", { name: "Map" }).click();
+  await expect.poll(() => page.evaluate(() => ({
+    recorder: Boolean((window as typeof window & { __voiceRecorderStopped?: boolean }).__voiceRecorderStopped),
+    track: Boolean((window as typeof window & { __voiceTrackStopped?: boolean }).__voiceTrackStopped),
+  }))).toEqual({ recorder: true, track: true });
+  await expect(page.getByText("Preparing a transcript for your review.")).toHaveCount(0);
+});
+
 test("Brief, Map, Action and Visuals have no serious or critical WCAG violations", async ({ page }) => {
   test.setTimeout(180_000);
   await page.goto("/explore?kind=county&geoid=36001&view=brief", { waitUntil: "domcontentloaded" });

@@ -7,7 +7,11 @@ import {
   sha256,
   writeExecutionAudit,
 } from "../../../../lib/evidence-runtime-authority";
-import { createWorkspaceAgentSuggestion, recordExplorePerformance } from "../../../../lib/explore-workspace-runtime";
+import {
+  createWorkspaceAgentSuggestion,
+  recordExplorePerformance,
+  requireWorkspaceMembership,
+} from "../../../../lib/explore-workspace-runtime";
 import { requireWorkspaceActor } from "../../../../lib/explore-workspace-auth";
 import {
   placeAgentRuntimeVersions,
@@ -48,6 +52,7 @@ export async function POST(request: NextRequest) {
   let geographyUuid: string | null = null;
   let auditWorkspaceId: string | null = null;
   let auditSectionKey: string | null = null;
+  let workspaceActor: Awaited<ReturnType<typeof requireWorkspaceActor>> | null = null;
   try {
     const allowedHosts = (process.env.EVIDENCE_ALLOWED_HOSTS ?? process.env.ACCESS_ALLOWED_ORIGINS ?? "")
       .split(";")
@@ -79,8 +84,17 @@ export async function POST(request: NextRequest) {
     if (!validInput(body)) {
       return NextResponse.json({ error: "Provide a valid five-digit county GEOID and a question." }, { status: 400 });
     }
-    auditWorkspaceId = body.workspaceId ?? null;
-    auditSectionKey = body.sectionKey ?? null;
+    if (body.workspaceId) {
+      workspaceActor = await requireWorkspaceActor(request);
+      await requireWorkspaceMembership({
+        workspaceId: body.workspaceId,
+        tenantId: workspaceActor.tenantId,
+        actor: workspaceActor,
+        write: true,
+      });
+      auditWorkspaceId = body.workspaceId;
+      auditSectionKey = body.sectionKey ?? "plan";
+    }
     requestHash = sha256({ geoid: body.geoid, question: body.question.trim(), inputMode: body.inputMode ?? "typed" });
     authority = await requireEvidenceAuthority(placeAgentRuntimeVersions.snapshotContentHash);
     geographyUuid = await requireEvidenceGeographyId(body.geoid);
@@ -126,8 +140,8 @@ export async function POST(request: NextRequest) {
         usage: output.usage ?? null,
         inputMode: body.inputMode ?? "typed",
         transcriptHash: body.inputMode === "voice" ? body.transcriptHash ?? null : null,
-        workspaceId: body.workspaceId ?? null,
-        sectionKey: body.sectionKey ?? null,
+        workspaceId: auditWorkspaceId,
+        sectionKey: auditSectionKey,
       },
     });
     try {
@@ -148,11 +162,11 @@ export async function POST(request: NextRequest) {
     }
     let workspaceSuggestion: Awaited<ReturnType<typeof createWorkspaceAgentSuggestion>> | null = null;
     if (body.workspaceId && output.answer.status !== "refused") {
-      const requestingActor = await requireWorkspaceActor(request);
+      if (!workspaceActor) throw new Error("The county workspace authorization was not established.");
       workspaceSuggestion = await createWorkspaceAgentSuggestion({
         workspaceId: body.workspaceId,
-        tenantId: requestingActor.tenantId,
-        requestingActor,
+        tenantId: workspaceActor.tenantId,
+        requestingActor: workspaceActor,
         sectionKey: body.sectionKey ?? "plan",
         content: {
           answer: output.answer.answer,

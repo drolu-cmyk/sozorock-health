@@ -7,7 +7,7 @@ import {
   writeExecutionAudit,
 } from "../../../../../lib/evidence-runtime-authority";
 import { getOpenAIApiKey, placeAgentRuntimeVersions } from "../../../../../lib/place-agent-openai";
-import { isTrustedSameOrigin } from "../../../../../lib/request-security";
+import { isTrustedSameOrigin, readBoundedBytes } from "../../../../../lib/request-security";
 
 export const runtime = "nodejs";
 const MAX_AUDIO_BYTES = 8 * 1024 * 1024;
@@ -22,15 +22,23 @@ export async function POST(request: NextRequest) {
     if (!isTrustedSameOrigin(request, allowedHosts)) {
       return NextResponse.json({ error: "Request origin was not accepted." }, { status: 403 });
     }
-    const size = Number(request.headers.get("content-length") ?? "0");
-    if (size > MAX_AUDIO_BYTES + 64_000) {
-      return NextResponse.json({ error: "The audio clip is too large." }, { status: 413 });
-    }
     const rate = await enforceAgentRateLimit(request);
     if (!rate.allowed) {
       return NextResponse.json({ error: "Please wait before using Voice Access again." }, { status: rate.retryAfter ? 429 : 503 });
     }
-    const form = await request.formData();
+    const bounded = await readBoundedBytes(request, MAX_AUDIO_BYTES + 64_000, ["multipart/form-data"]);
+    if (!bounded.ok) {
+      return NextResponse.json(
+        { error: bounded.error === "unsupported-media-type" ? "Send a multipart audio upload." : "The audio clip is too large." },
+        { status: bounded.error === "unsupported-media-type" ? 415 : 413 },
+      );
+    }
+    const formRequest = new Request(request.url, {
+      method: "POST",
+      headers: { "content-type": request.headers.get("content-type") ?? "" },
+      body: bounded.bytes,
+    });
+    const form = await formRequest.formData();
     const geoid = String(form.get("geoid") ?? "").trim();
     const audio = form.get("audio");
     if (!/^\d{5}$/.test(geoid) || !(audio instanceof File) || audio.size < 1 || audio.size > MAX_AUDIO_BYTES) {

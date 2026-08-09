@@ -323,7 +323,17 @@ export function buildCountyPlaceBrief(
  */
 export function recomputeEvidenceAssessment(
   brief: ExplorePlaceBriefV1,
-  workforceRecords: Array<{ wholeCounty: boolean }> = [],
+  workforceRecords: Array<{
+    wholeCounty: boolean;
+    designationId?: string;
+    designationName?: string;
+    designationType?: string;
+    sourceId?: string;
+    sourceVersionId?: string;
+    releaseDate?: string | null;
+    dataPeriod?: { start: string | null; end: string | null };
+    officialUrl?: string;
+  }> = [],
 ): ExplorePlaceBriefV1["evidenceAssessment"] {
   const selected = brief.resolution.selected;
   const available = brief.publicData.sourceCoverage.filter((coverage) =>
@@ -340,11 +350,18 @@ export function recomputeEvidenceAssessment(
   const evidenceIds = adverseSignals.map((observation) => observation.id);
   const hrsaCoverage = brief.publicData.sourceCoverage.find((coverage) => coverage.sourceId === "hrsa-workforce");
   const ahrfCoverage = brief.publicData.sourceCoverage.find((coverage) => coverage.sourceId === "ahrf-workforce");
-  const hrsaRecordCount = workforceRecords.length || hrsaCoverage?.observationCount || 0;
+  const hrsaRecordCount = workforceRecords.length;
   const hrsaWholeCountyRecordCount = workforceRecords.filter((record) => record.wholeCounty).length;
   const hrsaScopedRecordCount = Math.max(0, hrsaRecordCount - hrsaWholeCountyRecordCount);
   const hrsaAvailable = Boolean(hrsaCoverage && ["available", "partially_available"].includes(hrsaCoverage.status));
-  const ahrfRecordCount = ahrfCoverage?.observationCount ?? 0;
+  const ahrfSourceVersionIds = new Set(
+    brief.publicData.sources
+      .filter((source) => source.sourceId === "ahrf-workforce")
+      .map((source) => source.sourceVersionId),
+  );
+  const ahrfObservations = brief.publicData.observations
+    .filter((observation) => ahrfSourceVersionIds.has(observation.sourceVersionId));
+  const ahrfRecordCount = ahrfObservations.length;
   const ahrfAvailable = Boolean(ahrfCoverage && ["available", "partially_available"].includes(ahrfCoverage.status));
   const workforceEvidenceAvailable = hrsaRecordCount > 0 || ahrfRecordCount > 0;
   const hrsaScope = hrsaWholeCountyRecordCount > 0
@@ -397,6 +414,42 @@ export function recomputeEvidenceAssessment(
     geography: geographyName,
     status: brief.localPlanningEvidence.status,
   });
+  workforceRecords.forEach((record, index) => {
+    const sourceId = record.sourceId ?? "hrsa-workforce";
+    const source = sourceById.get(sourceId);
+    const designationId = record.designationId ?? `record-${index + 1}`;
+    references.push({
+      id: `workforce:${brief.evidenceSnapshotId}:${selected?.authorityId ?? "unknown"}:${sourceId}:${designationId}`,
+      evidenceType: "workforce_designation",
+      claim: `${record.designationName ?? "HRSA workforce designation"} (${record.designationType ?? (record.wholeCounty ? "whole-county" : "source-defined scoped designation")}); ${record.wholeCounty ? "whole-county scope" : "subcounty, population-group, facility, or other source-defined scope"}.`,
+      sourceId,
+      sourceVersionId: record.sourceVersionId ?? source?.sourceVersionId ?? null,
+      publisher: source?.publisher ?? "Health Resources and Services Administration",
+      sourceTitle: source?.title ?? "Health workforce designation record",
+      officialUrl: record.officialUrl ?? source?.officialUrl ?? null,
+      releaseDate: record.releaseDate ?? source?.releaseDate ?? null,
+      dataPeriod: record.dataPeriod ?? source?.dataPeriod ?? { start: null, end: null },
+      geography: geographyName,
+      status: "verified",
+    });
+  });
+  ahrfObservations.forEach((observation) => {
+    const source = brief.publicData.sources.find((candidate) => candidate.sourceVersionId === observation.sourceVersionId);
+    references.push({
+      id: `workforce-observation:${brief.evidenceSnapshotId}:${observation.id}`,
+      evidenceType: "metric_observation",
+      claim: `${observation.label}: ${observation.value === null ? "unavailable" : `${observation.value} ${observation.unit}`} for ${observation.universe}.`,
+      sourceId: "ahrf-workforce",
+      sourceVersionId: observation.sourceVersionId,
+      publisher: source?.publisher ?? "Health Resources and Services Administration, Bureau of Health Workforce",
+      sourceTitle: source?.title ?? "Area Health Resources Files",
+      officialUrl: source?.officialUrl ?? null,
+      releaseDate: observation.releaseDate,
+      dataPeriod: observation.dataPeriod,
+      geography: geographyName,
+      status: observation.reviewStatus === "verified" ? "verified" : "not_yet_verified",
+    });
+  });
   const known = [
     selected
       ? `The selected geography resolves to ${selected.displayName} (GEOID ${selected.authorityId}).`
@@ -440,7 +493,7 @@ export function recomputeEvidenceAssessment(
         : "A workforce conversation requires a source-compatible designation or workforce measure and local review.",
       evidenceIds: workforceEvidenceAvailable
         ? references
-            .filter((reference) => reference.sourceId === "hrsa-workforce" || reference.sourceId === "ahrf-workforce")
+            .filter((reference) => reference.evidenceType === "workforce_designation" || reference.evidenceType === "metric_observation")
             .map((reference) => reference.id)
         : [],
       missingEvidence: workforceEvidenceAvailable

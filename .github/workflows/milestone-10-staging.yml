@@ -48,6 +48,8 @@ jobs:
           set -euo pipefail
           npm ci --omit=optional
           npm audit --workspace @sozorock/public-site --omit=dev --omit=optional --audit-level=moderate
+          npm audit --workspace @sozorock/evidence-core --omit=dev --omit=optional --audit-level=moderate
+          npm audit --workspace @sozorock/explore-realtime --omit=dev --omit=optional --audit-level=moderate
           npm run verify:public-dependency-security
       - name: Migration integrity and rollback
         run: npm run test:migrations --workspace @sozorock/evidence-core
@@ -266,6 +268,7 @@ jobs:
             --arg cognito_domain "$CountyWorkspaceHostedUiUrl" \
             --arg cognito_client "$CountyWorkspaceAppClientId" \
             --arg auth_cookie_secret "$ExploreAuthCookieSecretArn" \
+            --arg staging_url "$staging_url" \
             --arg snapshot_hash "$EVIDENCE_SNAPSHOT_CONTENT_HASH" \
             --arg release_sha "$RELEASE_SHA" \
             --arg build_timestamp "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
@@ -275,6 +278,7 @@ jobs:
               EVIDENCE_DATABASE_NAME:$database,
               EVIDENCE_ARTIFACT_BUCKET:$bucket,
               EVIDENCE_ALLOWED_HOSTS:$hosts,
+              PUBLIC_SITE_URL:$staging_url,
               OPENAI_PLACE_EVIDENCE_SECRET_ARN:$openai,
               OPENAI_PLACE_EVIDENCE_MODEL:"gpt-5.6-sol",
               PLACE_EVIDENCE_PROVIDER:"openai-responses",

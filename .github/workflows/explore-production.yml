@@ -58,6 +58,8 @@ jobs:
           set -euo pipefail
           npm ci --omit=optional
           npm audit --workspace @sozorock/public-site --omit=dev --omit=optional --audit-level=moderate
+          npm audit --workspace @sozorock/evidence-core --omit=dev --omit=optional --audit-level=moderate
+          npm audit --workspace @sozorock/explore-realtime --omit=dev --omit=optional --audit-level=moderate
           npm run verify:public-dependency-security
       - name: Migration rollback and integrity
         run: npm run test:migrations --workspace @sozorock/evidence-core

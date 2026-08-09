@@ -70,6 +70,9 @@
         "cognito-idp:DeleteUserPoolClient",
         "cognito-idp:DescribeUserPoolClient",
         "cognito-idp:UpdateUserPoolClient",
+        "cognito-idp:CreateUserPoolDomain",
+        "cognito-idp:DeleteUserPoolDomain",
+        "cognito-idp:DescribeUserPoolDomain",
         "cognito-idp:AdminCreateUser",
         "cognito-idp:AdminDeleteUser",
         "cognito-idp:AdminUpdateUserAttributes",
@@ -77,6 +80,19 @@
         "cognito-idp:AdminInitiateAuth"
       ],
       "Resource": "*"
+    },
+    {
+      "Sid": "ProvisionExploreAuthCookieSecrets",
+      "Effect": "Allow",
+      "Action": [
+        "secretsmanager:CreateSecret",
+        "secretsmanager:DeleteSecret",
+        "secretsmanager:DescribeSecret",
+        "secretsmanager:PutSecretValue",
+        "secretsmanager:TagResource",
+        "secretsmanager:UntagResource"
+      ],
+      "Resource": "arn:aws:secretsmanager:us-east-1:791860731989:secret:/sozorock/explore/*/auth-cookie-*"
     },
     {
       "Sid": "ProvisionExploreWebSocketApi",

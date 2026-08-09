@@ -854,7 +854,7 @@ export async function createWorkspaceAgentSuggestion(input: {
 }) {
   if (!/^[a-z][a-z0-9_-]{1,63}$/.test(input.sectionKey)) throw new Error("The suggestion section is invalid.");
   return executeEvidenceTransaction(async (transactionId) => {
-    await requireWorkspaceMembership({ workspaceId: input.workspaceId, tenantId: input.tenantId, actor: input.requestingActor, write: false, transactionId });
+    await requireWorkspaceMembership({ workspaceId: input.workspaceId, tenantId: input.tenantId, actor: input.requestingActor, write: true, transactionId });
     const id = randomUUID();
     await executeEvidenceSql(`INSERT INTO evidence.agent_suggestion (id, workspace_id, section_key, execution_audit_id, content, status, created_at) VALUES (CAST(:id AS uuid), CAST(:workspace_id AS uuid), :section_key, NULLIF(:audit_id, '')::uuid, CAST(:content AS jsonb), 'pending', now())`, [
       { name: "id", value: { stringValue: id } }, { name: "workspace_id", value: { stringValue: input.workspaceId } }, { name: "section_key", value: { stringValue: input.sectionKey } },
@@ -883,17 +883,53 @@ export async function reviewWorkspaceAgentSuggestion(input: {
     await executeEvidenceSql(`UPDATE evidence.agent_suggestion SET status=:decision, reviewed_by=:reviewer, reviewed_at=now() WHERE id=CAST(:id AS uuid) AND status='pending'`, [
       { name: "decision", value: { stringValue: input.decision } }, { name: "reviewer", value: { stringValue: input.actor.principalId } }, { name: "id", value: { stringValue: input.suggestionId } },
     ], transactionId);
+    let event: Awaited<ReturnType<typeof appendWorkspaceEvent>>;
     if (input.decision === "accepted") {
+      await executeEvidenceSql(
+        `SELECT pg_advisory_xact_lock(hashtext(:workspace_section))`,
+        [{ name: "workspace_section", value: { stringValue: `${input.workspaceId}:${sectionKey}` } }],
+        transactionId,
+      );
       const current = await executeEvidenceSql(`SELECT version FROM evidence.workspace_section WHERE workspace_id=CAST(:workspace_id AS uuid) AND section_key=:section_key`, [
         { name: "workspace_id", value: { stringValue: input.workspaceId } }, { name: "section_key", value: { stringValue: sectionKey } },
       ], transactionId);
       const version = Number(evidenceFieldValue(current.records?.[0]?.[0]) ?? 0);
       if (version !== input.expectedSectionVersion) throw new Error("This plan section changed. Review the current version before accepting the suggestion.");
+      event = await appendWorkspaceEvent({
+        workspaceId: input.workspaceId,
+        tenantId: input.tenantId,
+        eventType: "human_review_completed",
+        actor: input.actor,
+        idempotencyKey: input.idempotencyKey,
+        evidenceSnapshotId: null,
+        payload: { suggestionId: input.suggestionId, sectionKey, decision: input.decision, enteredPlan: true, fromVersion: version, toVersion: version + 1 },
+        transactionId,
+      });
       await executeEvidenceSql(`INSERT INTO evidence.workspace_section (workspace_id, section_key, version, content, updated_by, updated_at) VALUES (CAST(:workspace_id AS uuid), :section_key, :version, CAST(:content AS jsonb), :updated_by, now()) ON CONFLICT (workspace_id, section_key) DO UPDATE SET version=EXCLUDED.version, content=EXCLUDED.content, updated_by=EXCLUDED.updated_by, updated_at=EXCLUDED.updated_at`, [
         { name: "workspace_id", value: { stringValue: input.workspaceId } }, { name: "section_key", value: { stringValue: sectionKey } }, { name: "version", value: { longValue: version + 1 } }, { name: "content", value: { stringValue: JSON.stringify(content) } }, { name: "updated_by", value: { stringValue: input.actor.principalId } },
       ], transactionId);
+      await executeEvidenceSql(
+        `INSERT INTO evidence.workspace_section_version (
+           id, workspace_id, section_key, version, content, actor_type,
+           actor_id, source_event_id, created_at
+         ) VALUES (
+           CAST(:id AS uuid), CAST(:workspace_id AS uuid), :section_key, :version,
+           CAST(:content AS jsonb), 'human', :actor_id, CAST(:event_id AS uuid), now()
+         )`,
+        [
+          { name: "id", value: { stringValue: randomUUID() } },
+          { name: "workspace_id", value: { stringValue: input.workspaceId } },
+          { name: "section_key", value: { stringValue: sectionKey } },
+          { name: "version", value: { longValue: version + 1 } },
+          { name: "content", value: { stringValue: JSON.stringify(content) } },
+          { name: "actor_id", value: { stringValue: input.actor.principalId } },
+          { name: "event_id", value: { stringValue: event.id } },
+        ],
+        transactionId,
+      );
+    } else {
+      event = await appendWorkspaceEvent({ workspaceId: input.workspaceId, tenantId: input.tenantId, eventType: "human_review_completed", actor: input.actor, idempotencyKey: input.idempotencyKey, evidenceSnapshotId: null, payload: { suggestionId: input.suggestionId, sectionKey, decision: input.decision, enteredPlan: false }, transactionId });
     }
-    const event = await appendWorkspaceEvent({ workspaceId: input.workspaceId, tenantId: input.tenantId, eventType: "human_review_completed", actor: input.actor, idempotencyKey: input.idempotencyKey, evidenceSnapshotId: null, payload: { suggestionId: input.suggestionId, sectionKey, decision: input.decision, enteredPlan: input.decision === "accepted" }, transactionId });
     return { id: input.suggestionId, sectionKey, status: input.decision, enteredPlan: input.decision === "accepted", event };
   });
 }

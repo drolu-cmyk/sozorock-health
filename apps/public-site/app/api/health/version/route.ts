@@ -10,7 +10,7 @@ export function GET() {
     buildTimestamp: process.env.BUILD_TIMESTAMP?.trim() || "unavailable",
     deploymentEnvironment: process.env.RUNTIME_ENV?.trim() || process.env.NODE_ENV,
     applicationContractVersion: EXPLORE_CONTRACT_VERSION,
-    databaseMigrationVersion: process.env.EVIDENCE_DATABASE_MIGRATION_VERSION?.trim() || "0015",
+    databaseMigrationVersion: process.env.EVIDENCE_DATABASE_MIGRATION_VERSION?.trim() || "unavailable",
     evidenceSnapshotContentHash: placeAgentRuntimeVersions.snapshotContentHash || "unavailable",
     policyVersion: placeAgentRuntimeVersions.policyVersion,
     openApiVersion: EXPLORE_OPENAPI_VERSION,

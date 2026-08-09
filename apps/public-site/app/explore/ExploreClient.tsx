@@ -33,6 +33,7 @@ import {
   X,
 } from "@phosphor-icons/react";
 import styles from "./explore.module.css";
+import { normalizeHeatMapDomain } from "../lib/heat-map-scale";
 import {
   collectionPolygons,
   compoundPathForPolygons,
@@ -889,6 +890,19 @@ function ActionView({ data }: { data: PlaceResponse }) {
   const chunksRef = useRef<Blob[]>([]);
   const resultRef = useRef<HTMLElement>(null);
 
+  useEffect(() => () => {
+    const recorder = recorderRef.current;
+    if (recorder) {
+      recorder.ondataavailable = null;
+      recorder.onstop = null;
+      if (recorder.state !== "inactive") recorder.stop();
+    }
+    streamRef.current?.getTracks().forEach((track) => track.stop());
+    streamRef.current = null;
+    recorderRef.current = null;
+    chunksRef.current = [];
+  }, []);
+
   async function startVoice() {
     setVoiceMessage("");
     setError("");
@@ -1127,8 +1141,7 @@ function MultiCountyHeatMap({ result }: { result: HeatMapResult }) {
       map.on("load", () => {
         if (!map) return;
         map.addSource("county-set", { type: "geojson", data: result.featureCollection as never });
-        const minimum = result.scale.minimum ?? 0;
-        const maximum = result.scale.maximum ?? Math.max(minimum + 1, 1);
+        const { minimum, maximum } = normalizeHeatMapDomain(result.scale.minimum, result.scale.maximum);
         map.addLayer({ id: "county-set-fill", type: "fill", source: "county-set", paint: { "fill-color": ["case", ["==", ["get", "value"], null], result.scale.missingColor, ["interpolate", ["linear"], ["to-number", ["get", "value"]], minimum, "#e5ece2", maximum, "#153d2c"]] as never, "fill-opacity": .82 } });
         map.addLayer({ id: "county-set-line", type: "line", source: "county-set", paint: { "line-color": "#101a1d", "line-width": 1.2 } });
         const points: Array<[number, number]> = [];
