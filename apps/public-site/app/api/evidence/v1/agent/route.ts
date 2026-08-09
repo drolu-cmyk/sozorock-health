@@ -143,33 +143,43 @@ export async function POST(request: NextRequest) {
         idempotencyKey: `agent-suggestion:${requestHash}`,
       });
     }
-    await writeExecutionAudit({
-      executionType: "internal_agent",
-      contractVersion: "explore.place-agent.v1",
-      policyVersion: placeAgentRuntimeVersions.policyVersion,
-      snapshotUuid: authority.snapshotUuid,
-      geographyUuid,
-      requestHash,
-      responseHash: `sha256:${output.outputHash}`,
-      outcome: output.answer.status === "refused" ? "rejected" : "succeeded",
-      reason: output.answer.status,
-      metadata: {
-        geoid: body.geoid,
-        model: output.model,
-        provider: provider.id,
-        responseId: output.responseId,
-        schemaVersion: placeAgentRuntimeVersions.schemaVersion,
-        snapshotContentHash: output.snapshotContentHash,
-        toolCalls: output.toolCalls,
-        pipelineSteps: output.pipelineSteps,
-        usage: output.usage ?? null,
-        inputMode: body.inputMode ?? "typed",
-        transcriptHash: body.inputMode === "voice" ? body.transcriptHash ?? null : null,
+    try {
+      await writeExecutionAudit({
+        executionType: "internal_agent",
+        contractVersion: "explore.place-agent.v1",
+        policyVersion: placeAgentRuntimeVersions.policyVersion,
+        snapshotUuid: authority.snapshotUuid,
+        geographyUuid,
+        requestHash,
+        responseHash: `sha256:${output.outputHash}`,
+        outcome: output.answer.status === "refused" ? "rejected" : "succeeded",
+        reason: output.answer.status,
+        metadata: {
+          geoid: body.geoid,
+          model: output.model,
+          provider: provider.id,
+          responseId: output.responseId,
+          schemaVersion: placeAgentRuntimeVersions.schemaVersion,
+          snapshotContentHash: output.snapshotContentHash,
+          toolCalls: output.toolCalls,
+          pipelineSteps: output.pipelineSteps,
+          usage: output.usage ?? null,
+          inputMode: body.inputMode ?? "typed",
+          transcriptHash: body.inputMode === "voice" ? body.transcriptHash ?? null : null,
+          workspaceId: auditWorkspaceId,
+          sectionKey: auditSectionKey,
+          workspaceSuggestionId: workspaceSuggestion?.id ?? null,
+        },
+      });
+    } catch (error) {
+      // The suggestion is already committed. Returning a retryable error here
+      // could produce another model execution and duplicate planning content.
+      if (!workspaceSuggestion) throw error;
+      console.error("place-evidence-agent-success-audit-failed", {
         workspaceId: auditWorkspaceId,
-        sectionKey: auditSectionKey,
-        workspaceSuggestionId: workspaceSuggestion?.id ?? null,
-      },
-    });
+        workspaceSuggestionId: workspaceSuggestion.id,
+      });
+    }
     try {
       await recordExplorePerformance({
         operation: "agent_response",

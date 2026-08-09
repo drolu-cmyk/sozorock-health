@@ -460,6 +460,47 @@ export async function reviewPlanningScenario(input: {
   if (input.actor.actorType !== "human" || !["owner", "contributor"].includes(input.actor.access)) throw new Error("An authorized human reviewer is required.");
   return executeEvidenceTransaction(async (transactionId) => {
     await requireWorkspaceMembership({ ...input, write: true, transactionId });
+    await executeEvidenceSql(
+      "SELECT pg_advisory_xact_lock(hashtext(:workspace_id))",
+      [{ name: "workspace_id", value: { stringValue: input.workspaceId } }],
+      transactionId,
+    );
+    const priorReview = await executeEvidenceSql(
+      `SELECT id::text, sequence_number, event_type::text, occurred_at::text, payload::text
+       FROM evidence.workspace_event
+       WHERE workspace_id=CAST(:workspace_id AS uuid)
+         AND tenant_id=CAST(:tenant_id AS uuid)
+         AND idempotency_key=:idempotency_key
+       FOR UPDATE`,
+      [
+        { name: "workspace_id", value: { stringValue: input.workspaceId } },
+        { name: "tenant_id", value: { stringValue: input.tenantId } },
+        { name: "idempotency_key", value: { stringValue: input.idempotencyKey.slice(0, 200) } },
+      ],
+      transactionId,
+    );
+    const priorReviewRecord = priorReview.records?.[0];
+    if (priorReviewRecord) {
+      const eventType = String(evidenceFieldValue(priorReviewRecord[2]) ?? "");
+      const payload = JSON.parse(String(evidenceFieldValue(priorReviewRecord[4]) ?? "{}")) as Record<string, unknown>;
+      if (eventType !== "human_review_completed"
+        || payload.scenarioId !== input.scenarioId
+        || payload.decision !== input.decision) {
+        throw new Error("The idempotency key is already bound to a different workspace mutation.");
+      }
+      return {
+        scenarioId: input.scenarioId,
+        version: Number(payload.version ?? 0),
+        humanReviewStatus: input.decision,
+        event: {
+          id: String(evidenceFieldValue(priorReviewRecord[0]) ?? ""),
+          sequenceNumber: Number(evidenceFieldValue(priorReviewRecord[1]) ?? 0),
+          eventType,
+          occurredAt: String(evidenceFieldValue(priorReviewRecord[3]) ?? ""),
+          inserted: false,
+        },
+      };
+    }
     const result = await executeEvidenceSql(`SELECT current_version FROM evidence.planning_scenario WHERE id=CAST(:scenario_id AS uuid) AND workspace_id=CAST(:workspace_id AS uuid) FOR UPDATE`, [
       { name: "scenario_id", value: { stringValue: input.scenarioId } }, { name: "workspace_id", value: { stringValue: input.workspaceId } },
     ], transactionId);
@@ -474,7 +515,8 @@ export async function reviewPlanningScenario(input: {
          created_by, created_at
        )
        SELECT CAST(:version_id AS uuid), scenario_id, :reviewed_version, model_version,
-         inputs, formulae, evidence_used, evidence_missing, outputs, assumption_owner,
+         inputs, formulae, evidence_used, evidence_missing,
+         jsonb_set(outputs, '{humanReviewStatus}', to_jsonb(CAST(:decision AS text)), true), assumption_owner,
          :decision, :reviewed_by, now()
        FROM evidence.planning_scenario_version
        WHERE scenario_id=CAST(:scenario_id AS uuid) AND version=:source_version

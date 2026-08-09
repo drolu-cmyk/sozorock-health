@@ -38,6 +38,14 @@ test("voice transcription has a separate bounded quota from generated answers", 
   assert.match(limiter, /voice-transcription-global#/);
   assert.match(limiter, /voice-transcription-rate#/);
   assert.match(limiter, /VOICE_TRANSCRIPTION_MAX_PER_NETWORK_HOUR/);
+  assert.match(limiter, /new TransactWriteCommand/);
+  assert.match(limiter, /return enforceAtomicDualQuota\(\{[\s\S]*voice-transcription-global#[\s\S]*voice-transcription-rate#/);
+});
+
+test("a committed workspace suggestion is not reported as failed when the success audit is unavailable", async () => {
+  const route = await read("app/api/evidence/v1/agent/route.ts");
+  assert.match(route, /if \(!workspaceSuggestion\) throw error/);
+  assert.match(route, /place-evidence-agent-success-audit-failed/);
 });
 
 test("scenario review appends an immutable version instead of updating history", async () => {
@@ -47,6 +55,11 @@ test("scenario review appends an immutable version instead of updating history",
   assert.match(review, /INSERT INTO evidence\.planning_scenario_version/);
   assert.match(review, /reviewedVersion = version \+ 1/);
   assert.match(review, /current_version=:reviewed_version/);
+  assert.match(review, /idempotency_key=:idempotency_key[\s\S]*FOR UPDATE/);
+  assert.ok(review.indexOf("pg_advisory_xact_lock") < review.indexOf("idempotency_key=:idempotency_key"));
+  assert.ok(review.indexOf("idempotency_key=:idempotency_key") < review.indexOf("INSERT INTO evidence.planning_scenario_version"));
+  assert.match(review, /jsonb_set\(outputs, '\{humanReviewStatus\}', to_jsonb\(CAST\(:decision AS text\)\), true\)/);
+  assert.match(review, /idempotency key is already bound to a different workspace mutation/);
   assert.doesNotMatch(review, /UPDATE evidence\.planning_scenario_version/);
 });
 
@@ -67,4 +80,7 @@ test("served OpenAPI declares every path variable and heat maps require multiple
   assert.equal(exploreOpenApiDocument.components.schemas.CountySetRequest.properties.geoids.minItems, 1);
   assert.equal(exploreOpenApiDocument.components.schemas.HeatMapCountySetRequest.properties.geoids.minItems, 2);
   assert.equal(exploreOpenApiDocument.paths["/api/evidence/v1/heat-map"].post.requestBody.content["application/json"].schema.$ref, "#/components/schemas/HeatMapCountySetRequest");
+  const scenarioResponses = exploreOpenApiDocument.paths["/api/evidence/v1/workspaces/{workspaceId}/scenarios"].post.responses;
+  assert.ok("201" in scenarioResponses);
+  assert.ok(!("200" in scenarioResponses));
 });

@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { GetSecretValueCommand, SecretsManagerClient } from "@aws-sdk/client-secrets-manager";
-import { DynamoDBDocumentClient, UpdateCommand } from "@aws-sdk/lib-dynamodb";
+import { DynamoDBDocumentClient, TransactWriteCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
 import type { NextRequest } from "next/server";
 import { agentRateLimitNamespace } from "./agent-rate-limit-policy";
 import { clientNetworkAddress } from "./request-security";
@@ -80,34 +80,55 @@ export async function enforceAgentRateLimit(request: NextRequest) {
     || !Number.isInteger(globalPerDay) || globalPerDay < 1) {
     return { allowed: false as const, retryAfter: null };
   }
+  return enforceAtomicDualQuota({
+    globalKey: `place-agent-global#${namespace}#${day}`,
+    globalMaximum: globalPerDay,
+    globalRecordType: "place-agent-global-cost-limit",
+    networkKey: `place-agent-rate#${namespace}#${clientHash}#${hour}`,
+    networkMaximum: perNetworkPerHour,
+    networkRecordType: "place-agent-rate-limit",
+    epoch,
+  });
+}
+
+async function enforceAtomicDualQuota(input: {
+  globalKey: string;
+  globalMaximum: number;
+  globalRecordType: string;
+  networkKey: string;
+  networkMaximum: number;
+  networkRecordType: string;
+  epoch: number;
+}) {
+  if (!tableName) return { allowed: false as const, retryAfter: null };
   try {
-    await dynamo.send(new UpdateCommand({
-      TableName: tableName,
-      Key: { submissionId: `place-agent-global#${namespace}#${day}` },
-      UpdateExpression: "ADD requestCount :one SET expiresAt = :expiresAt, recordType = :recordType",
-      ConditionExpression: "attribute_not_exists(requestCount) OR requestCount < :maximum",
-      ExpressionAttributeValues: {
-        ":one": 1,
-        ":maximum": globalPerDay,
-        ":expiresAt": epoch + 172800,
-        ":recordType": "place-agent-global-cost-limit",
-      },
-    }));
-    await dynamo.send(new UpdateCommand({
-      TableName: tableName,
-      Key: { submissionId: `place-agent-rate#${namespace}#${clientHash}#${hour}` },
-      UpdateExpression: "ADD requestCount :one SET expiresAt = :expiresAt, recordType = :recordType",
-      ConditionExpression: "attribute_not_exists(requestCount) OR requestCount < :maximum",
-      ExpressionAttributeValues: {
-        ":one": 1,
-        ":maximum": perNetworkPerHour,
-        ":expiresAt": epoch + 7200,
-        ":recordType": "place-agent-rate-limit",
-      },
+    await dynamo.send(new TransactWriteCommand({
+      TransactItems: [
+        { Update: {
+          TableName: tableName,
+          Key: { submissionId: input.globalKey },
+          UpdateExpression: "ADD requestCount :one SET expiresAt = :expiresAt, recordType = :recordType",
+          ConditionExpression: "attribute_not_exists(requestCount) OR requestCount < :maximum",
+          ExpressionAttributeValues: {
+            ":one": 1, ":maximum": input.globalMaximum,
+            ":expiresAt": input.epoch + 172800, ":recordType": input.globalRecordType,
+          },
+        } },
+        { Update: {
+          TableName: tableName,
+          Key: { submissionId: input.networkKey },
+          UpdateExpression: "ADD requestCount :one SET expiresAt = :expiresAt, recordType = :recordType",
+          ConditionExpression: "attribute_not_exists(requestCount) OR requestCount < :maximum",
+          ExpressionAttributeValues: {
+            ":one": 1, ":maximum": input.networkMaximum,
+            ":expiresAt": input.epoch + 7200, ":recordType": input.networkRecordType,
+          },
+        } },
+      ],
     }));
     return { allowed: true as const, retryAfter: null };
   } catch (error) {
-    if ((error as { name?: string }).name === "ConditionalCheckFailedException") {
+    if (["ConditionalCheckFailedException", "TransactionCanceledException"].includes((error as { name?: string }).name ?? "")) {
       return { allowed: false as const, retryAfter: 3600 };
     }
     throw error;
@@ -132,36 +153,13 @@ export async function enforceVoiceTranscriptionRateLimit(request: NextRequest) {
     || !Number.isInteger(globalPerDay) || globalPerDay < 1) {
     return { allowed: false as const, retryAfter: null };
   }
-  try {
-    await dynamo.send(new UpdateCommand({
-      TableName: tableName,
-      Key: { submissionId: `voice-transcription-global#${namespace}#${day}` },
-      UpdateExpression: "ADD requestCount :one SET expiresAt = :expiresAt, recordType = :recordType",
-      ConditionExpression: "attribute_not_exists(requestCount) OR requestCount < :maximum",
-      ExpressionAttributeValues: {
-        ":one": 1,
-        ":maximum": globalPerDay,
-        ":expiresAt": epoch + 172800,
-        ":recordType": "voice-transcription-global-cost-limit",
-      },
-    }));
-    await dynamo.send(new UpdateCommand({
-      TableName: tableName,
-      Key: { submissionId: `voice-transcription-rate#${namespace}#${clientHash}#${hour}` },
-      UpdateExpression: "ADD requestCount :one SET expiresAt = :expiresAt, recordType = :recordType",
-      ConditionExpression: "attribute_not_exists(requestCount) OR requestCount < :maximum",
-      ExpressionAttributeValues: {
-        ":one": 1,
-        ":maximum": perNetworkPerHour,
-        ":expiresAt": epoch + 7200,
-        ":recordType": "voice-transcription-rate-limit",
-      },
-    }));
-    return { allowed: true as const, retryAfter: null };
-  } catch (error) {
-    if ((error as { name?: string }).name === "ConditionalCheckFailedException") {
-      return { allowed: false as const, retryAfter: 3600 };
-    }
-    throw error;
-  }
+  return enforceAtomicDualQuota({
+    globalKey: `voice-transcription-global#${namespace}#${day}`,
+    globalMaximum: globalPerDay,
+    globalRecordType: "voice-transcription-global-cost-limit",
+    networkKey: `voice-transcription-rate#${namespace}#${clientHash}#${hour}`,
+    networkMaximum: perNetworkPerHour,
+    networkRecordType: "voice-transcription-rate-limit",
+    epoch,
+  });
 }

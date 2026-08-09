@@ -178,17 +178,29 @@ const scenario = await json(await request(
   },
 ));
 assert.equal(scenario.scenario.output.humanReviewStatus, "not_reviewed");
+const scenarioReviewIdempotencyKey = randomUUID();
 const reviewedScenario = await json(await request(
   `/api/evidence/v1/workspaces/${workspaceId}/scenarios`,
   ownerToken,
   {
     method: "PATCH",
-    headers: { "Idempotency-Key": randomUUID() },
+    headers: { "Idempotency-Key": scenarioReviewIdempotencyKey },
     body: JSON.stringify({ scenarioId: scenario.scenario.id, decision: "verified" }),
   },
 ));
 assert.equal(reviewedScenario.result.version, 2);
 assert.equal(reviewedScenario.result.humanReviewStatus, "verified");
+const retriedScenarioReview = await json(await request(
+  `/api/evidence/v1/workspaces/${workspaceId}/scenarios`,
+  ownerToken,
+  {
+    method: "PATCH",
+    headers: { "Idempotency-Key": scenarioReviewIdempotencyKey },
+    body: JSON.stringify({ scenarioId: scenario.scenario.id, decision: "verified" }),
+  },
+));
+assert.equal(retriedScenarioReview.result.version, 2);
+assert.equal(retriedScenarioReview.result.event.sequenceNumber, reviewedScenario.result.event.sequenceNumber);
 const planAfterReview = await json(await request(`/api/evidence/v1/workspaces/${workspaceId}`, ownerToken));
 const persistedScenario = planAfterReview.scenarios.find((item) => item.id === scenario.scenario.id);
 assert.equal(persistedScenario.version, 2);

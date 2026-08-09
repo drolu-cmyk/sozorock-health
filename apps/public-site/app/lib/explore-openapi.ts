@@ -8,13 +8,19 @@ const errorResponse = {
   content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } },
 };
 
-function jsonPost(summary: string, requestSchema: object, responseSchema: object, security = false) {
+function jsonPost(
+  summary: string,
+  requestSchema: object,
+  responseSchema: object,
+  security = false,
+  successStatus = "200",
+) {
   return {
     summary,
     security: security ? [{ cognitoAccessToken: [] }] : [],
     requestBody: { required: true, content: { "application/json": { schema: requestSchema } } },
     responses: {
-      "200": { description: "Successful response.", content: { "application/json": { schema: responseSchema } } },
+      [successStatus]: { description: "Successful response.", content: { "application/json": { schema: responseSchema } } },
       "400": errorResponse,
       "403": errorResponse,
       "429": errorResponse,
@@ -60,7 +66,7 @@ export const exploreOpenApiDocument = {
     "/api/evidence/v1/workspace-share": { get: { tags: ["Workspace"], summary: "Read the explicit no-store public projection for a scoped share token.", responses: { "200": { description: "Public share DTO." }, "403": errorResponse } } },
     "/api/evidence/v1/workspaces/{workspaceId}/scenarios": {
       parameters: [workspaceIdParameter],
-      post: { tags: ["Workspace"], ...jsonPost("Create a versioned planning scenario owned by a human.", { type: "object" }, { type: "object" }, true) },
+      post: { tags: ["Workspace"], ...jsonPost("Create a versioned planning scenario owned by a human.", { type: "object" }, { type: "object" }, true, "201") },
       patch: { tags: ["Workspace"], ...jsonPost("Append a human review decision as a new immutable scenario version.", { type: "object", required: ["scenarioId", "decision"], properties: { scenarioId: { type: "string", format: "uuid" }, decision: { type: "string", enum: ["verified", "rejected"] } } }, { type: "object" }, true) },
     },
     "/api/evidence/v1/heat-map": { post: { tags: ["Visuals"], ...jsonPost("Return compatible multi-county values and official boundaries.", { $ref: "#/components/schemas/HeatMapCountySetRequest" }, { type: "object" }) } },
