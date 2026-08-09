@@ -232,8 +232,29 @@ export async function requireEvidenceGeographyId(countyGeoid: string, snapshotCo
   return id;
 }
 
+function canonicalJson(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(canonicalJson);
+  if (value && typeof value === "object") {
+    const serialized = JSON.parse(JSON.stringify(value)) as unknown;
+    if (Array.isArray(serialized)) return serialized.map(canonicalJson);
+    if (serialized && typeof serialized === "object") {
+      return Object.fromEntries(
+        Object.entries(serialized as Record<string, unknown>)
+          .sort(([left], [right]) => left.localeCompare(right))
+          .map(([key, entry]) => [key, canonicalJson(entry)]),
+      );
+    }
+    return serialized;
+  }
+  return value;
+}
+
+export function canonicalJsonStringify(value: unknown) {
+  return JSON.stringify(canonicalJson(value));
+}
+
 export function sha256(value: unknown) {
-  const content = typeof value === "string" ? value : JSON.stringify(value);
+  const content = typeof value === "string" ? value : canonicalJsonStringify(value);
   return `sha256:${createHash("sha256").update(content).digest("hex")}`;
 }
 

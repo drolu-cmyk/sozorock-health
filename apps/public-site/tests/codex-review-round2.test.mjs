@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { readFile } from "node:fs/promises";
 import { exploreOpenApiDocument } from "../app/lib/explore-openapi.ts";
+import { canonicalJsonStringify, sha256 } from "../app/lib/evidence-runtime-authority.ts";
 
 const read = (path) => readFile(new URL(`../${path}`, import.meta.url), "utf8");
 
@@ -99,6 +100,33 @@ test("scenario creation recovers the original result before inserting on retry",
   assert.match(creation, /priorRequestHash !== scenarioRequestHash/);
   assert.match(creation, /requestHash: scenarioRequestHash/);
   assert.match(creation, /idempotent scenario version could not be recovered/);
+});
+
+test("legacy scenario retries use canonical hashes after PostgreSQL jsonb reorders keys", () => {
+  const submitted = {
+    name: "Two-county comparison",
+    scenarioInputs: {
+      selectedCountyGeoids: ["17031", "06075"],
+      hubLocations: 2,
+      eventFrequencyPerYear: 4,
+      partnerCapacityPerEvent: 45,
+    },
+    evidenceUsed: ["acs:population", "hrsa:hpsa"],
+    evidenceMissing: ["verified local plan"],
+  };
+  const persistedJsonbOrder = {
+    evidenceMissing: ["verified local plan"],
+    evidenceUsed: ["acs:population", "hrsa:hpsa"],
+    scenarioInputs: {
+      partnerCapacityPerEvent: 45,
+      eventFrequencyPerYear: 4,
+      hubLocations: 2,
+      selectedCountyGeoids: ["17031", "06075"],
+    },
+    name: "Two-county comparison",
+  };
+  assert.equal(canonicalJsonStringify(submitted), canonicalJsonStringify(persistedJsonbOrder));
+  assert.equal(sha256(submitted), sha256(persistedJsonbOrder));
 });
 
 test("public share links are explicitly read-only until a governed write path exists", async () => {
