@@ -70,6 +70,7 @@ jobs:
           fi
       - run: npm run build:public
       - run: npm run verify:public-runtime-security
+      - run: npm run verify:public-source-advisories
       - run: npm run build:platform
       - name: Validate Expo mobile configuration
         if: steps.mobile-scope.outputs.changed == 'true'
@@ -84,7 +85,6 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          npm audit --workspace @sozorock/public-site --omit=dev --omit=optional --audit-level=moderate
           npm audit --workspace @sozorock/evidence-core --omit=dev --omit=optional --audit-level=moderate
           npm audit --workspace @sozorock/explore-realtime --omit=dev --omit=optional --audit-level=moderate
           npm run verify:public-dependency-security

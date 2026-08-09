@@ -59,7 +59,9 @@ test("staging callback and every shipped Explore workspace are release-gated", a
   assert.match(staging, /--arg staging_url "\$staging_url"/);
   assert.match(staging, /PUBLIC_SITE_URL:\$staging_url/);
   for (const workflow of [staging, production]) {
-    for (const workspace of ["@sozorock/public-site", "@sozorock/evidence-core", "@sozorock/explore-realtime"]) {
+    assert.match(workflow, /npm run verify:public-source-advisories/);
+    assert.match(workflow, /npm run verify:public-runtime-security/);
+    for (const workspace of ["@sozorock/evidence-core", "@sozorock/explore-realtime"]) {
       assert.match(workflow, new RegExp(`npm audit --workspace ${workspace.replace("/", "\\/")}`));
     }
   }

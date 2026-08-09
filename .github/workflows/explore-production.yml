@@ -57,7 +57,6 @@ jobs:
         run: |
           set -euo pipefail
           npm ci --omit=optional
-          npm audit --workspace @sozorock/public-site --omit=dev --omit=optional --audit-level=moderate
           npm audit --workspace @sozorock/evidence-core --omit=dev --omit=optional --audit-level=moderate
           npm audit --workspace @sozorock/explore-realtime --omit=dev --omit=optional --audit-level=moderate
           npm run verify:public-dependency-security
@@ -75,20 +74,17 @@ jobs:
           npm run build:public
           npm run verify:public-dependency-security
           npm run verify:public-runtime-security
-      - name: Generate runtime SBOM
-        run: |
-          set -euo pipefail
-          mkdir -p output/security
-          npm sbom --workspace @sozorock/public-site --omit=dev --omit=optional \
-            --sbom-format cyclonedx > output/security/public-runtime.cdx.json
+          npm run verify:public-source-advisories
       - name: Install pinned Trivy
         uses: aquasecurity/setup-trivy@81e514348e19b6112ce2a7e3ecbafe19c1e1f567 # v0.3.1
         with:
           version: v0.72.0
           cache: true
-      - name: Scan runtime SBOM
+      - name: Generate and scan deployed runtime SBOM
         run: |
           set -euo pipefail
+          mkdir -p output/security
+          npm run generate:public-runtime-sbom
           trivy sbom --severity HIGH,CRITICAL --exit-code 1 \
             output/security/public-runtime.cdx.json
       - name: Prove CB-CAP is absent from this release workflow
@@ -111,6 +107,7 @@ jobs:
             packages/evidence-core/data/national/import-manifest.v2025.json
             output/security/public-runtime.cdx.json
             output/security/public-runtime-security.json
+            output/security/public-source-advisories.json
 
   deploy-explore:
     needs: release-gates

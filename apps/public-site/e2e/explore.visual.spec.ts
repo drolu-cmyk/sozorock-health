@@ -147,8 +147,10 @@ test("release regression counties render a source-backed population or an explic
 
 test("ZIP and multi-county place searches preserve the original input and require transparent county selection", async ({ page }) => {
   await page.goto("/explore", { waitUntil: "domcontentloaded" });
+  await page.waitForLoadState("networkidle");
   const search = page.getByRole("combobox", { name: "ZIP Code, city or county" });
   await search.fill("19104");
+  await expect(search).toHaveValue("19104");
   const zipOption = page.getByRole("option", { name: /19104.*ZIP Code/i }).first();
   await expect(zipOption).toBeVisible();
   await zipOption.click();
@@ -156,8 +158,10 @@ test("ZIP and multi-county place searches preserve the original input and requir
   await expect(page.getByText(/Search resolved from (?:ZIP Code )?19104 to this county/i)).toBeVisible();
 
   await page.goto("/explore", { waitUntil: "domcontentloaded" });
+  await page.waitForLoadState("networkidle");
   const citySearch = page.getByRole("combobox", { name: "ZIP Code, city or county" });
   await citySearch.fill("Kansas City, MO");
+  await expect(citySearch).toHaveValue("Kansas City, MO");
   const cityOption = page.getByRole("option", { name: /Kansas City, MO.*City or place/i }).first();
   await expect(cityOption).toBeVisible();
   await expect(cityOption).not.toContainText("MO, MO");

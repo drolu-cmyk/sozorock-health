@@ -3,7 +3,8 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const appDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const nextBin = path.join(appDir, "node_modules", "next", "dist", "bin", "next");
+const repositoryRoot = path.resolve(appDir, "../..");
+const nextBin = path.join(repositoryRoot, "node_modules", "next", "dist", "bin", "next");
 const validator = path.join(appDir, "scripts", "validate-national-api.mjs");
 const baseUrl = process.env.EXPLORE_VALIDATION_BASE_URL ?? "http://127.0.0.1:4318";
 const parsed = new URL(baseUrl);

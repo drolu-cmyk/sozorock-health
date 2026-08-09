@@ -45,6 +45,15 @@ if (forbiddenPaths.length) {
   );
 }
 
+const postcssPaths = files.filter((file) =>
+  /(^|[\\/])node_modules[\\/](?:next[\\/]node_modules[\\/])?postcss([\\/]|$)/i.test(file),
+);
+if (postcssPaths.length) {
+  throw new Error(
+    `Build-only PostCSS exists in the runtime artifact:\n${postcssPaths.join("\n")}`,
+  );
+}
+
 // Next.js may omit images-manifest.json when image optimization is fully
 // disabled. When it is present, validate the artifact's explicit setting; when
 // it is absent, validate the checked-in build configuration and the rendered
@@ -69,9 +78,23 @@ if (imagesManifestPresent) {
 
 const traceFiles = files.filter((file) => file.endsWith(".nft.json"));
 for (const file of traceFiles) {
-  const trace = await readFile(file, "utf8");
-  if (/(^|[\\/"'])sharp([\\/"']|$)|libvips/i.test(trace)) {
+  const trace = JSON.parse(await readFile(file, "utf8"));
+  const tracedFiles = Array.isArray(trace.files) ? trace.files : [];
+  if (
+    tracedFiles.some((entry) =>
+      /(^|[\\/])sharp([\\/]|$)|libvips/i.test(String(entry)),
+    )
+  ) {
     throw new Error(`Runtime trace imports Sharp/libvips: ${file}`);
+  }
+  if (
+    tracedFiles.some((entry) =>
+      /(^|[\\/])node_modules[\\/](?:next[\\/]node_modules[\\/])?postcss([\\/]|$)/i.test(
+        String(entry),
+      ),
+    )
+  ) {
+    throw new Error(`Runtime trace imports build-only PostCSS: ${file}`);
   }
 }
 
@@ -103,8 +126,10 @@ const report = {
   imagesManifestPresent,
   sharpPresentInRuntimeArtifact: false,
   libvipsPresent: false,
+  postcssPresentInRuntimeArtifact: false,
   nextImageRouteRequiredByRenderedHtml: false,
   runtimeTraceImportsSharp: false,
+  runtimeTraceImportsPostcss: false,
   fileCount: manifestEntries.length,
   artifactSha256: createHash("sha256")
     .update(JSON.stringify(manifestEntries))
