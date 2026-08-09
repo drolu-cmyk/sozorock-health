@@ -30,7 +30,7 @@ export type PlaceEvidenceAnswer = {
   citedEvidence: Array<{
     citationId: string;
     claim: string;
-    evidenceType: "metric_observation" | "local_plan" | "source_coverage" | "planning_status";
+    evidenceType: "metric_observation" | "local_plan" | "source_coverage" | "planning_status" | "workforce_designation";
     sourceName: string;
     officialUrl: string | null;
     releaseDate: string | null;
@@ -318,7 +318,7 @@ const answerSchema = {
         properties: {
           citationId: { type: "string" },
           claim: { type: "string" },
-          evidenceType: { type: "string", enum: ["metric_observation", "local_plan", "source_coverage", "planning_status"] },
+          evidenceType: { type: "string", enum: ["metric_observation", "local_plan", "source_coverage", "planning_status", "workforce_designation"] },
           sourceName: { type: "string" },
           officialUrl: { type: ["string", "null"] },
           releaseDate: { type: ["string", "null"] },

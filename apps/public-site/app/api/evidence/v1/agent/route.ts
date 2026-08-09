@@ -95,7 +95,13 @@ export async function POST(request: NextRequest) {
       auditWorkspaceId = body.workspaceId;
       auditSectionKey = body.sectionKey ?? "plan";
     }
-    requestHash = sha256({ geoid: body.geoid, question: body.question.trim(), inputMode: body.inputMode ?? "typed" });
+    requestHash = sha256({
+      geoid: body.geoid,
+      question: body.question.trim(),
+      inputMode: body.inputMode ?? "typed",
+      workspaceId: body.workspaceId ?? null,
+      sectionKey: body.workspaceId ? body.sectionKey ?? "plan" : null,
+    });
     authority = await requireEvidenceAuthority(placeAgentRuntimeVersions.snapshotContentHash);
     geographyUuid = await requireEvidenceGeographyId(body.geoid);
     if (!authority.narrativeEnabled || !authority.openAiEnabled) {
@@ -117,6 +123,25 @@ export async function POST(request: NextRequest) {
     const output = await provider.generate({ geoid: body.geoid, question: body.question.trim() });
     if (output.snapshotContentHash !== authority.snapshotContentHash) {
       throw new Error("Agent output snapshot does not match the approved evidence authority.");
+    }
+    let workspaceSuggestion: Awaited<ReturnType<typeof createWorkspaceAgentSuggestion>> | null = null;
+    if (body.workspaceId && output.answer.status !== "refused") {
+      if (!workspaceActor) throw new Error("The county workspace authorization was not established.");
+      workspaceSuggestion = await createWorkspaceAgentSuggestion({
+        workspaceId: body.workspaceId,
+        tenantId: workspaceActor.tenantId,
+        requestingActor: workspaceActor,
+        sectionKey: body.sectionKey ?? "plan",
+        content: {
+          answer: output.answer.answer,
+          citations: output.answer.citedEvidence,
+          visualIntent: output.answer.visualIntent,
+          evidenceSnapshotContentHash: output.snapshotContentHash,
+          model: output.model,
+          policyVersion: placeAgentRuntimeVersions.policyVersion,
+        },
+        idempotencyKey: `agent-suggestion:${requestHash}`,
+      });
     }
     await writeExecutionAudit({
       executionType: "internal_agent",
@@ -142,6 +167,7 @@ export async function POST(request: NextRequest) {
         transcriptHash: body.inputMode === "voice" ? body.transcriptHash ?? null : null,
         workspaceId: auditWorkspaceId,
         sectionKey: auditSectionKey,
+        workspaceSuggestionId: workspaceSuggestion?.id ?? null,
       },
     });
     try {
@@ -159,25 +185,6 @@ export async function POST(request: NextRequest) {
       });
     } catch {
       console.error("place-evidence-agent-performance-audit-failed");
-    }
-    let workspaceSuggestion: Awaited<ReturnType<typeof createWorkspaceAgentSuggestion>> | null = null;
-    if (body.workspaceId && output.answer.status !== "refused") {
-      if (!workspaceActor) throw new Error("The county workspace authorization was not established.");
-      workspaceSuggestion = await createWorkspaceAgentSuggestion({
-        workspaceId: body.workspaceId,
-        tenantId: workspaceActor.tenantId,
-        requestingActor: workspaceActor,
-        sectionKey: body.sectionKey ?? "plan",
-        content: {
-          answer: output.answer.answer,
-          citations: output.answer.citedEvidence,
-          visualIntent: output.answer.visualIntent,
-          evidenceSnapshotContentHash: output.snapshotContentHash,
-          model: output.model,
-          policyVersion: placeAgentRuntimeVersions.policyVersion,
-        },
-        idempotencyKey: `agent-suggestion:${requestHash}`,
-      });
     }
     return NextResponse.json({ ...output.answer, workspaceSuggestion }, {
       headers: {

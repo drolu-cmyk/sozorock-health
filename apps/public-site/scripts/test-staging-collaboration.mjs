@@ -153,6 +153,47 @@ const viewerWrite = await request(sectionPath, viewerToken, {
 });
 assert.equal(viewerWrite.status, 403);
 
+const scenario = await json(await request(
+  `/api/evidence/v1/workspaces/${workspaceId}/scenarios`,
+  ownerToken,
+  {
+    method: "POST",
+    headers: { "Idempotency-Key": randomUUID() },
+    body: JSON.stringify({
+      name: "Staging review path",
+      inputs: {
+        hubLocations: [{ type: "library", count: 1 }],
+        eventFrequencyPerYear: 1,
+        verifiedPartnerCapacity: null,
+        geographicReach: null,
+        publicTransportationContext: null,
+        digitalReadinessSupport: null,
+        workforceAvailability: null,
+        confirmedLocalPriorityIds: [],
+        assumptions: [{ key: "staging", value: "Human review required", owner: "staging-owner" }],
+      },
+      evidenceUsed: [],
+      evidenceMissing: ["Verified local delivery capacity"],
+    }),
+  },
+));
+assert.equal(scenario.scenario.output.humanReviewStatus, "not_reviewed");
+const reviewedScenario = await json(await request(
+  `/api/evidence/v1/workspaces/${workspaceId}/scenarios`,
+  ownerToken,
+  {
+    method: "PATCH",
+    headers: { "Idempotency-Key": randomUUID() },
+    body: JSON.stringify({ scenarioId: scenario.scenario.id, decision: "verified" }),
+  },
+));
+assert.equal(reviewedScenario.result.version, 2);
+assert.equal(reviewedScenario.result.humanReviewStatus, "verified");
+const planAfterReview = await json(await request(`/api/evidence/v1/workspaces/${workspaceId}`, ownerToken));
+const persistedScenario = planAfterReview.scenarios.find((item) => item.id === scenario.scenario.id);
+assert.equal(persistedScenario.version, 2);
+assert.equal(persistedScenario.humanReviewStatus, "verified");
+
 const afterReconnect = await json(await request(
   `/api/evidence/v1/workspaces/${workspaceId}/events?after=${createdEvent.event.sequenceNumber - 1}`,
   contributorToken,
@@ -168,5 +209,6 @@ console.log(JSON.stringify({
   idempotency: "passed",
   concurrency: "passed",
   viewerAuthorization: "passed",
+  immutableScenarioReview: "passed",
   resumeFromSequence: "passed",
 }));

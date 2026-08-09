@@ -350,19 +350,21 @@ export function recomputeEvidenceAssessment(
   const evidenceIds = adverseSignals.map((observation) => observation.id);
   const hrsaCoverage = brief.publicData.sourceCoverage.find((coverage) => coverage.sourceId === "hrsa-workforce");
   const ahrfCoverage = brief.publicData.sourceCoverage.find((coverage) => coverage.sourceId === "ahrf-workforce");
-  const hrsaRecordCount = workforceRecords.length;
-  const hrsaWholeCountyRecordCount = workforceRecords.filter((record) => record.wholeCounty).length;
-  const hrsaScopedRecordCount = Math.max(0, hrsaRecordCount - hrsaWholeCountyRecordCount);
   const hrsaAvailable = Boolean(hrsaCoverage && ["available", "partially_available"].includes(hrsaCoverage.status));
+  const compatibleWorkforceRecords = hrsaAvailable ? workforceRecords : [];
+  const hrsaRecordCount = compatibleWorkforceRecords.length;
+  const hrsaWholeCountyRecordCount = compatibleWorkforceRecords.filter((record) => record.wholeCounty).length;
+  const hrsaScopedRecordCount = Math.max(0, hrsaRecordCount - hrsaWholeCountyRecordCount);
   const ahrfSourceVersionIds = new Set(
     brief.publicData.sources
       .filter((source) => source.sourceId === "ahrf-workforce")
       .map((source) => source.sourceVersionId),
   );
-  const ahrfObservations = brief.publicData.observations
-    .filter((observation) => ahrfSourceVersionIds.has(observation.sourceVersionId));
-  const ahrfRecordCount = ahrfObservations.length;
   const ahrfAvailable = Boolean(ahrfCoverage && ["available", "partially_available"].includes(ahrfCoverage.status));
+  const ahrfObservations = ahrfAvailable
+    ? brief.publicData.observations.filter((observation) => ahrfSourceVersionIds.has(observation.sourceVersionId))
+    : [];
+  const ahrfRecordCount = ahrfObservations.length;
   const workforceEvidenceAvailable = hrsaRecordCount > 0 || ahrfRecordCount > 0;
   const hrsaScope = hrsaWholeCountyRecordCount > 0
     ? "whole_county_available" as const
@@ -414,7 +416,7 @@ export function recomputeEvidenceAssessment(
     geography: geographyName,
     status: brief.localPlanningEvidence.status,
   });
-  workforceRecords.forEach((record, index) => {
+  compatibleWorkforceRecords.forEach((record, index) => {
     const sourceId = record.sourceId ?? "hrsa-workforce";
     const source = sourceById.get(sourceId);
     const designationId = record.designationId ?? `record-${index + 1}`;

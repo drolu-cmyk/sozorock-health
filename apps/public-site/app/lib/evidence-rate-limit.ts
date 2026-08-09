@@ -113,3 +113,55 @@ export async function enforceAgentRateLimit(request: NextRequest) {
     throw error;
   }
 }
+
+export async function enforceVoiceTranscriptionRateLimit(request: NextRequest) {
+  if (process.env.RUNTIME_ENV?.trim().toLowerCase() === "test" && !tableName) {
+    return { allowed: true as const, retryAfter: null };
+  }
+  if (!tableName) return { allowed: false as const, retryAfter: null };
+  const epoch = Math.floor(Date.now() / 1000);
+  const hour = Math.floor(epoch / 3600);
+  const day = Math.floor(epoch / 86400);
+  const namespace = agentRateLimitNamespace();
+  const clientHash = createHash("sha256")
+    .update(`${await salt()}:voice-transcription:${clientNetworkAddress(request.headers)}`)
+    .digest("hex");
+  const perNetworkPerHour = Number(process.env.VOICE_TRANSCRIPTION_MAX_PER_NETWORK_HOUR || "6");
+  const globalPerDay = Number(process.env.VOICE_TRANSCRIPTION_MAX_GLOBAL_DAY || "30");
+  if (!Number.isInteger(perNetworkPerHour) || perNetworkPerHour < 1
+    || !Number.isInteger(globalPerDay) || globalPerDay < 1) {
+    return { allowed: false as const, retryAfter: null };
+  }
+  try {
+    await dynamo.send(new UpdateCommand({
+      TableName: tableName,
+      Key: { submissionId: `voice-transcription-global#${namespace}#${day}` },
+      UpdateExpression: "ADD requestCount :one SET expiresAt = :expiresAt, recordType = :recordType",
+      ConditionExpression: "attribute_not_exists(requestCount) OR requestCount < :maximum",
+      ExpressionAttributeValues: {
+        ":one": 1,
+        ":maximum": globalPerDay,
+        ":expiresAt": epoch + 172800,
+        ":recordType": "voice-transcription-global-cost-limit",
+      },
+    }));
+    await dynamo.send(new UpdateCommand({
+      TableName: tableName,
+      Key: { submissionId: `voice-transcription-rate#${namespace}#${clientHash}#${hour}` },
+      UpdateExpression: "ADD requestCount :one SET expiresAt = :expiresAt, recordType = :recordType",
+      ConditionExpression: "attribute_not_exists(requestCount) OR requestCount < :maximum",
+      ExpressionAttributeValues: {
+        ":one": 1,
+        ":maximum": perNetworkPerHour,
+        ":expiresAt": epoch + 7200,
+        ":recordType": "voice-transcription-rate-limit",
+      },
+    }));
+    return { allowed: true as const, retryAfter: null };
+  } catch (error) {
+    if ((error as { name?: string }).name === "ConditionalCheckFailedException") {
+      return { allowed: false as const, retryAfter: 3600 };
+    }
+    throw error;
+  }
+}

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { enforceAgentRateLimit } from "../../../../../lib/evidence-rate-limit";
+import { enforceVoiceTranscriptionRateLimit } from "../../../../../lib/evidence-rate-limit";
 import {
   requireEvidenceAuthority,
   requireEvidenceGeographyId,
@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
     if (!isTrustedSameOrigin(request, allowedHosts)) {
       return NextResponse.json({ error: "Request origin was not accepted." }, { status: 403 });
     }
-    const rate = await enforceAgentRateLimit(request);
+    const rate = await enforceVoiceTranscriptionRateLimit(request);
     if (!rate.allowed) {
       return NextResponse.json({ error: "Please wait before using Voice Access again." }, { status: rate.retryAfter ? 429 : 503 });
     }

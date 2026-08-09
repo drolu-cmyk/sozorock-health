@@ -348,6 +348,17 @@
       }
     },
     "/api/evidence/v1/workspaces/{workspaceId}": {
+      "parameters": [
+        {
+          "name": "workspaceId",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      ],
       "get": {
         "tags": [
           "Workspace"
@@ -356,17 +367,6 @@
         "security": [
           {
             "cognitoAccessToken": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "workspaceId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
           }
         ],
         "responses": {
@@ -387,6 +387,17 @@
       }
     },
     "/api/evidence/v1/workspaces/{workspaceId}/events": {
+      "parameters": [
+        {
+          "name": "workspaceId",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      ],
       "get": {
         "tags": [
           "Workspace"
@@ -478,6 +489,17 @@
       }
     },
     "/api/evidence/v1/workspaces/{workspaceId}/share": {
+      "parameters": [
+        {
+          "name": "workspaceId",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      ],
       "get": {
         "tags": [
           "Workspace"
@@ -661,6 +683,17 @@
       }
     },
     "/api/evidence/v1/workspaces/{workspaceId}/audit": {
+      "parameters": [
+        {
+          "name": "workspaceId",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      ],
       "get": {
         "tags": [
           "Workspace"
@@ -862,6 +895,17 @@
       }
     },
     "/api/evidence/v1/workspaces/{workspaceId}/scenarios": {
+      "parameters": [
+        {
+          "name": "workspaceId",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      ],
       "post": {
         "tags": [
           "Workspace"
@@ -934,6 +978,96 @@
             }
           }
         }
+      },
+      "patch": {
+        "tags": [
+          "Workspace"
+        ],
+        "summary": "Append a human review decision as a new immutable scenario version.",
+        "security": [
+          {
+            "cognitoAccessToken": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "scenarioId",
+                  "decision"
+                ],
+                "properties": {
+                  "scenarioId": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "decision": {
+                    "type": "string",
+                    "enum": [
+                      "verified",
+                      "rejected"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request rejected or evidence unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Request rejected or evidence unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Request rejected or evidence unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Request rejected or evidence unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/api/evidence/v1/heat-map": {
@@ -948,7 +1082,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/CountySetRequest"
+                "$ref": "#/components/schemas/HeatMapCountySetRequest"
               }
             }
           }
@@ -1121,6 +1255,31 @@
           "geoids": {
             "type": "array",
             "minItems": 1,
+            "maxItems": 25,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "pattern": "^[0-9]{5}$",
+              "description": "Current Census county or county-equivalent GEOID."
+            }
+          },
+          "measureDefinitionId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "HeatMapCountySetRequest": {
+        "type": "object",
+        "required": [
+          "geoids"
+        ],
+        "properties": {
+          "geoids": {
+            "type": "array",
+            "minItems": 2,
             "maxItems": 25,
             "uniqueItems": true,
             "items": {

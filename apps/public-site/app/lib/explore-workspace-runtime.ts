@@ -465,14 +465,38 @@ export async function reviewPlanningScenario(input: {
     ], transactionId);
     const version = Number(evidenceFieldValue(result.records?.[0]?.[0]) ?? 0);
     if (!version) throw new Error("The scenario is unavailable.");
-    await executeEvidenceSql(`UPDATE evidence.planning_scenario_version SET human_review_status=:decision WHERE scenario_id=CAST(:scenario_id AS uuid) AND version=:version`, [
-      { name: "decision", value: { stringValue: input.decision } }, { name: "scenario_id", value: { stringValue: input.scenarioId } }, { name: "version", value: { longValue: version } },
+    const reviewedVersion = version + 1;
+    const reviewedVersionId = randomUUID();
+    const inserted = await executeEvidenceSql(
+      `INSERT INTO evidence.planning_scenario_version (
+         id, scenario_id, version, model_version, inputs, formulae, evidence_used,
+         evidence_missing, outputs, assumption_owner, human_review_status,
+         created_by, created_at
+       )
+       SELECT CAST(:version_id AS uuid), scenario_id, :reviewed_version, model_version,
+         inputs, formulae, evidence_used, evidence_missing, outputs, assumption_owner,
+         :decision, :reviewed_by, now()
+       FROM evidence.planning_scenario_version
+       WHERE scenario_id=CAST(:scenario_id AS uuid) AND version=:source_version
+       RETURNING id::text`,
+      [
+        { name: "version_id", value: { stringValue: reviewedVersionId } },
+        { name: "reviewed_version", value: { longValue: reviewedVersion } },
+        { name: "decision", value: { stringValue: input.decision } },
+        { name: "reviewed_by", value: { stringValue: input.actor.principalId } },
+        { name: "scenario_id", value: { stringValue: input.scenarioId } },
+        { name: "source_version", value: { longValue: version } },
+      ],
+      transactionId,
+    );
+    if (!inserted.records?.[0]) throw new Error("The scenario version is unavailable.");
+    await executeEvidenceSql(`UPDATE evidence.planning_scenario SET status=:status, current_version=:reviewed_version WHERE id=CAST(:scenario_id AS uuid)`, [
+      { name: "status", value: { stringValue: input.decision === "verified" ? "accepted" : "local_review" } },
+      { name: "reviewed_version", value: { longValue: reviewedVersion } },
+      { name: "scenario_id", value: { stringValue: input.scenarioId } },
     ], transactionId);
-    await executeEvidenceSql(`UPDATE evidence.planning_scenario SET status=:status WHERE id=CAST(:scenario_id AS uuid)`, [
-      { name: "status", value: { stringValue: input.decision === "verified" ? "accepted" : "local_review" } }, { name: "scenario_id", value: { stringValue: input.scenarioId } },
-    ], transactionId);
-    const event = await appendWorkspaceEvent({ workspaceId: input.workspaceId, tenantId: input.tenantId, eventType: "human_review_completed", actor: input.actor, idempotencyKey: input.idempotencyKey, evidenceSnapshotId: null, payload: { scenarioId: input.scenarioId, version, decision: input.decision }, transactionId });
-    return { scenarioId: input.scenarioId, version, humanReviewStatus: input.decision, event };
+    const event = await appendWorkspaceEvent({ workspaceId: input.workspaceId, tenantId: input.tenantId, eventType: "human_review_completed", actor: input.actor, idempotencyKey: input.idempotencyKey, evidenceSnapshotId: null, payload: { scenarioId: input.scenarioId, reviewedFromVersion: version, version: reviewedVersion, scenarioVersionId: reviewedVersionId, decision: input.decision }, transactionId });
+    return { scenarioId: input.scenarioId, version: reviewedVersion, humanReviewStatus: input.decision, event };
   });
 }
 

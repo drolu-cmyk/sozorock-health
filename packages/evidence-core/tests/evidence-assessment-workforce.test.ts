@@ -127,3 +127,22 @@ test("available source with no county records is distinct from source unavailabl
   ]));
   assert.equal(unavailable.workforce?.hrsa.scope, "source_unavailable");
 });
+
+test("stale or failed workforce sources cannot support response fit", () => {
+  const result = recomputeEvidenceAssessment(brief([
+    coverage("hrsa-workforce", "stale", 12),
+    coverage("ahrf-workforce", "ingestion_failed", 7),
+  ], 7), Array.from({ length: 12 }, (_, index) => ({
+    wholeCounty: index === 0,
+    designationId: `stale-${index + 1}`,
+    sourceId: "hrsa-workforce",
+    sourceVersionId: "version:hrsa-workforce",
+  })));
+  const fit = result.responseFits.find((candidate) => candidate.response === "workforce_conversation");
+  assert.equal(result.workforce?.hrsa.scope, "source_unavailable");
+  assert.equal(result.workforce?.hrsa.recordCount, 0);
+  assert.equal(result.workforce?.ahrf.recordCount, 0);
+  assert.equal(fit?.status, "insufficient_evidence");
+  assert.deepEqual(fit?.evidenceIds, []);
+  assert.equal(result.references?.some((reference) => reference.evidenceType === "workforce_designation"), false);
+});
