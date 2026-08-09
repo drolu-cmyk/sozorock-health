@@ -40,6 +40,25 @@ jobs:
           else
             echo "changed=true" >> "$GITHUB_OUTPUT"
           fi
+      - name: Detect CB-CAP application changes
+        id: platform-scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            base="${{ github.event.pull_request.base.sha }}"
+            head="${{ github.event.pull_request.head.sha }}"
+          else
+            base="${{ github.event.before }}"
+            head="${{ github.sha }}"
+          fi
+          if [ -z "$base" ] || [ "$base" = "0000000000000000000000000000000000000000" ]; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          elif git diff --quiet "$base" "$head" -- apps/platform packages/domain; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
       - run: npm run typecheck
       - run: npm run lint
       - run: npm test
@@ -61,4 +80,17 @@ jobs:
       - name: Export iOS application
         if: steps.mobile-scope.outputs.changed == 'true'
         run: npm exec --workspace @sozorock/mobile -- expo export --platform ios --output-dir dist/ci-ios
-      - run: npm audit --omit=dev --omit=optional --audit-level=moderate
+      - name: Audit shipped dependency scopes
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm audit --workspace @sozorock/public-site --omit=dev --omit=optional --audit-level=moderate
+          npm audit --workspace @sozorock/evidence-core --omit=dev --omit=optional --audit-level=moderate
+          npm audit --workspace @sozorock/explore-realtime --omit=dev --omit=optional --audit-level=moderate
+          npm run verify:public-dependency-security
+          if [ "${{ steps.mobile-scope.outputs.changed }}" = "true" ]; then
+            npm audit --workspace @sozorock/mobile --omit=dev --omit=optional --audit-level=moderate
+          fi
+          if [ "${{ steps.platform-scope.outputs.changed }}" = "true" ]; then
+            npm audit --workspace @sozorock/platform --workspace @sozorock/domain --omit=dev --omit=optional --audit-level=moderate
+          fi
