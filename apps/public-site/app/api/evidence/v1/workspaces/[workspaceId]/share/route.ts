@@ -22,7 +22,10 @@ export async function POST(request: NextRequest, context: Context) {
     const bounded = await readBoundedText(request, 4_000, ["application/json"]);
     if (!bounded.ok) return NextResponse.json({ error: "The request was not accepted." }, { status: 400 });
     const body = JSON.parse(bounded.text) as Record<string, unknown>;
-    const scope = body.scope === "contributor" ? "contributor" : "read_only";
+    if (body.scope !== undefined && body.scope !== "read_only") {
+      return NextResponse.json({ error: "Only read-only public share links are supported." }, { status: 400, headers: { "Cache-Control": "no-store" } });
+    }
+    const scope = "read_only" as const;
     const expiresInHours = typeof body.expiresInHours === "number" ? body.expiresInHours : undefined;
     const share = await createWorkspaceShareLink({ workspaceId, tenantId: actor.tenantId, actor, scope, expiresInHours });
     return NextResponse.json({ contractVersion: "explore.workspace-share.v1", share }, { status: 201, headers: { "Cache-Control": "no-store" } });

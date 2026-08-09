@@ -87,6 +87,27 @@ test("scenario review appends an immutable version instead of updating history",
   assert.doesNotMatch(review, /UPDATE evidence\.planning_scenario_version/);
 });
 
+test("scenario creation recovers the original result before inserting on retry", async () => {
+  const runtime = await read("app/lib/explore-workspace-runtime.ts");
+  const start = runtime.indexOf("export async function createPlanningScenario");
+  const creation = runtime.slice(start, runtime.indexOf("export async function reviewPlanningScenario", start));
+  const recovery = creation.indexOf("idempotency_key=:idempotency_key");
+  const insert = creation.indexOf("INSERT INTO evidence.planning_scenario (");
+  assert.ok(recovery >= 0 && recovery < insert);
+  assert.match(creation, /eventType !== "scenario_created" \|\| payload\.requestHash !== scenarioRequestHash/);
+  assert.match(creation, /requestHash: scenarioRequestHash/);
+  assert.match(creation, /idempotent scenario version could not be recovered/);
+});
+
+test("public share links are explicitly read-only until a governed write path exists", async () => {
+  const route = await read("app/api/evidence/v1/workspaces/[workspaceId]/share/route.ts");
+  const runtime = await read("app/lib/explore-workspace-runtime.ts");
+  assert.match(route, /body\.scope !== undefined && body\.scope !== "read_only"/);
+  assert.match(route, /Only read-only public share links are supported/);
+  assert.match(runtime, /scope: "read_only";/);
+  assert.match(runtime, /l\.scope='read_only'/);
+});
+
 test("served OpenAPI declares every path variable and heat maps require multiple counties", () => {
   for (const [path, pathItem] of Object.entries(exploreOpenApiDocument.paths)) {
     const variables = [...path.matchAll(/\{([^}]+)\}/g)].map((match) => match[1]);

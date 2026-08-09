@@ -377,6 +377,12 @@ export async function createPlanningScenario(input: {
   if (input.actor.actorType !== "human") {
     throw new Error("A human participant must own planning assumptions.");
   }
+  const scenarioRequestHash = sha256({
+    name: input.name.slice(0, 160),
+    scenarioInputs: input.scenarioInputs,
+    evidenceUsed: input.evidenceUsed,
+    evidenceMissing: input.evidenceMissing,
+  });
   const output = buildPlanningScenario({
     inputs: input.scenarioInputs,
     evidenceUsed: input.evidenceUsed,
@@ -393,6 +399,58 @@ export async function createPlanningScenario(input: {
       write: true,
       transactionId,
     });
+    await executeEvidenceSql(
+      "SELECT pg_advisory_xact_lock(hashtext(:workspace_id))",
+      [{ name: "workspace_id", value: { stringValue: input.workspaceId } }],
+      transactionId,
+    );
+    const priorCreation = await executeEvidenceSql(
+      `SELECT id::text, sequence_number, event_type::text, occurred_at::text, payload::text
+       FROM evidence.workspace_event
+       WHERE workspace_id=CAST(:workspace_id AS uuid)
+         AND tenant_id=CAST(:tenant_id AS uuid)
+         AND idempotency_key=:idempotency_key
+       FOR UPDATE`,
+      [
+        { name: "workspace_id", value: { stringValue: input.workspaceId } },
+        { name: "tenant_id", value: { stringValue: input.tenantId } },
+        { name: "idempotency_key", value: { stringValue: input.idempotencyKey.slice(0, 200) } },
+      ],
+      transactionId,
+    );
+    const priorCreationRecord = priorCreation.records?.[0];
+    if (priorCreationRecord) {
+      const eventType = String(evidenceFieldValue(priorCreationRecord[2]) ?? "");
+      const payload = JSON.parse(String(evidenceFieldValue(priorCreationRecord[4]) ?? "{}")) as Record<string, unknown>;
+      if (eventType !== "scenario_created" || payload.requestHash !== scenarioRequestHash) {
+        throw new Error("The idempotency key is already bound to a different workspace mutation.");
+      }
+      const scenarioId = String(payload.scenarioId ?? "");
+      const versionId = String(payload.scenarioVersionId ?? "");
+      const priorVersion = await executeEvidenceSql(
+        `SELECT outputs::text
+         FROM evidence.planning_scenario_version
+         WHERE id=CAST(:version_id AS uuid) AND scenario_id=CAST(:scenario_id AS uuid)`,
+        [
+          { name: "version_id", value: { stringValue: versionId } },
+          { name: "scenario_id", value: { stringValue: scenarioId } },
+        ],
+        transactionId,
+      );
+      if (!priorVersion.records?.[0]?.[0]) throw new Error("The idempotent scenario version could not be recovered.");
+      return {
+        id: scenarioId,
+        versionId,
+        output: JSON.parse(String(evidenceFieldValue(priorVersion.records[0][0]) ?? "{}")) as typeof output,
+        event: {
+          id: String(evidenceFieldValue(priorCreationRecord[0]) ?? ""),
+          sequenceNumber: Number(evidenceFieldValue(priorCreationRecord[1]) ?? 0),
+          eventType,
+          occurredAt: String(evidenceFieldValue(priorCreationRecord[3]) ?? ""),
+          inserted: false,
+        },
+      };
+    }
     const scenarioId = randomUUID();
     const versionId = randomUUID();
     await executeEvidenceSql(
@@ -446,6 +504,7 @@ export async function createPlanningScenario(input: {
         scenarioVersionId: versionId,
         name: input.name.slice(0, 160),
         humanReviewStatus: output.humanReviewStatus,
+        requestHash: scenarioRequestHash,
       },
       transactionId,
     });
@@ -1126,7 +1185,7 @@ export async function createWorkspaceShareLink(input: {
   workspaceId: string;
   tenantId: string;
   actor: WorkspaceActor;
-  scope: "read_only" | "contributor";
+  scope: "read_only";
   expiresInHours?: number;
 }) {
   if (input.actor.actorType !== "human" || input.actor.access !== "owner") {
@@ -1320,7 +1379,8 @@ export async function readWorkspaceShareLink(input: { token: string }) {
      FROM evidence.workspace_share_link l
      JOIN evidence.county_workspace w ON w.id=l.workspace_id
      JOIN evidence.geography g ON g.id=w.geography_id
-     WHERE l.token_hash=:token_hash AND l.revoked_at IS NULL AND l.expires_at > now()
+     WHERE l.token_hash=:token_hash AND l.scope='read_only'
+       AND l.revoked_at IS NULL AND l.expires_at > now()
        AND w.status='active'`,
     [{ name: "token_hash", value: { stringValue: hashOpaqueToken(input.token) } }],
   );

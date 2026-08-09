@@ -153,12 +153,13 @@ const viewerWrite = await request(sectionPath, viewerToken, {
 });
 assert.equal(viewerWrite.status, 403);
 
+const scenarioCreationIdempotencyKey = randomUUID();
 const scenario = await json(await request(
   `/api/evidence/v1/workspaces/${workspaceId}/scenarios`,
   ownerToken,
   {
     method: "POST",
-    headers: { "Idempotency-Key": randomUUID() },
+    headers: { "Idempotency-Key": scenarioCreationIdempotencyKey },
     body: JSON.stringify({
       name: "Staging review path",
       inputs: {
@@ -178,6 +179,32 @@ const scenario = await json(await request(
   },
 ));
 assert.equal(scenario.scenario.output.humanReviewStatus, "not_reviewed");
+const retriedScenarioCreation = await json(await request(
+  `/api/evidence/v1/workspaces/${workspaceId}/scenarios`,
+  ownerToken,
+  {
+    method: "POST",
+    headers: { "Idempotency-Key": scenarioCreationIdempotencyKey },
+    body: JSON.stringify({
+      name: "Staging review path",
+      inputs: {
+        hubLocations: [{ type: "library", count: 1 }],
+        eventFrequencyPerYear: 1,
+        verifiedPartnerCapacity: null,
+        geographicReach: null,
+        publicTransportationContext: null,
+        digitalReadinessSupport: null,
+        workforceAvailability: null,
+        confirmedLocalPriorityIds: [],
+        assumptions: [{ key: "staging", value: "Human review required", owner: "staging-owner" }],
+      },
+      evidenceUsed: [],
+      evidenceMissing: ["Verified local delivery capacity"],
+    }),
+  },
+));
+assert.equal(retriedScenarioCreation.scenario.id, scenario.scenario.id);
+assert.equal(retriedScenarioCreation.scenario.event.sequenceNumber, scenario.scenario.event.sequenceNumber);
 const scenarioReviewIdempotencyKey = randomUUID();
 const reviewedScenario = await json(await request(
   `/api/evidence/v1/workspaces/${workspaceId}/scenarios`,
