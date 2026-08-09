@@ -1,6 +1,7 @@
 import { deterministicUuid } from "../ingestion/hash.ts";
 import {
   EXPLORE_PLACE_BRIEF_VERSION,
+  type ExploreAssessmentReference,
   type ExploreObservation,
   type ExplorePlaceBriefV1,
   type ExploreSourceCoverage,
@@ -240,6 +241,9 @@ export function buildCountyPlaceBrief(
         authority: "census",
         authorityId: record.fips,
         displayName: `${record.county}, ${record.stateCode}`,
+        stateFips: record.stateFips,
+        stateCode: record.stateCode,
+        stateName: record.state,
         vintage: snapshot.censusVintage,
         reviewStatus: "verified",
       },
@@ -249,6 +253,9 @@ export function buildCountyPlaceBrief(
         authority: "census",
         authorityId: record.fips,
         displayName: `${record.county}, ${record.stateCode}`,
+        stateFips: record.stateFips,
+        stateCode: record.stateCode,
+        stateName: record.state,
         vintage: snapshot.censusVintage,
         reviewStatus: "verified",
       }],
@@ -314,7 +321,10 @@ export function buildCountyPlaceBrief(
  * been applied. This is the single assessment policy used by API responses,
  * agent context and exports; it never relies on fixture-era missingness.
  */
-export function recomputeEvidenceAssessment(brief: ExplorePlaceBriefV1): ExplorePlaceBriefV1["evidenceAssessment"] {
+export function recomputeEvidenceAssessment(
+  brief: ExplorePlaceBriefV1,
+  workforceRecords: Array<{ wholeCounty: boolean }> = [],
+): ExplorePlaceBriefV1["evidenceAssessment"] {
   const selected = brief.resolution.selected;
   const available = brief.publicData.sourceCoverage.filter((coverage) =>
     coverage.status === "available" || coverage.status === "partially_available",
@@ -328,6 +338,65 @@ export function recomputeEvidenceAssessment(brief: ExplorePlaceBriefV1): Explore
   const localPlanVerified = brief.localPlanningEvidence.status === "verified"
     && brief.localPlanningEvidence.documents.some((document) => document.reviewStatus === "verified");
   const evidenceIds = adverseSignals.map((observation) => observation.id);
+  const hrsaCoverage = brief.publicData.sourceCoverage.find((coverage) => coverage.sourceId === "hrsa-workforce");
+  const ahrfCoverage = brief.publicData.sourceCoverage.find((coverage) => coverage.sourceId === "ahrf-workforce");
+  const hrsaRecordCount = workforceRecords.length || hrsaCoverage?.observationCount || 0;
+  const hrsaWholeCountyRecordCount = workforceRecords.filter((record) => record.wholeCounty).length;
+  const hrsaScopedRecordCount = Math.max(0, hrsaRecordCount - hrsaWholeCountyRecordCount);
+  const hrsaAvailable = Boolean(hrsaCoverage && ["available", "partially_available"].includes(hrsaCoverage.status));
+  const ahrfRecordCount = ahrfCoverage?.observationCount ?? 0;
+  const ahrfAvailable = Boolean(ahrfCoverage && ["available", "partially_available"].includes(ahrfCoverage.status));
+  const workforceEvidenceAvailable = hrsaRecordCount > 0 || ahrfRecordCount > 0;
+  const hrsaScope = hrsaWholeCountyRecordCount > 0
+    ? "whole_county_available" as const
+    : hrsaRecordCount > 0
+      ? "scoped_records_available" as const
+      : hrsaAvailable
+        ? "source_available_no_county_records" as const
+        : "source_unavailable" as const;
+  const workforceInterpretation = hrsaScope === "whole_county_available"
+    ? `HRSA includes ${hrsaWholeCountyRecordCount} whole-county designation record${hrsaWholeCountyRecordCount === 1 ? "" : "s"}; local interpretation is still required.`
+    : hrsaScope === "scoped_records_available"
+      ? `HRSA includes ${hrsaRecordCount} county-associated designation record${hrsaRecordCount === 1 ? "" : "s"}, but they are subcounty, population-group, facility, or other source-defined records rather than whole-county findings.`
+      : hrsaScope === "source_available_no_county_records"
+        ? "The HRSA source is available, but no county-associated designation record is present in this snapshot. This does not mean no shortage exists."
+        : "The approved HRSA source is unavailable for this county in the selected snapshot.";
+  const sourceById = new Map(brief.publicData.sources.map((source) => [source.sourceId, source]));
+  const geographyName = selected?.displayName ?? "the selected county";
+  const references: ExploreAssessmentReference[] = brief.publicData.sourceCoverage.map((coverage) => {
+    const source = sourceById.get(coverage.sourceId);
+    const claim = `${coverage.sourceId}: ${coverage.status.replaceAll("_", " ")}. ${coverage.reason}`;
+    return {
+      id: `coverage:${brief.evidenceSnapshotId}:${selected?.authorityId ?? "unknown"}:${coverage.sourceId}`,
+      evidenceType: "source_coverage" as const,
+      claim,
+      sourceId: coverage.sourceId,
+      sourceVersionId: coverage.sourceVersionId,
+      publisher: source?.publisher ?? "SozoRock Evidence Core",
+      sourceTitle: source?.title ?? `${coverage.sourceId} coverage record`,
+      officialUrl: source?.officialUrl ?? null,
+      releaseDate: coverage.releaseDate,
+      dataPeriod: coverage.dataPeriod,
+      geography: geographyName,
+      status: coverage.status,
+    };
+  });
+  references.push({
+    id: `planning-status:${brief.evidenceSnapshotId}:${selected?.authorityId ?? "unknown"}`,
+    evidenceType: "planning_status",
+    claim: brief.localPlanningEvidence.status === "verified"
+      ? "Current local planning evidence is verified."
+      : "Current local planning evidence: not yet verified.",
+    sourceId: "local-planning-documents",
+    sourceVersionId: null,
+    publisher: "SozoRock Evidence Core",
+    sourceTitle: "Local planning evidence review status",
+    officialUrl: null,
+    releaseDate: null,
+    dataPeriod: { start: null, end: null },
+    geography: geographyName,
+    status: brief.localPlanningEvidence.status,
+  });
   const known = [
     selected
       ? `The selected geography resolves to ${selected.displayName} (GEOID ${selected.authorityId}).`
@@ -365,10 +434,21 @@ export function recomputeEvidenceAssessment(brief: ExplorePlaceBriefV1): Explore
     },
     {
       response: "workforce_conversation",
-      status: "insufficient_evidence",
-      explanation: "Workforce conversations require a source-compatible designation or workforce measure and local review.",
-      evidenceIds: [],
-      missingEvidence: ["Compatible workforce evidence", "Local partner review"],
+      status: workforceEvidenceAvailable ? "fit_for_local_review" : "insufficient_evidence",
+      explanation: workforceEvidenceAvailable
+        ? `${workforceInterpretation} Compatible workforce evidence can support a workforce conversation for local review, but it does not establish a final response.`
+        : "A workforce conversation requires a source-compatible designation or workforce measure and local review.",
+      evidenceIds: workforceEvidenceAvailable
+        ? references
+            .filter((reference) => reference.sourceId === "hrsa-workforce" || reference.sourceId === "ahrf-workforce")
+            .map((reference) => reference.id)
+        : [],
+      missingEvidence: workforceEvidenceAvailable
+        ? [
+            ...(hrsaScope === "scoped_records_available" ? ["Whole-county workforce scope, if required for the planning question"] : []),
+            "Local interpretation and partner review",
+          ]
+        : ["Compatible workforce evidence", "Local partner review"],
       requiresHumanReview: true,
     },
     {
@@ -390,5 +470,23 @@ export function recomputeEvidenceAssessment(brief: ExplorePlaceBriefV1): Explore
       "Local partners must confirm whether population-level signals correspond to current priorities, assets, barriers and feasible responses.",
     ],
     responseFits,
+    references,
+    workforce: {
+      hrsa: {
+        sourceStatus: hrsaCoverage?.status ?? "unavailable_from_source",
+        recordCount: hrsaRecordCount,
+        wholeCountyRecordCount: hrsaWholeCountyRecordCount,
+        scopedRecordCount: hrsaScopedRecordCount,
+        scope: hrsaScope,
+      },
+      ahrf: {
+        sourceStatus: ahrfCoverage?.status ?? "unavailable_from_source",
+        recordCount: ahrfRecordCount,
+      },
+      interpretation: ahrfAvailable && ahrfRecordCount > 0
+        ? `${workforceInterpretation} AHRF also includes ${ahrfRecordCount} compatible county workforce or facility context record${ahrfRecordCount === 1 ? "" : "s"}.`
+        : workforceInterpretation,
+      requiresLocalReview: true,
+    },
   };
 }

@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 
 const appDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const repositoryRoot = path.resolve(appDir, "../..");
-const nextBin = path.join(repositoryRoot, "node_modules", "next", "dist", "bin", "next");
+const nextBin = path.join(appDir, "node_modules", "next", "dist", "bin", "next");
 const playwrightCli = path.join(repositoryRoot, "node_modules", "@playwright", "test", "cli.js");
 const serverUrl = "http://127.0.0.1:4182/explore";
 
@@ -53,7 +53,12 @@ try {
     [nextBin, "dev", "--hostname", "127.0.0.1", "--port", "4182"],
     {
       cwd: appDir,
-      env: { ...process.env, PLAYWRIGHT_TEST: "1" },
+      env: {
+        ...process.env,
+        NODE_OPTIONS: [process.env.NODE_OPTIONS, "--use-system-ca"].filter(Boolean).join(" "),
+        PLAYWRIGHT_TEST: "1",
+        RUNTIME_ENV: "test",
+      },
       stdio: "inherit",
       detached: process.platform !== "win32",
     },

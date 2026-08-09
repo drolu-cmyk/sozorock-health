@@ -14,7 +14,6 @@
     }
   },
   "resolutions": {
-    "postcss": "8.5.22",
     "uuid": "11.1.1"
   },
   "engines": {
@@ -25,6 +24,7 @@
     "postinstall": "patch-package && node scripts/reconcile-installed-security-lock.mjs",
     "dev:public": "npm exec --workspace @sozorock/public-site -- next dev",
     "build:public": "npm exec --workspace @sozorock/public-site -- next build",
+    "verify:public-dependency-security": "node scripts/verify-public-dependency-security.mjs",
     "verify:public-runtime-security": "node scripts/verify-public-runtime-security.mjs",
     "dev:platform": "npm exec --workspace @sozorock/platform -- next dev",
     "build:platform": "npm exec --workspace @sozorock/platform -- next build",
@@ -44,6 +44,6 @@
     "patch-package": "^8.0.1",
     "pixelmatch": "^7.2.0",
     "pngjs": "^7.0.0",
-    "postcss": "8.5.22"
+    "postcss": "8.5.26"
   }
 }

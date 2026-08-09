@@ -12,6 +12,9 @@ export type ExploreGeographyReference = {
   authority: string;
   authorityId: string;
   displayName: string;
+  stateFips?: string | null;
+  stateCode?: string | null;
+  stateName?: string | null;
   vintage: string;
   reviewStatus: ReviewStatus;
 };
@@ -51,6 +54,9 @@ export type ExploreCitation = {
     group: string | null;
     estimateField: string | null;
     marginOfErrorField: string | null;
+    numeratorMarginOfErrorVariableId?: string | null;
+    denominatorMarginOfErrorVariableId?: string | null;
+    marginOfErrorFormula?: string | null;
   };
 };
 
@@ -120,6 +126,37 @@ export type ExploreSourceCoverage = {
   retrievedAt: string | null;
 };
 
+export type ExploreAssessmentReference = {
+  id: string;
+  evidenceType: "source_coverage" | "planning_status";
+  claim: string;
+  sourceId: string;
+  sourceVersionId: string | null;
+  publisher: string;
+  sourceTitle: string;
+  officialUrl: string | null;
+  releaseDate: string | null;
+  dataPeriod: { start: string | null; end: string | null };
+  geography: string;
+  status: ExploreSourceCoverageStatus | "verified" | "not_yet_verified" | "unavailable" | "stale";
+};
+
+export type ExploreWorkforceAssessment = {
+  hrsa: {
+    sourceStatus: ExploreSourceCoverageStatus;
+    recordCount: number;
+    wholeCountyRecordCount: number;
+    scopedRecordCount: number;
+    scope: "whole_county_available" | "scoped_records_available" | "source_available_no_county_records" | "source_unavailable";
+  };
+  ahrf: {
+    sourceStatus: ExploreSourceCoverageStatus;
+    recordCount: number;
+  };
+  interpretation: string;
+  requiresLocalReview: true;
+};
+
 export type ExplorePlaceBriefV1 = {
   contractVersion: typeof EXPLORE_PLACE_BRIEF_VERSION;
   generatedAt: string;
@@ -165,6 +202,8 @@ export type ExplorePlaceBriefV1 = {
     missing: string[];
     requiresLocalReview: string[];
     responseFits: ExploreResponseFit[];
+    references?: ExploreAssessmentReference[];
+    workforce?: ExploreWorkforceAssessment;
   };
   citations: ExploreCitation[];
   safety: {
@@ -177,6 +216,14 @@ export type ExplorePlaceBriefV1 = {
 export function validateExplorePlaceBriefV1(brief: ExplorePlaceBriefV1) {
   const errors: string[] = [];
   if (brief.contractVersion !== EXPLORE_PLACE_BRIEF_VERSION) errors.push("Unsupported Explore contract version.");
+  if (brief.resolution.selected?.kind === "county") {
+    if (!/^\d{2}$/.test(brief.resolution.selected.stateFips ?? "")) {
+      errors.push("Selected county is missing its official state FIPS.");
+    }
+    if (!brief.resolution.selected.stateCode || !brief.resolution.selected.stateName) {
+      errors.push("Selected county is missing its official state identity.");
+    }
+  }
   const citationIds = new Set(brief.citations.map((citation) => citation.id));
   const sourceVersionIds = new Set(brief.publicData.sources.map((source) => source.sourceVersionId));
   const requiredCoverage = new Set([

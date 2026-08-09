@@ -86,6 +86,7 @@ test("the explore route is discoverable", async () => {
 test("the public map uses MapLibre with official boundaries and no decorative roads", async () => {
   const component = await source("app/explore/ExploreClient.tsx");
   const geometry = await source("app/api/explore/geometry/route.ts");
+  const heatMap = await source("app/api/evidence/v1/heat-map/route.ts");
   assert.match(component, /import\("maplibre-gl"\)/);
   assert.match(component, /official-boundary/);
   assert.match(component, /verifiedResources/);
@@ -93,7 +94,10 @@ test("the public map uses MapLibre with official boundaries and no decorative ro
   assert.match(component, /cached official boundary/);
   assert.match(component, /The shaded value applies to the selected geography as a whole/);
   assert.doesNotMatch(geometry, /Transportation\/MapServer/);
-  assert.doesNotMatch(component, /Major roads|showRoads|heatmap/i);
+  assert.doesNotMatch(component, /Major roads|showRoads/i);
+  assert.match(heatMap, /county-boundaries\.v2025\.json/);
+  assert.match(heatMap, /Values are county-level public estimates/);
+  assert.match(heatMap, /Missing values are not zero/);
 });
 
 test("release validators call the versioned place-brief contract with kind", async () => {
@@ -150,9 +154,12 @@ test("fallback boundary preserves holes, aspect ratio and original search contex
 
 test("directionality and geography are explicit in the public evidence response", async () => {
   const route = await source("app/api/explore/route.ts");
+  const comparisons = await source("app/lib/explore-comparisons.ts");
   const metrics = await source("app/lib/explore-health.ts");
   const brief = await source("../../packages/evidence-core/src/national/county-brief.ts");
-  assert.match(route, /function interpretation/);
+  assert.match(route, /buildMetricComparisons/);
+  assert.match(comparisons, /comparisonInterpretation/);
+  assert.match(comparisons, /higherValueMeaning/);
   assert.match(route, /geographyLevel:/);
   assert.doesNotMatch(route, /kind !== "county"/);
   assert.match(route, /selectedCountyGeoid/);

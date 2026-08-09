@@ -13,7 +13,10 @@
     "test:non-explore-regression": "node scripts/run-non-explore-regression.mjs",
     "test:partner-evidence-visual": "node scripts/run-partner-evidence-visual.mjs",
     "test:national-api": "node scripts/validate-national-api.mjs",
-    "test:staging-collaboration": "node scripts/test-staging-collaboration.mjs"
+    "test:national-api:local": "node scripts/run-national-api-validation.mjs",
+    "test:staging-collaboration": "node scripts/test-staging-collaboration.mjs",
+    "generate:openapi": "node --experimental-strip-types scripts/generate-explore-openapi.mjs",
+    "test:openapi-drift": "node --experimental-strip-types scripts/generate-explore-openapi.mjs --check"
   },
   "dependencies": {
     "@aws-sdk/client-apigatewaymanagementapi": "^3.1098.0",
@@ -30,7 +33,7 @@
     "@sozorock/evidence-core": "0.1.0",
     "d3-geo": "^3.1.1",
     "maplibre-gl": "^5.24.0",
-    "next": "15.5.21",
+    "next": "16.3.0",
     "pdf-lib": "^1.17.1",
     "react": "19.1.1",
     "react-dom": "19.1.1",
@@ -38,6 +41,7 @@
     "us-atlas": "^3.0.1"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.12.1",
     "@playwright/test": "^1.61.1",
     "@types/d3-geo": "^3.1.0",
     "@types/node": "22.15.3",

@@ -4,6 +4,7 @@ import { placeAgentRuntimeVersions } from "../../../../lib/place-agent-openai";
 import { requireWorkspaceActor } from "../../../../lib/explore-workspace-auth";
 import {
   createCountyWorkspace,
+  listCountyWorkspaces,
   requireCollaborationCapability,
 } from "../../../../lib/explore-workspace-runtime";
 import {
@@ -19,6 +20,17 @@ function trusted(request: NextRequest) {
     .map((value) => value.trim())
     .filter(Boolean);
   return isTrustedSameOrigin(request, allowedHosts);
+}
+
+export async function GET(request: NextRequest) {
+  try {
+    await requireCollaborationCapability();
+    const actor = await requireWorkspaceActor(request);
+    const workspaces = await listCountyWorkspaces({ tenantId: actor.tenantId, actor });
+    return NextResponse.json({ contractVersion: "explore.workspace-list.v1", actor: { displayName: actor.displayName, role: actor.role, access: actor.access }, workspaces }, { headers: { "Cache-Control": "no-store" } });
+  } catch (error) {
+    return NextResponse.json({ error: (error as Error).message }, { status: 403, headers: { "Cache-Control": "no-store" } });
+  }
 }
 
 export async function POST(request: NextRequest) {

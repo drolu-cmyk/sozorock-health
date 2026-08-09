@@ -5,6 +5,7 @@ import { enforceEvidenceRateLimit } from "../../../../lib/evidence-rate-limit";
 import {
   requireEvidenceGeographyId,
   requirePublishedEvidenceSnapshot,
+  evidenceRuntimeEnvironment,
 } from "../../../../lib/evidence-runtime-authority";
 import { placeAgentRuntimeVersions } from "../../../../lib/place-agent-openai";
 import { normalizePlaceBriefKind } from "../../../../lib/place-brief-query";
@@ -38,7 +39,7 @@ export async function GET(request: NextRequest) {
     console.error("evidence-rate-limit-failed", { name: (error as { name?: string }).name ?? "UnknownError" });
     return NextResponse.json({ error: "Evidence service is temporarily unavailable." }, { status: 503 });
   }
-  if (process.env.NODE_ENV === "production") {
+  if (evidenceRuntimeEnvironment() !== "test") {
     try {
       await requirePublishedEvidenceSnapshot(placeAgentRuntimeVersions.snapshotContentHash);
       await requireEvidenceGeographyId(geoid, placeAgentRuntimeVersions.snapshotContentHash);

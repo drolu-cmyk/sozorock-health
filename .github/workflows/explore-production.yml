@@ -57,9 +57,8 @@ jobs:
         run: |
           set -euo pipefail
           npm ci --omit=optional
-          npm audit --omit=dev --omit=optional --audit-level=moderate
-          npm ls sharp --all || test "$?" -eq 1
-          test ! -d node_modules/sharp
+          npm audit --workspace @sozorock/public-site --omit=dev --omit=optional --audit-level=moderate
+          npm run verify:public-dependency-security
       - name: Migration rollback and integrity
         run: npm run test:migrations --workspace @sozorock/evidence-core
       - name: Nationwide evidence acceptance
@@ -69,8 +68,10 @@ jobs:
           npm run typecheck
           npm run lint
           npm test
+          npm run test:openapi-drift --workspace @sozorock/public-site
           npm run build --workspace @sozorock/explore-realtime
           npm run build:public
+          npm run verify:public-dependency-security
           npm run verify:public-runtime-security
       - name: Generate runtime SBOM
         run: |
@@ -233,8 +234,9 @@ jobs:
               EnvironmentName=production \
               HandlerBucket="$EVIDENCE_ARTIFACT_BUCKET" \
               HandlerKey="$handler_key" \
-              PublicSiteRuntimeRoleName="$PUBLIC_COMPUTE_ROLE_NAME"
-          for output in WebSocketApiId WebSocketLogGroupArn WebSocketThrottlingBurstLimit WebSocketThrottlingRateLimit WebSocketUrl ManagementEndpoint SessionTable ConnectionTable CountyWorkspaceUserPoolId CountyWorkspaceAppClientId; do
+              PublicSiteRuntimeRoleName="$PUBLIC_COMPUTE_ROLE_NAME" \
+              PublicSiteUrl="$PUBLIC_SITE_URL"
+          for output in WebSocketApiId WebSocketLogGroupArn WebSocketThrottlingBurstLimit WebSocketThrottlingRateLimit WebSocketUrl ManagementEndpoint SessionTable ConnectionTable CountyWorkspaceUserPoolId CountyWorkspaceAppClientId CountyWorkspaceHostedUiUrl ExploreAuthCookieSecretArn; do
             value=$(aws cloudformation describe-stacks --stack-name sozorock-explore-collaboration-production \
               --query "Stacks[0].Outputs[?OutputKey=='$output'].OutputValue" --output text)
             printf -v "EXPLORE_$output" '%s' "$value"
@@ -278,7 +280,12 @@ jobs:
             --arg connections "$EXPLORE_ConnectionTable" \
             --arg websocket "$EXPLORE_WebSocketUrl" \
             --arg management "$EXPLORE_ManagementEndpoint" \
+            --arg cognito_domain "$EXPLORE_CountyWorkspaceHostedUiUrl" \
+            --arg cognito_client "$EXPLORE_CountyWorkspaceAppClientId" \
+            --arg auth_cookie_secret "$EXPLORE_ExploreAuthCookieSecretArn" \
             --arg snapshot_hash "$EVIDENCE_SNAPSHOT_CONTENT_HASH" \
+            --arg release_sha "${{ inputs.release_sha }}" \
+            --arg build_timestamp "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
             '. + {
               EVIDENCE_DATABASE_CLUSTER_ARN:$ca,
               EVIDENCE_DATABASE_SECRET_ARN:$sa,
@@ -293,10 +300,17 @@ jobs:
               PLACE_AGENT_RATE_LIMIT_NAMESPACE:"production",
               EVIDENCE_SOURCE_CDC_PLACES_ENABLED:"true",
               EVIDENCE_SNAPSHOT_CONTENT_HASH:$snapshot_hash,
+              EVIDENCE_DATABASE_MIGRATION_VERSION:"0015",
+              REPOSITORY_COMMIT_SHA:$release_sha,
+              BUILD_TIMESTAMP:$build_timestamp,
+              RUNTIME_ENV:"production",
               EXPLORE_REALTIME_SESSION_TABLE:$sessions,
               EXPLORE_REALTIME_CONNECTION_TABLE:$connections,
               EXPLORE_REALTIME_PUBLIC_ENDPOINT:$websocket,
-              EXPLORE_REALTIME_MANAGEMENT_ENDPOINT:$management
+              EXPLORE_REALTIME_MANAGEMENT_ENDPOINT:$management,
+              EXPLORE_COGNITO_DOMAIN:$cognito_domain,
+              EXPLORE_COGNITO_CLIENT_ID:$cognito_client,
+              EXPLORE_AUTH_COOKIE_SECRET_ARN:$auth_cookie_secret
             }' <<<"$current_env")
           aws amplify update-app \
             --app-id "$PUBLIC_APP_ID" \

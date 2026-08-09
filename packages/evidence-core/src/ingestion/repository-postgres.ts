@@ -116,6 +116,9 @@ export class PostgresIngestionRepository implements IngestionRepository {
           group: observation.source_group ?? null,
           estimateField: observation.source_estimate_field ?? null,
           marginOfErrorField: observation.source_margin_of_error_field ?? null,
+          numeratorMarginOfErrorVariableId: observation.source_numerator_margin_of_error_variable_id ?? null,
+          denominatorMarginOfErrorVariableId: observation.source_denominator_margin_of_error_variable_id ?? null,
+          marginOfErrorFormula: observation.source_margin_of_error_formula ?? null,
         },
       };
     });
@@ -221,8 +224,10 @@ export class PostgresIngestionRepository implements IngestionRepository {
               source_url, geography_level, source_metadata,
               source_variable_id, source_numerator_variable_id, source_denominator_variable_id,
               source_formula, source_transformation_version, source_table, source_group,
-              source_estimate_field, source_margin_of_error_field
-            ) VALUES ($1,$2,$3,$4,$5::jsonb,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19::jsonb,$20,$21,$22,$23,$24,$25,$26,$27,$28)
+              source_estimate_field, source_margin_of_error_field,
+              source_numerator_margin_of_error_variable_id,
+              source_denominator_margin_of_error_variable_id, source_margin_of_error_formula
+            ) VALUES ($1,$2,$3,$4,$5::jsonb,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19::jsonb,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31)
             ON CONFLICT (source_version_id, source_record_id, measure_definition_id, geography_id) DO NOTHING`,
             [
               observation.id, observation.measureDefinitionId, observation.geographyId,
@@ -241,6 +246,9 @@ export class PostgresIngestionRepository implements IngestionRepository {
               observation.sourceProvenance?.group ?? null,
               observation.sourceProvenance?.estimateField ?? null,
               observation.sourceProvenance?.marginOfErrorField ?? null,
+              observation.sourceProvenance?.numeratorMarginOfErrorVariableId ?? null,
+              observation.sourceProvenance?.denominatorMarginOfErrorVariableId ?? null,
+              observation.sourceProvenance?.marginOfErrorFormula ?? null,
             ],
           );
         }

@@ -173,6 +173,58 @@ const acsFields = [
   ["noVehiclePercent", "noVehiclePercentMoe", "Households without a vehicle", "percent", "adverse"],
   ["internetSubscriptionPercent", "internetSubscriptionPercentMoe", "Households with an internet subscription", "percent", "protective"],
 ] as const;
+type AcsField = (typeof acsFields)[number][0];
+
+const acsProvenance: Record<AcsField, {
+  sourceVariableId: string | null;
+  numeratorVariableId: string | null;
+  denominatorVariableId: string | null;
+  formula: string | null;
+  transformationVersion: string | null;
+  table: string;
+  group: string;
+  estimateField: string;
+  marginOfErrorField: string | null;
+  numeratorMarginOfErrorVariableId: string | null;
+  denominatorMarginOfErrorVariableId: string | null;
+  marginOfErrorFormula: string | null;
+}> = {
+  population: {
+    sourceVariableId: "B01001_001E", numeratorVariableId: null, denominatorVariableId: null,
+    formula: null, transformationVersion: null, table: "B01001", group: "B01001",
+    estimateField: "B01001_001E", marginOfErrorField: "B01001_001M",
+    numeratorMarginOfErrorVariableId: null, denominatorMarginOfErrorVariableId: null,
+    marginOfErrorFormula: null,
+  },
+  medianAge: {
+    sourceVariableId: "B01002_001E", numeratorVariableId: null, denominatorVariableId: null,
+    formula: null, transformationVersion: null, table: "B01002", group: "B01002",
+    estimateField: "B01002_001E", marginOfErrorField: "B01002_001M",
+    numeratorMarginOfErrorVariableId: null, denominatorMarginOfErrorVariableId: null,
+    marginOfErrorFormula: null,
+  },
+  povertyPercent: {
+    sourceVariableId: null, numeratorVariableId: "B17001_002E", denominatorVariableId: "B17001_001E",
+    formula: "(B17001_002E / B17001_001E) * 100", transformationVersion: "sozorock.percentage.v1",
+    table: "B17001", group: "B17001", estimateField: "B17001_002E", marginOfErrorField: null,
+    numeratorMarginOfErrorVariableId: "B17001_002M", denominatorMarginOfErrorVariableId: "B17001_001M",
+    marginOfErrorFormula: "Census ratio MOE using numerator and denominator margins of error",
+  },
+  noVehiclePercent: {
+    sourceVariableId: null, numeratorVariableId: "B08201_002E", denominatorVariableId: "B08201_001E",
+    formula: "(B08201_002E / B08201_001E) * 100", transformationVersion: "sozorock.percentage.v1",
+    table: "B08201", group: "B08201", estimateField: "B08201_002E", marginOfErrorField: null,
+    numeratorMarginOfErrorVariableId: "B08201_002M", denominatorMarginOfErrorVariableId: "B08201_001M",
+    marginOfErrorFormula: "Census ratio MOE using numerator and denominator margins of error",
+  },
+  internetSubscriptionPercent: {
+    sourceVariableId: null, numeratorVariableId: "B28002_002E", denominatorVariableId: "B28002_001E",
+    formula: "(B28002_002E / B28002_001E) * 100", transformationVersion: "sozorock.percentage.v1",
+    table: "B28002", group: "B28002", estimateField: "B28002_002E", marginOfErrorField: null,
+    numeratorMarginOfErrorVariableId: "B28002_002M", denominatorMarginOfErrorVariableId: "B28002_001M",
+    marginOfErrorFormula: "Census ratio MOE using numerator and denominator margins of error",
+  },
+};
 const definitions: Definition[] = acsFields.map(([field, , name, unit, direction]) => ({
   sourceId: "census-acs5", measureId: field, name,
   description: `${name} from the approved ACS 2020–2024 five-year county estimate.`,
@@ -223,6 +275,7 @@ type Observation = {
   id: string; definitionId: string; geographyId: string; sourceVersionId: string;
   sourceRecordId: string; numericValue: number | null; valueJson: unknown; marginOfError: number | null;
   releaseDate: string; periodStart: string; periodEnd: string; sourceUrl: string; metadata: unknown;
+  provenance?: (typeof acsProvenance)[AcsField];
 };
 const observations: Observation[] = [];
 for (const [fips, record] of Object.entries(acs.data.records)) {
@@ -244,7 +297,12 @@ for (const [fips, record] of Object.entries(acs.data.records)) {
       periodStart: acs.data.source.dataPeriod.start,
       periodEnd: acs.data.source.dataPeriod.end,
       sourceUrl: acs.data.source.officialUrl,
-      metadata: { countyFips: fips, field },
+      metadata: {
+        countyFips: fips,
+        field,
+        ...acsProvenance[field],
+      },
+      provenance: acsProvenance[field],
     });
   }
 }
@@ -282,17 +340,32 @@ await chunks(observations, 250, (batch) => execute(`
     id, measure_definition_id, geography_id, source_version_id, value_json, numeric_value,
     confidence_low, confidence_high, margin_of_error, release_date, data_period_start,
     data_period_end, retrieved_at, review_status, source_record_id, source_url,
-    geography_level, source_metadata
+    geography_level, source_metadata, source_variable_id,
+    source_numerator_variable_id, source_denominator_variable_id, source_formula,
+    source_transformation_version, source_table, source_group, source_estimate_field,
+    source_margin_of_error_field, source_numerator_margin_of_error_variable_id,
+    source_denominator_margin_of_error_variable_id, source_margin_of_error_formula
   )
   SELECT CAST(x.id AS uuid), CAST(x.definition_id AS uuid), CAST(x.geography_id AS uuid),
     CAST(x.source_version_id AS uuid), CAST(x.value_json AS jsonb), x.numeric_value,
     NULL, NULL, x.margin_of_error, CAST(x.release_date AS date), CAST(x.period_start AS date),
     CAST(x.period_end AS date), now(), 'verified'::evidence.review_status, x.source_record_id,
-    x.source_url, 'county', CAST(x.metadata AS jsonb)
+    x.source_url, 'county', CAST(x.metadata AS jsonb), x.source_variable_id,
+    x.source_numerator_variable_id, x.source_denominator_variable_id, x.source_formula,
+    x.source_transformation_version, x.source_table, x.source_group, x.source_estimate_field,
+    x.source_margin_of_error_field, x.source_numerator_margin_of_error_variable_id,
+    x.source_denominator_margin_of_error_variable_id, x.source_margin_of_error_formula
   FROM jsonb_to_recordset(CAST(:payload AS jsonb)) AS x(
     id text, definition_id text, geography_id text, source_version_id text,
     value_json text, numeric_value numeric, margin_of_error numeric, release_date text,
-    period_start text, period_end text, source_record_id text, source_url text, metadata text
+    period_start text, period_end text, source_record_id text, source_url text, metadata text,
+    source_variable_id text, source_numerator_variable_id text,
+    source_denominator_variable_id text, source_formula text,
+    source_transformation_version text, source_table text, source_group text,
+    source_estimate_field text, source_margin_of_error_field text,
+    source_numerator_margin_of_error_variable_id text,
+    source_denominator_margin_of_error_variable_id text,
+    source_margin_of_error_formula text
   )
   ON CONFLICT DO NOTHING
 `, batch.map((item) => ({
@@ -302,6 +375,18 @@ await chunks(observations, 250, (batch) => execute(`
   release_date: item.releaseDate, period_start: item.periodStart, period_end: item.periodEnd,
   source_record_id: item.sourceRecordId, source_url: item.sourceUrl,
   metadata: JSON.stringify(item.metadata),
+  source_variable_id: item.provenance?.sourceVariableId ?? null,
+  source_numerator_variable_id: item.provenance?.numeratorVariableId ?? null,
+  source_denominator_variable_id: item.provenance?.denominatorVariableId ?? null,
+  source_formula: item.provenance?.formula ?? null,
+  source_transformation_version: item.provenance?.transformationVersion ?? null,
+  source_table: item.provenance?.table ?? null,
+  source_group: item.provenance?.group ?? null,
+  source_estimate_field: item.provenance?.estimateField ?? null,
+  source_margin_of_error_field: item.provenance?.marginOfErrorField ?? null,
+  source_numerator_margin_of_error_variable_id: item.provenance?.numeratorMarginOfErrorVariableId ?? null,
+  source_denominator_margin_of_error_variable_id: item.provenance?.denominatorMarginOfErrorVariableId ?? null,
+  source_margin_of_error_formula: item.provenance?.marginOfErrorFormula ?? null,
 }))));
 
 function isoDate(value: unknown) {

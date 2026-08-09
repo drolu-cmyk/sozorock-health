@@ -53,6 +53,7 @@ type Row = unknown[];
 // The content hash is part of the cache key.  A county record must never be
 // reused across evidence snapshots during a rollback or pin change.
 const runtimeRecordCache = new Map<string, CountyEvidenceSnapshotRecord>();
+const runtimeWorkforceCache = new Map<string, PublishedWorkforceContext>();
 
 const OPTIONAL_SOURCE_META: Record<string, {
   publisher: string;
@@ -152,6 +153,9 @@ function sourceProvenance(value: unknown, columns?: {
   group?: unknown;
   estimateField?: unknown;
   marginOfErrorField?: unknown;
+  numeratorMarginOfErrorVariableId?: unknown;
+  denominatorMarginOfErrorVariableId?: unknown;
+  marginOfErrorFormula?: unknown;
 }) {
   let metadata: Record<string, unknown> = {};
   if (typeof value === "string") {
@@ -176,6 +180,9 @@ function sourceProvenance(value: unknown, columns?: {
     group: pick(columns?.group, "group"),
     estimateField: pick(columns?.estimateField, "estimateField") ?? sourceVariableId,
     marginOfErrorField: pick(columns?.marginOfErrorField, "marginOfErrorVariableId", "marginOfErrorField"),
+    numeratorMarginOfErrorVariableId: pick(columns?.numeratorMarginOfErrorVariableId, "numeratorMarginOfErrorVariableId"),
+    denominatorMarginOfErrorVariableId: pick(columns?.denominatorMarginOfErrorVariableId, "denominatorMarginOfErrorVariableId"),
+    marginOfErrorFormula: pick(columns?.marginOfErrorFormula, "marginOfErrorFormula"),
   };
 }
 
@@ -197,6 +204,14 @@ function normalizeAcsProvenance(provenance: ReturnType<typeof sourceProvenance>)
   const marginOfErrorField = provenance.marginOfErrorField && ACS_VARIABLE_ID.test(provenance.marginOfErrorField)
     ? provenance.marginOfErrorField
     : null;
+  const numeratorMarginOfErrorVariableId = provenance.numeratorMarginOfErrorVariableId
+    && ACS_VARIABLE_ID.test(provenance.numeratorMarginOfErrorVariableId)
+    ? provenance.numeratorMarginOfErrorVariableId
+    : null;
+  const denominatorMarginOfErrorVariableId = provenance.denominatorMarginOfErrorVariableId
+    && ACS_VARIABLE_ID.test(provenance.denominatorMarginOfErrorVariableId)
+    ? provenance.denominatorMarginOfErrorVariableId
+    : null;
   const complete = Boolean(
     (sourceVariableId || (numeratorVariableId && denominatorVariableId))
     && estimateField
@@ -211,6 +226,8 @@ function normalizeAcsProvenance(provenance: ReturnType<typeof sourceProvenance>)
       denominatorVariableId,
       estimateField,
       marginOfErrorField,
+      numeratorMarginOfErrorVariableId,
+      denominatorMarginOfErrorVariableId,
     },
     complete,
   };
@@ -480,7 +497,10 @@ async function loadPublishedBriefFromEvidenceCore(geoid: string, expectedHash: s
               o.source_metadata::text, o.source_variable_id,
               o.source_numerator_variable_id, o.source_denominator_variable_id,
               o.source_formula, o.source_transformation_version, o.source_table,
-              o.source_group, o.source_estimate_field, o.source_margin_of_error_field
+              o.source_group, o.source_estimate_field, o.source_margin_of_error_field,
+              o.source_numerator_margin_of_error_variable_id,
+              o.source_denominator_margin_of_error_variable_id,
+              o.source_margin_of_error_formula
          FROM evidence.metric_observation o
          JOIN evidence.measure_definition d ON d.id=o.measure_definition_id
          JOIN evidence.source_version sv ON sv.id=o.source_version_id
@@ -533,6 +553,9 @@ async function loadPublishedBriefFromEvidenceCore(geoid: string, expectedHash: s
         transformationVersion: field(row, 32), table: field(row, 33),
         group: field(row, 34), estimateField: field(row, 35),
         marginOfErrorField: field(row, 36),
+        numeratorMarginOfErrorVariableId: field(row, 37),
+        denominatorMarginOfErrorVariableId: field(row, 38),
+        marginOfErrorFormula: field(row, 39),
       });
       const contextAcsProvenance = sourceId === "census-acs5"
         ? normalizeAcsProvenance(rawContextProvenance)
@@ -646,7 +669,11 @@ async function loadPublishedBriefFromEvidenceCore(geoid: string, expectedHash: s
     retrievedAt: dateValue(field(row, 7)),
   }));
   if (coverage.length) brief.publicData.sourceCoverage = coverage;
-  brief.evidenceAssessment = recomputeEvidenceAssessment(brief);
+  const workforceContext = await getPublishedWorkforceContext(geoid, contentHash);
+  brief.evidenceAssessment = recomputeEvidenceAssessment(brief, [
+    ...workforceContext.hpsa,
+    ...workforceContext.muaP,
+  ]);
   // Only cache the record after the final persisted observations, sources and
   // coverage have been applied and the assessment has been recomputed.
   runtimeRecordCache.set(`${geoid}:${contentHash}`, countyRecordFromBrief(geoid, brief, record));
@@ -660,6 +687,9 @@ export async function getPublishedWorkforceContext(geoid: string, expectedHash?:
   }
   const snapshotHash = runtimeSnapshotHash(expectedHash);
   if (!snapshotHash) return { hpsa: [], muaP: [] };
+  const cacheKey = `${geoid}:${snapshotHash}`;
+  const cached = runtimeWorkforceCache.get(cacheKey);
+  if (cached) return cached;
   const result = await executeEvidenceSql(
     `SELECT d.source_record_id, d.designation_family, d.discipline,
             d.designation_name, d.designation_type, d.component_type, d.status,
@@ -712,6 +742,7 @@ export async function getPublishedWorkforceContext(geoid: string, expectedHash?:
       context.muaP.push({ ...item, populationType: text(field(row, 13), text(field(row, 4))), imuScore: numberValue(field(row, 7)) });
     }
   }
+  runtimeWorkforceCache.set(cacheKey, context);
   return context;
 }
 

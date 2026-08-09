@@ -43,7 +43,10 @@ export type AcsVariableContract = {
   higherValueMeaning: HigherValueMeaning;
   numeratorVariableId?: string;
   denominatorVariableId?: string;
+  numeratorMarginOfErrorVariableId?: string;
+  denominatorMarginOfErrorVariableId?: string;
   formula?: string;
+  marginOfErrorFormula?: string;
   transformationVersion?: string;
   table?: string;
   group?: string;
@@ -97,7 +100,12 @@ function acsUrls(config: AcsAdapterConfig, geography: Geography) {
     const sourceFields = variable.numeratorVariableId && variable.denominatorVariableId
       ? [variable.numeratorVariableId, variable.denominatorVariableId]
       : [variable.estimate];
-    return [...sourceFields, variable.marginOfError].filter(Boolean);
+    return [
+      ...sourceFields,
+      variable.marginOfError,
+      variable.numeratorMarginOfErrorVariableId,
+      variable.denominatorMarginOfErrorVariableId,
+    ].filter(Boolean);
   })];
   const sourceUrl = `https://api.census.gov/data/${config.vintage}/acs/acs5?get=${variables.join(",")}&${clause}`;
   const requestUrl = config.apiKey ? `${sourceUrl}&key=${encodeURIComponent(config.apiKey)}` : sourceUrl;
@@ -243,6 +251,9 @@ export class AcsIngestionAdapter implements PublicDataAdapter {
               ? variable.numeratorVariableId
               : variable.estimate,
             marginOfErrorField: variable.marginOfError ?? null,
+            numeratorMarginOfErrorVariableId: variable.numeratorMarginOfErrorVariableId ?? null,
+            denominatorMarginOfErrorVariableId: variable.denominatorMarginOfErrorVariableId ?? null,
+            marginOfErrorFormula: variable.marginOfErrorFormula ?? null,
           },
         }));
       }

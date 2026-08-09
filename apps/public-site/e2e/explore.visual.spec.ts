@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import AxeBuilder from "@axe-core/playwright";
 import { readFileSync } from "node:fs";
 
 const nationalReport = JSON.parse(
@@ -19,6 +20,16 @@ const places = [
   { name: "Montgomery County, NY", geoid: "36057" },
   { name: "Chester County, PA", geoid: "42029" },
   { name: "Bexar County, TX", geoid: "48029" },
+] as const;
+
+const releaseRegressionPlaces = [
+  { name: "Cook County", geoid: "17031" },
+  { name: "San Francisco County", geoid: "06075" },
+  { name: "Yellowstone County", geoid: "30111" },
+  { name: "Anchorage Municipality", geoid: "02020" },
+  { name: "Richmond city", geoid: "51760" },
+  { name: "District of Columbia", geoid: "11001" },
+  { name: "Providence County", geoid: "44007" },
 ] as const;
 
 for (const place of places) {
@@ -48,7 +59,7 @@ for (const place of places) {
     await expect(action).toHaveAttribute("aria-selected", "true");
     await expect(page.getByLabel(`Question about ${place.name}`)).toBeVisible();
     await expect(page.getByRole("button", { name: "Ask Place Intelligence" })).toBeDisabled();
-    await expect(page.getByText("No recommendation yet")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "No recommendation yet" })).toBeVisible();
     await page.screenshot({ path: testInfo.outputPath(`${place.geoid}-action.png`), fullPage: true });
 
     await visuals.click();
@@ -118,5 +129,172 @@ test("one stratified county from every state and DC resolves through the public 
       () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
     );
     expect(overflow, `${sample.state} ${sample.geoid}`).toBeLessThanOrEqual(1);
+  }
+});
+
+test("release regression counties render a source-backed population or an explicit unavailable state", async ({ page }) => {
+  test.setTimeout(180_000);
+  for (const place of releaseRegressionPlaces) {
+    const response = await page.goto(`/explore?kind=county&geoid=${place.geoid}&view=brief`, {
+      waitUntil: "domcontentloaded",
+    });
+    expect(response?.status(), place.geoid).toBe(200);
+    await expect(page.getByRole("heading", { level: 1, name: new RegExp(place.name, "i") })).toBeVisible();
+    await expect(page.getByText(/^0 people$/)).toHaveCount(0);
+    await expect(page.getByText(/(?:[1-9][\d,]* people|Population unavailable)/).first()).toBeVisible();
+  }
+});
+
+test("ZIP and multi-county place searches preserve the original input and require transparent county selection", async ({ page }) => {
+  await page.goto("/explore", { waitUntil: "domcontentloaded" });
+  const search = page.getByRole("combobox", { name: "ZIP Code, city or county" });
+  await search.fill("19104");
+  const zipOption = page.getByRole("option", { name: /19104.*ZIP Code/i }).first();
+  await expect(zipOption).toBeVisible();
+  await zipOption.click();
+  await expect(page.getByRole("heading", { level: 1, name: /Philadelphia County/i })).toBeVisible();
+  await expect(page.getByText(/Search resolved from (?:ZIP Code )?19104 to this county/i)).toBeVisible();
+
+  await page.goto("/explore", { waitUntil: "domcontentloaded" });
+  const citySearch = page.getByRole("combobox", { name: "ZIP Code, city or county" });
+  await citySearch.fill("Kansas City, MO");
+  const cityOption = page.getByRole("option", { name: /Kansas City, MO.*City or place/i }).first();
+  await expect(cityOption).toBeVisible();
+  await expect(cityOption).not.toContainText("MO, MO");
+  await cityOption.click();
+  await expect(page.getByRole("heading", { level: 1, name: /Kansas City.*intersects more than one county/i })).toBeVisible();
+  const countyChoices = page.locator("section").filter({ hasText: "County evidence selection" }).getByRole("button");
+  expect(await countyChoices.count()).toBeGreaterThan(1);
+  await expect(countyChoices.first()).toContainText(/overlap/i);
+});
+
+test("Voice Access records by explicit user action, confirms the transcript, and submits through the governed agent route", async ({ page }) => {
+  const transcriptHash = `sha256:${"a".repeat(64)}`;
+  let submittedAgentBody: Record<string, unknown> | null = null;
+  await page.addInitScript(() => {
+    const stream = { getTracks: () => [{ stop: () => undefined }] };
+    Object.defineProperty(navigator, "mediaDevices", {
+      configurable: true,
+      value: { getUserMedia: async () => stream },
+    });
+    class MockMediaRecorder {
+      state = "inactive";
+      mimeType = "audio/webm";
+      ondataavailable: ((event: { data: Blob }) => void) | null = null;
+      onstop: (() => void) | null = null;
+      start() { this.state = "recording"; }
+      stop() {
+        this.state = "inactive";
+        this.ondataavailable?.({ data: new Blob(["voice"], { type: this.mimeType }) });
+        this.onstop?.();
+      }
+    }
+    Object.defineProperty(window, "MediaRecorder", { configurable: true, value: MockMediaRecorder });
+  });
+  await page.route("**/api/evidence/v1/voice/transcribe", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        contractVersion: "explore.voice-transcript.v1",
+        transcript: "What current workforce evidence is available for this county?",
+        transcriptHash,
+        retainedRawAudio: false,
+      }),
+    });
+  });
+  await page.route("**/api/evidence/v1/agent", async (route) => {
+    submittedAgentBody = route.request().postDataJSON() as Record<string, unknown>;
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        schemaVersion: "explore.place-agent-answer.v1",
+        answer: "Compatible workforce records are available; local interpretation still requires review.",
+        status: "answered",
+        citedEvidence: [{
+          citationId: "coverage:hrsa:36001",
+          claim: "HRSA workforce source coverage is available for this county.",
+          evidenceType: "source_coverage",
+          sourceName: "Health Resources and Services Administration",
+          officialUrl: "https://data.hrsa.gov/",
+          releaseDate: "2026-07-01",
+          dataPeriodStart: "2026-01-01",
+          dataPeriodEnd: "2026-06-30",
+          geographicScope: "Albany County, New York (county GEOID 36001)",
+        }],
+        sourceAndDataDates: [],
+        geographicScope: { kind: "county", geoid: "36001", displayName: "Albany County, NY" },
+        confidence: "moderate",
+        missingEvidence: [],
+        caveats: ["Designation scope must be reviewed."],
+        nonClinicalBoundary: "This is non-clinical county planning evidence, not medical advice.",
+        visualIntent: {
+          view: "visuals",
+          measureKey: null,
+          comparisonBasis: "unavailable",
+          mapLayer: "source_coverage",
+          rationale: "Show the workforce evidence coverage record and its scope.",
+        },
+      }),
+    });
+  });
+
+  await page.goto("/explore?kind=county&geoid=36001&view=action", { waitUntil: "domcontentloaded" });
+  await page.getByRole("tab", { name: "Action" }).click();
+  const voiceButton = page.getByRole("button", { name: "Ask with Voice Access" });
+  await voiceButton.focus();
+  await page.keyboard.press("Enter");
+  await expect(page.getByRole("button", { name: "Stop recording" })).toBeVisible();
+  await page.getByRole("button", { name: "Stop recording" }).click();
+  const question = page.getByLabel("Question about Albany County, NY");
+  await expect(question).toHaveValue("What current workforce evidence is available for this county?");
+  await expect(question).toBeFocused();
+  await expect(page.getByText(/Review or correct the transcript/i)).toBeVisible();
+  await page.getByRole("button", { name: "Ask Place Intelligence" }).click();
+  const responseHeading = page.getByRole("heading", { name: "Place Intelligence response" });
+  await expect(responseHeading.locator("..")).toBeFocused();
+  await expect(page.getByText("Compatible workforce records are available; local interpretation still requires review.")).toBeVisible();
+  await expect(page.getByText("Health Resources and Services Administration")).toBeVisible();
+  expect(submittedAgentBody).toMatchObject({
+    geoid: "36001",
+    inputMode: "voice",
+    transcriptHash,
+  });
+});
+
+test("Voice Access denial preserves the typed planning path", async ({ page }) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, "mediaDevices", {
+      configurable: true,
+      value: {
+        getUserMedia: async () => {
+          const error = new Error("Permission denied");
+          error.name = "NotAllowedError";
+          throw error;
+        },
+      },
+    });
+    Object.defineProperty(window, "MediaRecorder", { configurable: true, value: class MockMediaRecorder {} });
+  });
+  await page.goto("/explore?kind=county&geoid=36001&view=action", { waitUntil: "domcontentloaded" });
+  await page.getByRole("tab", { name: "Action" }).click();
+  await page.getByRole("button", { name: "Ask with Voice Access" }).click();
+  await expect(page.getByText(/Microphone access was denied/)).toBeVisible();
+  const question = page.getByLabel("Question about Albany County, NY");
+  await question.fill("What evidence is still missing?");
+  await expect(page.getByRole("button", { name: "Ask Place Intelligence" })).toBeEnabled();
+});
+
+test("Brief, Map, Action and Visuals have no serious or critical WCAG violations", async ({ page }) => {
+  test.setTimeout(180_000);
+  await page.goto("/explore?kind=county&geoid=36001&view=brief", { waitUntil: "domcontentloaded" });
+  for (const view of ["Brief", "Map", "Action", "Visuals"] as const) {
+    await page.getByRole("tab", { name: view }).click();
+    const results = await new AxeBuilder({ page })
+      .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"])
+      .analyze();
+    const blocking = results.violations.filter((violation) => violation.impact === "serious" || violation.impact === "critical");
+    expect(blocking, `${view}: ${blocking.map((item) => `${item.id} (${item.nodes.length})`).join(", ")}`).toEqual([]);
   }
 });

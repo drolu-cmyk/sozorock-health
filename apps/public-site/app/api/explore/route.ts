@@ -4,7 +4,6 @@ import {
   acsCountySource,
   ahrfCountySource,
   ahrqCountySource,
-  getAcsCountyContext,
   getAhrfCountyContext,
   getAhrqCountyContext,
   getHrsaCountyContext,
@@ -19,6 +18,10 @@ import { exploreMetrics, safeGeoid, scoreMetric, type ExploreKind } from "../../
 import { enforceEvidenceRateLimit } from "../../lib/evidence-rate-limit";
 import { resolveEvidenceCounty } from "../../lib/county-resolution";
 import { cdcMeasureDefinitionId, indexCdcObservations } from "../../lib/explore-cdc-metadata";
+import {
+  buildMetricComparisons,
+  displayedComparison,
+} from "../../lib/explore-comparisons";
 import {
   evidenceRuntimeEnvironment,
   requireEvidenceGeographyId,
@@ -52,18 +55,6 @@ const paths: Record<string, { group: "conditions" | "barriers" | "prevention"; f
   loneliness: { group: "barriers", field: "loneliness", sourceMeasureId: "LONELINESS" },
 };
 
-function interpretation(
-  higherValueMeaning: "adverse" | "favorable" | "context_dependent",
-  difference: number | null,
-) {
-  if (difference === null) return "comparison_unavailable" as const;
-  if (higherValueMeaning === "context_dependent") return "context_only" as const;
-  if (Math.abs(difference) < 2) return "equal" as const;
-  return higherValueMeaning === "adverse"
-    ? difference > 0 ? "adverse_signal" as const : "favorable_signal" as const
-    : difference < 0 ? "adverse_signal" as const : "favorable_signal" as const;
-}
-
 export async function GET(request: NextRequest) {
   try {
     const rate = await enforceEvidenceRateLimit(request);
@@ -77,7 +68,7 @@ export async function GET(request: NextRequest) {
     console.error("evidence-rate-limit-failed", { name: (error as { name?: string }).name ?? "UnknownError" });
     return NextResponse.json({ error: "Evidence service is temporarily unavailable." }, { status: 503 });
   }
-  if (process.env.NODE_ENV === "production") {
+  if (evidenceRuntimeEnvironment() !== "test") {
     try {
       await requirePublishedEvidenceSnapshot(placeAgentRuntimeVersions.snapshotContentHash);
     } catch {
@@ -112,7 +103,7 @@ export async function GET(request: NextRequest) {
     }, { status: resolution.status === "selection_required" ? 409 : 404 });
   }
   const evidenceGeoid = resolution.selectedCountyGeoid;
-  if (process.env.NODE_ENV === "production") {
+  if (evidenceRuntimeEnvironment() !== "test") {
     try {
       await requireEvidenceGeographyId(evidenceGeoid, placeAgentRuntimeVersions.snapshotContentHash);
     } catch {
@@ -130,14 +121,21 @@ export async function GET(request: NextRequest) {
   const persistentWorkforce = useFixtureOnlyForTests
     ? null
     : await getPublishedWorkforceContext(evidenceGeoid, placeAgentRuntimeVersions.snapshotContentHash);
-  const persistentContextObservations = useFixtureOnlyForTests ? [] : brief.publicData.observations.filter((observation) => {
+  const persistentContextObservations = brief.publicData.observations.filter((observation) => {
     const sourceVersion = brief.publicData.sources.find((source) => source.sourceVersionId === observation.sourceVersionId);
     return sourceVersion && sourceVersion.sourceId !== "cdc-places";
   });
-  const contextBySourceField = new Map(persistentContextObservations.map((observation) => {
+  const contextBySourceField = new Map(persistentContextObservations.flatMap((observation) => {
     const citation = brief.citations.find((item) => item.id === observation.citationIds[0]);
     const source = brief.publicData.sources.find((item) => item.sourceVersionId === observation.sourceVersionId);
-    return [`${source?.sourceId ?? ""}:${citation?.sourceField ?? observation.label}`, observation] as const;
+    const provenance = citation?.sourceProvenance;
+    const identifiers = [
+      provenance?.sourceVariableId,
+      provenance?.numeratorVariableId && provenance?.denominatorVariableId
+        ? `${provenance.numeratorVariableId}/${provenance.denominatorVariableId}`
+        : null,
+    ].filter((value): value is string => Boolean(value));
+    return identifiers.map((identifier) => [`${source?.sourceId ?? ""}:${identifier}`, observation] as const);
   }));
   const contextNumber = (...fields: string[]) => {
     const observation = fields
@@ -148,17 +146,17 @@ export async function GET(request: NextRequest) {
   const contextMoe = (...fields: string[]) => fields
     .map((field) => contextBySourceField.get(`census-acs5:${field}`))
     .find(Boolean)?.confidence.marginOfError ?? null;
-  const acsContext = useFixtureOnlyForTests ? getAcsCountyContext(evidenceGeoid) : {
-    population: contextNumber("population", "B01001_001E"),
-    populationMoe: contextMoe("population", "B01001_001E"),
-    medianAge: contextNumber("medianAge", "B01002_001E"),
-    medianAgeMoe: contextMoe("medianAge", "B01002_001E"),
-    povertyPercent: contextNumber("povertyPercent", "B17001_002E / B17001_001E"),
-    povertyPercentMoe: contextMoe("povertyPercent", "B17001_002E / B17001_001E"),
-    noVehiclePercent: contextNumber("noVehiclePercent", "B08201_002E / B08201_001E"),
-    noVehiclePercentMoe: contextMoe("noVehiclePercent", "B08201_002E / B08201_001E"),
-    internetSubscriptionPercent: contextNumber("internetSubscriptionPercent", "B28002_002E / B28002_001E"),
-    internetSubscriptionPercentMoe: contextMoe("internetSubscriptionPercent", "B28002_002E / B28002_001E"),
+  const acsContext = {
+    population: contextNumber("B01001_001E"),
+    populationMoe: contextMoe("B01001_001E"),
+    medianAge: contextNumber("B01002_001E"),
+    medianAgeMoe: contextMoe("B01002_001E"),
+    povertyPercent: contextNumber("B17001_002E/B17001_001E"),
+    povertyPercentMoe: contextMoe("B17001_002E/B17001_001E"),
+    noVehiclePercent: contextNumber("B08201_002E/B08201_001E"),
+    noVehiclePercentMoe: contextMoe("B08201_002E/B08201_001E"),
+    internetSubscriptionPercent: contextNumber("B28002_002E/B28002_001E"),
+    internetSubscriptionPercentMoe: contextMoe("B28002_002E/B28002_001E"),
   };
   const workforceContext = useFixtureOnlyForTests ? getHrsaCountyContext(evidenceGeoid) : persistentWorkforce ?? { hpsa: [], muaP: [] };
   const ahrfContext = useFixtureOnlyForTests ? getAhrfCountyContext(evidenceGeoid) : {
@@ -202,7 +200,13 @@ export async function GET(request: NextRequest) {
     const national = nationalCountyBenchmark[path.group][path.field] ?? null;
     const state = stateBenchmark[path.group][path.field] ?? null;
     if (!metric || metric.value === null) return [];
-    const difference = national === null ? null : Number((metric.value - national).toFixed(1));
+    const comparisons = buildMetricComparisons({
+      localValue: metric.value,
+      stateValue: state,
+      nationalValue: national,
+      higherValueMeaning: definition.higherValueMeaning,
+    });
+    const displayed = displayedComparison(comparisons);
     const observation = cdcObservations.get(cdcMeasureDefinitionId(path.sourceMeasureId));
     const confidence = metric.ci
       ? `${metric.ci[0]}–${metric.ci[1]}`
@@ -215,13 +219,15 @@ export async function GET(request: NextRequest) {
       confidence,
       national,
       state,
-      difference,
-      score: national === null ? 0 : scoreMetric(metric.value, national, definition.higherValueMeaning),
+      comparisons,
+      score: displayed?.value === null || displayed?.value === undefined
+        ? 0
+        : scoreMetric(metric.value, displayed.value, definition.higherValueMeaning),
       release: observation?.releaseDate ?? cdcSource?.releaseDate ?? "Release unavailable",
       previousValue: null,
       trendDifference: null,
       trend: "unavailable" as const,
-      interpretation: interpretation(definition.higherValueMeaning, difference),
+      interpretation: displayed?.interpretation ?? "comparison_unavailable",
       geographyLevel: "county" as const,
       universe: observation?.universe ?? "See the official CDC PLACES measure definition for the eligible population.",
       adjustment: observation?.adjustment ?? "See the official source definition.",
@@ -244,7 +250,7 @@ export async function GET(request: NextRequest) {
     geoid: evidenceGeoid,
     label: `${record.county}, ${record.stateCode}`,
     state: record.stateCode,
-    population: record.population ?? acsContext.population ?? 0,
+    population: acsContext.population ?? null,
     coordinates: [record.centroid.lon, record.centroid.lat],
     geographyLabel: "Official county or county-equivalent geography",
     geographyAuthority: "U.S. Census Bureau",
@@ -254,10 +260,39 @@ export async function GET(request: NextRequest) {
   };
   const intelligence = buildPlaceIntelligence({
     location,
-    metrics,
-    priorities,
+    metrics: metrics.map((metric) => ({
+      ...metric,
+      difference: displayedComparison(metric.comparisons)?.difference ?? null,
+    })),
+    priorities: priorities.map((metric) => ({
+      ...metric,
+      difference: displayedComparison(metric.comparisons)?.difference ?? null,
+    })),
     localPlan: null,
   });
+  const assessmentReferences = new Map(
+    (brief.evidenceAssessment.references ?? []).map((reference) => [reference.id, reference.claim]),
+  );
+  const responseName = {
+    health_equity_hub: "Health Equity Hub formats",
+    health_access_day: "Health Access Day",
+    provider_led_pathway: "Provider-led pathways",
+    workforce_conversation: "Workforce capacity",
+    no_recommendation_yet: "No recommendation yet",
+  } as const;
+  intelligence.placeBasedResponses = brief.evidenceAssessment.responseFits.map((fit) => ({
+    name: responseName[fit.response],
+    status: fit.status === "fit_for_local_review" ? "Potentially supported" : "Insufficient evidence",
+    reason: fit.explanation,
+    evidence: fit.evidenceIds.map((id) => assessmentReferences.get(id) ?? id).join("; ")
+      || fit.missingEvidence.join("; "),
+  }));
+  const missingQuestion = intelligence.questions.find((question) => question.id === "missing-evidence");
+  if (missingQuestion) {
+    missingQuestion.answer = brief.evidenceAssessment.missing.length
+      ? brief.evidenceAssessment.missing.join(" ")
+      : "No source-level evidence gap is recorded in the selected snapshot. Local interpretation and partner review still apply.";
+  }
   const cdcCoverage = brief.publicData.sourceCoverage.find((item) => item.sourceId === "cdc-places");
   const sourceCoverageById = new Map<string, (typeof brief.publicData.sourceCoverage)[number]>(
     brief.publicData.sourceCoverage.map((coverage) => [coverage.sourceId, coverage]),

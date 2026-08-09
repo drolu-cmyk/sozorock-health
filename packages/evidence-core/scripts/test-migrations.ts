@@ -161,6 +161,31 @@ try {
 
   // The latest correctness migrations must be reversible and re-applicable in
   // the disposable database before any protected environment is touched.
+  const down0015 = await readFile(path.join(migrationsDir, "rollback", "0015_explore_product_completion.down.sql"), "utf8");
+  await client.query(down0015);
+  const agentParticipantsAfter0015Rollback = await client.query(
+    `SELECT count(*)::integer AS count FROM evidence.workspace_participant
+     WHERE principal_id='sozorock-place-agent' AND role='evidence_agent'`,
+  );
+  if (agentParticipantsAfter0015Rollback.rows[0].count !== 0) {
+    throw new Error("Migration 0015 rollback did not remove product-created evidence-agent memberships.");
+  }
+  await client.query(await readFile(path.join(migrationsDir, "0015_explore_product_completion.sql"), "utf8"));
+  const down0014 = await readFile(path.join(migrationsDir, "rollback", "0014_acs_uncertainty_provenance.down.sql"), "utf8");
+  await client.query(down0014);
+  const uncertaintyAfter0014Rollback = await client.query(
+    `SELECT column_name FROM information_schema.columns
+     WHERE table_schema='evidence' AND table_name='metric_observation'
+       AND column_name IN (
+         'source_numerator_margin_of_error_variable_id',
+         'source_denominator_margin_of_error_variable_id',
+         'source_margin_of_error_formula'
+       )`,
+  );
+  if (uncertaintyAfter0014Rollback.rows.length !== 0) {
+    throw new Error("Migration 0014 rollback did not remove derived ACS uncertainty provenance.");
+  }
+  await client.query(await readFile(path.join(migrationsDir, "0014_acs_uncertainty_provenance.sql"), "utf8"));
   const down0012 = await readFile(path.join(migrationsDir, "rollback", "0012_acs_provenance_backfill.down.sql"), "utf8");
   const down0013 = await readFile(path.join(migrationsDir, "rollback", "0013_public_review_questions.down.sql"), "utf8");
   await client.query(down0013);
@@ -342,6 +367,10 @@ try {
     reapply0012Passed: true,
     rollback0013Passed: true,
     reapply0013Passed: true,
+    rollback0014Passed: true,
+    reapply0014Passed: true,
+    rollback0015Passed: true,
+    reapply0015Passed: true,
   }, null, 2));
 } finally {
   await client.end();

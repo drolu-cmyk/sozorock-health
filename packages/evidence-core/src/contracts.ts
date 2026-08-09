@@ -200,6 +200,9 @@ export type MetricObservation = {
     group: string | null;
     estimateField: string | null;
     marginOfErrorField: string | null;
+    numeratorMarginOfErrorVariableId?: string | null;
+    denominatorMarginOfErrorVariableId?: string | null;
+    marginOfErrorFormula?: string | null;
   };
 };
 

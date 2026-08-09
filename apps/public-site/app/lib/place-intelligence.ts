@@ -35,7 +35,7 @@ type PlaceIntelligenceInput = {
     geoid: string;
     label: string;
     state: string;
-    population: number;
+    population: number | null;
   };
   metrics: PlaceIntelligenceMetric[];
   priorities: PlaceIntelligenceMetric[];
@@ -272,7 +272,7 @@ export function buildPlaceIntelligence({
   ];
 
   const locationSummary = `${location.label} is a U.S. ${geographyLabel(location.kind)}${
-    location.population > 0
+    location.population !== null && location.population > 0
       ? ` with an estimated population of ${number.format(location.population)}`
       : ""
   }. ${strongest ? `${strongest.label} is the strongest signal among the measures currently available.` : "The current source set has limited compatible measures for this place."}`;

@@ -7,7 +7,8 @@ import {
   sha256,
   writeExecutionAudit,
 } from "../../../../lib/evidence-runtime-authority";
-import { recordExplorePerformance } from "../../../../lib/explore-workspace-runtime";
+import { createWorkspaceAgentSuggestion, recordExplorePerformance } from "../../../../lib/explore-workspace-runtime";
+import { requireWorkspaceActor } from "../../../../lib/explore-workspace-auth";
 import {
   placeAgentRuntimeVersions,
 } from "../../../../lib/place-agent-openai";
@@ -19,14 +20,25 @@ import {
 
 export const runtime = "nodejs";
 
-function validInput(value: unknown): value is { geoid: string; question: string } {
+function validInput(value: unknown): value is {
+  geoid: string;
+  question: string;
+  inputMode?: "typed" | "voice";
+  transcriptHash?: string;
+  workspaceId?: string;
+  sectionKey?: string;
+} {
   if (!value || typeof value !== "object") return false;
   const input = value as Record<string, unknown>;
   return typeof input.geoid === "string"
     && /^\d{5}$/.test(input.geoid)
     && typeof input.question === "string"
     && input.question.trim().length >= 3
-    && input.question.trim().length <= 1_500;
+    && input.question.trim().length <= 1_500
+    && (input.inputMode === undefined || input.inputMode === "typed" || input.inputMode === "voice")
+    && (input.transcriptHash === undefined || /^sha256:[0-9a-f]{64}$/i.test(String(input.transcriptHash)))
+    && (input.workspaceId === undefined || /^[0-9a-f-]{36}$/i.test(String(input.workspaceId)))
+    && (input.sectionKey === undefined || /^[a-z][a-z0-9_-]{1,63}$/.test(String(input.sectionKey)));
 }
 
 export async function POST(request: NextRequest) {
@@ -34,6 +46,8 @@ export async function POST(request: NextRequest) {
   let authority: Awaited<ReturnType<typeof requireEvidenceAuthority>> | null = null;
   let requestHash = sha256("unparsed");
   let geographyUuid: string | null = null;
+  let auditWorkspaceId: string | null = null;
+  let auditSectionKey: string | null = null;
   try {
     const allowedHosts = (process.env.EVIDENCE_ALLOWED_HOSTS ?? process.env.ACCESS_ALLOWED_ORIGINS ?? "")
       .split(";")
@@ -65,7 +79,9 @@ export async function POST(request: NextRequest) {
     if (!validInput(body)) {
       return NextResponse.json({ error: "Provide a valid five-digit county GEOID and a question." }, { status: 400 });
     }
-    requestHash = sha256({ geoid: body.geoid, question: body.question.trim() });
+    auditWorkspaceId = body.workspaceId ?? null;
+    auditSectionKey = body.sectionKey ?? null;
+    requestHash = sha256({ geoid: body.geoid, question: body.question.trim(), inputMode: body.inputMode ?? "typed" });
     authority = await requireEvidenceAuthority(placeAgentRuntimeVersions.snapshotContentHash);
     geographyUuid = await requireEvidenceGeographyId(body.geoid);
     if (!authority.narrativeEnabled || !authority.openAiEnabled) {
@@ -79,7 +95,7 @@ export async function POST(request: NextRequest) {
         responseHash: null,
         outcome: "rejected",
         reason: "Agent capability switch is disabled.",
-        metadata: { geoid: body.geoid },
+        metadata: { geoid: body.geoid, inputMode: body.inputMode ?? "typed", transcriptHash: body.transcriptHash ?? null },
       });
       return NextResponse.json({ error: "Place Intelligence is not currently enabled." }, { status: 503 });
     }
@@ -108,6 +124,10 @@ export async function POST(request: NextRequest) {
         toolCalls: output.toolCalls,
         pipelineSteps: output.pipelineSteps,
         usage: output.usage ?? null,
+        inputMode: body.inputMode ?? "typed",
+        transcriptHash: body.inputMode === "voice" ? body.transcriptHash ?? null : null,
+        workspaceId: body.workspaceId ?? null,
+        sectionKey: body.sectionKey ?? null,
       },
     });
     try {
@@ -126,7 +146,26 @@ export async function POST(request: NextRequest) {
     } catch {
       console.error("place-evidence-agent-performance-audit-failed");
     }
-    return NextResponse.json(output.answer, {
+    let workspaceSuggestion: Awaited<ReturnType<typeof createWorkspaceAgentSuggestion>> | null = null;
+    if (body.workspaceId && output.answer.status !== "refused") {
+      const requestingActor = await requireWorkspaceActor(request);
+      workspaceSuggestion = await createWorkspaceAgentSuggestion({
+        workspaceId: body.workspaceId,
+        tenantId: requestingActor.tenantId,
+        requestingActor,
+        sectionKey: body.sectionKey ?? "plan",
+        content: {
+          answer: output.answer.answer,
+          citations: output.answer.citedEvidence,
+          visualIntent: output.answer.visualIntent,
+          evidenceSnapshotContentHash: output.snapshotContentHash,
+          model: output.model,
+          policyVersion: placeAgentRuntimeVersions.policyVersion,
+        },
+        idempotencyKey: `agent-suggestion:${requestHash}`,
+      });
+    }
+    return NextResponse.json({ ...output.answer, workspaceSuggestion }, {
       headers: {
         "Cache-Control": "no-store",
         "X-Content-Type-Options": "nosniff",
@@ -148,7 +187,7 @@ export async function POST(request: NextRequest) {
           responseHash: null,
           outcome: "failed",
           reason: (error as Error).message,
-          metadata: { errorName: (error as { name?: string }).name ?? "UnknownError" },
+          metadata: { errorName: (error as { name?: string }).name ?? "UnknownError", workspaceId: auditWorkspaceId, sectionKey: auditSectionKey },
         });
       } catch {
         console.error("place-evidence-agent-audit-failed");

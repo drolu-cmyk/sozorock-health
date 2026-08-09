@@ -140,7 +140,10 @@ test("ACS observations retain reconstructable direct and derived field provenanc
         estimate: "POVERTY_PCT",
         numeratorVariableId: "B17001_002E",
         denominatorVariableId: "B17001_001E",
+        numeratorMarginOfErrorVariableId: "B17001_002M",
+        denominatorMarginOfErrorVariableId: "B17001_001M",
         marginOfError: "B17001_002M",
+        marginOfErrorFormula: "Census ratio MOE",
         name: "Poverty percentage",
         description: "Derived percentage",
         universe: "Population for whom poverty status is determined",
@@ -153,8 +156,8 @@ test("ACS observations retain reconstructable direct and derived field provenanc
     { geography: albany },
     {
       fetcher: staticFetcher(JSON.stringify([
-        ["NAME", "B01001_001E", "B01001_001M", "B17001_002E", "B17001_001E", "B17001_002M", "state", "county"],
-        ["Albany County, New York", "100", "2", "25", "100", "1", "36", "001"],
+        ["NAME", "B01001_001E", "B01001_001M", "B17001_002E", "B17001_001E", "B17001_002M", "B17001_001M", "state", "county"],
+        ["Albany County, New York", "100", "2", "25", "100", "1", "2", "36", "001"],
       ])),
       cache: new InMemoryHttpCache(),
       now: "2026-07-20T12:00:00Z",
@@ -174,6 +177,9 @@ test("ACS observations retain reconstructable direct and derived field provenanc
     group: "POVERTY",
     estimateField: "B17001_002E",
     marginOfErrorField: "B17001_002M",
+    numeratorMarginOfErrorVariableId: "B17001_002M",
+    denominatorMarginOfErrorVariableId: "B17001_001M",
+    marginOfErrorFormula: "Census ratio MOE",
   });
 });
 

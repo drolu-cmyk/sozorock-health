@@ -31,7 +31,9 @@ async function salt() {
 }
 
 export async function enforceEvidenceRateLimit(request: NextRequest) {
-  if (process.env.NODE_ENV !== "production" && !tableName) return { allowed: true as const, retryAfter: null };
+  if (process.env.RUNTIME_ENV?.trim().toLowerCase() === "test" && !tableName) {
+    return { allowed: true as const, retryAfter: null };
+  }
   if (!tableName) return { allowed: false as const, retryAfter: null };
   const epoch = Math.floor(Date.now() / 1000);
   const bucket = Math.floor(epoch / 300);
@@ -61,7 +63,9 @@ export async function enforceEvidenceRateLimit(request: NextRequest) {
 }
 
 export async function enforceAgentRateLimit(request: NextRequest) {
-  if (process.env.NODE_ENV !== "production" && !tableName) return { allowed: true as const, retryAfter: null };
+  if (process.env.RUNTIME_ENV?.trim().toLowerCase() === "test" && !tableName) {
+    return { allowed: true as const, retryAfter: null };
+  }
   if (!tableName) return { allowed: false as const, retryAfter: null };
   const epoch = Math.floor(Date.now() / 1000);
   const hour = Math.floor(epoch / 3600);

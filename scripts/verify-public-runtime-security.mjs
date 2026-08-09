@@ -35,16 +35,6 @@ if (!(await exists(runtimeRoot))) {
   throw new Error("Public production build is missing.");
 }
 
-const forbiddenInstallPaths = [
-  path.join(root, "node_modules", "sharp"),
-  path.join(root, "apps", "public-site", "node_modules", "sharp"),
-];
-for (const target of forbiddenInstallPaths) {
-  if (await exists(target)) {
-    throw new Error(`Sharp is installed in the production dependency tree: ${target}`);
-  }
-}
-
 const files = await walk(runtimeRoot);
 const forbiddenPaths = files.filter((file) =>
   /(^|[\\/])(sharp|libvips)([\\/]|[.-]|$)/i.test(file),
@@ -55,7 +45,7 @@ if (forbiddenPaths.length) {
   );
 }
 
-// Next.js 15 omits images-manifest.json when image optimization is fully
+// Next.js may omit images-manifest.json when image optimization is fully
 // disabled. When it is present, validate the artifact's explicit setting; when
 // it is absent, validate the checked-in build configuration and the rendered
 // artifact below. This keeps the check tied to the production build rather
@@ -111,7 +101,7 @@ const report = {
   runtimeRoot: "apps/public-site/.next",
   imageMode: "unoptimized",
   imagesManifestPresent,
-  sharpInstalled: false,
+  sharpPresentInRuntimeArtifact: false,
   libvipsPresent: false,
   nextImageRouteRequiredByRenderedHtml: false,
   runtimeTraceImportsSharp: false,

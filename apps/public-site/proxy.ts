@@ -1,10 +1,10 @@
-import {NextResponse, type NextRequest} from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const requestHeaders = new Headers(request.headers);
   const isSpanish = request.nextUrl.pathname === "/es" || request.nextUrl.pathname.startsWith("/es/");
   requestHeaders.set("x-sozorock-language", isSpanish ? "es" : "en");
-  return NextResponse.next({request: {headers: requestHeaders}});
+  return NextResponse.next({ request: { headers: requestHeaders } });
 }
 
 export const config = {

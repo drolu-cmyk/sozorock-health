@@ -47,9 +47,8 @@ jobs:
         run: |
           set -euo pipefail
           npm ci --omit=optional
-          npm audit --omit=dev --omit=optional --audit-level=moderate
-          npm ls sharp --all || test "$?" -eq 1
-          test ! -d node_modules/sharp
+          npm audit --workspace @sozorock/public-site --omit=dev --omit=optional --audit-level=moderate
+          npm run verify:public-dependency-security
       - name: Migration integrity and rollback
         run: npm run test:migrations --workspace @sozorock/evidence-core
       - name: Nationwide county and evidence contract
@@ -59,7 +58,9 @@ jobs:
           npm run typecheck
           npm run lint
           npm test
+          npm run test:openapi-drift --workspace @sozorock/public-site
           npm run build:public
+          npm run verify:public-dependency-security
           npm run verify:public-runtime-security
       - name: Explore browser matrix
         run: |
@@ -157,6 +158,10 @@ jobs:
       - name: Build and provision real-time collaboration
         run: |
           set -euo pipefail
+          default_domain=$(aws amplify get-app --app-id "$PUBLIC_APP_ID" --query 'app.defaultDomain' --output text)
+          branch_slug=$(tr '/_' '--' <<<"$STAGING_BRANCH")
+          staging_url="https://${branch_slug}.${default_domain}"
+          echo "STAGING_EXPLORE_URL=$staging_url" >> "$GITHUB_ENV"
           mkdir -p output/realtime
           npx esbuild packages/explore-realtime/src/handler.ts --bundle --platform=node \
             --target=node22 --format=cjs --outfile=output/realtime/handler.js
@@ -172,8 +177,9 @@ jobs:
               EnvironmentName=staging \
               HandlerBucket="$EvidenceArtifactBucket" \
               HandlerKey="$handler_key" \
-              PublicSiteRuntimeRoleName="$PUBLIC_COMPUTE_ROLE_NAME"
-          for output in WebSocketApiId WebSocketLogGroupArn WebSocketThrottlingBurstLimit WebSocketThrottlingRateLimit WebSocketUrl ManagementEndpoint SessionTable ConnectionTable CountyWorkspaceUserPoolId CountyWorkspaceAppClientId; do
+              PublicSiteRuntimeRoleName="$PUBLIC_COMPUTE_ROLE_NAME" \
+              PublicSiteUrl="$staging_url"
+          for output in WebSocketApiId WebSocketLogGroupArn WebSocketThrottlingBurstLimit WebSocketThrottlingRateLimit WebSocketUrl ManagementEndpoint SessionTable ConnectionTable CountyWorkspaceUserPoolId CountyWorkspaceAppClientId CountyWorkspaceHostedUiUrl ExploreAuthCookieSecretArn; do
             value=$(aws cloudformation describe-stacks --stack-name sozorock-explore-collaboration-staging \
               --query "Stacks[0].Outputs[?OutputKey=='$output'].OutputValue" --output text)
             printf -v "$output" '%s' "$value"
@@ -257,7 +263,12 @@ jobs:
             --arg connections "$ConnectionTable" \
             --arg websocket "$WebSocketUrl" \
             --arg management "$ManagementEndpoint" \
+            --arg cognito_domain "$CountyWorkspaceHostedUiUrl" \
+            --arg cognito_client "$CountyWorkspaceAppClientId" \
+            --arg auth_cookie_secret "$ExploreAuthCookieSecretArn" \
             --arg snapshot_hash "$EVIDENCE_SNAPSHOT_CONTENT_HASH" \
+            --arg release_sha "$RELEASE_SHA" \
+            --arg build_timestamp "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
             '. + {
               EVIDENCE_DATABASE_CLUSTER_ARN:$cluster,
               EVIDENCE_DATABASE_SECRET_ARN:$secret,
@@ -274,7 +285,14 @@ jobs:
               EXPLORE_REALTIME_CONNECTION_TABLE:$connections,
               EXPLORE_REALTIME_PUBLIC_ENDPOINT:$websocket,
               EXPLORE_REALTIME_MANAGEMENT_ENDPOINT:$management,
-              EVIDENCE_SNAPSHOT_CONTENT_HASH:$snapshot_hash
+              EXPLORE_COGNITO_DOMAIN:$cognito_domain,
+              EXPLORE_COGNITO_CLIENT_ID:$cognito_client,
+              EXPLORE_AUTH_COOKIE_SECRET_ARN:$auth_cookie_secret,
+              EVIDENCE_SNAPSHOT_CONTENT_HASH:$snapshot_hash,
+              EVIDENCE_DATABASE_MIGRATION_VERSION:"0015",
+              REPOSITORY_COMMIT_SHA:$release_sha,
+              BUILD_TIMESTAMP:$build_timestamp,
+              RUNTIME_ENV:"staging"
             }' <<<"$branch_env")
           aws amplify update-branch --app-id "$PUBLIC_APP_ID" --branch-name "$STAGING_BRANCH" \
             --environment-variables "$merged_env" >/dev/null

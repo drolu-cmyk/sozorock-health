@@ -30,6 +30,13 @@ export type PlaceEvidenceAnswer = {
   citedEvidence: Array<{
     citationId: string;
     claim: string;
+    evidenceType: "metric_observation" | "local_plan" | "source_coverage" | "planning_status";
+    sourceName: string;
+    officialUrl: string | null;
+    releaseDate: string | null;
+    dataPeriodStart: string | null;
+    dataPeriodEnd: string | null;
+    geographicScope: string;
   }>;
   sourceAndDataDates: Array<{
     sourceId: string;
@@ -46,6 +53,13 @@ export type PlaceEvidenceAnswer = {
   missingEvidence: string[];
   caveats: string[];
   nonClinicalBoundary: string;
+  visualIntent: {
+    view: "brief" | "map" | "visuals";
+    measureKey: string | null;
+    comparisonBasis: "state" | "national" | "unavailable";
+    mapLayer: "county_boundary" | "measure" | "source_coverage" | null;
+    rationale: string;
+  };
 };
 
 type OpenAIResponse = {
@@ -90,13 +104,45 @@ function contentHash() {
 
 function approvedClaims(brief: ExplorePlaceBriefV1) {
   return [
-    ...brief.publicData.observations.flatMap((observation) =>
-      observation.citationIds.map((citationId) => ({
+    ...brief.publicData.observations.flatMap((observation) => {
+      const source = brief.publicData.sources.find((candidate) => candidate.sourceVersionId === observation.sourceVersionId);
+      return observation.citationIds.map((citationId) => ({
         citationId,
         claim: `${observation.label}: ${observation.value}${observation.unit === "percent" ? "%" : ` ${observation.unit}`} for ${brief.resolution.selected?.displayName ?? "the selected geography"} (${observation.dataPeriod.start ?? "period unavailable"} to ${observation.dataPeriod.end ?? "period unavailable"}).`,
-      }))),
-    ...brief.localPlanningEvidence.claims.flatMap((claim) =>
-      claim.citationIds.map((citationId) => ({ citationId, claim: claim.statement }))),
+        evidenceType: "metric_observation" as const,
+        sourceName: source?.title ?? source?.sourceId ?? "Approved evidence source",
+        officialUrl: source?.officialUrl ?? null,
+        releaseDate: observation.releaseDate || source?.releaseDate || null,
+        dataPeriodStart: observation.dataPeriod.start,
+        dataPeriodEnd: observation.dataPeriod.end,
+        geographicScope: brief.resolution.selected?.displayName ?? "Selected county",
+      }));
+    }),
+    ...brief.localPlanningEvidence.claims.flatMap((claim) => {
+      const document = brief.localPlanningEvidence.documents.find((candidate) => candidate.id === claim.documentId);
+      return claim.citationIds.map((citationId) => ({
+        citationId,
+        claim: claim.statement,
+        evidenceType: "local_plan" as const,
+        sourceName: document?.title ?? "Verified local planning evidence",
+        officialUrl: document?.officialUrl ?? null,
+        releaseDate: document?.publishedAt ?? null,
+        dataPeriodStart: document?.period.start ?? null,
+        dataPeriodEnd: document?.period.end ?? null,
+        geographicScope: brief.resolution.selected?.displayName ?? "Selected county",
+      }));
+    }),
+    ...(brief.evidenceAssessment.references ?? []).map((reference) => ({
+      citationId: reference.id,
+      claim: reference.claim,
+      evidenceType: reference.evidenceType,
+      sourceName: reference.sourceTitle,
+      officialUrl: reference.officialUrl,
+      releaseDate: reference.releaseDate,
+      dataPeriodStart: reference.dataPeriod.start,
+      dataPeriodEnd: reference.dataPeriod.end,
+      geographicScope: reference.geography,
+    })),
   ];
 }
 
@@ -112,7 +158,10 @@ async function placeAgentPipelinePackage(brief: ExplorePlaceBriefV1) {
     (document) => document.reviewStatus === "verified",
   );
   const approved = approvedClaims(brief);
-  const citations = new Set(brief.citations.map((citation) => citation.id));
+  const citations = new Set([
+    ...brief.citations.map((citation) => citation.id),
+    ...(brief.evidenceAssessment.references ?? []).map((reference) => reference.id),
+  ]);
   const claimValidation = approved.every((claim) => citations.has(claim.citationId));
   if (!claimValidation) throw new Error("Approved claim package contains a missing citation.");
   return {
@@ -163,7 +212,7 @@ async function placeAgentPipelinePackage(brief: ExplorePlaceBriefV1) {
   };
 }
 
-async function apiKey() {
+export async function getOpenAIApiKey() {
   const arn = process.env.OPENAI_PLACE_EVIDENCE_SECRET_ARN?.trim();
   if (!arn) throw new Error("OpenAI secret is not configured.");
   const value = await secrets.send(new GetSecretValueCommand({ SecretId: arn }));
@@ -269,8 +318,18 @@ const answerSchema = {
         properties: {
           citationId: { type: "string" },
           claim: { type: "string" },
+          evidenceType: { type: "string", enum: ["metric_observation", "local_plan", "source_coverage", "planning_status"] },
+          sourceName: { type: "string" },
+          officialUrl: { type: ["string", "null"] },
+          releaseDate: { type: ["string", "null"] },
+          dataPeriodStart: { type: ["string", "null"] },
+          dataPeriodEnd: { type: ["string", "null"] },
+          geographicScope: { type: "string" },
         },
-        required: ["citationId", "claim"],
+        required: [
+          "citationId", "claim", "evidenceType", "sourceName", "officialUrl",
+          "releaseDate", "dataPeriodStart", "dataPeriodEnd", "geographicScope",
+        ],
       },
     },
     sourceAndDataDates: {
@@ -301,10 +360,22 @@ const answerSchema = {
     missingEvidence: { type: "array", items: { type: "string" } },
     caveats: { type: "array", items: { type: "string" } },
     nonClinicalBoundary: { type: "string" },
+    visualIntent: {
+      type: "object",
+      additionalProperties: false,
+      properties: {
+        view: { type: "string", enum: ["brief", "map", "visuals"] },
+        measureKey: { type: ["string", "null"] },
+        comparisonBasis: { type: "string", enum: ["state", "national", "unavailable"] },
+        mapLayer: { type: ["string", "null"], enum: ["county_boundary", "measure", "source_coverage", null] },
+        rationale: { type: "string" },
+      },
+      required: ["view", "measureKey", "comparisonBasis", "mapLayer", "rationale"],
+    },
   },
   required: [
     "schemaVersion", "answer", "status", "citedEvidence", "sourceAndDataDates",
-    "geographicScope", "confidence", "missingEvidence", "caveats", "nonClinicalBoundary",
+    "geographicScope", "confidence", "missingEvidence", "caveats", "nonClinicalBoundary", "visualIntent",
   ],
 } as const;
 
@@ -324,6 +395,13 @@ function refusal(brief: ExplorePlaceBriefV1): PlaceEvidenceAnswer {
     missingEvidence: [],
     caveats: brief.safety.limitations,
     nonClinicalBoundary: brief.safety.limitations[0],
+    visualIntent: {
+      view: "brief",
+      measureKey: null,
+      comparisonBasis: "unavailable",
+      mapLayer: null,
+      rationale: "The request is outside the non-clinical place-evidence scope.",
+    },
   };
 }
 
@@ -339,32 +417,37 @@ function extractText(response: OpenAIResponse) {
 
 function validateAnswer(answer: PlaceEvidenceAnswer, briefs: ExplorePlaceBriefV1[]) {
   if (answer.schemaVersion !== AGENT_SCHEMA_VERSION) throw new Error("Agent schema mismatch.");
-  const citations = new Set(briefs.flatMap((brief) => brief.citations.map((item) => item.id)));
-  const allowedClaims = new Map<string, Set<string>>();
+  const allowedClaims = new Map<string, ReturnType<typeof approvedClaims>[number]>();
   for (const brief of briefs) {
-    for (const observation of brief.publicData.observations) {
-      for (const citationId of observation.citationIds) {
-        const claims = allowedClaims.get(citationId) ?? new Set<string>();
-        claims.add(`${observation.label}: ${observation.value}${observation.unit === "percent" ? "%" : ` ${observation.unit}`} for ${brief.resolution.selected?.displayName ?? "the selected geography"} (${observation.dataPeriod.start ?? "period unavailable"} to ${observation.dataPeriod.end ?? "period unavailable"}).`);
-        allowedClaims.set(citationId, claims);
-      }
-    }
-    for (const claim of brief.localPlanningEvidence.claims) {
-      for (const citationId of claim.citationIds) {
-        const claims = allowedClaims.get(citationId) ?? new Set<string>();
-        claims.add(claim.statement);
-        allowedClaims.set(citationId, claims);
-      }
+    for (const claim of approvedClaims(brief)) {
+      allowedClaims.set(`${claim.citationId}:${claim.claim}`, claim);
     }
   }
   for (const cited of answer.citedEvidence) {
-    if (!citations.has(cited.citationId)) throw new Error("Agent returned a citation outside the approved evidence package.");
-    if (!allowedClaims.get(cited.citationId)?.has(cited.claim)) {
+    const approved = allowedClaims.get(`${cited.citationId}:${cited.claim}`);
+    if (!approved) {
       throw new Error("Agent claim does not exactly match the approved evidence package.");
     }
+    if (
+      cited.evidenceType !== approved.evidenceType
+      || cited.sourceName !== approved.sourceName
+      || cited.officialUrl !== approved.officialUrl
+      || cited.releaseDate !== approved.releaseDate
+      || cited.dataPeriodStart !== approved.dataPeriodStart
+      || cited.dataPeriodEnd !== approved.dataPeriodEnd
+      || cited.geographicScope !== approved.geographicScope
+    ) {
+      throw new Error("Agent citation metadata does not exactly match the approved evidence package.");
+    }
   }
-  if (answer.status === "answered" && answer.citedEvidence.length === 0) {
-    throw new Error("A substantive answer requires at least one approved citation.");
+  if (answer.status !== "refused" && answer.citedEvidence.length === 0) {
+    throw new Error("Every substantive or evidence-gap answer requires at least one approved citation.");
+  }
+  if (answer.visualIntent.measureKey) {
+    const allowedMeasureKeys = new Set(briefs.flatMap((brief) => brief.publicData.observations.map((item) => item.measureDefinitionId)));
+    if (!allowedMeasureKeys.has(answer.visualIntent.measureKey)) {
+      throw new Error("Agent visual intent references a measure outside the approved evidence package.");
+    }
   }
   return answer;
 }
@@ -402,7 +485,7 @@ export async function answerWithOpenAI(input: {
     };
   }
 
-  const key = await apiKey();
+  const key = await getOpenAIApiKey();
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
   const inputItems: unknown[] = [{
@@ -452,7 +535,8 @@ export async function answerWithOpenAI(input: {
             "Never inherit county evidence into a ZIP, ZCTA, city, neighborhood, or person.",
             "Refuse diagnosis, triage, treatment, medical advice, or individual-risk inference.",
             "Response fit means fit for local review only, never a final intervention decision.",
-            "Every citedEvidence item must copy both citationId and claim exactly from a tool's approvedClaims list.",
+            "Every citedEvidence item must copy the complete citation object exactly from a tool's approvedClaims list.",
+            "Return a visualIntent that points only to a measure present in the approved county brief, or use null.",
             "If evidence is insufficient, return evidence_gap and say what is missing.",
             "Be concise. Return no more than three citedEvidence items, three sourceAndDataDates items, three missingEvidence items, and three caveats.",
           ].join("\n"),

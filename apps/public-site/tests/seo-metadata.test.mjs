@@ -37,11 +37,11 @@ test("the Spanish route emits a server-side Content-Language header", async () =
 
 test("the document language is selected on the server for Spanish routes", async () => {
   const layout = await readFile(new URL("../app/layout.tsx", import.meta.url), "utf8");
-  const middleware = await readFile(new URL("../middleware.ts", import.meta.url), "utf8");
+  const proxy = await readFile(new URL("../proxy.ts", import.meta.url), "utf8");
   assert.match(layout, /<html lang=\{language\}>/);
   assert.match(layout, /x-sozorock-language/);
-  assert.match(middleware, /pathname === "\/es"/);
-  assert.match(middleware, /isSpanish \? "es" : "en"/);
+  assert.match(proxy, /pathname === "\/es"/);
+  assert.match(proxy, /isSpanish \? "es" : "en"/);
 });
 
 test("the sitemap source declares reciprocal English and Spanish alternatives", async () => {

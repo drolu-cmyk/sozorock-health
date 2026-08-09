@@ -21,7 +21,7 @@ export async function GET(request: NextRequest, context: Context) {
       tenantId: actor.tenantId,
       actor,
     });
-    return NextResponse.json({ contractVersion: "explore.workspace-plan.v1", ...plan }, {
+    return NextResponse.json({ contractVersion: "explore.workspace-plan.v1", actor: { displayName: actor.displayName, principalId: actor.principalId, role: actor.role, access: actor.access }, ...plan }, {
       headers: { "Cache-Control": "no-store" },
     });
   } catch (error) {

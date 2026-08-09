@@ -11,8 +11,33 @@ import {
   writeExecutionAudit,
 } from "../../../../lib/evidence-runtime-authority";
 import { placeAgentRuntimeVersions } from "../../../../lib/place-agent-openai";
+import { isTrustedSameOrigin, readBoundedText } from "../../../../lib/request-security";
 
 export const runtime = "nodejs";
+const MAX_COUNTY_SET = 25;
+
+function validCountySet(value: unknown): value is string[] {
+  return Array.isArray(value) && value.length >= 1 && value.length <= MAX_COUNTY_SET
+    && new Set(value).size === value.length && value.every((item) => typeof item === "string" && /^\d{5}$/.test(item));
+}
+
+function acsPopulation(brief: Awaited<ReturnType<typeof getPublishedCountyBrief>>) {
+  if (!brief) return null;
+  const value = brief.publicData.observations.find((observation) =>
+    observation.citationIds.some((citationId) =>
+      brief.citations.find((citation) => citation.id === citationId)?.sourceProvenance?.sourceVariableId === "B01001_001E"),
+  )?.value;
+  return typeof value === "number" && value > 0 ? value : null;
+}
+
+function safeHtml(value: unknown) {
+  return String(value).replace(/[&<>"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[character] ?? character);
+}
+
+function renderCountySetHtml(result: Record<string, unknown>) {
+  const counties = result.counties as Array<Record<string, unknown>>;
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>SozoRock multi-county evidence set</title><style>body{font:16px/1.5 system-ui;margin:0;color:#101a1d}main{max-width:1080px;margin:auto;padding:40px 24px}h1{font-size:clamp(32px,5vw,62px);line-height:1}table{width:100%;border-collapse:collapse;margin:24px 0}th,td{text-align:left;padding:12px;border-bottom:1px solid #ccd3cf;vertical-align:top}th{background:#153d2c;color:white}.note{border-left:4px solid #e9ad16;padding:12px 16px;background:#f7f4ea}@media(max-width:700px){table,thead,tbody,tr,th,td{display:block}thead{position:absolute;left:-9999px}tr{border:1px solid #ccd3cf;margin:12px 0}td:before{content:attr(data-label);display:block;font-weight:700}}</style></head><body><main><p>SozoRock Place Intelligence</p><h1>Multi-county evidence set</h1><p class="note">${safeHtml(result.nonClinicalDisclosure)}</p><p><strong>Evidence snapshot:</strong> ${safeHtml(result.evidenceSnapshotContentHash)}<br><strong>Calculation:</strong> ${safeHtml(result.calculationVersion)}</p><table><thead><tr><th>County</th><th>Population</th><th>Evidence coverage</th><th>Workforce context</th><th>Local review</th></tr></thead><tbody>${counties.map((county) => `<tr><td data-label="County">${safeHtml(county.name)}<br><small>${safeHtml(county.geoid)}</small></td><td data-label="Population">${county.population === null ? "Unavailable" : Number(county.population).toLocaleString()}</td><td data-label="Evidence coverage">${safeHtml((county.coverage as string[]).join(", "))}</td><td data-label="Workforce context">${safeHtml(county.workforce)}</td><td data-label="Local review">${safeHtml(county.localReview)}</td></tr>`).join("")}</tbody></table><h2>Scenario status</h2><p>${safeHtml((result.barrierReductionPotential as Record<string, unknown>).status)}: ${safeHtml((result.barrierReductionPotential as Record<string, unknown>).reason)}</p></main></body></html>`;
+}
 
 function pdfSafe(value: string) {
   return value
@@ -198,5 +223,58 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error("funder-snapshot-failed", { name: (error as { name?: string }).name ?? "UnknownError" });
     return NextResponse.json({ error: "Funder evidence snapshot is not currently enabled." }, { status: 503 });
+  }
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const allowedHosts = (process.env.EVIDENCE_ALLOWED_HOSTS ?? process.env.ACCESS_ALLOWED_ORIGINS ?? "").split(";").map((item) => item.trim()).filter(Boolean);
+    if (!isTrustedSameOrigin(request, allowedHosts)) return NextResponse.json({ error: "Request origin was not accepted." }, { status: 403 });
+    const rate = await enforceEvidenceRateLimit(request);
+    if (!rate.allowed) return NextResponse.json({ error: "Please wait before generating another evidence set." }, { status: rate.retryAfter ? 429 : 503 });
+    const bounded = await readBoundedText(request, 24_000, ["application/json"]);
+    if (!bounded.ok) return NextResponse.json({ error: "The request was not accepted." }, { status: 400 });
+    const body = JSON.parse(bounded.text) as { geoids?: unknown; format?: unknown; assumptions?: unknown };
+    if (!validCountySet(body.geoids) || ![undefined, "json", "html"].includes(body.format as undefined | string)) {
+      return NextResponse.json({ error: `Provide 1–${MAX_COUNTY_SET} unique current county GEOIDs.` }, { status: 400 });
+    }
+    const briefs = await Promise.all(body.geoids.map((geoid) => getPublishedCountyBrief(geoid)));
+    if (briefs.some((brief) => !brief)) return NextResponse.json({ error: "One or more county GEOIDs are unavailable or outside the primary release scope." }, { status: 404 });
+    const approved = briefs.filter((brief): brief is NonNullable<typeof brief> => Boolean(brief));
+    const populations = approved.map(acsPopulation);
+    const reach = populations.every((value): value is number => typeof value === "number" && value > 0)
+      ? populations.reduce<number>((sum, value) => sum + value, 0)
+      : null;
+    const authority = await requireEvidenceAuthority(placeAgentRuntimeVersions.snapshotContentHash);
+    const result = {
+      contractVersion: "explore.multi-county-funder.v1",
+      calculationVersion: "multi-county-funder.calc.v1",
+      evidenceSnapshotContentHash: authority.snapshotContentHash,
+      generatedAt: new Date().toISOString(),
+      counties: approved.map((brief, index) => ({
+        geoid: brief.resolution.selected?.authorityId,
+        name: brief.resolution.selected?.displayName,
+        population: populations[index],
+        coverage: brief.publicData.sourceCoverage.map((item) => `${item.sourceId}: ${item.status}`),
+        sources: brief.publicData.sources.map((source) => ({ title: source.title, releaseDate: source.releaseDate, dataPeriod: source.dataPeriod, officialUrl: source.officialUrl })),
+        workforce: brief.evidenceAssessment.workforce?.interpretation ?? "Workforce scope requires local review.",
+        localReview: brief.localPlanningEvidence.status === "verified" ? "Verified planning evidence available." : "Current local planning evidence: not yet verified.",
+        evidenceGaps: brief.evidenceAssessment.missing,
+      })),
+      deduplicatedGeographicReach: reach === null
+        ? { status: "not_estimated", population: null, reason: "One or more counties lack source-backed ACS population." }
+        : { status: "estimated_from_official_county_populations", population: reach, reason: "Selected county GEOIDs are unique; ACS county populations are summed once." },
+      proposedHubMix: { status: "for_local_review", statement: "No hub mix is selected automatically. Local partners must confirm priorities, capacity, delivery assumptions and fit." },
+      scenarioAssumptions: body.assumptions && typeof body.assumptions === "object" ? body.assumptions : {},
+      barrierReductionPotential: { status: "not_estimated", range: null, reason: "Reviewed baseline, delivery capacity, causal assumptions and measurement periods are required." },
+      localReviewRequirements: ["Confirm current local planning priorities.", "Verify partner and workforce capacity.", "Approve assumptions and measurement ownership."],
+      nonClinicalDisclosure: "This evidence set supports local planning. It does not diagnose, triage, recommend treatment, estimate individual risk or promise outcomes.",
+    };
+    await writeExecutionAudit({ executionType: "partner_brief", contractVersion: result.contractVersion, policyVersion: placeAgentRuntimeVersions.policyVersion, snapshotUuid: authority.snapshotUuid, geographyUuid: null, requestHash: sha256(body), responseHash: sha256(result), outcome: "succeeded", reason: "Multi-county evidence set generated for local review.", metadata: { geoids: body.geoids, format: body.format ?? "json", calculationVersion: result.calculationVersion } });
+    if (body.format === "html") return new NextResponse(renderCountySetHtml(result as unknown as Record<string, unknown>), { headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "private, no-store", "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; frame-ancestors 'none'" } });
+    return NextResponse.json(result, { headers: { "Cache-Control": "private, no-store" } });
+  } catch (error) {
+    console.error("multi-county-funder-snapshot-failed", { name: (error as { name?: string }).name ?? "UnknownError" });
+    return NextResponse.json({ error: "The multi-county evidence set could not be generated." }, { status: 503 });
   }
 }

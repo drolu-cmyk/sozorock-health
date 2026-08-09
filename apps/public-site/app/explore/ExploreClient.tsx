@@ -25,6 +25,8 @@ import {
   MapPin,
   MapTrifold,
   MagnifyingGlass,
+  Microphone,
+  Stop,
   ShieldCheck,
   UsersThree,
   WarningCircle,
@@ -37,6 +39,10 @@ import {
   fitFallbackGeometry,
   hasRenderableGeometry,
 } from "../lib/explore-map-fallback";
+import {
+  displayedComparison,
+  type MetricComparisons,
+} from "../lib/explore-comparisons";
 
 type PlaceKind = "county" | "place" | "zip";
 type WorkspaceView = "brief" | "map" | "action" | "visuals";
@@ -83,7 +89,7 @@ type Metric = {
   confidence: string;
   national: number | null;
   state: number | null;
-  difference: number | null;
+  comparisons: MetricComparisons;
   score: number;
   release: string;
   previousValue: number | null;
@@ -131,7 +137,7 @@ type PlaceResponse = {
     geoid: string;
     label: string;
     state: string;
-    population: number;
+    population: number | null;
     coordinates: number[];
     geographyLabel: string;
     geographyAuthority: string;
@@ -256,7 +262,17 @@ type PlaceAgentAnswer = {
   schemaVersion: string;
   answer: string;
   status: "answered" | "evidence_gap" | "refused";
-  citedEvidence: Array<{ citationId: string; claim: string }>;
+  citedEvidence: Array<{
+    citationId: string;
+    claim: string;
+    evidenceType: "metric_observation" | "local_plan" | "source_coverage" | "planning_status";
+    sourceName: string;
+    officialUrl: string | null;
+    releaseDate: string | null;
+    dataPeriodStart: string | null;
+    dataPeriodEnd: string | null;
+    geographicScope: string;
+  }>;
   sourceAndDataDates: Array<{
     sourceId: string;
     releaseDate: string | null;
@@ -268,6 +284,13 @@ type PlaceAgentAnswer = {
   missingEvidence: string[];
   caveats: string[];
   nonClinicalBoundary: string;
+  visualIntent: {
+    view: "brief" | "map" | "visuals";
+    measureKey: string | null;
+    comparisonBasis: "state" | "national" | "unavailable";
+    mapLayer: "county_boundary" | "measure" | "source_coverage" | null;
+    rationale: string;
+  };
 };
 
 const stateCodes: Record<string, string> = {
@@ -328,9 +351,12 @@ function formatDate(value: string | undefined) {
 
 function displaySuggestion(result: Omit<Suggestion, "display">) {
   const state = stateCodes[result.stateFips];
-  const label = result.kind === "place"
-    ? result.label.replace(/\s+(city|town|village|borough|CDP)$/i, "")
+  const withoutState = state
+    ? result.label.replace(new RegExp(`,\\s*${state}$`, "i"), "")
     : result.label;
+  const label = result.kind === "place"
+    ? withoutState.replace(/\s+(city|town|village|borough|CDP)$/i, "")
+    : withoutState;
   return `${label}${state ? `, ${state}` : ""}`;
 }
 
@@ -476,7 +502,8 @@ function EvidenceCard({
           ? "Local context"
           : "Evidence missing";
   const Icon = kind === "attention" ? WarningCircle : kind === "improving" || kind === "protective" ? ChartLineUp : Info;
-  const benchmark = metric?.state ?? metric?.national ?? null;
+  const comparison = metric ? displayedComparison(metric.comparisons) : null;
+  const benchmark = comparison?.value ?? null;
   const max = metric ? Math.max(metric.value, benchmark ?? 0, 1) * 1.15 : 1;
   return (
     <article className={`${styles.evidenceCard} ${styles[`evidenceCard_${kind}`]}`}>
@@ -493,9 +520,9 @@ function EvidenceCard({
           <small>
             {kind === "improving" && metric.previousValue !== null
               ? `${Math.abs(metric.trendDifference ?? 0).toFixed(1)} points better than the prior release.`
-              : metric.difference === null
+              : comparison?.difference === null || comparison?.difference === undefined
                 ? "Comparison unavailable for this release."
-                : `${Math.abs(metric.difference).toFixed(1)} points ${metric.difference >= 0 ? "above" : "below"} the ${metric.state !== null ? "state" : "national"} comparison.`}
+                : comparison.sentence}
           </small>
         </>
       ) : (
@@ -572,10 +599,10 @@ function BriefView({ data }: { data: PlaceResponse }) {
     .sort((a, b) => Math.abs(b.trendDifference ?? 0) - Math.abs(a.trendDifference ?? 0))[0];
   const protective = data.metrics
     .filter((metric) => metric.direction === "protective")
-    .sort((a, b) => Math.abs(b.difference ?? 0) - Math.abs(a.difference ?? 0))[0];
+    .sort((a, b) => Math.abs(displayedComparison(b.comparisons)?.difference ?? 0) - Math.abs(displayedComparison(a.comparisons)?.difference ?? 0))[0];
   const contextual = data.metrics
     .filter((metric) => metric.direction === "contextual")
-    .sort((a, b) => Math.abs(b.difference ?? 0) - Math.abs(a.difference ?? 0))[0];
+    .sort((a, b) => Math.abs(displayedComparison(b.comparisons)?.difference ?? 0) - Math.abs(displayedComparison(a.comparisons)?.difference ?? 0))[0];
   const plan = data.localPlan.documents[0];
   return (
     <section id="brief-panel" role="tabpanel" aria-labelledby="brief-tab" className={styles.viewPanel}>
@@ -793,7 +820,7 @@ function MapCanvas({ geometry, data, metric }: { geometry: GeometryResponse | nu
       ? <BoundaryFallback geometry={geometry} data={data} metric={metric} />
       : <div className={styles.mapEmpty}><MapTrifold size={44} aria-hidden="true" /><p>{mapError || "The official boundary is temporarily unavailable."}</p></div>;
   }
-  return <div ref={containerRef} className={styles.mapCanvas} data-map-ready="false" role="img" aria-label={`Official ${data.location.evidenceGeography.replace("_", " ")} boundary for ${data.location.label}`} />;
+  return <div ref={containerRef} className={styles.mapCanvas} data-map-ready="false" role="region" aria-label={`Interactive official ${data.location.evidenceGeography.replace("_", " ")} boundary for ${data.location.label}`} />;
 }
 
 function MapView({
@@ -853,6 +880,74 @@ function ActionView({ data }: { data: PlaceResponse }) {
   const [answer, setAnswer] = useState<PlaceAgentAnswer | null>(null);
   const [status, setStatus] = useState<"idle" | "asking" | "error">("idle");
   const [error, setError] = useState("");
+  const [voiceState, setVoiceState] = useState<"idle" | "listening" | "processing" | "ready" | "denied" | "error">("idle");
+  const [voiceMessage, setVoiceMessage] = useState("");
+  const [voiceTranscript, setVoiceTranscript] = useState("");
+  const [transcriptHash, setTranscriptHash] = useState<string | null>(null);
+  const recorderRef = useRef<MediaRecorder | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
+  const resultRef = useRef<HTMLElement>(null);
+
+  async function startVoice() {
+    setVoiceMessage("");
+    setError("");
+    if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") {
+      setVoiceState("error");
+      setVoiceMessage("Voice recording is not supported in this browser. Type your question instead.");
+      return;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      streamRef.current = stream;
+      chunksRef.current = [];
+      const recorder = new MediaRecorder(stream);
+      recorderRef.current = recorder;
+      recorder.ondataavailable = (event) => { if (event.data.size) chunksRef.current.push(event.data); };
+      recorder.onstop = () => { void transcribeVoice(recorder.mimeType || "audio/webm"); };
+      recorder.start();
+      setVoiceState("listening");
+      setVoiceMessage("Listening. Press Stop when your planning question is complete.");
+    } catch (nextError) {
+      const denied = (nextError as { name?: string }).name === "NotAllowedError";
+      setVoiceState(denied ? "denied" : "error");
+      setVoiceMessage(denied
+        ? "Microphone access was denied. You can allow it in browser settings or type your question."
+        : "Voice Access could not start. Type your question instead.");
+    }
+  }
+
+  function stopVoice() {
+    if (recorderRef.current?.state === "recording") recorderRef.current.stop();
+    streamRef.current?.getTracks().forEach((track) => track.stop());
+    streamRef.current = null;
+    setVoiceState("processing");
+    setVoiceMessage("Preparing a transcript for your review.");
+  }
+
+  async function transcribeVoice(mimeType: string) {
+    try {
+      const audio = new Blob(chunksRef.current, { type: mimeType });
+      const form = new FormData();
+      form.set("geoid", data.location.geoid);
+      form.set("audio", new File([audio], "planning-question.webm", { type: mimeType }));
+      const response = await fetch("/api/evidence/v1/voice/transcribe", { method: "POST", body: form });
+      const payload = await response.json() as { transcript?: string; transcriptHash?: string; error?: string };
+      if (!response.ok || !payload.transcript || !payload.transcriptHash) throw new Error(payload.error ?? "The audio could not be transcribed.");
+      setQuestion(payload.transcript);
+      setVoiceTranscript(payload.transcript);
+      setTranscriptHash(payload.transcriptHash);
+      setVoiceState("ready");
+      setVoiceMessage("Review or correct the transcript, then ask Place Intelligence.");
+      window.requestAnimationFrame(() => document.getElementById("place-question")?.focus());
+    } catch (nextError) {
+      setVoiceState("error");
+      setVoiceMessage((nextError as Error).message);
+    } finally {
+      chunksRef.current = [];
+      recorderRef.current = null;
+    }
+  }
 
   async function ask(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -866,12 +961,18 @@ function ActionView({ data }: { data: PlaceResponse }) {
       const response = await fetch("/api/evidence/v1/agent", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ geoid: data.location.geoid, question: nextQuestion }),
+        body: JSON.stringify({
+          geoid: data.location.geoid,
+          question: nextQuestion,
+          inputMode: transcriptHash && nextQuestion === voiceTranscript ? "voice" : "typed",
+          transcriptHash: transcriptHash && nextQuestion === voiceTranscript ? transcriptHash : undefined,
+        }),
       });
       const payload = (await response.json().catch(() => ({}))) as PlaceAgentAnswer & { error?: string };
       if (!response.ok) throw new Error(payload.error ?? "Place Intelligence could not answer this question.");
       setAnswer(payload);
       setStatus("idle");
+      window.requestAnimationFrame(() => resultRef.current?.focus());
     } catch (nextError) {
       setError((nextError as Error).message);
       setStatus("error");
@@ -896,7 +997,10 @@ function ActionView({ data }: { data: PlaceResponse }) {
             <textarea
               id="place-question"
               value={question}
-              onChange={(event) => setQuestion(event.target.value)}
+              onChange={(event) => {
+                setQuestion(event.target.value);
+                if (event.target.value !== voiceTranscript) setTranscriptHash(null);
+              }}
               rows={3}
               maxLength={1500}
               placeholder="Ask what current evidence shows, how a measure is defined, or what requires local review."
@@ -905,6 +1009,19 @@ function ActionView({ data }: { data: PlaceResponse }) {
               <ChatCircleDots size={20} aria-hidden="true" />
               {status === "asking" ? "Checking evidence…" : "Ask Place Intelligence"}
             </button>
+          </div>
+          <div className={styles.voiceAccess}>
+            <button
+              type="button"
+              onClick={voiceState === "listening" ? stopVoice : () => void startVoice()}
+              disabled={voiceState === "processing" || status === "asking"}
+              aria-pressed={voiceState === "listening"}
+              aria-label={voiceState === "listening" ? "Stop recording" : "Ask with Voice Access"}
+            >
+              {voiceState === "listening" ? <Stop size={19} weight="fill" aria-hidden="true" /> : <Microphone size={20} aria-hidden="true" />}
+              {voiceState === "listening" ? "Stop" : voiceState === "processing" ? "Transcribing…" : "Ask with voice"}
+            </button>
+            <p role="status">{voiceMessage || "Audio is used only to create the transcript and is not retained."}</p>
           </div>
           <div className={styles.promptChips} aria-label="Example evidence questions">
             {prompts.map((prompt) => (
@@ -919,7 +1036,7 @@ function ActionView({ data }: { data: PlaceResponse }) {
           <p>No live web search. No patient profile. No diagnosis, triage, treatment advice or individual-risk inference.</p>
         </aside>
         {answer && (
-          <article className={styles.agentAnswer} aria-live="polite">
+          <article ref={resultRef} tabIndex={-1} className={styles.agentAnswer} aria-live="polite">
             <header>
               <span className={styles.actionStatus}>{answer.status.replace("_", " ")}</span>
               <span>{answer.confidence} confidence</span>
@@ -932,7 +1049,12 @@ function ActionView({ data }: { data: PlaceResponse }) {
                 {answer.citedEvidence.map((citation) => (
                   <article key={`${citation.citationId}-${citation.claim}`}>
                     <p>{citation.claim}</p>
-                    <small>Citation {citation.citationId}</small>
+                    <small>
+                      {citation.officialUrl
+                        ? <a href={citation.officialUrl} target="_blank" rel="noreferrer">{citation.sourceName}</a>
+                        : citation.sourceName}
+                      {` · ${citation.releaseDate ?? "Release date unavailable"} · ${citation.dataPeriodStart ?? "Data period unavailable"}${citation.dataPeriodEnd ? `–${citation.dataPeriodEnd}` : ""} · ${citation.geographicScope} · ${citation.citationId}`}
+                    </small>
                   </article>
                 ))}
               </div>
@@ -941,6 +1063,11 @@ function ActionView({ data }: { data: PlaceResponse }) {
               <div><h4>Missing evidence</h4><ul>{answer.missingEvidence.map((item) => <li key={item}>{item}</li>)}</ul></div>
             )}
             <p className={styles.agentDisclosure}>{answer.nonClinicalBoundary}</p>
+            <div className={styles.visualIntent}>
+              <strong>Visual result</strong>
+              <span>{answer.visualIntent.view} · {answer.visualIntent.measureKey ?? "county evidence overview"}</span>
+              <p>{answer.visualIntent.rationale}</p>
+            </div>
           </article>
         )}
         <section className={styles.planReview} aria-labelledby="plan-review-title">
@@ -948,7 +1075,7 @@ function ActionView({ data }: { data: PlaceResponse }) {
             <span>Shared county plan</span>
             <h3 id="plan-review-title">Agent suggestions require acceptance.</h3>
             <p>Approved collaborators can add a cited result to a named plan section, comment, assign a review question and restore an earlier version. Agent and human changes remain visibly separate.</p>
-            <a className={styles.planReviewCta} href={`/explore/onboarding?geoid=${encodeURIComponent(data.location.geoid)}`}>Request a planning workspace <ArrowRight size={16} aria-hidden="true" /></a>
+            <a className={styles.planReviewCta} href={`/explore/workspaces?geoid=${encodeURIComponent(data.location.geoid)}`}>Open a planning workspace <ArrowRight size={16} aria-hidden="true" /></a>
           </div>
           <div>
             {data.intelligence.placeBasedResponses.map((response) => {
@@ -969,6 +1096,93 @@ function ActionView({ data }: { data: PlaceResponse }) {
       <div className={styles.noRecommendation}><ShieldCheck size={22} aria-hidden="true" /><p><strong>“No recommendation yet” is a valid outcome.</strong> If the geography, source, recency or local review is insufficient, the system should stop rather than overstate a case for action.</p></div>
     </section>
   );
+}
+
+type HeatMapResult = {
+  contractVersion: string;
+  evidenceSnapshotContentHash: string;
+  measure: { id: string; label: string; definition: string; unit: string; dataPeriod: { start: string | null; end: string | null }; releaseDate: string; sourceVersionId: string };
+  counties: Array<{ geoid: string; name: string; value: number | null; uncertainty: { low: number; high: number } | null; citationIds: string[] }>;
+  featureCollection: FeatureCollection;
+  scale: { minimum: number | null; maximum: number | null; missingColor: string; palette: string };
+  boundary: { vintage: string; sourceUrl: string; limitation: string };
+  limitation: string;
+};
+
+function MultiCountyHeatMap({ result }: { result: HeatMapResult }) {
+  const mapRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!mapRef.current || !result.featureCollection.features.length) return;
+    let cancelled = false;
+    let map: import("maplibre-gl").Map | null = null;
+    void import("maplibre-gl").then(({ default: maplibregl }) => {
+      const supportsWebgl = (maplibregl as typeof maplibregl & { supported?: () => boolean }).supported;
+      if (cancelled || !mapRef.current || (typeof supportsWebgl === "function" && !supportsWebgl())) return;
+      map = new maplibregl.Map({
+        container: mapRef.current,
+        style: { version: 8, sources: {}, layers: [{ id: "background", type: "background", paint: { "background-color": "#edf0eb" } }] },
+        center: [-98.5, 39.5], zoom: 2.7, attributionControl: false, dragRotate: false, pitchWithRotate: false,
+      });
+      map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
+      map.on("load", () => {
+        if (!map) return;
+        map.addSource("county-set", { type: "geojson", data: result.featureCollection as never });
+        const minimum = result.scale.minimum ?? 0;
+        const maximum = result.scale.maximum ?? Math.max(minimum + 1, 1);
+        map.addLayer({ id: "county-set-fill", type: "fill", source: "county-set", paint: { "fill-color": ["case", ["==", ["get", "value"], null], result.scale.missingColor, ["interpolate", ["linear"], ["to-number", ["get", "value"]], minimum, "#e5ece2", maximum, "#153d2c"]] as never, "fill-opacity": .82 } });
+        map.addLayer({ id: "county-set-line", type: "line", source: "county-set", paint: { "line-color": "#101a1d", "line-width": 1.2 } });
+        const points: Array<[number, number]> = [];
+        const collect = (value: unknown) => { if (!Array.isArray(value)) return; if (value.length >= 2 && typeof value[0] === "number" && typeof value[1] === "number") points.push([value[0], value[1]]); else value.forEach(collect); };
+        result.featureCollection.features.forEach((feature) => {
+          const geometry = feature.geometry as { coordinates?: unknown } | undefined;
+          collect(geometry?.coordinates);
+        });
+        if (points.length) {
+          const xs = points.map(([x]) => x); const ys = points.map(([, y]) => y);
+          map.fitBounds([[Math.min(...xs), Math.min(...ys)], [Math.max(...xs), Math.max(...ys)]], { padding: 46, animate: false, maxZoom: 7 });
+        }
+      });
+    });
+    return () => { cancelled = true; map?.remove(); };
+  }, [result]);
+  return <div ref={mapRef} className={styles.multiCountyMap} role="region" aria-label={`Interactive map of ${result.measure.label} across ${result.counties.length} selected counties`} />;
+}
+
+function MultiCountyExplorer({ data }: { data: PlaceResponse }) {
+  const [geoids, setGeoids] = useState(data.location.geoid);
+  const [result, setResult] = useState<HeatMapResult | null>(null);
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+  async function compare(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault(); setLoading(true); setError(""); setResult(null);
+    const selected = [...new Set(geoids.split(/[\s,;]+/).map((item) => item.trim()).filter(Boolean))];
+    try {
+      const response = await fetch("/api/evidence/v1/heat-map", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ geoids: selected }) });
+      const payload = await response.json() as HeatMapResult & { error?: string };
+      if (!response.ok) throw new Error(payload.error ?? "The county comparison could not be generated.");
+      setResult(payload);
+    } catch (nextError) { setError((nextError as Error).message); } finally { setLoading(false); }
+  }
+  async function downloadFunder(format: "json" | "html") {
+    const selected = [...new Set(geoids.split(/[\s,;]+/).map((item) => item.trim()).filter(Boolean))];
+    const response = await fetch("/api/evidence/v1/funder-snapshot", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ geoids: selected, format }) });
+    if (!response.ok) { setError("The multi-county evidence set could not be generated."); return; }
+    const blob = await response.blob(); const url = URL.createObjectURL(blob); const anchor = document.createElement("a"); anchor.href = url; anchor.download = `sozorock-multi-county-evidence.${format === "html" ? "html" : "json"}`; anchor.click(); URL.revokeObjectURL(url);
+  }
+  return <article className={styles.multiCountyVisual}>
+    <header><div><span>Multi-county evidence</span><h3>Compare one compatible measure across official county boundaries.</h3></div></header>
+    <form onSubmit={compare}><label htmlFor="comparison-counties">County GEOIDs, separated by commas<input id="comparison-counties" value={geoids} onChange={(event) => setGeoids(event.target.value)} placeholder="17031, 06075, 30111" /></label><button type="submit" disabled={loading}>{loading ? "Checking compatibility…" : "Build county layer"}</button></form>
+    <p>Use 2–25 current county or county-equivalent GEOIDs. Missing values remain visibly missing.</p>
+    {error && <p role="alert" className={styles.agentError}>{error}</p>}
+    {result && <>
+      <MultiCountyHeatMap result={result} />
+      <div className={styles.heatLegend}><span>{result.scale.minimum?.toFixed(1) ?? "No values"}</span><i /><span>{result.scale.maximum?.toFixed(1) ?? "No values"}</span><em>Missing</em></div>
+      <p><strong>{result.measure.label}</strong> · {result.measure.releaseDate} release · {result.measure.dataPeriod.start ?? "Period unavailable"}–{result.measure.dataPeriod.end ?? "Period unavailable"} · county-level</p>
+      <div className={styles.heatTable} role="table" aria-label={`County values for ${result.measure.label}`}><div role="row"><span role="columnheader">County</span><span role="columnheader">GEOID</span><span role="columnheader">Value</span><span role="columnheader">Uncertainty</span></div>{result.counties.map((county) => <div role="row" key={county.geoid}><span role="cell">{county.name}</span><span role="cell">{county.geoid}</span><span role="cell">{county.value === null ? "Missing" : `${county.value.toFixed(1)} ${result.measure.unit}`}</span><span role="cell">{county.uncertainty ? `${county.uncertainty.low.toFixed(1)}–${county.uncertainty.high.toFixed(1)}` : "Not supplied"}</span></div>)}</div>
+      <p>{result.limitation}</p>
+      <div className={styles.funderActions}><button type="button" onClick={() => void downloadFunder("json")}>Download JSON evidence set</button><button type="button" onClick={() => void downloadFunder("html")}>Download accessible HTML</button></div>
+    </>}
+  </article>;
 }
 
 function VisualsView({ data }: { data: PlaceResponse }) {
@@ -1053,6 +1267,7 @@ function VisualsView({ data }: { data: PlaceResponse }) {
           {data.contextMeasures.map((measure) => <div role="row" key={measure.key}><span role="cell"><strong>{measure.label}</strong><small>{measure.definition}</small><ContextMeasureDetails measure={measure} /></span><span role="cell">{measure.value ?? "Unavailable"} {measure.unit}</span><span role="cell">{measure.direction}</span><span role="cell">{measure.release}</span><span role="cell">County</span></div>)}
         </div>
       </details>
+      <MultiCountyExplorer data={data} />
     </section>
   );
 }
@@ -1313,7 +1528,7 @@ export function ExploreClient() {
               <div className={styles.placeIdentity}>
                 <span>Selected place</span>
                 <h1>{data.location.label}</h1>
-                <div><ShieldCheck size={19} aria-hidden="true" /><strong>{data.location.geographyLabel}</strong><span>{formatNumber(data.location.population)} people</span></div>
+                <div><ShieldCheck size={19} aria-hidden="true" /><strong>{data.location.geographyLabel}</strong><span>{data.location.population === null ? "Population unavailable" : `${formatNumber(data.location.population)} people`}</span></div>
                 {data.location.resolution.original.kind !== "county" && (
                   <p><MapPin size={18} aria-hidden="true" /> Search resolved from {data.location.resolution.original.label} to this county.</p>
                 )}

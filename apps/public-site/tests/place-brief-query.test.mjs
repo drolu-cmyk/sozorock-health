@@ -4,6 +4,8 @@ import test from "node:test";
 import { normalizePlaceBriefKind } from "../app/lib/place-brief-query.ts";
 
 const routeSource = await readFile(new URL("../app/api/evidence/v1/place-brief/route.ts", import.meta.url), "utf8");
+const exploreRouteSource = await readFile(new URL("../app/api/explore/route.ts", import.meta.url), "utf8");
+const limiterSource = await readFile(new URL("../app/lib/evidence-rate-limit.ts", import.meta.url), "utf8");
 
 test("kind=county is the canonical place-brief selector", () => {
   assert.deepEqual(normalizePlaceBriefKind(new URLSearchParams("kind=county")), {
@@ -41,4 +43,12 @@ test("place-brief validates the query contract before runtime infrastructure", (
   assert.notEqual(rateLimitStart, -1);
   assert.ok(validationStart < rateLimitStart);
   assert.match(routeSource.slice(validationStart, rateLimitStart), /status: 400/);
+});
+
+test("production validation bypass is restricted to an explicit test runtime", () => {
+  assert.match(limiterSource, /RUNTIME_ENV\?\.trim\(\)\.toLowerCase\(\) === "test"/);
+  assert.match(routeSource, /evidenceRuntimeEnvironment\(\) !== "test"/);
+  assert.match(exploreRouteSource, /evidenceRuntimeEnvironment\(\) !== "test"/);
+  assert.doesNotMatch(exploreRouteSource, /NODE_ENV === "production"/);
+  assert.doesNotMatch(limiterSource, /NODE_ENV !== "production"/);
 });
