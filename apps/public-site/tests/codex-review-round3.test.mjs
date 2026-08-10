@@ -130,3 +130,13 @@ test("the complete national validator rebuilds when a prior dev server removed t
   assert.match(source, /spawnSync\(process\.execPath, \[nextBin, "build"\]/);
   assert.match(source, /await ensureProductionBuild\(\)/);
 });
+
+test("staging rebuilds production traces after the visual dev server and before the runtime SBOM", async () => {
+  const workflow = await read("../../.github/workflows/milestone-10-staging.yml");
+  const browser = workflow.indexOf("name: Explore browser matrix");
+  const rebuild = workflow.indexOf("name: Rebuild deployable public runtime after browser testing");
+  const sbom = workflow.indexOf("name: Generate and scan deployed runtime SBOM");
+  assert.ok(browser >= 0 && browser < rebuild && rebuild < sbom);
+  assert.match(workflow.slice(rebuild, sbom), /npm run build:public/);
+  assert.match(workflow.slice(rebuild, sbom), /npm run verify:public-runtime-security/);
+});
