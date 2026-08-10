@@ -19,6 +19,15 @@ test("production Explore evidence reads the persistent Evidence Core and keeps t
   assert.match(runtime, /getPublishedWorkforceContext/);
 });
 
+test("published county briefs join the verified Census state from the same geography vintage", async () => {
+  const runtime = await source("app/lib/published-evidence-runtime.ts");
+  assert.match(runtime, /JOIN evidence\.geography state/);
+  assert.match(runtime, /state\.authority_id=county\.state_fips/);
+  assert.match(runtime, /state\.vintage=county\.vintage/);
+  assert.match(runtime, /state\.review_status='verified'/);
+  assert.match(runtime, /state: text\(field\(geographyRow, 8\), text\(field\(geographyRow, 9\)\)\)/);
+});
+
 test("Explore routes do not resolve county evidence through the bundled fixture", async () => {
   const route = await source("app/api/explore/route.ts");
   const briefRoute = await source("app/api/evidence/v1/place-brief/route.ts");

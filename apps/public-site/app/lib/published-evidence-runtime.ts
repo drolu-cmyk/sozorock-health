@@ -357,14 +357,22 @@ async function loadPublishedBriefFromEvidenceCore(geoid: string, expectedHash: s
   const sourceVersionById = new Map(sourceVersions.map((source) => [source.id, source]));
 
   const geographyResult = await executeEvidenceSql(
-    `SELECT id::text, name, display_name, state_fips, county_fips, vintage,
-            ST_Y(point_on_surface)::double precision,
-            ST_X(point_on_surface)::double precision
-       FROM evidence.geography
-      WHERE authority='census' AND kind='county' AND authority_id=:geoid
-        AND review_status='verified'
-        AND vintage=:vintage
-      ORDER BY vintage DESC
+    `SELECT county.id::text, county.name, county.display_name, county.state_fips,
+            county.county_fips, county.vintage,
+            ST_Y(county.point_on_surface)::double precision,
+            ST_X(county.point_on_surface)::double precision,
+            state.name, state.display_name
+       FROM evidence.geography county
+       JOIN evidence.geography state
+         ON state.authority='census'
+        AND state.kind='state'
+        AND state.authority_id=county.state_fips
+        AND state.vintage=county.vintage
+        AND state.review_status='verified'
+      WHERE county.authority='census' AND county.kind='county' AND county.authority_id=:geoid
+        AND county.review_status='verified'
+        AND county.vintage=:vintage
+      ORDER BY county.vintage DESC
       LIMIT 1`,
     [
       { name: "geoid", value: { stringValue: geoid } },
@@ -381,7 +389,7 @@ async function loadPublishedBriefFromEvidenceCore(geoid: string, expectedHash: s
     fips: geoid,
     stateFips,
     countyFips,
-    state: "",
+    state: text(field(geographyRow, 8), text(field(geographyRow, 9))),
     stateCode: STATE_CODES[stateFips] ?? stateFips,
     county: text(field(geographyRow, 1), text(field(geographyRow, 2), geoid)),
     centroid: { lat: numberValue(field(geographyRow, 6)) ?? 0, lon: numberValue(field(geographyRow, 7)) ?? 0 },
