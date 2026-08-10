@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from "pdf-lib";
 import { buildFunderEvidenceSnapshot } from "@sozorock/evidence-core";
@@ -177,8 +178,12 @@ export async function GET(request: NextRequest) {
     }
     await requireEvidenceCapability("explore:funder_snapshots");
     const geoid = request.nextUrl.searchParams.get("geoid")?.trim() ?? "";
+    const format = request.nextUrl.searchParams.get("format") ?? "json";
     if (!/^\d{5}$/.test(geoid)) {
       return NextResponse.json({ error: "Provide a valid five-digit Census county GEOID." }, { status: 400 });
+    }
+    if (!new Set(["json", "pdf"]).has(format)) {
+      return NextResponse.json({ error: "Choose JSON or PDF format." }, { status: 400 });
     }
     const brief = await getPublishedCountyBrief(geoid);
     if (!brief) return NextResponse.json({ error: "County GEOID not found." }, { status: 404 });
@@ -189,6 +194,10 @@ export async function GET(request: NextRequest) {
     });
     const authority = await requireEvidenceAuthority(placeAgentRuntimeVersions.snapshotContentHash);
     const geographyUuid = await requireEvidenceGeographyId(geoid);
+    const pdf = format === "pdf" ? await renderPdf(snapshot) : null;
+    const responseHash = pdf
+      ? `sha256:${createHash("sha256").update(pdf).digest("hex")}`
+      : sha256(snapshot);
     await writeExecutionAudit({
       executionType: "partner_brief",
       contractVersion: "explore.funder-snapshot.v1",
@@ -197,9 +206,9 @@ export async function GET(request: NextRequest) {
       geographyUuid,
       requestHash: sha256({
         geoid,
-        format: request.nextUrl.searchParams.get("format") === "pdf" ? "pdf" : "json",
+        format,
       }),
-      responseHash: sha256(snapshot),
+      responseHash,
       outcome: "succeeded",
       reason: "Review-only funder evidence snapshot generated.",
       metadata: {
@@ -208,10 +217,9 @@ export async function GET(request: NextRequest) {
         humanReviewStatus: snapshot.humanReviewStatus,
       },
     });
-    if (request.nextUrl.searchParams.get("format") !== "pdf") {
+    if (!pdf) {
       return NextResponse.json(snapshot, { headers: { "Cache-Control": "private, no-store" } });
     }
-    const pdf = await renderPdf(snapshot);
     return new NextResponse(Buffer.from(pdf), {
       headers: {
         "Content-Type": "application/pdf",

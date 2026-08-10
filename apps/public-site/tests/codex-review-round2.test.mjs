@@ -228,7 +228,7 @@ test("public share links are explicitly read-only until a governed write path ex
   assert.deepEqual(shareRequest.properties.scope.enum, ["read_only"]);
 });
 
-test("served OpenAPI declares every path variable and heat maps require multiple counties", () => {
+test("served OpenAPI declares every path variable and heat maps require a valid comparison set", () => {
   for (const [path, pathItem] of Object.entries(exploreOpenApiDocument.paths)) {
     const variables = [...path.matchAll(/\{([^}]+)\}/g)].map((match) => match[1]);
     if (!variables.length) continue;
@@ -243,7 +243,8 @@ test("served OpenAPI declares every path variable and heat maps require multiple
     }
   }
   assert.equal(exploreOpenApiDocument.components.schemas.CountySetRequest.properties.geoids.minItems, 1);
-  assert.equal(exploreOpenApiDocument.components.schemas.HeatMapCountySetRequest.properties.geoids.minItems, 2);
+  assert.equal(exploreOpenApiDocument.components.schemas.HeatMapCountySetRequest.properties.geoids.minItems, 1);
+  assert.deepEqual(exploreOpenApiDocument.components.schemas.HeatMapCountySetRequest.properties.comparisonGroup.enum, ["nearby", null]);
   assert.equal(exploreOpenApiDocument.paths["/api/evidence/v1/heat-map"].post.requestBody.content["application/json"].schema.$ref, "#/components/schemas/HeatMapCountySetRequest");
   const scenarioResponses = exploreOpenApiDocument.paths["/api/evidence/v1/workspaces/{workspaceId}/scenarios"].post.responses;
   assert.ok("201" in scenarioResponses);

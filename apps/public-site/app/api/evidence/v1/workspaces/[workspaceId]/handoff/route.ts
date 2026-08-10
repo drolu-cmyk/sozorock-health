@@ -23,14 +23,18 @@ export async function POST(request: NextRequest, context: Context) {
     if (!bounded.ok) return NextResponse.json({ error: "The request was not accepted." }, { status: 400 });
     const body = JSON.parse(bounded.text) as Record<string, unknown>;
     const roles = new Set(["county_planner", "community_partner", "research_funder_viewer", "foundation_reviewer"]);
-    const targetRole = typeof body.targetRole === "string" && roles.has(body.targetRole)
-      ? body.targetRole as "county_planner" | "community_partner" | "research_funder_viewer" | "foundation_reviewer"
-      : "community_partner";
+    if (typeof body.targetRole !== "string" || !roles.has(body.targetRole)) {
+      return NextResponse.json({ error: "Choose an approved handoff role." }, { status: 400 });
+    }
+    const targetRole = body.targetRole as "county_planner" | "community_partner" | "research_funder_viewer" | "foundation_reviewer";
     const expiresInHours = typeof body.expiresInHours === "number" ? body.expiresInHours : undefined;
     const targetPrincipalId = typeof body.targetPrincipalId === "string"
       && /^[^\u0000-\u001f\u007f]{1,200}$/.test(body.targetPrincipalId.trim())
       ? body.targetPrincipalId.trim()
       : undefined;
+    if (body.targetPrincipalId !== undefined && !targetPrincipalId) {
+      return NextResponse.json({ error: "The handoff recipient is invalid." }, { status: 400 });
+    }
     const handoff = await createWorkspaceHandoff({ workspaceId, tenantId: actor.tenantId, actor, targetRole, targetPrincipalId, expiresInHours });
     return NextResponse.json({ contractVersion: "explore.workspace-handoff.v1", handoff }, { status: 201, headers: { "Cache-Control": "no-store" } });
   } catch (error) {

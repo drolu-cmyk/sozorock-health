@@ -1,4 +1,5 @@
 import { spawn, spawnSync } from "node:child_process";
+import { access } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -13,6 +14,27 @@ if (parsed.protocol !== "http:" || parsed.hostname !== "127.0.0.1") {
 }
 const port = parsed.port || "4318";
 let server;
+
+async function ensureProductionBuild() {
+  try {
+    await access(path.join(appDir, ".next", "BUILD_ID"));
+    return;
+  } catch {
+    // `next dev` replaces the production output. Keep this release validator
+    // self-contained so its result does not depend on command ordering.
+  }
+  const result = spawnSync(process.execPath, [nextBin, "build"], {
+    cwd: appDir,
+    env: {
+      ...process.env,
+      NODE_OPTIONS: [process.env.NODE_OPTIONS, "--use-system-ca"].filter(Boolean).join(" "),
+    },
+    stdio: "inherit",
+  });
+  if (result.status !== 0) {
+    throw new Error(`National validation production build failed with code ${result.status ?? "unknown"}.`);
+  }
+}
 
 function stopServer() {
   if (!server?.pid || server.exitCode !== null) return;
@@ -52,6 +74,7 @@ for (const signal of ["SIGINT", "SIGTERM"]) {
 }
 
 try {
+  await ensureProductionBuild();
   server = spawn(process.execPath, [nextBin, "start", "--hostname", "127.0.0.1", "--port", port], {
     cwd: appDir,
     env: {

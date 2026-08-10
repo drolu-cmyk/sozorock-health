@@ -33,7 +33,7 @@ import {
   X,
 } from "@phosphor-icons/react";
 import styles from "./explore.module.css";
-import { normalizeHeatMapDomain } from "../lib/heat-map-scale";
+import { countyHeatMapStops } from "../lib/heat-map-scale";
 import {
   collectionPolygons,
   compoundPathForPolygons,
@@ -1115,8 +1115,14 @@ function ActionView({ data }: { data: PlaceResponse }) {
 type HeatMapResult = {
   contractVersion: string;
   evidenceSnapshotContentHash: string;
-  measure: { id: string; label: string; definition: string; unit: string; dataPeriod: { start: string | null; end: string | null }; releaseDate: string; sourceVersionId: string };
-  counties: Array<{ geoid: string; name: string; value: number | null; uncertainty: { low: number; high: number } | null; citationIds: string[] }>;
+  selection: { mode: "nearby_counties" | "selected_counties"; requestedGeoids: string[]; resolvedGeoids: string[]; method: string };
+  measure: {
+    id: string; label: string; definition: string; unit: string; universe: string; adjustment: string; direction: string;
+    dataPeriod: { start: string | null; end: string | null }; releaseDate: string; sourceVersionId: string;
+    source: { publisher: string; title: string; officialUrl: string };
+  };
+  availableMeasures: Array<{ id: string; label: string; unit: string; direction: string; universe: string; adjustment: string; dataPeriod: { start: string | null; end: string | null }; releaseDate: string; sourceVersionId: string }>;
+  counties: Array<{ geoid: string; name: string; value: number | null; uncertainty: { low: number; high: number } | null; sourceVersionId: string; citationIds: string[] }>;
   featureCollection: FeatureCollection;
   scale: { minimum: number | null; maximum: number | null; missingColor: string; palette: string };
   boundary: { vintage: string; sourceUrl: string; limitation: string };
@@ -1129,6 +1135,7 @@ function MultiCountyHeatMap({ result }: { result: HeatMapResult }) {
     if (!mapRef.current || !result.featureCollection.features.length) return;
     let cancelled = false;
     let map: import("maplibre-gl").Map | null = null;
+    let popup: import("maplibre-gl").Popup | null = null;
     void import("maplibre-gl").then(({ default: maplibregl }) => {
       const supportsWebgl = (maplibregl as typeof maplibregl & { supported?: () => boolean }).supported;
       if (cancelled || !mapRef.current || (typeof supportsWebgl === "function" && !supportsWebgl())) return;
@@ -1141,9 +1148,33 @@ function MultiCountyHeatMap({ result }: { result: HeatMapResult }) {
       map.on("load", () => {
         if (!map) return;
         map.addSource("county-set", { type: "geojson", data: result.featureCollection as never });
-        const { minimum, maximum } = normalizeHeatMapDomain(result.scale.minimum, result.scale.maximum);
-        map.addLayer({ id: "county-set-fill", type: "fill", source: "county-set", paint: { "fill-color": ["case", ["==", ["get", "value"], null], result.scale.missingColor, ["interpolate", ["linear"], ["to-number", ["get", "value"]], minimum, "#e5ece2", maximum, "#153d2c"]] as never, "fill-opacity": .82 } });
+        const stops = countyHeatMapStops(result.scale.minimum, result.scale.maximum);
+        const colorExpression = ["interpolate", ["linear"], ["to-number", ["get", "value"]], ...stops.flatMap((stop) => [stop.value, stop.color])];
+        map.addLayer({ id: "county-set-fill", type: "fill", source: "county-set", paint: { "fill-color": ["case", ["==", ["get", "value"], null], result.scale.missingColor, colorExpression] as never, "fill-opacity": .88 } });
         map.addLayer({ id: "county-set-line", type: "line", source: "county-set", paint: { "line-color": "#101a1d", "line-width": 1.2 } });
+        const canvas = map.getCanvas();
+        canvas.setAttribute("role", "img");
+        canvas.setAttribute("aria-label", `${result.measure.label} across ${result.counties.length} counties. A complete keyboard-accessible table follows the map.`);
+        popup = new maplibregl.Popup({ closeButton: false, closeOnClick: false, offset: 10 });
+        map.on("mousemove", "county-set-fill", (event) => {
+          if (!map || !popup || !event.features?.length) return;
+          const properties = event.features[0].properties as Record<string, unknown>;
+          map.getCanvas().style.cursor = "pointer";
+          const value = typeof properties.value === "number" ? `${properties.value.toFixed(1)} ${result.measure.unit}` : "Data unavailable";
+          const content = document.createElement("div");
+          const title = document.createElement("strong");
+          title.textContent = String(properties.name ?? "County");
+          const detail = document.createElement("p");
+          detail.textContent = value;
+          const scope = document.createElement("small");
+          scope.textContent = `GEOID ${String(properties.geoid ?? "")} - county-level evidence`;
+          content.append(title, detail, scope);
+          popup.setLngLat(event.lngLat).setDOMContent(content).addTo(map);
+        });
+        map.on("mouseleave", "county-set-fill", () => {
+          if (map) map.getCanvas().style.cursor = "";
+          popup?.remove();
+        });
         const points: Array<[number, number]> = [];
         const collect = (value: unknown) => { if (!Array.isArray(value)) return; if (value.length >= 2 && typeof value[0] === "number" && typeof value[1] === "number") points.push([value[0], value[1]]); else value.forEach(collect); };
         result.featureCollection.features.forEach((feature) => {
@@ -1156,9 +1187,9 @@ function MultiCountyHeatMap({ result }: { result: HeatMapResult }) {
         }
       });
     });
-    return () => { cancelled = true; map?.remove(); };
+    return () => { cancelled = true; popup?.remove(); map?.remove(); };
   }, [result]);
-  return <div ref={mapRef} className={styles.multiCountyMap} role="region" aria-label={`Interactive map of ${result.measure.label} across ${result.counties.length} selected counties`} />;
+  return <div ref={mapRef} className={styles.multiCountyMap} role="region" aria-label={`Interactive county evidence heat map of ${result.measure.label} across ${result.counties.length} counties`} />;
 }
 
 function MultiCountyExplorer({ data }: { data: PlaceResponse }) {
@@ -1166,31 +1197,49 @@ function MultiCountyExplorer({ data }: { data: PlaceResponse }) {
   const [result, setResult] = useState<HeatMapResult | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  async function compare(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault(); setLoading(true); setError(""); setResult(null);
-    const selected = [...new Set(geoids.split(/[\s,;]+/).map((item) => item.trim()).filter(Boolean))];
+  const [measureId, setMeasureId] = useState("");
+  const loadHeatMap = useCallback(async (payload: { geoids: string[]; comparisonGroup?: "nearby"; measureDefinitionId?: string }) => {
+    setLoading(true); setError("");
     try {
-      const response = await fetch("/api/evidence/v1/heat-map", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ geoids: selected }) });
-      const payload = await response.json() as HeatMapResult & { error?: string };
-      if (!response.ok) throw new Error(payload.error ?? "The county comparison could not be generated.");
-      setResult(payload);
+      const response = await fetch("/api/evidence/v1/heat-map", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+      const nextResult = await response.json() as HeatMapResult & { error?: string };
+      if (!response.ok) throw new Error(nextResult.error ?? "The county comparison could not be generated.");
+      setResult(nextResult); setMeasureId(nextResult.measure.id);
     } catch (nextError) { setError((nextError as Error).message); } finally { setLoading(false); }
+  }, []);
+  useEffect(() => {
+    setGeoids(data.location.geoid); setResult(null); setMeasureId("");
+    void loadHeatMap({ geoids: [data.location.geoid], comparisonGroup: "nearby" });
+  }, [data.location.geoid, loadHeatMap]);
+  async function compare(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const selected = [...new Set(geoids.split(/[\s,;]+/).map((item) => item.trim()).filter(Boolean))];
+    await loadHeatMap({ geoids: selected, measureDefinitionId: measureId || undefined });
+  }
+  function changeMeasure(nextMeasureId: string) {
+    setMeasureId(nextMeasureId);
+    if (!result) return;
+    void loadHeatMap(result.selection.mode === "nearby_counties"
+      ? { geoids: [data.location.geoid], comparisonGroup: "nearby", measureDefinitionId: nextMeasureId }
+      : { geoids: result.selection.resolvedGeoids, measureDefinitionId: nextMeasureId });
   }
   async function downloadFunder(format: "json" | "html") {
-    const selected = [...new Set(geoids.split(/[\s,;]+/).map((item) => item.trim()).filter(Boolean))];
+    const selected = result?.selection.resolvedGeoids ?? [...new Set(geoids.split(/[\s,;]+/).map((item) => item.trim()).filter(Boolean))];
     const response = await fetch("/api/evidence/v1/funder-snapshot", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ geoids: selected, format }) });
     if (!response.ok) { setError("The multi-county evidence set could not be generated."); return; }
     const blob = await response.blob(); const url = URL.createObjectURL(blob); const anchor = document.createElement("a"); anchor.href = url; anchor.download = `sozorock-multi-county-evidence.${format === "html" ? "html" : "json"}`; anchor.click(); URL.revokeObjectURL(url);
   }
-  return <article className={styles.multiCountyVisual}>
-    <header><div><span>Multi-county evidence</span><h3>Compare one compatible measure across official county boundaries.</h3></div></header>
-    <form onSubmit={compare}><label htmlFor="comparison-counties">County GEOIDs, separated by commas<input id="comparison-counties" value={geoids} onChange={(event) => setGeoids(event.target.value)} placeholder="17031, 06075, 30111" /></label><button type="submit" disabled={loading}>{loading ? "Checking compatibility…" : "Build county layer"}</button></form>
-    <p>Use 2–25 current county or county-equivalent GEOIDs. Missing values remain visibly missing.</p>
-    {error && <p role="alert" className={styles.agentError}>{error}</p>}
+  const stops = result ? countyHeatMapStops(result.scale.minimum, result.scale.maximum) : [];
+  return <article className={styles.multiCountyVisual} aria-labelledby="county-heat-map-title">
+    <header className={styles.heatMapHeader}><div><span>County evidence heat map</span><h3 id="county-heat-map-title">See how one compatible measure varies across nearby counties.</h3><p>The initial view uses the selected county and the nearest counties in the same state for geographic context. It is not a ranking or a claim of causation.</p></div>{result && <label>Measure<select value={measureId} onChange={(event) => changeMeasure(event.target.value)}>{result.availableMeasures.map((measure) => <option key={measure.id} value={measure.id}>{measure.label}</option>)}</select></label>}</header>
+    {loading && !result && <div className={styles.heatMapLoading} role="status"><span />Loading compatible county evidence and official boundaries...</div>}
+    <details className={styles.customCountySet}><summary>Choose a custom county set</summary><form onSubmit={compare}><label htmlFor="comparison-counties">County GEOIDs, separated by commas<input id="comparison-counties" value={geoids} onChange={(event) => setGeoids(event.target.value)} placeholder="17031, 06075, 30111" inputMode="numeric" /></label><button type="submit" disabled={loading}>{loading ? "Checking compatibility…" : "Build county layer"}</button></form><p>Use 2–25 current county or county-equivalent GEOIDs. Missing values remain visibly missing.</p></details>
+    {error && <p role="alert" className={styles.heatMapError}>{error}</p>}
     {result && <>
       <MultiCountyHeatMap result={result} />
-      <div className={styles.heatLegend}><span>{result.scale.minimum?.toFixed(1) ?? "No values"}</span><i /><span>{result.scale.maximum?.toFixed(1) ?? "No values"}</span><em>Missing</em></div>
-      <p><strong>{result.measure.label}</strong> · {result.measure.releaseDate} release · {result.measure.dataPeriod.start ?? "Period unavailable"}–{result.measure.dataPeriod.end ?? "Period unavailable"} · county-level</p>
+      <div className={styles.heatLegend} aria-label={`Legend for ${result.measure.label}`}><div>{stops.map((stop) => <span key={`${stop.value}-${stop.color}`}><i style={{ background: stop.color }} />{stop.value.toFixed(1)}</span>)}</div><span className={styles.missingLegend}><i style={{ background: result.scale.missingColor }} />Missing</span></div>
+      <div className={styles.heatMapMeta}><p><strong>Measure</strong><span>{result.measure.label} - {result.measure.unit} - {result.measure.direction.replaceAll("_", " ")} - {result.measure.adjustment}</span></p><p><strong>Source</strong><a href={result.measure.source.officialUrl} target="_blank" rel="noreferrer">{result.measure.source.publisher}</a><span>{result.measure.releaseDate} release - {result.measure.dataPeriod.start ?? "Period unavailable"} to {result.measure.dataPeriod.end ?? "Period unavailable"}</span></p><p><strong>Geography</strong><span>County and county equivalent - Census {result.boundary.vintage}</span></p></div>
+      <p className={styles.comparisonMethod}>{result.selection.method}</p>
       <div className={styles.heatTable} role="table" aria-label={`County values for ${result.measure.label}`}><div role="row"><span role="columnheader">County</span><span role="columnheader">GEOID</span><span role="columnheader">Value</span><span role="columnheader">Uncertainty</span></div>{result.counties.map((county) => <div role="row" key={county.geoid}><span role="cell">{county.name}</span><span role="cell">{county.geoid}</span><span role="cell">{county.value === null ? "Missing" : `${county.value.toFixed(1)} ${result.measure.unit}`}</span><span role="cell">{county.uncertainty ? `${county.uncertainty.low.toFixed(1)}–${county.uncertainty.high.toFixed(1)}` : "Not supplied"}</span></div>)}</div>
       <p>{result.limitation}</p>
       <div className={styles.funderActions}><button type="button" onClick={() => void downloadFunder("json")}>Download JSON evidence set</button><button type="button" onClick={() => void downloadFunder("html")}>Download accessible HTML</button></div>
@@ -1212,6 +1261,7 @@ function VisualsView({ data }: { data: PlaceResponse }) {
         <div><span>Evidence views</span><h2>See the measure. See its limits.</h2></div>
         <div><p>Visuals use compatible county evidence only. They do not create an overall health ranking or imply neighborhood-level precision.</p><a href={`/api/evidence/v1/funder-snapshot?geoid=${encodeURIComponent(data.location.geoid)}&format=pdf`}><DownloadSimple size={18} aria-hidden="true" /> Download funder snapshot</a></div>
       </header>
+      <MultiCountyExplorer data={data} />
       <div className={styles.visualGrid}>
         <article className={styles.comparisonVisual}>
           <header><div><span>County comparison</span><h3>{selected?.label ?? "No comparable measure"}</h3></div>
@@ -1280,7 +1330,6 @@ function VisualsView({ data }: { data: PlaceResponse }) {
           {data.contextMeasures.map((measure) => <div role="row" key={measure.key}><span role="cell"><strong>{measure.label}</strong><small>{measure.definition}</small><ContextMeasureDetails measure={measure} /></span><span role="cell">{measure.value ?? "Unavailable"} {measure.unit}</span><span role="cell">{measure.direction}</span><span role="cell">{measure.release}</span><span role="cell">County</span></div>)}
         </div>
       </details>
-      <MultiCountyExplorer data={data} />
     </section>
   );
 }

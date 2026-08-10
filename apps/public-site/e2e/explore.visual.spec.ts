@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import type { Page } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 import { readFileSync } from "node:fs";
 
@@ -32,8 +33,46 @@ const releaseRegressionPlaces = [
   { name: "Providence County", geoid: "44007" },
 ] as const;
 
+async function mockCountyHeatMap(page: Page) {
+  await page.route("**/api/evidence/v1/heat-map", async (route) => {
+    const request = route.request().postDataJSON() as { geoids?: string[]; measureDefinitionId?: string };
+    const requested = request.geoids?.[0] ?? "36001";
+    const geoids = request.geoids && request.geoids.length > 1 ? request.geoids : [requested, "36021", "36083"];
+    const counties = geoids.map((geoid, index) => ({
+      geoid,
+      name: index === 0 ? "Selected county" : `Comparison county ${index}`,
+      value: index === 2 ? null : 8.4 + (index * 3.1),
+      uncertainty: index === 2 ? null : { low: 7.8 + (index * 3.1), high: 9 + (index * 3.1) },
+      sourceVersionId: "source-version:visual-test",
+      citationIds: [`citation-${geoid}`],
+    }));
+    const features = counties.map((county, index) => ({
+      type: "Feature",
+      properties: county,
+      geometry: { type: "Polygon", coordinates: [[[-74.3 + index, 42.0], [-73.5 + index, 42.0], [-73.5 + index, 42.7], [-74.3 + index, 42.7], [-74.3 + index, 42.0]]] },
+    }));
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        contractVersion: "explore.multi-county-heat-map.v1",
+        evidenceSnapshotContentHash: `sha256:${"a".repeat(64)}`,
+        selection: { mode: "nearby_counties", requestedGeoids: [requested], resolvedGeoids: geoids, method: "Visual-test same-state comparison fixture; not a peer ranking." },
+        measure: { id: "measure-1", label: "Adults without health insurance", definition: "Modeled percentage", unit: "percent", universe: "Eligible adults", adjustment: "modeled", direction: "adverse", dataPeriod: { start: "2022", end: "2022" }, releaseDate: "2025-12-04", sourceVersionId: "source-version:visual-test", source: { publisher: "Centers for Disease Control and Prevention", title: "CDC PLACES", officialUrl: "https://data.cdc.gov/" } },
+        availableMeasures: [{ id: "measure-1", label: "Adults without health insurance", unit: "percent", direction: "adverse", universe: "Eligible adults", adjustment: "modeled", dataPeriod: { start: "2022", end: "2022" }, releaseDate: "2025-12-04", sourceVersionId: "source-version:visual-test" }],
+        counties,
+        featureCollection: { type: "FeatureCollection", features },
+        scale: { minimum: 8.4, maximum: 11.5, missingColor: "#d9dedb", palette: "sequential-green-5" },
+        boundary: { vintage: "2025", sourceUrl: "https://www.census.gov/geographies/reference-files/time-series/geo/gazetteer-files.html", limitation: "Generalized official boundary fixture." },
+        limitation: "Values are county-level public estimates. Missing values are not zero.",
+      }),
+    });
+  });
+}
+
 for (const place of places) {
   test(`${place.name} renders Brief, Map, Action and Visuals without viewport overflow`, async ({ page }, testInfo) => {
+    await mockCountyHeatMap(page);
     await page.goto(`/explore?kind=county&geoid=${place.geoid}&view=brief`, { waitUntil: "domcontentloaded" });
     await expect(page.getByRole("heading", { level: 1, name: new RegExp(place.name.split(",")[0], "i") })).toBeVisible();
 
@@ -65,6 +104,10 @@ for (const place of places) {
     await visuals.click();
     await expect(visuals).toHaveAttribute("aria-selected", "true");
     await expect(page.getByRole("heading", { name: "See the measure. See its limits." })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /See how one compatible measure varies across nearby counties/i })).toBeVisible();
+    await expect(page.getByRole("region", { name: /Interactive county evidence heat map/i })).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByRole("table", { name: /County values for/i })).toBeVisible();
+    await expect(page.getByText(/Missing values are not zero/i)).toBeVisible();
     await expect(page.getByText("No fixed scores. No automatic recommendation.")).toBeVisible();
     await expect(page.getByText("All available measures")).toBeVisible();
     await page.screenshot({ path: testInfo.outputPath(`${place.geoid}-visuals.png`), fullPage: true });
@@ -76,6 +119,7 @@ for (const place of places) {
 
 test("required responsive widths preserve the county brief, map, and keyboard flow", async ({ page }) => {
   test.setTimeout(240_000);
+  await mockCountyHeatMap(page);
   const widths = [320, 375, 390, 414, 768, 1024, 1440];
   for (const width of widths) {
     await page.setViewportSize({ width, height: width < 768 ? 844 : 900 });
@@ -88,6 +132,7 @@ test("required responsive widths preserve the county brief, map, and keyboard fl
     await expect(page.locator(".maplibregl-canvas")).toBeVisible();
     await page.getByRole("tab", { name: "Visuals" }).click();
     await expect(page.getByRole("heading", { name: "See the measure. See its limits." })).toBeVisible();
+    await expect(page.getByRole("region", { name: /Interactive county evidence heat map/i })).toBeVisible({ timeout: 20_000 });
     const overflow = await page.evaluate(
       () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
     );
@@ -332,6 +377,7 @@ test("Voice Access stops recording and releases the microphone when the Action v
 
 test("Brief, Map, Action and Visuals have no serious or critical WCAG violations", async ({ page }) => {
   test.setTimeout(180_000);
+  await mockCountyHeatMap(page);
   await page.goto("/explore?kind=county&geoid=36001&view=brief", { waitUntil: "domcontentloaded" });
   for (const view of ["Brief", "Map", "Action", "Visuals"] as const) {
     await page.getByRole("tab", { name: view }).click();

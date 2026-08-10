@@ -1,45 +1,2114 @@
-openapi: 3.1.0
-info:
-  title: SozoRock Place Intelligence Evidence API
-  version: 1.0.0
-  description: County-first, non-clinical evidence contracts for the public Explore experience.
-paths:
-  /api/evidence/v1/place-brief:
-    get:
-      summary: Return a verified county evidence brief
-      parameters:
-        - name: kind
-          in: query
-          required: true
-          schema:
-            type: string
-            enum: [county]
-          description: Canonical typed-geography selector.
-        - name: geography
-          in: query
-          required: false
-          deprecated: true
-          schema:
-            type: string
-            enum: [county]
-          description: Deprecated compatibility alias for kind. If supplied with kind, both values must match.
-        - name: geoid
-          in: query
-          required: true
-          schema:
-            type: string
-            pattern: "^[0-9]{5}$"
-          description: Five-digit U.S. Census county or county-equivalent GEOID.
-      responses:
-        '200':
-          description: Schema-valid explore.place-brief.v1 response.
-          content:
-            application/json:
-              schema:
-                $ref: '../../packages/evidence-core/schemas/explore-place-brief.v1.schema.json'
-        '400':
-          description: Missing, unsupported, or conflicting geography type, or invalid GEOID.
-        '404':
-          description: GEOID is not in the approved Census geography snapshot.
-        '503':
-          description: Approved evidence snapshot is temporarily unavailable.
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "SozoRock Place Intelligence API",
+    "version": "2026-08-09",
+    "description": "Versioned, non-clinical county evidence, planning-agent and collaboration contracts. Missing evidence remains missing; county evidence is never represented as ZIP-, city- or person-level evidence."
+  },
+  "servers": [
+    {
+      "url": "https://health.sozorockfoundation.org"
+    }
+  ],
+  "tags": [
+    {
+      "name": "Evidence"
+    },
+    {
+      "name": "Agent"
+    },
+    {
+      "name": "Voice"
+    },
+    {
+      "name": "Workspace"
+    },
+    {
+      "name": "Visuals"
+    },
+    {
+      "name": "Funder"
+    },
+    {
+      "name": "Operations"
+    }
+  ],
+  "paths": {
+    "/api/evidence/v1/place-brief": {
+      "get": {
+        "tags": [
+          "Evidence"
+        ],
+        "summary": "Return the pinned county evidence brief.",
+        "deprecated": false,
+        "parameters": [
+          {
+            "name": "kind",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "county"
+              ]
+            }
+          },
+          {
+            "name": "geoid",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9]{5}$",
+              "description": "Current Census county or county-equivalent GEOID."
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ExplorePlaceBriefV1."
+          },
+          "400": {
+            "description": "Request rejected or evidence unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Request rejected or evidence unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Request rejected or evidence unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/explore": {
+      "get": {
+        "tags": [
+          "Evidence"
+        ],
+        "summary": "Resolve county, city/place or ZIP input and return the existing Explore presentation contract.",
+        "responses": {
+          "200": {
+            "description": "Explore response."
+          },
+          "409": {
+            "description": "Transparent county selection required."
+          }
+        }
+      }
+    },
+    "/api/evidence/v1/agent": {
+      "post": {
+        "tags": [
+          "Agent"
+        ],
+        "summary": "Ask a source-grounded question about a selected county.",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AgentRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentAnswer"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request rejected or evidence unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Request rejected or evidence unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Request rejected or evidence unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Request rejected or evidence unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/evidence/v1/voice/transcribe": {
+      "post": {
+        "tags": [
+          "Voice"
+        ],
+        "summary": "Transcribe an intentionally recorded planning question without retaining raw audio.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "geoid",
+                  "audio"
+                ],
+                "properties": {
+                  "geoid": {
+                    "type": "string",
+                    "pattern": "^[0-9]{5}$",
+                    "description": "Current Census county or county-equivalent GEOID."
+                  },
+                  "audio": {
+                    "type": "string",
+                    "contentEncoding": "binary"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Reviewable transcript."
+          },
+          "400": {
+            "description": "Request rejected or evidence unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Request rejected or evidence unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Request rejected or evidence unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/evidence/v1/workspaces": {
+      "get": {
+        "tags": [
+          "Workspace"
+        ],
+        "summary": "List authenticated workspaces.",
+        "security": [
+          {
+            "cognitoAccessToken": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Membership-scoped workspaces."
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Workspace"
+        ],
+        "summary": "Create a county workspace.",
+        "security": [
+          {
+            "cognitoAccessToken": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request rejected or evidence unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Request rejected or evidence unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Request rejected or evidence unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Request rejected or evidence unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/evidence/v1/workspaces/{workspaceId}": {
+      "parameters": [
+        {
+          "name": "workspaceId",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      ],
+      "get": {
+        "tags": [
+          "Workspace"
+        ],
+        "summary": "Load a membership-scoped county plan.",
+        "security": [
+          {
+            "cognitoAccessToken": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Workspace plan."
+          },
+          "403": {
+            "description": "Request rejected or evidence unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/evidence/v1/workspaces/{workspaceId}/sections/{sectionKey}": {
+      "parameters": [
+        {
+          "name": "workspaceId",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        {
+          "name": "sectionKey",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_-]{1,63}$"
+          }
+        }
+      ],
+      "put": {
+        "tags": [
+          "Workspace"
+        ],
+        "summary": "Create or update a versioned plan section with optimistic concurrency.",
+        "security": [
+          {
+            "cognitoAccessToken": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "expectedVersion",
+                  "content"
+                ],
+                "properties": {
+                  "expectedVersion": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "content": {
+                    "type": "object"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request rejected or evidence unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Request rejected or evidence unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Request rejected or evidence unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Request rejected or evidence unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/evidence/v1/workspaces/{workspaceId}/artifacts": {
+      "parameters": [
+        {
+          "name": "workspaceId",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      ],
+      "post": {
+        "tags": [
+          "Workspace"
+        ],
+        "summary": "Create an idempotent comment or review question, complete a review question, or review an agent suggestion.",
+        "security": [
+          {
+            "cognitoAccessToken": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "required": [
+                      "action",
+                      "sectionKey",
+                      "body"
+                    ],
+                    "properties": {
+                      "action": {
+                        "const": "comment"
+                      },
+                      "sectionKey": {
+                        "type": "string",
+                        "pattern": "^[a-z][a-z0-9_-]{1,63}$"
+                      },
+                      "body": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 4000
+                      }
+                    }
+                  },
+                  {
+                    "type": "object",
+                    "required": [
+                      "action",
+                      "sectionKey",
+                      "question"
+                    ],
+                    "properties": {
+                      "action": {
+                        "const": "review_question"
+                      },
+                      "sectionKey": {
+                        "type": "string",
+                        "pattern": "^[a-z][a-z0-9_-]{1,63}$"
+                      },
+                      "question": {
+                        "type": "string",
+                        "minLength": 3,
+                        "maxLength": 2000
+                      },
+                      "assignedTo": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "isPublic": {
+                        "type": "boolean"
+                      }
+                    }
+                  },
+                  {
+                    "type": "object",
+                    "required": [
+                      "action",
+                      "reviewQuestionId",
+                      "status"
+                    ],
+                    "properties": {
+                      "action": {
+                        "const": "complete_review_question"
+                      },
+                      "reviewQuestionId": {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      "status": {
+                        "type": "string",
+                        "enum": [
+                          "answered",
+                          "closed"
+                        ]
+                      }
+                    }
+                  },
+                  {
+                    "type": "object",
+                    "required": [
+                      "action",
+                      "suggestionId",
+                      "decision",
+                      "expectedSectionVersion"
+                    ],
+                    "properties": {
+                      "action": {
+                        "const": "review_suggestion"
+                      },
+                      "suggestionId": {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      "decision": {
+                        "type": "string",
+                        "enum": [
+                          "accepted",
+                          "rejected"
+                        ]
+                      },
+                      "expectedSectionVersion": {
+                        "type": "integer",
+                        "minimum": 0
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request rejected or evidence unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Request rejected or evidence unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Request rejected or evidence unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Request rejected or evidence unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/evidence/v1/workspaces/{workspaceId}/events": {
+      "parameters": [
+        {
+          "name": "workspaceId",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      ],
+      "get": {
+        "tags": [
+          "Workspace"
+        ],
+        "summary": "Read append-only events after a sequence.",
+        "security": [
+          {
+            "cognitoAccessToken": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Event stream."
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Workspace"
+        ],
+        "summary": "Append an authorized idempotent workspace event.",
+        "security": [
+          {
+            "cognitoAccessToken": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request rejected or evidence unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Request rejected or evidence unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Request rejected or evidence unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Request rejected or evidence unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/evidence/v1/workspaces/{workspaceId}/invitations": {
+      "parameters": [
+        {
+          "name": "workspaceId",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      ],
+      "post": {
+        "tags": [
+          "Workspace"
+        ],
+        "summary": "Create an expiring role-scoped invitation as the workspace owner.",
+        "security": [
+          {
+            "cognitoAccessToken": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "role",
+                  "access",
+                  "intendedPrincipalId"
+                ],
+                "properties": {
+                  "role": {
+                    "type": "string",
+                    "enum": [
+                      "county_planner",
+                      "community_partner",
+                      "foundation_reviewer",
+                      "research_funder_viewer"
+                    ]
+                  },
+                  "access": {
+                    "type": "string",
+                    "enum": [
+                      "contributor",
+                      "viewer"
+                    ]
+                  },
+                  "intendedPrincipalId": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request rejected or evidence unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Request rejected or evidence unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Request rejected or evidence unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Request rejected or evidence unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/evidence/v1/workspaces/{workspaceId}/fork": {
+      "parameters": [
+        {
+          "name": "workspaceId",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      ],
+      "post": {
+        "tags": [
+          "Workspace"
+        ],
+        "summary": "Create an idempotent active planning fork linked to the source workspace.",
+        "security": [
+          {
+            "cognitoAccessToken": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "title"
+                ],
+                "properties": {
+                  "title": {
+                    "type": "string",
+                    "minLength": 3,
+                    "maxLength": 240
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request rejected or evidence unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Request rejected or evidence unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Request rejected or evidence unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Request rejected or evidence unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/evidence/v1/workspaces/{workspaceId}/handoff": {
+      "parameters": [
+        {
+          "name": "workspaceId",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      ],
+      "post": {
+        "tags": [
+          "Workspace"
+        ],
+        "summary": "Create an expiring workspace handoff for an approved participant role.",
+        "security": [
+          {
+            "cognitoAccessToken": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "targetRole"
+                ],
+                "properties": {
+                  "targetRole": {
+                    "type": "string",
+                    "enum": [
+                      "county_planner",
+                      "community_partner",
+                      "foundation_reviewer",
+                      "research_funder_viewer"
+                    ]
+                  },
+                  "targetPrincipalId": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "expiresInHours": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 72
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request rejected or evidence unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Request rejected or evidence unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Request rejected or evidence unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Request rejected or evidence unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/evidence/v1/workspaces/{workspaceId}/share": {
+      "parameters": [
+        {
+          "name": "workspaceId",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      ],
+      "get": {
+        "tags": [
+          "Workspace"
+        ],
+        "summary": "List active share-link metadata for the workspace owner.",
+        "security": [
+          {
+            "cognitoAccessToken": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Active share-link metadata; bearer tokens are never returned."
+          },
+          "403": {
+            "description": "Request rejected or evidence unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Workspace"
+        ],
+        "summary": "Create an expiring public read-only share link.",
+        "security": [
+          {
+            "cognitoAccessToken": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "scope": {
+                    "type": "string",
+                    "enum": [
+                      "read_only"
+                    ],
+                    "default": "read_only"
+                  },
+                  "expiresInHours": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 168,
+                    "default": 72
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request rejected or evidence unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Request rejected or evidence unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Request rejected or evidence unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Request rejected or evidence unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Workspace"
+        ],
+        "summary": "Revoke a public share link.",
+        "security": [
+          {
+            "cognitoAccessToken": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "shareId"
+                ],
+                "properties": {
+                  "shareId": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request rejected or evidence unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Request rejected or evidence unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Request rejected or evidence unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Request rejected or evidence unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/evidence/v1/workspaces/{workspaceId}/audit": {
+      "parameters": [
+        {
+          "name": "workspaceId",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      ],
+      "get": {
+        "tags": [
+          "Workspace"
+        ],
+        "summary": "Read append-only workspace and agent audit records as an owner or Foundation reviewer.",
+        "security": [
+          {
+            "cognitoAccessToken": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authorized compliance audit view."
+          },
+          "403": {
+            "description": "Request rejected or evidence unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/evidence/v1/workspace-invitations/accept": {
+      "post": {
+        "tags": [
+          "Workspace"
+        ],
+        "summary": "Accept a valid invitation through the trusted server path.",
+        "security": [
+          {
+            "cognitoAccessToken": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request rejected or evidence unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Request rejected or evidence unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Request rejected or evidence unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Request rejected or evidence unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/evidence/v1/workspace-handoffs/accept": {
+      "post": {
+        "tags": [
+          "Workspace"
+        ],
+        "summary": "Accept a valid handoff through the trusted server path.",
+        "security": [
+          {
+            "cognitoAccessToken": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request rejected or evidence unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Request rejected or evidence unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Request rejected or evidence unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Request rejected or evidence unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/evidence/v1/workspace-share": {
+      "get": {
+        "tags": [
+          "Workspace"
+        ],
+        "summary": "Read the explicit no-store public projection for a scoped share token.",
+        "responses": {
+          "200": {
+            "description": "Public share DTO."
+          },
+          "403": {
+            "description": "Request rejected or evidence unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/evidence/v1/workspaces/{workspaceId}/scenarios": {
+      "parameters": [
+        {
+          "name": "workspaceId",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      ],
+      "post": {
+        "tags": [
+          "Workspace"
+        ],
+        "summary": "Create a versioned planning scenario owned by a human.",
+        "security": [
+          {
+            "cognitoAccessToken": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request rejected or evidence unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Request rejected or evidence unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Request rejected or evidence unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Request rejected or evidence unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "Workspace"
+        ],
+        "summary": "Append a human review decision as a new immutable scenario version.",
+        "security": [
+          {
+            "cognitoAccessToken": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "scenarioId",
+                  "decision"
+                ],
+                "properties": {
+                  "scenarioId": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "decision": {
+                    "type": "string",
+                    "enum": [
+                      "verified",
+                      "rejected"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request rejected or evidence unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Request rejected or evidence unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Request rejected or evidence unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Request rejected or evidence unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/evidence/v1/heat-map": {
+      "post": {
+        "tags": [
+          "Visuals"
+        ],
+        "summary": "Return compatible multi-county values and official boundaries.",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HeatMapCountySetRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request rejected or evidence unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Request rejected or evidence unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Request rejected or evidence unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Request rejected or evidence unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/evidence/v1/funder-snapshot": {
+      "get": {
+        "tags": [
+          "Funder"
+        ],
+        "summary": "Download a cited single-county evidence snapshot for local review.",
+        "parameters": [
+          {
+            "name": "geoid",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9]{5}$",
+              "description": "Current Census county or county-equivalent GEOID."
+            }
+          },
+          {
+            "name": "format",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "json",
+                "pdf"
+              ],
+              "default": "json"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Review-only evidence snapshot.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              },
+              "application/pdf": {
+                "schema": {
+                  "type": "string",
+                  "contentEncoding": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request rejected or evidence unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Request rejected or evidence unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Request rejected or evidence unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Request rejected or evidence unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Funder"
+        ],
+        "summary": "Build a cited multi-county evidence set for local review.",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CountySetRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request rejected or evidence unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Request rejected or evidence unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Request rejected or evidence unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Request rejected or evidence unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/health/version": {
+      "get": {
+        "tags": [
+          "Operations"
+        ],
+        "summary": "Return safe release and evidence identity.",
+        "responses": {
+          "200": {
+            "description": "Release identity."
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "cognitoAccessToken": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "Cognito access token"
+      }
+    },
+    "schemas": {
+      "Error": {
+        "type": "object",
+        "required": [
+          "error"
+        ],
+        "properties": {
+          "error": {
+            "type": "string"
+          }
+        }
+      },
+      "CountySetRequest": {
+        "type": "object",
+        "required": [
+          "geoids"
+        ],
+        "properties": {
+          "geoids": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 25,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "pattern": "^[0-9]{5}$",
+              "description": "Current Census county or county-equivalent GEOID."
+            }
+          },
+          "measureDefinitionId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "HeatMapCountySetRequest": {
+        "type": "object",
+        "required": [
+          "geoids"
+        ],
+        "properties": {
+          "geoids": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 25,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "pattern": "^[0-9]{5}$",
+              "description": "Current Census county or county-equivalent GEOID."
+            }
+          },
+          "comparisonGroup": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "nearby",
+              null
+            ],
+            "description": "When nearby, provide exactly one county; the API returns that county and the nearest same-state county internal points for geographic context, not peer ranking."
+          },
+          "measureDefinitionId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "AgentRequest": {
+        "type": "object",
+        "required": [
+          "geoid",
+          "question"
+        ],
+        "properties": {
+          "geoid": {
+            "type": "string",
+            "pattern": "^[0-9]{5}$",
+            "description": "Current Census county or county-equivalent GEOID."
+          },
+          "question": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 1500
+          },
+          "inputMode": {
+            "type": "string",
+            "enum": [
+              "typed",
+              "voice"
+            ]
+          },
+          "transcriptHash": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+          }
+        }
+      },
+      "AgentAnswer": {
+        "type": "object",
+        "required": [
+          "schemaVersion",
+          "answer",
+          "status",
+          "citedEvidence",
+          "visualIntent",
+          "nonClinicalBoundary"
+        ],
+        "properties": {
+          "schemaVersion": {
+            "type": "string"
+          },
+          "answer": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "answered",
+              "evidence_gap",
+              "refused"
+            ]
+          },
+          "citedEvidence": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "visualIntent": {
+            "type": "object"
+          },
+          "nonClinicalBoundary": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  },
+  "x-sozorock": {
+    "contractVersion": "explore.api.v2",
+    "cache": "Public evidence is pinned by contract, policy and evidence snapshot. Authenticated/share responses are no-store.",
+    "audit": "Consequential agent, workspace, scenario, share and funder actions are append-only audited.",
+    "constraints": "No PHI, diagnosis, triage, treatment, individual-risk inference or unrestricted live-web evidence.",
+    "deprecation": "The legacy geography query alias remains accepted only where documented and returns a deprecation header.",
+    "rateLimits": "Public evidence, agent, voice and export routes apply server-side network/session limits."
+  }
+}

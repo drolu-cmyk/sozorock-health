@@ -61,13 +61,6 @@ export async function POST(request: NextRequest) {
     if (!isTrustedSameOrigin(request, allowedHosts)) {
       return NextResponse.json({ error: "Request origin was not accepted." }, { status: 403 });
     }
-    const rate = await enforceAgentRateLimit(request);
-    if (!rate.allowed) {
-      return NextResponse.json(
-        { error: rate.retryAfter ? "Please wait before asking another place-evidence question." : "Place Intelligence is unavailable." },
-        { status: rate.retryAfter ? 429 : 503, headers: rate.retryAfter ? { "Retry-After": String(rate.retryAfter) } : undefined },
-      );
-    }
     const bounded = await readBoundedText(request, 24_000, ["application/json"]);
     if (!bounded.ok) {
       return NextResponse.json(
@@ -94,6 +87,13 @@ export async function POST(request: NextRequest) {
       });
       auditWorkspaceId = body.workspaceId;
       auditSectionKey = body.sectionKey ?? "plan";
+    }
+    const rate = await enforceAgentRateLimit(request);
+    if (!rate.allowed) {
+      return NextResponse.json(
+        { error: rate.retryAfter ? "Please wait before asking another place-evidence question." : "Place Intelligence is unavailable." },
+        { status: rate.retryAfter ? 429 : 503, headers: rate.retryAfter ? { "Retry-After": String(rate.retryAfter) } : undefined },
+      );
     }
     requestHash = sha256({
       geoid: body.geoid,

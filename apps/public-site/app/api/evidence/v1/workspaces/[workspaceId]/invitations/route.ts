@@ -38,8 +38,8 @@ export async function POST(request: NextRequest, context: Context) {
       && /^[^\u0000-\u001f\u007f]{1,200}$/.test(body.intendedPrincipalId.trim())
       ? body.intendedPrincipalId.trim()
       : undefined;
-    if (!roles.has(role) || !accessLevels.has(access)) {
-      return NextResponse.json({ error: "Choose an approved workspace role and access level." }, { status: 400 });
+    if (!roles.has(role) || !accessLevels.has(access) || !intendedPrincipalId) {
+      return NextResponse.json({ error: "Choose an approved workspace role, access level, and valid recipient identity." }, { status: 400 });
     }
     const invitation = await createWorkspaceInvitation({
       workspaceId,

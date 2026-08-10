@@ -83,7 +83,20 @@ export const exploreOpenApiDocument = {
       patch: { tags: ["Workspace"], ...jsonPost("Append a human review decision as a new immutable scenario version.", { type: "object", required: ["scenarioId", "decision"], properties: { scenarioId: { type: "string", format: "uuid" }, decision: { type: "string", enum: ["verified", "rejected"] } } }, { type: "object" }, true) },
     },
     "/api/evidence/v1/heat-map": { post: { tags: ["Visuals"], ...jsonPost("Return compatible multi-county values and official boundaries.", { $ref: "#/components/schemas/HeatMapCountySetRequest" }, { type: "object" }) } },
-    "/api/evidence/v1/funder-snapshot": { post: { tags: ["Funder"], ...jsonPost("Build a cited multi-county evidence set for local review.", { $ref: "#/components/schemas/CountySetRequest" }, { type: "object" }) } },
+    "/api/evidence/v1/funder-snapshot": {
+      get: {
+        tags: ["Funder"], summary: "Download a cited single-county evidence snapshot for local review.",
+        parameters: [
+          { name: "geoid", in: "query", required: true, schema: countyGeoid },
+          { name: "format", in: "query", required: false, schema: { type: "string", enum: ["json", "pdf"], default: "json" } },
+        ],
+        responses: {
+          "200": { description: "Review-only evidence snapshot.", content: { "application/json": { schema: { type: "object" } }, "application/pdf": { schema: { type: "string", contentEncoding: "binary" } } } },
+          "400": errorResponse, "404": errorResponse, "429": errorResponse, "503": errorResponse,
+        },
+      },
+      post: { tags: ["Funder"], ...jsonPost("Build a cited multi-county evidence set for local review.", { $ref: "#/components/schemas/CountySetRequest" }, { type: "object" }) },
+    },
     "/api/health/version": { get: { tags: ["Operations"], summary: "Return safe release and evidence identity.", responses: { "200": { description: "Release identity." } } } },
   },
   components: {
@@ -91,7 +104,7 @@ export const exploreOpenApiDocument = {
     schemas: {
       Error: { type: "object", required: ["error"], properties: { error: { type: "string" } } },
       CountySetRequest: { type: "object", required: ["geoids"], properties: { geoids: { type: "array", minItems: 1, maxItems: 25, uniqueItems: true, items: countyGeoid }, measureDefinitionId: { type: ["string", "null"] } } },
-      HeatMapCountySetRequest: { type: "object", required: ["geoids"], properties: { geoids: { type: "array", minItems: 2, maxItems: 25, uniqueItems: true, items: countyGeoid }, measureDefinitionId: { type: ["string", "null"] } } },
+      HeatMapCountySetRequest: { type: "object", required: ["geoids"], properties: { geoids: { type: "array", minItems: 1, maxItems: 25, uniqueItems: true, items: countyGeoid }, comparisonGroup: { type: ["string", "null"], enum: ["nearby", null], description: "When nearby, provide exactly one county; the API returns that county and the nearest same-state county internal points for geographic context, not peer ranking." }, measureDefinitionId: { type: ["string", "null"] } } },
       AgentRequest: { type: "object", required: ["geoid", "question"], properties: { geoid: countyGeoid, question: { type: "string", minLength: 3, maxLength: 1500 }, inputMode: { type: "string", enum: ["typed", "voice"] }, transcriptHash: { type: "string", pattern: "^sha256:[0-9a-f]{64}$" } } },
       AgentAnswer: { type: "object", required: ["schemaVersion", "answer", "status", "citedEvidence", "visualIntent", "nonClinicalBoundary"], properties: { schemaVersion: { type: "string" }, answer: { type: "string" }, status: { type: "string", enum: ["answered", "evidence_gap", "refused"] }, citedEvidence: { type: "array", items: { type: "object" } }, visualIntent: { type: "object" }, nonClinicalBoundary: { type: "string" } } },
     },

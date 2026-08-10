@@ -145,7 +145,7 @@ export async function createCountyWorkspace(input: {
          CAST(:snapshot_id AS uuid), :title, 'active', 1, :policy_version,
          now(), :created_by, now()
        )
-       ON CONFLICT (tenant_id, geography_id) WHERE status = 'active'
+       ON CONFLICT (tenant_id, geography_id) WHERE status = 'active' AND parent_workspace_id IS NULL
        DO UPDATE SET updated_at=evidence.county_workspace.updated_at
        RETURNING id::text, title, version`,
       [
@@ -354,6 +354,61 @@ async function findWorkspaceMutationEvent(input: {
     occurredAt: String(evidenceFieldValue(row[3]) ?? ""),
     payload: JSON.parse(String(evidenceFieldValue(row[4]) ?? "{}")) as Record<string, unknown>,
     inserted: false as const,
+  };
+}
+
+async function findLegacyWorkspaceFork(input: {
+  workspaceId: string;
+  tenantId: string;
+  idempotencyKey: string;
+  transactionId: string;
+}) {
+  const result = await executeEvidenceSql(
+    `SELECT source_event.id::text, source_event.sequence_number,
+        source_event.event_type::text, source_event.occurred_at::text,
+        source_event.payload::text, target.id::text, target.title,
+        target.forked_from_version, target.evidence_snapshot_id::text,
+        target_event.payload::text, source.title
+     FROM evidence.workspace_event target_event
+     JOIN evidence.county_workspace target ON target.id=target_event.workspace_id
+     JOIN evidence.county_workspace source ON source.id=target.parent_workspace_id
+     JOIN evidence.workspace_event source_event
+       ON source_event.workspace_id=source.id
+      AND source_event.tenant_id=target_event.tenant_id
+      AND source_event.event_type='workspace_forked'
+      AND source_event.idempotency_key=('workspace-forked:' || target.id::text)
+     WHERE source.id=CAST(:workspace_id AS uuid)
+       AND source.tenant_id=CAST(:tenant_id AS uuid)
+       AND target.tenant_id=source.tenant_id
+       AND target.status='active'
+       AND target_event.event_type='workspace_created'
+       AND target_event.idempotency_key=:idempotency_key
+       AND target_event.payload->>'forkedFrom'=:workspace_id
+     LIMIT 1`,
+    [
+      { name: "workspace_id", value: { stringValue: input.workspaceId } },
+      { name: "tenant_id", value: { stringValue: input.tenantId } },
+      { name: "idempotency_key", value: { stringValue: input.idempotencyKey.slice(0, 200) } },
+    ],
+    input.transactionId,
+  );
+  const row = result.records?.[0];
+  if (!row) return null;
+  return {
+    event: {
+      id: String(evidenceFieldValue(row[0]) ?? ""),
+      sequenceNumber: Number(evidenceFieldValue(row[1]) ?? 0),
+      eventType: String(evidenceFieldValue(row[2]) ?? "workspace_forked"),
+      occurredAt: String(evidenceFieldValue(row[3]) ?? ""),
+      payload: JSON.parse(String(evidenceFieldValue(row[4]) ?? "{}")) as Record<string, unknown>,
+      inserted: false as const,
+    },
+    targetWorkspaceId: String(evidenceFieldValue(row[5]) ?? ""),
+    targetTitle: String(evidenceFieldValue(row[6]) ?? ""),
+    sourceVersion: Number(evidenceFieldValue(row[7]) ?? 0),
+    evidenceSnapshotId: String(evidenceFieldValue(row[8]) ?? ""),
+    targetPayload: JSON.parse(String(evidenceFieldValue(row[9]) ?? "{}")) as Record<string, unknown>,
+    sourceTitle: String(evidenceFieldValue(row[10]) ?? "workspace"),
   };
 }
 
@@ -1857,6 +1912,28 @@ export async function forkCountyWorkspace(input: {
       });
       return { fork, event: prior };
     }
+    const legacy = await findLegacyWorkspaceFork({ ...input, transactionId });
+    if (legacy) {
+      const expectedTitle = normalizedTitle || `Fork of ${legacy.sourceTitle}`;
+      if (legacy.targetTitle !== expectedTitle || !legacy.targetWorkspaceId || !legacy.evidenceSnapshotId) {
+        throw new Error("The idempotency key is already bound to a different workspace mutation.");
+      }
+      const copiedSectionKeys = Array.isArray(legacy.targetPayload.copiedSectionKeys)
+        ? legacy.targetPayload.copiedSectionKeys.map(String)
+        : Array.isArray(legacy.event.payload.copiedSectionKeys)
+          ? legacy.event.payload.copiedSectionKeys.map(String)
+          : [];
+      const fork = buildWorkspaceForkContract({
+        sourceWorkspaceId: input.workspaceId,
+        sourceVersion: legacy.sourceVersion,
+        targetWorkspaceId: legacy.targetWorkspaceId,
+        forkedBy: input.actor.principalId,
+        forkedAt: legacy.event.occurredAt,
+        copiedSectionKeys,
+        evidenceSnapshotId: legacy.evidenceSnapshotId,
+      });
+      return { fork, event: legacy.event };
+    }
     const source = await executeEvidenceSql(
       `SELECT w.id::text, w.tenant_id::text, w.geography_id::text,
           w.evidence_snapshot_id::text, w.title, w.version, g.authority_id,
@@ -1934,6 +2011,7 @@ export async function forkCountyWorkspace(input: {
       copiedSectionKeys,
       evidenceSnapshotId: String(evidenceFieldValue(row[3]) ?? ""),
     });
+    const targetActor: WorkspaceActor = { ...input.actor, access: "owner" };
     await executeEvidenceSql(
       `INSERT INTO evidence.workspace_participant (
          workspace_id, principal_id, role, access, display_name, joined_at
@@ -1943,7 +2021,7 @@ export async function forkCountyWorkspace(input: {
         { name: "workspace_id", value: { stringValue: targetId } },
         { name: "principal_id", value: { stringValue: input.actor.principalId } },
         { name: "role", value: { stringValue: String(evidenceFieldValue(row[7]) ?? input.actor.role) } },
-        { name: "access", value: { stringValue: String(evidenceFieldValue(row[8]) ?? input.actor.access) } },
+        { name: "access", value: { stringValue: targetActor.access } },
         { name: "display_name", value: { stringValue: input.actor.displayName } },
       ],
       transactionId,
@@ -1960,7 +2038,7 @@ export async function forkCountyWorkspace(input: {
       workspaceId: targetId,
       tenantId: input.tenantId,
       eventType: "workspace_created",
-      actor: input.actor,
+      actor: targetActor,
       idempotencyKey: `fork-target:${sha256(`${input.workspaceId}:${input.idempotencyKey}`)}`,
       evidenceSnapshotId: fork.evidenceSnapshotId,
       payload: { forkedFrom: input.workspaceId, sourceVersion, copiedSectionKeys: fork.copiedSectionKeys },

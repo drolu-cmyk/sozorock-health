@@ -4,15 +4,25 @@ import { getPublishedCountyBrief } from "../../../../lib/published-evidence-runt
 import { enforceEvidenceRateLimit } from "../../../../lib/evidence-rate-limit";
 import { requireEvidenceAuthority, sha256, writeExecutionAudit } from "../../../../lib/evidence-runtime-authority";
 import { placeAgentRuntimeVersions } from "../../../../lib/place-agent-openai";
+import { nearestSameStateCountyGeoids } from "../../../../lib/county-heat-map";
 import { isTrustedSameOrigin, readBoundedText } from "../../../../lib/request-security";
 
 export const runtime = "nodejs";
 const boundaries = createRequire(import.meta.url)(
   "../../../../../../../packages/evidence-core/data/national/county-boundaries.v2025.json",
 ) as { censusVintage: string; sourceUrl: string; generalization: string; byGeoid: Record<string, { type: "Feature"; properties?: Record<string, unknown>; geometry: unknown }> };
+const countyIndex = createRequire(import.meta.url)(
+  "../../../../../../../packages/evidence-core/data/national/county-index.v2025.json",
+) as {
+  counties: Array<{
+    geoid: string;
+    stateFips: string;
+    internalPoint: { latitude: number; longitude: number };
+  }>;
+};
 
-function validGeoids(value: unknown): value is string[] {
-  return Array.isArray(value) && value.length >= 2 && value.length <= 25
+function validGeoids(value: unknown, minimum = 2): value is string[] {
+  return Array.isArray(value) && value.length >= minimum && value.length <= 25
     && new Set(value).size === value.length && value.every((item) => typeof item === "string" && /^\d{5}$/.test(item));
 }
 
@@ -24,11 +34,18 @@ export async function POST(request: NextRequest) {
     if (!rate.allowed) return NextResponse.json({ error: "Please wait before requesting another county comparison." }, { status: rate.retryAfter ? 429 : 503 });
     const bounded = await readBoundedText(request, 16_000, ["application/json"]);
     if (!bounded.ok) return NextResponse.json({ error: "The request was not accepted." }, { status: 400 });
-    const body = JSON.parse(bounded.text) as { geoids?: unknown; measureDefinitionId?: unknown };
-    if (!validGeoids(body.geoids) || (body.measureDefinitionId !== undefined && typeof body.measureDefinitionId !== "string")) {
-      return NextResponse.json({ error: "Provide 2–25 unique current county GEOIDs and one compatible measure identifier." }, { status: 400 });
+    const body = JSON.parse(bounded.text) as { geoids?: unknown; measureDefinitionId?: unknown; comparisonGroup?: unknown };
+    const comparisonGroup = body.comparisonGroup === "nearby" ? "nearby" : body.comparisonGroup === undefined ? null : "invalid";
+    if (!validGeoids(body.geoids, comparisonGroup === "nearby" ? 1 : 2)
+      || comparisonGroup === "invalid"
+      || (comparisonGroup === "nearby" && body.geoids.length !== 1)
+      || (body.measureDefinitionId !== undefined && typeof body.measureDefinitionId !== "string")) {
+      return NextResponse.json({ error: "Provide 2–25 unique current county GEOIDs, or one county with the nearby comparison group, and one compatible measure identifier." }, { status: 400 });
     }
-    const briefs = await Promise.all(body.geoids.map((geoid) => getPublishedCountyBrief(geoid)));
+    const requestedGeoids = body.geoids;
+    const selectedGeoids = comparisonGroup === "nearby" ? nearestSameStateCountyGeoids(countyIndex.counties, requestedGeoids[0]) : requestedGeoids;
+    if (selectedGeoids.length < 2) return NextResponse.json({ error: "A compatible multi-county comparison group is unavailable for this county." }, { status: 409 });
+    const briefs = await Promise.all(selectedGeoids.map((geoid) => getPublishedCountyBrief(geoid)));
     if (briefs.some((brief) => !brief)) return NextResponse.json({ error: "One or more county GEOIDs are unavailable." }, { status: 404 });
     const approved = briefs.filter((brief): brief is NonNullable<typeof brief> => Boolean(brief));
     const common = approved[0].publicData.observations.filter((observation) =>
@@ -45,6 +62,19 @@ export async function POST(request: NextRequest) {
       : common[0]?.measureDefinitionId;
     const template = common.find((item) => item.measureDefinitionId === selectedId);
     if (!template) return NextResponse.json({ error: "The selected counties do not share that measure, release, unit and data period." }, { status: 409 });
+    const source = approved[0].publicData.sources.find((item) => item.sourceVersionId === template.sourceVersionId);
+    if (!source) return NextResponse.json({ error: "The selected measure has no approved source reference." }, { status: 409 });
+    const availableMeasures = common.map((observation) => ({
+      id: observation.measureDefinitionId,
+      label: observation.label,
+      unit: observation.unit,
+      direction: observation.direction,
+      universe: observation.universe,
+      adjustment: observation.adjustment,
+      releaseDate: observation.releaseDate,
+      dataPeriod: observation.dataPeriod,
+      sourceVersionId: observation.sourceVersionId,
+    }));
     const counties = approved.map((brief) => {
       const observation = brief.publicData.observations.find((item) => item.measureDefinitionId === template.measureDefinitionId
         && item.sourceVersionId === template.sourceVersionId && item.unit === template.unit
@@ -73,12 +103,21 @@ export async function POST(request: NextRequest) {
     const response = {
       contractVersion: "explore.multi-county-heat-map.v1",
       evidenceSnapshotContentHash: authority.snapshotContentHash,
-      measure: { id: template.measureDefinitionId, label: template.label, definition: template.label, unit: template.unit, universe: template.universe, adjustment: template.adjustment, direction: template.direction, releaseDate: template.releaseDate, dataPeriod: template.dataPeriod, sourceVersionId: template.sourceVersionId },
+      selection: {
+        mode: comparisonGroup === "nearby" ? "nearby_counties" : "selected_counties",
+        requestedGeoids,
+        resolvedGeoids: selectedGeoids,
+        method: comparisonGroup === "nearby"
+          ? "The selected county and the six nearest county internal points in the same state. This is geographic context, not a peer ranking."
+          : "Counties explicitly selected by the user.",
+      },
+      measure: { id: template.measureDefinitionId, label: template.label, definition: template.label, unit: template.unit, universe: template.universe, adjustment: template.adjustment, direction: template.direction, releaseDate: template.releaseDate, dataPeriod: template.dataPeriod, sourceVersionId: template.sourceVersionId, source: { publisher: source.publisher, title: source.title, officialUrl: source.officialUrl } },
+      availableMeasures,
       counties, featureCollection, scale,
       boundary: { vintage: boundaries.censusVintage, sourceUrl: boundaries.sourceUrl, limitation: boundaries.generalization },
       limitation: "Values are county-level public estimates. The layer does not imply ZIP, neighborhood, household or individual precision. Missing values are not zero.",
     };
-    await writeExecutionAudit({ executionType: "comparison", contractVersion: response.contractVersion, policyVersion: placeAgentRuntimeVersions.policyVersion, snapshotUuid: authority.snapshotUuid, geographyUuid: null, requestHash: sha256(body), responseHash: sha256(response), outcome: "succeeded", reason: "Compatible multi-county layer generated.", metadata: { geoids: body.geoids, measureDefinitionId: template.measureDefinitionId } });
+    await writeExecutionAudit({ executionType: "comparison", contractVersion: response.contractVersion, policyVersion: placeAgentRuntimeVersions.policyVersion, snapshotUuid: authority.snapshotUuid, geographyUuid: null, requestHash: sha256(body), responseHash: sha256(response), outcome: "succeeded", reason: "Compatible multi-county layer generated.", metadata: { requestedGeoids, resolvedGeoids: selectedGeoids, comparisonGroup, measureDefinitionId: template.measureDefinitionId } });
     return NextResponse.json(response, { headers: { "Cache-Control": "private, no-store" } });
   } catch (error) {
     console.error("multi-county-heat-map-failed", { name: (error as { name?: string }).name ?? "UnknownError" });

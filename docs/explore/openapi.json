@@ -1778,6 +1778,95 @@
       }
     },
     "/api/evidence/v1/funder-snapshot": {
+      "get": {
+        "tags": [
+          "Funder"
+        ],
+        "summary": "Download a cited single-county evidence snapshot for local review.",
+        "parameters": [
+          {
+            "name": "geoid",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9]{5}$",
+              "description": "Current Census county or county-equivalent GEOID."
+            }
+          },
+          {
+            "name": "format",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "json",
+                "pdf"
+              ],
+              "default": "json"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Review-only evidence snapshot.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              },
+              "application/pdf": {
+                "schema": {
+                  "type": "string",
+                  "contentEncoding": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request rejected or evidence unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Request rejected or evidence unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Request rejected or evidence unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Request rejected or evidence unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
       "post": {
         "tags": [
           "Funder"
@@ -1915,7 +2004,7 @@
         "properties": {
           "geoids": {
             "type": "array",
-            "minItems": 2,
+            "minItems": 1,
             "maxItems": 25,
             "uniqueItems": true,
             "items": {
@@ -1923,6 +2012,17 @@
               "pattern": "^[0-9]{5}$",
               "description": "Current Census county or county-equivalent GEOID."
             }
+          },
+          "comparisonGroup": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "nearby",
+              null
+            ],
+            "description": "When nearby, provide exactly one county; the API returns that county and the nearest same-state county internal points for geographic context, not peer ranking."
           },
           "measureDefinitionId": {
             "type": [
