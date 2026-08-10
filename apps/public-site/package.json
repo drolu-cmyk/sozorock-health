@@ -38,12 +38,12 @@
     "us-atlas": "^3.0.1"
   },
   "devDependencies": {
-    "@playwright/test": "^1.61.1",
+    "@playwright/test": "^1.62.1",
     "@types/d3-geo": "^3.1.0",
-    "@types/node": "22.15.3",
+    "@types/node": "26.1.2",
     "@types/react": "19.1.2",
     "@types/react-dom": "19.1.2",
     "@types/topojson-client": "^3.1.5",
-    "typescript": "5.8.3"
+    "typescript": "7.0.2"
   }
 }
