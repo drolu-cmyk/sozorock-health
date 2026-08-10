@@ -75,6 +75,7 @@ jobs:
           # the runtime SBOM and deployment-artifact checks must inspect.
           npm run build:public
           npm run verify:public-runtime-security
+          npm run verify:public-source-advisories
       - uses: aquasecurity/setup-trivy@81e514348e19b6112ce2a7e3ecbafe19c1e1f567 # v0.3.1
         with:
           version: v0.72.0

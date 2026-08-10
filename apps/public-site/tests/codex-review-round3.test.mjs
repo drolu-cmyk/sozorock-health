@@ -139,4 +139,5 @@ test("staging rebuilds production traces after the visual dev server and before 
   assert.ok(browser >= 0 && browser < rebuild && rebuild < sbom);
   assert.match(workflow.slice(rebuild, sbom), /npm run build:public/);
   assert.match(workflow.slice(rebuild, sbom), /npm run verify:public-runtime-security/);
+  assert.match(workflow.slice(rebuild, sbom), /npm run verify:public-source-advisories/);
 });
