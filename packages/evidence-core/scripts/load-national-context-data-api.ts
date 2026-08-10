@@ -1,13 +1,22 @@
 import { createHash } from "node:crypto";
-import { readFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { gunzipSync } from "node:zlib";
-import { ExecuteStatementCommand, RDSDataClient } from "@aws-sdk/client-rds-data";
+import {
+  BeginTransactionCommand,
+  CommitTransactionCommand,
+  ExecuteStatementCommand,
+  RDSDataClient,
+  RollbackTransactionCommand,
+} from "@aws-sdk/client-rds-data";
 import { deterministicUuid } from "../src/ingestion/hash.ts";
+import { activatedEvidenceSnapshotContentHash } from "../src/ingestion/snapshot-activation.ts";
 
 const packageRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const repoRoot = path.resolve(packageRoot, "..", "..");
 const dataRoot = path.join(packageRoot, "data", "national");
+const activationOutputPath = path.join(repoRoot, "output", "evidence-activation.json");
 const resourceArn = process.env.EVIDENCE_DATABASE_CLUSTER_ARN?.trim();
 const secretArn = process.env.EVIDENCE_DATABASE_SECRET_ARN?.trim();
 const database = process.env.EVIDENCE_DATABASE_NAME?.trim();
@@ -22,7 +31,7 @@ if (!artifactBucket || process.env.EVIDENCE_PRODUCTION_IMPORT_APPROVED !== "true
 
 const client = new RDSDataClient({});
 const base = { resourceArn, secretArn, database };
-async function execute(sql: string, payload?: unknown) {
+async function execute(sql: string, payload?: unknown, transactionId?: string) {
   return client.send(new ExecuteStatementCommand({
     ...base,
     sql,
@@ -30,6 +39,7 @@ async function execute(sql: string, payload?: unknown) {
     parameters: payload === undefined
       ? []
       : [{ name: "payload", value: { stringValue: JSON.stringify(payload) } }],
+    transactionId,
   }));
 }
 async function chunks<T>(items: T[], size: number, callback: (items: T[]) => Promise<unknown>) {
@@ -110,25 +120,36 @@ const sourceVersions = [
     sourceId: "census-acs5", artifact: acs, releaseDate: acs.data.source.releaseDate,
     periodStart: acs.data.source.dataPeriod.start, periodEnd: acs.data.source.dataPeriod.end,
     officialUrl: acs.data.source.officialUrl, retrievedAt: acs.data.source.retrievedAt,
+    mappingVersion: "acs5.county-context.provenance.v2",
   },
   {
     sourceId: "ahrf-workforce", artifact: ahrf, releaseDate: ahrf.data.releaseDate,
     periodStart: "2023-01-01", periodEnd: "2024-12-31",
     officialUrl: ahrf.data.officialUrl, retrievedAt: ahrf.data.generatedAt,
+    mappingVersion: "ahrf.county-context.v1",
   },
   {
     sourceId: "ahrq-clh", artifact: ahrq, releaseDate: ahrq.data.releaseDate,
     periodStart: "2023-01-01", periodEnd: "2023-12-31",
     officialUrl: ahrq.data.officialUrl, retrievedAt: ahrq.data.generatedAt,
+    mappingVersion: "ahrq-clh.county-context.v1",
   },
   {
     sourceId: "hrsa-workforce", artifact: hrsa, releaseDate: hrsa.data.generatedAt.slice(0, 10),
     periodStart: null, periodEnd: hrsa.data.generatedAt.slice(0, 10),
     officialUrl: hrsa.data.officialUrl, retrievedAt: hrsa.data.generatedAt,
+    mappingVersion: "hrsa.designation-context.v1",
   },
 ].map((record) => ({
   ...record,
-  id: deterministicUuid("source-version", record.sourceId, record.releaseDate, record.artifact.sha256),
+  id: deterministicUuid(
+    "source-version",
+    record.sourceId,
+    record.releaseDate,
+    record.artifact.sha256,
+    record.mappingVersion,
+  ),
+  schemaVersion: record.artifact.data.schemaVersion + "+" + record.mappingVersion,
 }));
 await execute(`
   INSERT INTO evidence.source_version (
@@ -157,7 +178,7 @@ await execute(`
   stale_after: `${Number(record.releaseDate.slice(0, 4)) + 2}-12-31T23:59:59.000Z`,
   official_url: record.officialUrl,
   content_hash: `sha256:${record.artifact.sha256}`,
-  schema_version: record.artifact.data.schemaVersion,
+  schema_version: record.schemaVersion,
 })));
 const versionBySource = new Map(sourceVersions.map((item) => [item.sourceId, item]));
 
@@ -285,7 +306,13 @@ for (const [fips, record] of Object.entries(acs.data.records)) {
     const value = record[field];
     if (value === null || typeof value !== "number") continue;
     observations.push({
-      id: deterministicUuid("context-observation", "census-acs5", fips, field, acs.data.source.releaseDate),
+      id: deterministicUuid(
+        "context-observation",
+        versionBySource.get("census-acs5")!.id,
+        fips,
+        field,
+        acs.data.source.releaseDate,
+      ),
       definitionId: deterministicUuid("measure", "census-acs5", field),
       geographyId,
       sourceVersionId: versionBySource.get("census-acs5")!.id,
@@ -315,7 +342,7 @@ for (const [sourceId, source] of [["ahrf-workforce", ahrf.data], ["ahrq-clh", ah
       if (item.value === null) continue;
       const year = item.year ?? item.dataPeriod?.match(/\d{4}/)?.[0] ?? source.releaseDate.slice(0, 4);
       observations.push({
-        id: deterministicUuid("context-observation", sourceId, fips, item.variableId, year),
+        id: deterministicUuid("context-observation", version.id, fips, item.variableId, year),
         definitionId: deterministicUuid("measure", sourceId, item.variableId),
         geographyId,
         sourceVersionId: version.id,
@@ -409,7 +436,11 @@ const designations = Object.entries(hrsa.data.counties).flatMap(([fips, county])
           : /subcounty|census tract|minor civil/i.test(component) ? "subcounty" : "other";
     const sourceRecordId = `${family}:${String(item.designationId ?? "")}:${fips}`;
     return {
-      id: deterministicUuid("workforce-designation", sourceRecordId),
+      id: deterministicUuid(
+        "workforce-designation",
+        versionBySource.get("hrsa-workforce")!.id,
+        sourceRecordId,
+      ),
       geography_id: geographyId,
       source_version_id: versionBySource.get("hrsa-workforce")!.id,
       source_record_id: sourceRecordId,
@@ -451,17 +482,24 @@ await chunks(designations, 200, (batch) => execute(`
 `, batch));
 
 const snapshotBytes = await readFile(path.join(dataRoot, "county-evidence-snapshot.v1.json"));
-const snapshot = JSON.parse(snapshotBytes.toString("utf8")) as { snapshotId: string };
-const snapshotUuid = deterministicUuid(
-  "evidence-snapshot",
-  snapshot.snapshotId.replace(/^snapshot:/, "sha256:"),
-);
-await execute(`
-  INSERT INTO evidence.snapshot_source_version (snapshot_id, source_version_id)
-  SELECT CAST('${snapshotUuid}' AS uuid), CAST(x.id AS uuid)
-  FROM jsonb_to_recordset(CAST(:payload AS jsonb)) AS x(id text)
-  ON CONFLICT DO NOTHING
-`, sourceVersions.map(({ id }) => ({ id })));
+const snapshot = JSON.parse(snapshotBytes.toString("utf8")) as {
+  snapshotId: string;
+  generatedAt: string;
+  policyVersion: string;
+};
+const baseSnapshotContentHash = snapshot.snapshotId.replace(/^snapshot:/, "sha256:");
+const baseSnapshotUuid = deterministicUuid("evidence-snapshot", baseSnapshotContentHash);
+const activatedSnapshotContentHash = activatedEvidenceSnapshotContentHash({
+  baseSnapshotContentHash,
+  contractVersion: "explore.place-brief.v1",
+  policyVersion: snapshot.policyVersion,
+  sources: sourceVersions.map((source) => ({
+    sourceId: source.sourceId,
+    sourceVersionId: source.id,
+    mappingVersion: source.mappingVersion,
+  })),
+});
+const snapshotUuid = deterministicUuid("evidence-snapshot", activatedSnapshotContentHash);
 
 const localPlanByCounty = new Map(localPlans.data.counties.map((item) => [item.countyGeoid, item]));
 const coverage = [...countyIds.entries()].flatMap(([fips, geographyId]) => {
@@ -481,43 +519,106 @@ const coverage = [...countyIds.entries()].flatMap(([fips, geographyId]) => {
     status, count, reason, fips,
   }));
 });
-await chunks(coverage, 300, (batch) => execute(`
-  INSERT INTO evidence.source_coverage (
-    snapshot_id, geography_id, source_id, source_version_id, status, reason,
-    observed_at, observation_count, metadata
-  )
-  SELECT CAST('${snapshotUuid}' AS uuid), CAST(x.geography_id AS uuid), x.source_id,
-    CASE WHEN x.source_version_id IS NULL THEN NULL ELSE CAST(x.source_version_id AS uuid) END,
-    CAST(x.status AS evidence.source_coverage_status), x.reason, now(), x.count,
-    jsonb_build_object('countyFips', x.fips)
-  FROM jsonb_to_recordset(CAST(:payload AS jsonb)) AS x(
-    geography_id text, source_id text, source_version_id text, status text,
-    count integer, reason text, fips text
-  )
-  ON CONFLICT (snapshot_id, geography_id, source_id) DO UPDATE SET
-    source_version_id=EXCLUDED.source_version_id, status=EXCLUDED.status,
-    reason=EXCLUDED.reason, observed_at=EXCLUDED.observed_at,
-    observation_count=EXCLUDED.observation_count, metadata=EXCLUDED.metadata
-`, batch));
-
 for (const record of sourceVersions) {
+  const importIdempotencyHash = createHash("sha256")
+    .update(record.artifact.sha256 + "|" + record.id)
+    .digest("hex");
   await execute(`
     INSERT INTO evidence.import_manifest (
       id, source_id, source_version_id, artifact_url, artifact_object_key,
       artifact_sha256, byte_length, record_count, schema_version, imported_at,
       idempotency_key, metadata
     ) VALUES (
-      CAST('${deterministicUuid("import-manifest", record.artifact.name, record.artifact.sha256)}' AS uuid),
+      CAST('${deterministicUuid("import-manifest", record.artifact.name, record.artifact.sha256, record.id)}' AS uuid),
       '${record.sourceId}', CAST('${record.id}' AS uuid),
       'https://${artifactBucket}.s3.amazonaws.com/${record.artifact.name}',
       '${record.artifact.name}', '${record.artifact.sha256}', ${record.artifact.bytes.byteLength},
-      3144, '${record.artifact.data.schemaVersion}', now(),
-      'sha256:${record.artifact.sha256}', '{"releaseScope":"primary_50_states_dc"}'::jsonb
+      3144, '${record.schemaVersion}', now(),
+      'sha256:${importIdempotencyHash}',
+      jsonb_build_object('releaseScope', 'primary_50_states_dc', 'mappingVersion', '${record.mappingVersion}')
     ) ON CONFLICT (idempotency_key) DO NOTHING
   `);
 }
 
+const opened = await client.send(new BeginTransactionCommand(base));
+if (!opened.transactionId) throw new Error("The evidence activation transaction could not be opened.");
+try {
+  await execute(`
+    INSERT INTO evidence.evidence_snapshot (
+      id, contract_version, policy_version, created_at, published_at, content_hash,
+      review_status, reviewed_by, reviewed_at
+    ) VALUES (
+      CAST('${snapshotUuid}' AS uuid), 'explore.place-brief.v1', '${snapshot.policyVersion}',
+      CAST('${snapshot.generatedAt}' AS timestamptz), now(), '${activatedSnapshotContentHash}',
+      'verified', 'Oluwabiyi Adeyemo', now()
+    ) ON CONFLICT (id) DO NOTHING
+  `, undefined, opened.transactionId);
+  await execute(`
+    INSERT INTO evidence.snapshot_source_version (snapshot_id, source_version_id)
+    SELECT CAST('${snapshotUuid}' AS uuid), link.source_version_id
+    FROM evidence.snapshot_source_version link
+    JOIN evidence.source_version version ON version.id=link.source_version_id
+    WHERE link.snapshot_id=CAST('${baseSnapshotUuid}' AS uuid)
+      AND version.source_id IN ('census-geography', 'cdc-places')
+    ON CONFLICT DO NOTHING
+  `, undefined, opened.transactionId);
+  await execute(`
+    INSERT INTO evidence.snapshot_source_version (snapshot_id, source_version_id)
+    SELECT CAST('${snapshotUuid}' AS uuid), CAST(x.id AS uuid)
+    FROM jsonb_to_recordset(CAST(:payload AS jsonb)) AS x(id text)
+    ON CONFLICT DO NOTHING
+  `, sourceVersions.map(({ id }) => ({ id })), opened.transactionId);
+  await execute(`
+    INSERT INTO evidence.source_coverage (
+      snapshot_id, geography_id, source_id, source_version_id, status, reason,
+      observed_at, data_period_start, data_period_end, observation_count, metadata
+    )
+    SELECT CAST('${snapshotUuid}' AS uuid), geography_id, source_id,
+      source_version_id, status, reason, observed_at, data_period_start,
+      data_period_end, observation_count, metadata
+    FROM evidence.source_coverage
+    WHERE snapshot_id=CAST('${baseSnapshotUuid}' AS uuid)
+      AND source_id IN ('census-geography', 'cdc-places')
+    ON CONFLICT (snapshot_id, geography_id, source_id) DO NOTHING
+  `, undefined, opened.transactionId);
+  await chunks(coverage, 300, (batch) => execute(`
+    INSERT INTO evidence.source_coverage (
+      snapshot_id, geography_id, source_id, source_version_id, status, reason,
+      observed_at, observation_count, metadata
+    )
+    SELECT CAST('${snapshotUuid}' AS uuid), CAST(x.geography_id AS uuid), x.source_id,
+      CASE WHEN x.source_version_id IS NULL THEN NULL ELSE CAST(x.source_version_id AS uuid) END,
+      CAST(x.status AS evidence.source_coverage_status), x.reason, now(), x.count,
+      jsonb_build_object('countyFips', x.fips)
+    FROM jsonb_to_recordset(CAST(:payload AS jsonb)) AS x(
+      geography_id text, source_id text, source_version_id text, status text,
+      count integer, reason text, fips text
+    )
+    ON CONFLICT (snapshot_id, geography_id, source_id) DO NOTHING
+  `, batch, opened.transactionId));
+  await client.send(new CommitTransactionCommand({ ...base, transactionId: opened.transactionId }));
+} catch (error) {
+  await client.send(new RollbackTransactionCommand({ ...base, transactionId: opened.transactionId }));
+  throw error;
+}
+
+await mkdir(path.dirname(activationOutputPath), { recursive: true });
+await writeFile(activationOutputPath, JSON.stringify({
+  schemaVersion: "evidence-activation.v1",
+  baseSnapshotContentHash,
+  contentHash: activatedSnapshotContentHash,
+  snapshotId: snapshotUuid,
+  sourceVersions: sourceVersions.map(({ sourceId, id, mappingVersion, schemaVersion }) => ({
+    sourceId,
+    sourceVersionId: id,
+    mappingVersion,
+    schemaVersion,
+  })),
+}) + "\n", "utf8");
+
 console.log(JSON.stringify({
+  activatedSnapshotContentHash,
+  activatedSnapshotId: snapshotUuid,
   database,
   countyCount: countyIds.size,
   observationCount: observations.length,

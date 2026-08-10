@@ -146,6 +146,17 @@ test("OpenAPI matches voice and workspace creation response status codes", () =>
   assert.ok(!shareResponses["200"]);
 });
 
+test("nationwide staging validation can raise only the staging evidence-read quota", async () => {
+  const limiter = await read("app/lib/evidence-rate-limit.ts");
+  const config = await read("next.config.ts");
+  const workflow = await read("../../.github/workflows/milestone-10-staging.yml");
+  assert.match(limiter, /RUNTIME_ENV\?\.trim\(\)\.toLowerCase\(\) === "staging"/);
+  assert.match(limiter, /stagingMaximum <= 10_000/);
+  assert.match(limiter, /:maximum": effectiveMaximum/);
+  assert.match(config, /EVIDENCE_STAGING_MAX_PER_NETWORK_5_MINUTES/);
+  assert.match(workflow, /EVIDENCE_STAGING_MAX_PER_NETWORK_5_MINUTES:"10000"/);
+});
+
 test("national ACS provenance names the proportion MOE and its ratio fallback", async () => {
   const loader = await read("../../packages/evidence-core/scripts/load-national-context-data-api.ts");
   const labels = loader.match(/marginOfErrorFormula: "([^"]+)"/g) ?? [];

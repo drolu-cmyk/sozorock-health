@@ -37,6 +37,11 @@ export async function enforceEvidenceRateLimit(request: NextRequest) {
   if (!tableName) return { allowed: false as const, retryAfter: null };
   const epoch = Math.floor(Date.now() / 1000);
   const bucket = Math.floor(epoch / 300);
+  const stagingMaximum = Number(process.env.EVIDENCE_STAGING_MAX_PER_NETWORK_5_MINUTES ?? maximum);
+  const effectiveMaximum = process.env.RUNTIME_ENV?.trim().toLowerCase() === "staging"
+    && Number.isInteger(stagingMaximum) && stagingMaximum >= maximum && stagingMaximum <= 10_000
+    ? stagingMaximum
+    : maximum;
   const clientHash = createHash("sha256")
     .update(`${await salt()}:evidence:${clientNetworkAddress(request.headers)}`)
     .digest("hex");
@@ -48,7 +53,7 @@ export async function enforceEvidenceRateLimit(request: NextRequest) {
       ConditionExpression: "attribute_not_exists(requestCount) OR requestCount < :maximum",
       ExpressionAttributeValues: {
         ":one": 1,
-        ":maximum": maximum,
+        ":maximum": effectiveMaximum,
         ":expiresAt": epoch + 600,
         ":recordType": "evidence-rate-limit",
       },

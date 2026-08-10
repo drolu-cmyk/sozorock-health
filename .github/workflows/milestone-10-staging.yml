@@ -244,9 +244,10 @@ jobs:
             "s3://$EvidenceArtifactBucket/approved/$RELEASE_SHA/" \
             --recursive --sse AES256 --only-show-errors
           npm run import:production:data-api --workspace @sozorock/evidence-core
-          snapshot_id=$(jq -r '.snapshotId' packages/evidence-core/data/national/county-evidence-snapshot.v1.json)
-          test "$snapshot_id" != "null"
-          echo "EVIDENCE_SNAPSHOT_CONTENT_HASH=${snapshot_id/snapshot:/sha256:}" >> "$GITHUB_ENV"
+          snapshot_hash=$(jq -r '.contentHash' output/evidence-activation.json)
+          test "$snapshot_hash" != "null"
+          test "$snapshot_hash" != ""
+          echo "EVIDENCE_SNAPSHOT_CONTENT_HASH=$snapshot_hash" >> "$GITHUB_ENV"
           npm run seed:collaboration-control-plane --workspace @sozorock/evidence-core
           aws rds-data execute-statement \
             --resource-arn "$EvidenceDatabaseClusterArn" \
@@ -310,6 +311,7 @@ jobs:
               EXPLORE_AUTH_COOKIE_SECRET_ARN:$auth_cookie_secret,
               EVIDENCE_SNAPSHOT_CONTENT_HASH:$snapshot_hash,
               EVIDENCE_DATABASE_MIGRATION_VERSION:"0016",
+              EVIDENCE_STAGING_MAX_PER_NETWORK_5_MINUTES:"10000",
               REPOSITORY_COMMIT_SHA:$release_sha,
               BUILD_TIMESTAMP:$build_timestamp,
               RUNTIME_ENV:"staging"
