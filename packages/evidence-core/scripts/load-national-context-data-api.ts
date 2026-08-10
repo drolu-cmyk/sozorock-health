@@ -208,21 +208,21 @@ const acsProvenance: Record<AcsField, {
     formula: "(B17001_002E / B17001_001E) * 100", transformationVersion: "sozorock.percentage.v1",
     table: "B17001", group: "B17001", estimateField: "B17001_002E", marginOfErrorField: null,
     numeratorMarginOfErrorVariableId: "B17001_002M", denominatorMarginOfErrorVariableId: "B17001_001M",
-    marginOfErrorFormula: "Census ratio MOE using numerator and denominator margins of error",
+    marginOfErrorFormula: "Census ACS proportion MOE using numerator and denominator margins of error, with additive ratio-MOE fallback when the proportion radicand is negative",
   },
   noVehiclePercent: {
     sourceVariableId: null, numeratorVariableId: "B08201_002E", denominatorVariableId: "B08201_001E",
     formula: "(B08201_002E / B08201_001E) * 100", transformationVersion: "sozorock.percentage.v1",
     table: "B08201", group: "B08201", estimateField: "B08201_002E", marginOfErrorField: null,
     numeratorMarginOfErrorVariableId: "B08201_002M", denominatorMarginOfErrorVariableId: "B08201_001M",
-    marginOfErrorFormula: "Census ratio MOE using numerator and denominator margins of error",
+    marginOfErrorFormula: "Census ACS proportion MOE using numerator and denominator margins of error, with additive ratio-MOE fallback when the proportion radicand is negative",
   },
   internetSubscriptionPercent: {
     sourceVariableId: null, numeratorVariableId: "B28002_002E", denominatorVariableId: "B28002_001E",
     formula: "(B28002_002E / B28002_001E) * 100", transformationVersion: "sozorock.percentage.v1",
     table: "B28002", group: "B28002", estimateField: "B28002_002E", marginOfErrorField: null,
     numeratorMarginOfErrorVariableId: "B28002_002M", denominatorMarginOfErrorVariableId: "B28002_001M",
-    marginOfErrorFormula: "Census ratio MOE using numerator and denominator margins of error",
+    marginOfErrorFormula: "Census ACS proportion MOE using numerator and denominator margins of error, with additive ratio-MOE fallback when the proportion radicand is negative",
   },
 };
 const definitions: Definition[] = acsFields.map(([field, , name, unit, direction]) => ({

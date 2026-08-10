@@ -233,6 +233,26 @@
               }
             }
           },
+          "403": {
+            "description": "Request rejected or evidence unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Request rejected or evidence unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
           "415": {
             "description": "Request rejected or evidence unavailable.",
             "content": {
@@ -243,7 +263,27 @@
               }
             }
           },
+          "422": {
+            "description": "Request rejected or evidence unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
           "429": {
+            "description": "Request rejected or evidence unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
             "description": "Request rejected or evidence unavailable.",
             "content": {
               "application/json": {
@@ -294,7 +334,7 @@
           }
         },
         "responses": {
-          "200": {
+          "201": {
             "description": "Successful response.",
             "content": {
               "application/json": {
@@ -1183,7 +1223,7 @@
           }
         },
         "responses": {
-          "200": {
+          "201": {
             "description": "Successful response.",
             "content": {
               "application/json": {

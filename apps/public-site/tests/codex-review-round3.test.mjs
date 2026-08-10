@@ -103,6 +103,27 @@ test("OpenAPI documents funder representations and exact heat-map alternatives",
   assert.ok(heatResponses["409"]);
 });
 
+test("OpenAPI matches voice and workspace creation response status codes", () => {
+  const voiceResponses = exploreOpenApiDocument.paths["/api/evidence/v1/voice/transcribe"].post.responses;
+  for (const status of ["403", "413", "422", "503"]) assert.ok(voiceResponses[status]);
+  const workspaceResponses = exploreOpenApiDocument.paths["/api/evidence/v1/workspaces"].post.responses;
+  assert.ok(workspaceResponses["201"]);
+  assert.ok(!workspaceResponses["200"]);
+  const shareResponses = exploreOpenApiDocument.paths["/api/evidence/v1/workspaces/{workspaceId}/share"].post.responses;
+  assert.ok(shareResponses["201"]);
+  assert.ok(!shareResponses["200"]);
+});
+
+test("national ACS provenance names the proportion MOE and its ratio fallback", async () => {
+  const loader = await read("../../packages/evidence-core/scripts/load-national-context-data-api.ts");
+  const labels = loader.match(/marginOfErrorFormula: "([^"]+)"/g) ?? [];
+  assert.equal(labels.length, 3);
+  for (const label of labels) {
+    assert.match(label, /proportion MOE/);
+    assert.match(label, /fallback when the proportion radicand is negative/);
+  }
+});
+
 test("the complete national validator rebuilds when a prior dev server removed the production output", async () => {
   const source = await read("scripts/run-national-api-validation.mjs");
   assert.match(source, /access\(path\.join\(appDir, "\.next", "BUILD_ID"\)\)/);
