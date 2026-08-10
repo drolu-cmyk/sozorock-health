@@ -48,6 +48,10 @@ export async function POST(request: NextRequest) {
     if (!authority.openAiEnabled || !authority.narrativeEnabled) {
       return NextResponse.json({ error: "Voice Access is not currently enabled." }, { status: 503 });
     }
+    const geographyUuid = await requireEvidenceGeographyId(
+      geoid,
+      placeAgentRuntimeVersions.snapshotContentHash,
+    );
     const key = await getOpenAIApiKey();
     const outbound = new FormData();
     outbound.set("file", audio, audio.name || "planning-question.webm");
@@ -83,7 +87,7 @@ export async function POST(request: NextRequest) {
       contractVersion: "explore.voice-transcript.v1",
       policyVersion: placeAgentRuntimeVersions.policyVersion,
       snapshotUuid: authority.snapshotUuid,
-      geographyUuid: await requireEvidenceGeographyId(geoid),
+      geographyUuid,
       requestHash: sha256({ geoid, audioHash: sha256(Buffer.from(await audio.arrayBuffer())) }),
       responseHash: transcriptHash,
       outcome: "succeeded",

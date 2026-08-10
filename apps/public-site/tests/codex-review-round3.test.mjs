@@ -71,6 +71,7 @@ test("voice quota is reserved only after bounded upload and transcription prereq
   const geography = route.indexOf('if (!/^\\d{5}$/.test(geoid)');
   const media = route.indexOf("if (!ALLOWED_AUDIO.has(mime))");
   const authority = route.indexOf("await requireEvidenceAuthority");
+  const canonicalGeography = route.indexOf("await requireEvidenceGeographyId(");
   const apiKey = route.indexOf("await getOpenAIApiKey()");
   const quota = route.indexOf("await enforceVoiceTranscriptionRateLimit(request)");
   const provider = route.indexOf('await fetch("https://api.openai.com/v1/audio/transcriptions"');
@@ -79,10 +80,21 @@ test("voice quota is reserved only after bounded upload and transcription prereq
       && geography > bounded
       && media > geography
       && authority > media
-      && apiKey > authority
+      && canonicalGeography > authority
+      && apiKey > canonicalGeography
       && quota > apiKey
       && provider > quota,
   );
+  assert.match(route, /geographyUuid,/);
+  assert.doesNotMatch(route, /geographyUuid: await requireEvidenceGeographyId/);
+});
+
+test("Cognito callback redirects use the validated public origin rather than the compute request URL", async () => {
+  const route = await read("app/api/evidence/v1/auth/callback/route.ts");
+  assert.match(route, /import \{ publicSiteUrl \}/);
+  assert.match(route, /NextResponse\.redirect\(publicSiteUrl\(returnTo\)\)/);
+  assert.match(route, /NextResponse\.redirect\(publicSiteUrl\("\/explore\/workspaces\?auth=failed"\)\)/);
+  assert.doesNotMatch(route, /new URL\([^\n]+request\.url/);
 });
 
 test("PDF success audit hashes the rendered bytes and runs after rendering", async () => {

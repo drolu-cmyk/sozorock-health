@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { EXPLORE_AUTH_COOKIE, EXPLORE_AUTH_STATE_COOKIE, exploreCognitoConfig, readExploreAuthState } from "../../../../../lib/explore-workspace-auth";
+import { publicSiteUrl } from "../../../../../lib/request-security";
 
 export const runtime = "nodejs";
 
@@ -17,12 +18,12 @@ export async function GET(request: NextRequest) {
     const tokens = await tokenResponse.json() as { access_token?: string; expires_in?: number };
     if (!tokens.access_token) throw new Error("Authentication token is unavailable.");
     const returnTo = typeof saved.returnTo === "string" && saved.returnTo.startsWith("/explore/") ? saved.returnTo : "/explore/workspaces";
-    const response = NextResponse.redirect(new URL(returnTo, request.url));
+    const response = NextResponse.redirect(publicSiteUrl(returnTo));
     response.cookies.set(EXPLORE_AUTH_COOKIE, tokens.access_token, { httpOnly: true, secure: true, sameSite: "lax", path: "/", maxAge: Math.min(Math.max(tokens.expires_in ?? 3600, 300), 3600) });
     response.cookies.delete(EXPLORE_AUTH_STATE_COOKIE);
     return response;
   } catch {
-    const response = NextResponse.redirect(new URL("/explore/workspaces?auth=failed", request.url));
+    const response = NextResponse.redirect(publicSiteUrl("/explore/workspaces?auth=failed"));
     response.cookies.delete(EXPLORE_AUTH_STATE_COOKIE);
     return response;
   }
