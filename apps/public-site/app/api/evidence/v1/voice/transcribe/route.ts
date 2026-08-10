@@ -22,10 +22,6 @@ export async function POST(request: NextRequest) {
     if (!isTrustedSameOrigin(request, allowedHosts)) {
       return NextResponse.json({ error: "Request origin was not accepted." }, { status: 403 });
     }
-    const rate = await enforceVoiceTranscriptionRateLimit(request);
-    if (!rate.allowed) {
-      return NextResponse.json({ error: "Please wait before using Voice Access again." }, { status: rate.retryAfter ? 429 : 503 });
-    }
     const bounded = await readBoundedBytes(request, MAX_AUDIO_BYTES + 64_000, ["multipart/form-data"]);
     if (!bounded.ok) {
       return NextResponse.json(
@@ -58,6 +54,10 @@ export async function POST(request: NextRequest) {
     outbound.set("model", process.env.OPENAI_TRANSCRIPTION_MODEL?.trim() || "gpt-4o-transcribe");
     outbound.set("response_format", "json");
     outbound.set("prompt", "Transcribe the speaker's non-clinical county planning question exactly. Preserve place names and natural wording.");
+    const rate = await enforceVoiceTranscriptionRateLimit(request);
+    if (!rate.allowed) {
+      return NextResponse.json({ error: "Please wait before using Voice Access again." }, { status: rate.retryAfter ? 429 : 503 });
+    }
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 20_000);
     let response: Response;

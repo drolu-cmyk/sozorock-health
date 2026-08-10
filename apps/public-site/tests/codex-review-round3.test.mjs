@@ -65,6 +65,26 @@ test("agent quota runs only after request validation and workspace authorization
   assert.ok(validation >= 0 && membership > validation && quota > membership);
 });
 
+test("voice quota is reserved only after bounded upload and transcription prerequisites are validated", async () => {
+  const route = await read("app/api/evidence/v1/voice/transcribe/route.ts");
+  const bounded = route.indexOf("await readBoundedBytes(request");
+  const geography = route.indexOf('if (!/^\\d{5}$/.test(geoid)');
+  const media = route.indexOf("if (!ALLOWED_AUDIO.has(mime))");
+  const authority = route.indexOf("await requireEvidenceAuthority");
+  const apiKey = route.indexOf("await getOpenAIApiKey()");
+  const quota = route.indexOf("await enforceVoiceTranscriptionRateLimit(request)");
+  const provider = route.indexOf('await fetch("https://api.openai.com/v1/audio/transcriptions"');
+  assert.ok(
+    bounded >= 0
+      && geography > bounded
+      && media > geography
+      && authority > media
+      && apiKey > authority
+      && quota > apiKey
+      && provider > quota,
+  );
+});
+
 test("PDF success audit hashes the rendered bytes and runs after rendering", async () => {
   const route = await read("app/api/evidence/v1/funder-snapshot/route.ts");
   const render = route.indexOf('const pdf = format === "pdf" ? await renderPdf(snapshot) : null');
