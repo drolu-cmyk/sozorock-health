@@ -82,7 +82,16 @@ export const exploreOpenApiDocument = {
       post: { tags: ["Workspace"], ...jsonPost("Create a versioned planning scenario owned by a human.", { type: "object" }, { type: "object" }, true, "201") },
       patch: { tags: ["Workspace"], ...jsonPost("Append a human review decision as a new immutable scenario version.", { type: "object", required: ["scenarioId", "decision"], properties: { scenarioId: { type: "string", format: "uuid" }, decision: { type: "string", enum: ["verified", "rejected"] } } }, { type: "object" }, true) },
     },
-    "/api/evidence/v1/heat-map": { post: { tags: ["Visuals"], ...jsonPost("Return compatible multi-county values and official boundaries.", { $ref: "#/components/schemas/HeatMapCountySetRequest" }, { type: "object" }) } },
+    "/api/evidence/v1/heat-map": {
+      post: {
+        tags: ["Visuals"], summary: "Return compatible multi-county values and official boundaries.", security: [],
+        requestBody: { required: true, content: { "application/json": { schema: { $ref: "#/components/schemas/HeatMapCountySetRequest" } } } },
+        responses: {
+          "200": { description: "Compatible county heat-map layer.", content: { "application/json": { schema: { type: "object" } } } },
+          "400": errorResponse, "403": errorResponse, "404": errorResponse, "409": errorResponse, "429": errorResponse, "503": errorResponse,
+        },
+      },
+    },
     "/api/evidence/v1/funder-snapshot": {
       get: {
         tags: ["Funder"], summary: "Download a cited single-county evidence snapshot for local review.",
@@ -118,14 +127,14 @@ export const exploreOpenApiDocument = {
             properties: {
               geoids: { type: "array", minItems: 1, maxItems: 1, uniqueItems: true, items: countyGeoid },
               comparisonGroup: { const: "nearby", description: "Return the selected county and nearby same-state counties by wrapped, latitude-adjusted internal-point distance. This supplies geographic context, not a peer ranking." },
-              measureDefinitionId: { type: ["string", "null"] },
+              measureDefinitionId: { type: "string", minLength: 1 },
             },
           },
           {
             type: "object", additionalProperties: false, required: ["geoids"],
             properties: {
               geoids: { type: "array", minItems: 2, maxItems: 25, uniqueItems: true, items: countyGeoid },
-              measureDefinitionId: { type: ["string", "null"] },
+              measureDefinitionId: { type: "string", minLength: 1 },
             },
           },
         ],

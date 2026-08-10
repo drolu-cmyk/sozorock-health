@@ -1725,7 +1725,7 @@
         },
         "responses": {
           "200": {
-            "description": "Successful response.",
+            "description": "Compatible county heat-map layer.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1745,6 +1745,26 @@
             }
           },
           "403": {
+            "description": "Request rejected or evidence unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Request rejected or evidence unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
             "description": "Request rejected or evidence unavailable.",
             "content": {
               "application/json": {
@@ -2050,10 +2070,8 @@
                 "description": "Return the selected county and nearby same-state counties by wrapped, latitude-adjusted internal-point distance. This supplies geographic context, not a peer ranking."
               },
               "measureDefinitionId": {
-                "type": [
-                  "string",
-                  "null"
-                ]
+                "type": "string",
+                "minLength": 1
               }
             }
           },
@@ -2076,10 +2094,8 @@
                 }
               },
               "measureDefinitionId": {
-                "type": [
-                  "string",
-                  "null"
-                ]
+                "type": "string",
+                "minLength": 1
               }
             }
           }

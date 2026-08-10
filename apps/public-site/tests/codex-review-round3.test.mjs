@@ -94,8 +94,13 @@ test("OpenAPI documents funder representations and exact heat-map alternatives",
   assert.equal(heat.oneOf.length, 2);
   assert.equal(heat.oneOf[0].properties.geoids.maxItems, 1);
   assert.equal(heat.oneOf[0].properties.comparisonGroup.const, "nearby");
+  assert.equal(heat.oneOf[0].properties.measureDefinitionId.type, "string");
   assert.equal(heat.oneOf[1].properties.geoids.minItems, 2);
+  assert.equal(heat.oneOf[1].properties.measureDefinitionId.type, "string");
   assert.ok(!("comparisonGroup" in heat.oneOf[1].properties));
+  const heatResponses = exploreOpenApiDocument.paths["/api/evidence/v1/heat-map"].post.responses;
+  assert.ok(heatResponses["404"]);
+  assert.ok(heatResponses["409"]);
 });
 
 test("the complete national validator rebuilds when a prior dev server removed the production output", async () => {
