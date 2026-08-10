@@ -243,8 +243,13 @@ test("served OpenAPI declares every path variable and heat maps require a valid 
     }
   }
   assert.equal(exploreOpenApiDocument.components.schemas.CountySetRequest.properties.geoids.minItems, 1);
-  assert.equal(exploreOpenApiDocument.components.schemas.HeatMapCountySetRequest.properties.geoids.minItems, 1);
-  assert.deepEqual(exploreOpenApiDocument.components.schemas.HeatMapCountySetRequest.properties.comparisonGroup.enum, ["nearby", null]);
+  const [nearbyHeatMapRequest, customHeatMapRequest] = exploreOpenApiDocument.components.schemas.HeatMapCountySetRequest.oneOf;
+  assert.equal(nearbyHeatMapRequest.properties.geoids.minItems, 1);
+  assert.equal(nearbyHeatMapRequest.properties.geoids.maxItems, 1);
+  assert.equal(nearbyHeatMapRequest.properties.comparisonGroup.const, "nearby");
+  assert.equal(customHeatMapRequest.properties.geoids.minItems, 2);
+  assert.equal(customHeatMapRequest.properties.geoids.maxItems, 25);
+  assert.ok(!("comparisonGroup" in customHeatMapRequest.properties));
   assert.equal(exploreOpenApiDocument.paths["/api/evidence/v1/heat-map"].post.requestBody.content["application/json"].schema.$ref, "#/components/schemas/HeatMapCountySetRequest");
   const scenarioResponses = exploreOpenApiDocument.paths["/api/evidence/v1/workspaces/{workspaceId}/scenarios"].post.responses;
   assert.ok("201" in scenarioResponses);

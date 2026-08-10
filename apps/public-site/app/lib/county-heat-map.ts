@@ -16,7 +16,9 @@ export function nearestSameStateCountyGeoids(
     .filter((county) => county.stateFips === origin.stateFips)
     .map((county) => {
       const latitudeDelta = county.internalPoint.latitude - origin.internalPoint.latitude;
-      const longitudeDelta = (county.internalPoint.longitude - origin.internalPoint.longitude) * Math.cos(latitudeRadians);
+      const rawLongitudeDelta = county.internalPoint.longitude - origin.internalPoint.longitude;
+      const wrappedLongitudeDelta = ((rawLongitudeDelta + 540) % 360) - 180;
+      const longitudeDelta = wrappedLongitudeDelta * Math.cos(latitudeRadians);
       return { geoid: county.geoid, distance: Math.hypot(latitudeDelta, longitudeDelta) };
     })
     .sort((left, right) => left.distance - right.distance || left.geoid.localeCompare(right.geoid))

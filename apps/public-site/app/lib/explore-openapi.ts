@@ -95,7 +95,14 @@ export const exploreOpenApiDocument = {
           "400": errorResponse, "404": errorResponse, "429": errorResponse, "503": errorResponse,
         },
       },
-      post: { tags: ["Funder"], ...jsonPost("Build a cited multi-county evidence set for local review.", { $ref: "#/components/schemas/CountySetRequest" }, { type: "object" }) },
+      post: {
+        tags: ["Funder"], summary: "Build a cited multi-county evidence set for local review.", security: [],
+        requestBody: { required: true, content: { "application/json": { schema: { $ref: "#/components/schemas/CountySetRequest" } } } },
+        responses: {
+          "200": { description: "Review-only multi-county evidence set.", content: { "application/json": { schema: { type: "object" } }, "text/html": { schema: { type: "string", description: "Accessible, standalone review-only evidence brief." } } } },
+          "400": errorResponse, "403": errorResponse, "404": errorResponse, "429": errorResponse, "503": errorResponse,
+        },
+      },
     },
     "/api/health/version": { get: { tags: ["Operations"], summary: "Return safe release and evidence identity.", responses: { "200": { description: "Release identity." } } } },
   },
@@ -103,8 +110,26 @@ export const exploreOpenApiDocument = {
     securitySchemes: { cognitoAccessToken: { type: "http", scheme: "bearer", bearerFormat: "Cognito access token" } },
     schemas: {
       Error: { type: "object", required: ["error"], properties: { error: { type: "string" } } },
-      CountySetRequest: { type: "object", required: ["geoids"], properties: { geoids: { type: "array", minItems: 1, maxItems: 25, uniqueItems: true, items: countyGeoid }, measureDefinitionId: { type: ["string", "null"] } } },
-      HeatMapCountySetRequest: { type: "object", required: ["geoids"], properties: { geoids: { type: "array", minItems: 1, maxItems: 25, uniqueItems: true, items: countyGeoid }, comparisonGroup: { type: ["string", "null"], enum: ["nearby", null], description: "When nearby, provide exactly one county; the API returns that county and the nearest same-state county internal points for geographic context, not peer ranking." }, measureDefinitionId: { type: ["string", "null"] } } },
+      CountySetRequest: { type: "object", additionalProperties: false, required: ["geoids"], properties: { geoids: { type: "array", minItems: 1, maxItems: 25, uniqueItems: true, items: countyGeoid }, measureDefinitionId: { type: ["string", "null"] }, format: { type: "string", enum: ["json", "html"], default: "json" }, assumptions: { type: "object" } } },
+      HeatMapCountySetRequest: {
+        oneOf: [
+          {
+            type: "object", additionalProperties: false, required: ["geoids", "comparisonGroup"],
+            properties: {
+              geoids: { type: "array", minItems: 1, maxItems: 1, uniqueItems: true, items: countyGeoid },
+              comparisonGroup: { const: "nearby", description: "Return the selected county and nearby same-state counties by wrapped, latitude-adjusted internal-point distance. This supplies geographic context, not a peer ranking." },
+              measureDefinitionId: { type: ["string", "null"] },
+            },
+          },
+          {
+            type: "object", additionalProperties: false, required: ["geoids"],
+            properties: {
+              geoids: { type: "array", minItems: 2, maxItems: 25, uniqueItems: true, items: countyGeoid },
+              measureDefinitionId: { type: ["string", "null"] },
+            },
+          },
+        ],
+      },
       AgentRequest: { type: "object", required: ["geoid", "question"], properties: { geoid: countyGeoid, question: { type: "string", minLength: 3, maxLength: 1500 }, inputMode: { type: "string", enum: ["typed", "voice"] }, transcriptHash: { type: "string", pattern: "^sha256:[0-9a-f]{64}$" } } },
       AgentAnswer: { type: "object", required: ["schemaVersion", "answer", "status", "citedEvidence", "visualIntent", "nonClinicalBoundary"], properties: { schemaVersion: { type: "string" }, answer: { type: "string" }, status: { type: "string", enum: ["answered", "evidence_gap", "refused"] }, citedEvidence: { type: "array", items: { type: "object" } }, visualIntent: { type: "object" }, nonClinicalBoundary: { type: "string" } } },
     },

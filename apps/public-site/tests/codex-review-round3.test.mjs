@@ -22,6 +22,15 @@ test("county heat-map comparison uses a same-state distance set and a five-step 
   assert.deepEqual(stops.map((stop) => stop.value), [10, 15, 20, 25, 30]);
 });
 
+test("county heat-map distance wraps across the Alaska antimeridian", () => {
+  const counties = [
+    { geoid: "02016", stateFips: "02", internalPoint: { latitude: 51.95, longitude: 179.5 } },
+    { geoid: "02013", stateFips: "02", internalPoint: { latitude: 55.1, longitude: -162.3 } },
+    { geoid: "02130", stateFips: "02", internalPoint: { latitude: 55.3, longitude: -131.6 } },
+  ];
+  assert.deepEqual(nearestSameStateCountyGeoids(counties, "02016", 2), ["02016", "02013"]);
+});
+
 test("Explore visibly loads a standards-based county heat map with interaction and a table equivalent", async () => {
   const client = await read("app/explore/ExploreClient.tsx");
   const route = await read("app/api/evidence/v1/heat-map/route.ts");
@@ -73,14 +82,20 @@ test("workspace forks recover legacy retries, create an owner, and use the canon
   assert.match(runtime, /ON CONFLICT \(tenant_id, geography_id\) WHERE status = 'active' AND parent_workspace_id IS NULL/);
 });
 
-test("OpenAPI documents single-county funder GET and nearby heat-map requests", () => {
+test("OpenAPI documents funder representations and exact heat-map alternatives", () => {
   const funder = exploreOpenApiDocument.paths["/api/evidence/v1/funder-snapshot"];
   assert.ok(funder.get);
   assert.deepEqual(funder.get.parameters.map((item) => item.name), ["geoid", "format"]);
   assert.ok(funder.get.responses["200"].content["application/pdf"]);
+  assert.deepEqual(exploreOpenApiDocument.components.schemas.CountySetRequest.properties.format.enum, ["json", "html"]);
+  assert.ok(funder.post.responses["200"].content["text/html"]);
+  assert.ok(funder.post.responses["200"].content["application/json"]);
   const heat = exploreOpenApiDocument.components.schemas.HeatMapCountySetRequest;
-  assert.equal(heat.properties.geoids.minItems, 1);
-  assert.deepEqual(heat.properties.comparisonGroup.enum, ["nearby", null]);
+  assert.equal(heat.oneOf.length, 2);
+  assert.equal(heat.oneOf[0].properties.geoids.maxItems, 1);
+  assert.equal(heat.oneOf[0].properties.comparisonGroup.const, "nearby");
+  assert.equal(heat.oneOf[1].properties.geoids.minItems, 2);
+  assert.ok(!("comparisonGroup" in heat.oneOf[1].properties));
 });
 
 test("the complete national validator rebuilds when a prior dev server removed the production output", async () => {
