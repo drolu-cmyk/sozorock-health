@@ -11,7 +11,10 @@ import {
   RollbackTransactionCommand,
 } from "@aws-sdk/client-rds-data";
 import { deterministicUuid } from "../src/ingestion/hash.ts";
-import { activatedEvidenceSnapshotContentHash } from "../src/ingestion/snapshot-activation.ts";
+import {
+  activatedEvidenceSnapshotContentHash,
+  versionedSourceContentHash,
+} from "../src/ingestion/snapshot-activation.ts";
 
 const packageRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const repoRoot = path.resolve(packageRoot, "..", "..");
@@ -150,6 +153,10 @@ const sourceVersions = [
     record.mappingVersion,
   ),
   schemaVersion: record.artifact.data.schemaVersion + "+" + record.mappingVersion,
+  versionContentHash: versionedSourceContentHash({
+    artifactSha256: record.artifact.sha256,
+    mappingVersion: record.mappingVersion,
+  }),
 }));
 await execute(`
   INSERT INTO evidence.source_version (
@@ -177,7 +184,7 @@ await execute(`
   retrieved_at: record.retrievedAt,
   stale_after: `${Number(record.releaseDate.slice(0, 4)) + 2}-12-31T23:59:59.000Z`,
   official_url: record.officialUrl,
-  content_hash: `sha256:${record.artifact.sha256}`,
+  content_hash: record.versionContentHash,
   schema_version: record.schemaVersion,
 })));
 const versionBySource = new Map(sourceVersions.map((item) => [item.sourceId, item]));

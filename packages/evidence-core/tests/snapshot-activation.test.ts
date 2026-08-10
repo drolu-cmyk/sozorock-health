@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { activatedEvidenceSnapshotContentHash } from "../src/ingestion/snapshot-activation.ts";
+import {
+  activatedEvidenceSnapshotContentHash,
+  versionedSourceContentHash,
+} from "../src/ingestion/snapshot-activation.ts";
 
 const base = {
   baseSnapshotContentHash: "sha256:" + "a".repeat(64),
@@ -29,6 +32,15 @@ test("an ACS provenance contract change creates a new immutable snapshot identit
       : source),
   });
   assert.notEqual(corrected, current);
+});
+
+test("a mapping contract creates a distinct immutable source-version content hash", () => {
+  const artifactSha256 = "b".repeat(64);
+  const first = versionedSourceContentHash({ artifactSha256, mappingVersion: "acs5.provenance.v1" });
+  const corrected = versionedSourceContentHash({ artifactSha256, mappingVersion: "acs5.provenance.v2" });
+  assert.notEqual(first, corrected);
+  assert.match(first, /^sha256:[0-9a-f]{64}$/);
+  assert.throws(() => versionedSourceContentHash({ artifactSha256: "not-a-hash", mappingVersion: "v1" }));
 });
 
 test("invalid activation inputs fail closed", () => {

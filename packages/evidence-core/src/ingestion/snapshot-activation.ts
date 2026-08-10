@@ -6,6 +6,18 @@ export type SnapshotActivationSource = {
   mappingVersion: string;
 };
 
+export function versionedSourceContentHash(input: {
+  artifactSha256: string;
+  mappingVersion: string;
+}) {
+  if (!/^[0-9a-f]{64}$/i.test(input.artifactSha256) || !input.mappingVersion.trim()) {
+    throw new Error("The versioned source content contract is invalid.");
+  }
+  return "sha256:" + createHash("sha256")
+    .update(input.artifactSha256.toLowerCase() + "|" + input.mappingVersion.trim())
+    .digest("hex");
+}
+
 export function activatedEvidenceSnapshotContentHash(input: {
   baseSnapshotContentHash: string;
   contractVersion: string;
