@@ -86,6 +86,29 @@
   line-height: 1.65;
   max-width: 700px;
 }
+.facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px 28px;
+  max-width: 700px;
+  margin: 26px 0 0;
+}
+.facts div {
+  border-left: 2px solid #d6c592;
+  padding-left: 12px;
+}
+.facts dt {
+  color: #626762;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.facts dd {
+  margin: 4px 0 0;
+  font-size: 14px;
+  line-height: 1.45;
+}
 .tags {
   display: flex;
   gap: 8px;
@@ -256,6 +279,9 @@
   .formIntro h1,
   .confirmation h2 {
     font-size: 42px;
+  }
+  .facts {
+    grid-template-columns: 1fr;
   }
   .description {
     font-size: 17px;

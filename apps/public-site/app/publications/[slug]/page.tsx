@@ -42,13 +42,19 @@ export default async function PublicationPage({
     "@context": "https://schema.org",
     "@type": "Book",
     name: publication.title,
-    author: { "@type": "Person", name: "Oluwabiyi Adeyemo" },
+    author: {
+      "@type": "Person",
+      name: publication.author ?? "Oluwabiyi Adeyemo",
+    },
     publisher: {
       "@type": "Organization",
-      name: "The SozoRock Foundation, Inc.",
+      name: publication.publisher ?? "The SozoRock Foundation, Inc.",
     },
     about: publication.tags,
     description: publication.description,
+    datePublished: publication.datePublished,
+    bookEdition: publication.edition,
+    isbn: publication.isbn,
   };
   return (
     <div className={styles.page}>
@@ -81,6 +87,46 @@ export default async function PublicationPage({
             <h1>{publication.title}</h1>
             <p className={styles.description}>{publication.description}</p>
             <p className={styles.relevance}>{publication.relevance}</p>
+            {publication.published || publication.isbn ? (
+              <dl className={styles.facts}>
+                {publication.author ? (
+                  <div>
+                    <dt>Author</dt>
+                    <dd>{publication.author}</dd>
+                  </div>
+                ) : null}
+                {publication.publisher ? (
+                  <div>
+                    <dt>Publisher</dt>
+                    <dd>{publication.publisher}</dd>
+                  </div>
+                ) : null}
+                {publication.published ? (
+                  <div>
+                    <dt>Published</dt>
+                    <dd>{publication.published}</dd>
+                  </div>
+                ) : null}
+                {publication.edition ? (
+                  <div>
+                    <dt>Edition</dt>
+                    <dd>{publication.edition}</dd>
+                  </div>
+                ) : null}
+                {publication.isbn ? (
+                  <div>
+                    <dt>ISBN</dt>
+                    <dd>{publication.isbn}</dd>
+                  </div>
+                ) : null}
+                {publication.evidenceCutoff ? (
+                  <div>
+                    <dt>Evidence cutoff</dt>
+                    <dd>{publication.evidenceCutoff}</dd>
+                  </div>
+                ) : null}
+              </dl>
+            ) : null}
             <ul className={styles.tags} aria-label="Subjects">
               {publication.tags.map((tag) => (
                 <li key={tag}>{tag}</li>
