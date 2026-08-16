@@ -16,6 +16,19 @@ test("requires delivery consent independently of update consent", () => {
   assert.match(validateAccessInput(input) ?? "", /Confirm/);
 });
 
+test("requires an organization or affiliation", () => {
+  const input = parseAccessInput({ ...valid, organization: "" });
+  assert.equal(validateAccessInput(input), "Complete every required field.");
+});
+
+test("requires an approved sector and a meaningful reason", () => {
+  const unsupportedSector = parseAccessInput({ ...valid, sector: "Unknown" });
+  assert.equal(validateAccessInput(unsupportedSector), "Choose a valid role or sector.");
+
+  const shortReason = parseAccessInput({ ...valid, reason: "Too short" });
+  assert.equal(validateAccessInput(shortReason), "Use at least 20 characters to explain your interest.");
+});
+
 test("rejects malformed email and strips control characters", () => {
   const input = parseAccessInput({ ...valid, firstName: "Ada\u0000eze", email: "not-an-email" });
   assert.equal(input.firstName, "Adaeze");

@@ -267,10 +267,11 @@ export default function SpanishHome() {
             <article>
               <Image
                 src="/publications/covers/rural-equity-blueprint-volume-1.png"
-                width={1320}
-                height={1688}
+                width={2481}
+                height={3508}
                 alt="Portada de Rural Equity Blueprint Series, Volume 1: Access Day"
                 sizes="(max-width: 600px) 130px, 280px"
+                quality={95}
               />
               <div>
                 <span>Disponible</span>
@@ -283,11 +284,12 @@ export default function SpanishHome() {
             </article>
             <article>
               <Image
-                src="/publications/covers/rethinking-rural-governance-volume-1.png"
-                width={1275}
-                height={1650}
+                src="/publications/covers/rethinking-rural-governance-volume-1.jpg"
+                width={2550}
+                height={3300}
                 alt="Portada de Rethinking Rural Governance, Volume 1"
                 sizes="(max-width: 600px) 130px, 280px"
+                quality={95}
               />
               <div>
                 <span>Disponible</span>
@@ -305,12 +307,13 @@ export default function SpanishHome() {
                 height={3300}
                 alt="Portada de Health Systems Assurance, Volume 1"
                 sizes="(max-width: 600px) 130px, 280px"
+                quality={95}
               />
               <div>
                 <span>Disponible</span>
                 <h3>Health Systems Assurance, Volume 1</h3>
                 <p>De cumplimiento normativo a garantía digital basada en evidencia.</p>
-                <a href="/publications/health-systems-assurance">
+                <a href="/publications/health-systems-assurance-volume-1">
                   Acceder a la publicación <ArrowRight size={15} aria-hidden="true" />
                 </a>
               </div>
@@ -334,7 +337,7 @@ export default function SpanishHome() {
             <span>Decisión</span>
           </div>
           <p>Para organismos públicos, proveedores, investigadores e instituciones que necesitan conectar obligaciones y riesgos con evidencia operativa y decisiones responsables.</p>
-          <a href="/publications/health-systems-assurance">
+          <a href="/publications/health-systems-assurance-volume-1">
             Acceder a la publicación <ArrowRight size={15} aria-hidden="true" />
           </a>
         </section>
@@ -360,48 +363,4 @@ export default function SpanishHome() {
               </a>
               <span>Publicaciones seleccionadas</span>
               <a href="/publications/rural-equity-blueprint-volume-1">Rural Equity Blueprint, Volume 1</a>
-              <a href="/publications/rethinking-rural-governance-volume-1">Rethinking Rural Governance, Volume 1</a>
-              <a href="/publications/health-systems-assurance">Health Systems Assurance, Volume 1</a>
-            </div>
-          </div>
-        </section>
-
-        <section className="foundation-statement" aria-label="Acerca de The SozoRock Foundation">
-          <p>The SozoRock Foundation desarrolla formas prácticas de mejorar el acceso a la salud, fortalecer los sistemas públicos y preparar a las comunidades para cambios duraderos.</p>
-          <span>SozoRock Health es una iniciativa de The SozoRock Foundation, Inc., una organización sin fines de lucro 501(c)(3) con sede en Nueva York.</span>
-        </section>
-
-        <section className="involved-section" id="get-involved" aria-labelledby="involved-heading">
-          <div className="section-heading">
-            <p className="eyebrow">Participe</p>
-            <h2 id="involved-heading">Elija cómo desea ayudar.</h2>
-            <p>Comience con su objetivo. El formulario solicitará únicamente la información relevante para ese camino.</p>
-          </div>
-          <div className="involvement-grid">
-            {involvement.map(([title, copy]) => (
-              <a key={title} href="#inquiry-form">
-                <HandHeart size={27} aria-hidden="true" />
-                <h3>{title}</h3>
-                <p>{copy}</p>
-                <span>Comenzar <ArrowRight size={14} aria-hidden="true" /></span>
-              </a>
-            ))}
-          </div>
-          <div id="inquiry-form" className="inquiry-layout">
-            <div>
-              <h3>Cuéntenos qué desea lograr.</h3>
-              <p>No incluya información médica, de emergencias o de salud protegida.</p>
-              <a href="mailto:contact@sozorockfoundation.org">
-                <EnvelopeSimple size={17} aria-hidden="true" />
-                contact@sozorockfoundation.org
-              </a>
-            </div>
-            <ContactForm locale="es" />
-          </div>
-        </section>
-      </main>
-
-      <SiteFooter locale="es" />
-    </div>
-  );
-}
+          

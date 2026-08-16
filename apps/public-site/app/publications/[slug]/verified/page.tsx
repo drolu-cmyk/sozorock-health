@@ -37,7 +37,8 @@ export default async function VerifiedPage({
           <h1>{publication.shortTitle} is ready.</h1>
           <p>
             Your secure download link will be created when you select the
-            button. It expires after five minutes.
+            button. It expires after five minutes. The PDF is delivered from
+            the Foundation&apos;s private publication store, not Google Drive.
           </p>
           <a
             className={styles.primary}

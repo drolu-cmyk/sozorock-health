@@ -1044,6 +1044,7 @@ p {
 .publication-shelf img {
   width: 100%;
   height: auto;
+  object-fit: contain;
   box-shadow: 0 16px 30px #10263e24;
 }
 .publication-shelf article > div > span {

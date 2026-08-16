@@ -13,6 +13,20 @@ export type AccessInput = {
   website: string;
 };
 
+export const PUBLICATION_SECTORS = [
+  "Community organization",
+  "County or state agency",
+  "Healthcare organization",
+  "University or research",
+  "Foundation or funder",
+  "Policymaker",
+  "Student",
+  "Individual or family",
+  "Other",
+] as const;
+
+export const MIN_PUBLICATION_REASON_LENGTH = 20;
+
 function clean(value: unknown, max: number) {
   return typeof value === "string" ? value.trim().replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, "").slice(0, max) : "";
 }
@@ -29,9 +43,10 @@ export function parseAccessInput(body: Record<string, unknown>): AccessInput {
 }
 
 export function validateAccessInput(input: AccessInput) {
-  if (!input.firstName || !input.lastName || !input.email || !input.sector || !input.cityOrRegion || !input.state || !input.country || !input.reason) return "Complete every required field.";
+  if (!input.firstName || !input.lastName || !input.email || !input.organization || !input.sector || !input.cityOrRegion || !input.state || !input.country || !input.reason) return "Complete every required field.";
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.email)) return "Enter a valid email address.";
+  if (!PUBLICATION_SECTORS.includes(input.sector as (typeof PUBLICATION_SECTORS)[number])) return "Choose a valid role or sector.";
+  if (input.reason.length < MIN_PUBLICATION_REASON_LENGTH) return `Use at least ${MIN_PUBLICATION_REASON_LENGTH} characters to explain your interest.`;
   if (!input.deliveryConsent) return "Confirm that we may email the requested publication access link.";
   return null;
 }
-

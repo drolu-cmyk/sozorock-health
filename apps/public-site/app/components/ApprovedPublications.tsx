@@ -23,14 +23,24 @@ export function ApprovedPublications() {
         {publications.map((publication) => (
           <article key={publication.slug}>
             {publication.cover ? (
-              <Image
-                className="publication-cover"
-                src={publication.cover}
-                width={1320}
-                height={1688}
-                alt={`${publication.title} front cover`}
-                sizes="(max-width: 640px) 112px, 170px"
-              />
+              <a
+                className="publication-cover-link"
+                href={publication.cover}
+                target="_blank"
+                rel="noreferrer"
+                aria-label={`View the full-resolution front cover of ${publication.title}`}
+              >
+                <Image
+                  className="publication-cover"
+                  src={publication.cover}
+                  width={publication.coverWidth ?? 2550}
+                  height={publication.coverHeight ?? 3300}
+                  alt={`${publication.title} front cover`}
+                  quality={95}
+                  sizes="(max-width: 640px) 132px, 230px"
+                />
+                <span>View full-resolution cover</span>
+              </a>
             ) : (
               <div className="publication-cover-placeholder" aria-hidden="true">
                 <BookOpenText size={34} />

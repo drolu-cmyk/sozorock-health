@@ -46,12 +46,23 @@ export default async function PublicationsPage({
           {publications.map((publication) => (
             <article key={publication.slug} className={styles.listItem}>
               {publication.cover ? (
-                <Image
-                  src={publication.cover}
-                  alt=""
-                  width={180}
-                  height={234}
-                />
+                <a
+                  className={styles.listCoverLink}
+                  href={publication.cover}
+                  target="_blank"
+                  rel="noreferrer"
+                  aria-label={`View the full-resolution front cover of ${publication.title}`}
+                >
+                  <Image
+                    src={publication.cover}
+                    alt={`${publication.title} front cover`}
+                    width={publication.coverWidth ?? 2550}
+                    height={publication.coverHeight ?? 3300}
+                    quality={95}
+                    sizes="(max-width: 700px) 110px, 200px"
+                  />
+                  <span>View full-resolution cover</span>
+                </a>
               ) : (
                 <div className={styles.listPlaceholder}>
                   Series in development

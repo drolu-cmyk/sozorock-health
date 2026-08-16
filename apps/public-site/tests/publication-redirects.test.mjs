@@ -98,6 +98,6 @@ test("proxy localhost and signed-download redirect regressions stay closed", () 
   assert.doesNotMatch(verifyRoute, /new URL\([^\n]*request\.url/);
   assert.doesNotMatch(downloadRoute, /new URL\([^\n]*request\.url/);
   assert.match(verifyRoute, /publicationRedirects\.beginVerification\(token\)/);
-  assert.match(downloadRoute, /publicationRedirects\.sessionRequired\(slug\)/);
+  assert.match(downloadRoute, /publicationRedirects\.sessionRequired\(publication\.slug\)/);
   assert.match(downloadRoute, /return NextResponse\.redirect\(url\);/);
 });

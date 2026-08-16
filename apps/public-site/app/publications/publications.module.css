@@ -35,7 +35,7 @@
 .cover img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
 }
 .placeholder {
   height: 100%;
@@ -310,17 +310,27 @@
 }
 .listItem {
   display: grid;
-  grid-template-columns: 140px 1fr;
+  grid-template-columns: 200px 1fr;
   gap: 30px;
   padding: 30px 0;
   border-bottom: 1px solid #bbb3a5;
   align-items: center;
 }
+.listCoverLink,
+.listPlaceholder {
+  width: 200px;
+}
+.listCoverLink {
+  display: grid;
+  gap: 8px;
+  font-size: 11px;
+  line-height: 1.35;
+}
 .listItem img,
 .listPlaceholder {
-  width: 140px;
+  width: 200px;
   aspect-ratio: 0.77;
-  object-fit: cover;
+  object-fit: contain;
   background: #17201d;
   color: #fff;
 }
@@ -349,12 +359,13 @@
 }
 @media (max-width: 520px) {
   .listItem {
-    grid-template-columns: 86px 1fr;
+    grid-template-columns: 110px 1fr;
     gap: 18px;
   }
+  .listCoverLink,
   .listItem img,
   .listPlaceholder {
-    width: 86px;
+    width: 110px;
   }
   .listPlaceholder {
     font-size: 12px;

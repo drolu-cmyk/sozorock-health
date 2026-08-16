@@ -70,8 +70,10 @@ export default async function PublicationPage({
               <Image
                 src={publication.cover}
                 alt={`${publication.title} cover`}
-                width={720}
-                height={936}
+                width={publication.coverWidth ?? 2550}
+                height={publication.coverHeight ?? 3300}
+                quality={95}
+                sizes="(max-width: 700px) 78vw, 360px"
                 priority
               />
             ) : (

@@ -98,6 +98,7 @@ export async function enforceEventRateLimit(request: NextRequest) {
 export async function createAccessRequest(slug: string, input: AccessInput) {
   const publication = getPublication(slug);
   if (!publication?.assetKey) throw new Error("Publication is not available for access");
+  const canonicalSlug = publication.slug;
   const { tableName, emailFrom } = requireConfig();
   const now = new Date();
   const epoch = Math.floor(now.getTime() / 1000);
@@ -105,10 +106,10 @@ export async function createAccessRequest(slug: string, input: AccessInput) {
   const emailHash = await hash(input.email);
   const verifyToken = randomBytes(32).toString("base64url");
   const verifyHash = await hash(verifyToken);
-  const requestKey = await hash(`${input.email}:${slug}`);
+  const requestKey = await hash(`${input.email}:${canonicalSlug}`);
   await Promise.all([
     dynamo.send(new PutCommand({ TableName: tableName, Item: {
-      pk: `REQUEST#${requestKey}`, sk: "META", recordType: "publication-request", requestId, publicationSlug: slug,
+      pk: `REQUEST#${requestKey}`, sk: "META", recordType: "publication-request", requestId, publicationSlug: canonicalSlug,
       firstName: input.firstName, lastName: input.lastName, email: input.email, emailHash, organization: input.organization,
       sector: input.sector, cityOrRegion: input.cityOrRegion, state: input.state, country: input.country, reason: input.reason,
       deliveryConsent: true, deliveryConsentedAt: now.toISOString(), updatesConsent: input.updatesConsent,
@@ -117,7 +118,7 @@ export async function createAccessRequest(slug: string, input: AccessInput) {
     } })),
     dynamo.send(new PutCommand({ TableName: tableName, Item: {
       pk: `VERIFY#${verifyHash}`, sk: "TOKEN", recordType: "verification-token", requestId, requestKey,
-      publicationSlug: slug, emailHash, createdAt: now.toISOString(), expiresAt: epoch + VERIFY_SECONDS,
+      publicationSlug: canonicalSlug, emailHash, createdAt: now.toISOString(), expiresAt: epoch + VERIFY_SECONDS,
     }, ConditionExpression: "attribute_not_exists(pk)" })),
   ]);
   const verifyUrl = `${publicUrl}/publications/verify?token=${encodeURIComponent(verifyToken)}`;
@@ -128,7 +129,7 @@ export async function createAccessRequest(slug: string, input: AccessInput) {
       Html: { Data: `<p>Hello ${escapeHtml(input.firstName)},</p><p>Confirm your email to access <strong>${escapeHtml(publication.title)}</strong>.</p><p><a href="${verifyUrl}">Confirm email and access publication</a></p><p>This link expires in 30 minutes. You did not subscribe to updates unless you selected that separate option.</p><p>SozoRock Health<br>An initiative of The SozoRock Foundation, Inc.</p>` },
     },
   } } }));
-  await Promise.all([recordEvent("access_form_completed", slug, requestId), recordEvent("verification_sent", slug, requestId)]);
+  await Promise.all([recordEvent("access_form_completed", canonicalSlug, requestId), recordEvent("verification_sent", canonicalSlug, requestId)]);
   return requestId;
 }
 
@@ -146,22 +147,32 @@ export async function verifyAccessToken(token: string) {
   const sessionToken = randomBytes(32).toString("base64url");
   const sessionHash = await hash(sessionToken);
   const now = new Date().toISOString();
+  const publicationSlug = getPublication(String(item.publicationSlug))?.slug ?? String(item.publicationSlug);
   await dynamo.send(new UpdateCommand({ TableName: tableName, Key: tokenKey, UpdateExpression: "SET consumedAt = :now", ConditionExpression: "attribute_not_exists(consumedAt) AND expiresAt >= :epoch", ExpressionAttributeValues: { ":now": now, ":epoch": epoch } }));
   await Promise.all([
     dynamo.send(new UpdateCommand({ TableName: tableName, Key: { pk: `REQUEST#${item.requestKey}`, sk: "META" }, UpdateExpression: "SET #status = :verified, emailVerifiedAt = :now, updatedAt = :now", ExpressionAttributeNames: { "#status": "status" }, ExpressionAttributeValues: { ":verified": "verified", ":now": now } })),
-    dynamo.send(new PutCommand({ TableName: tableName, Item: { pk: `SESSION#${sessionHash}`, sk: `ACCESS#${item.publicationSlug}`, recordType: "publication-session", requestId: item.requestId, publicationSlug: item.publicationSlug, emailHash: item.emailHash, createdAt: now, expiresAt: epoch + SESSION_SECONDS } })),
+    dynamo.send(new PutCommand({ TableName: tableName, Item: { pk: `SESSION#${sessionHash}`, sk: `ACCESS#${publicationSlug}`, recordType: "publication-session", requestId: item.requestId, publicationSlug, emailHash: item.emailHash, createdAt: now, expiresAt: epoch + SESSION_SECONDS } })),
   ]);
-  await recordEvent("email_verified", String(item.publicationSlug), String(item.requestId));
-  return { sessionToken, slug: String(item.publicationSlug) };
+  await recordEvent("email_verified", publicationSlug, String(item.requestId));
+  return { sessionToken, slug: publicationSlug };
 }
 
 export async function createDownloadUrl(sessionToken: string, slug: string) {
   const publication = getPublication(slug);
   if (!publication?.assetKey) return null;
   const { tableName, bucketName } = requireConfig();
-  const session = await dynamo.send(new GetCommand({ TableName: tableName, Key: { pk: `SESSION#${await hash(sessionToken)}`, sk: `ACCESS#${slug}` }, ConsistentRead: true }));
-  if (!session.Item || Number(session.Item.expiresAt) < Math.floor(Date.now() / 1000)) return null;
+  const canonicalSlug = publication.slug;
+  const sessionHash = await hash(sessionToken);
+  const acceptedSlugs = [canonicalSlug, slug, ...(publication.legacySlugs ?? [])]
+    .filter((value, index, values) => values.indexOf(value) === index);
+  const sessions = await Promise.all(
+    acceptedSlugs.map((acceptedSlug) =>
+      dynamo.send(new GetCommand({ TableName: tableName, Key: { pk: `SESSION#${sessionHash}`, sk: `ACCESS#${acceptedSlug}` }, ConsistentRead: true })),
+    ),
+  );
+  const session = sessions.find((result) => result.Item);
+  if (!session?.Item || Number(session.Item.expiresAt) < Math.floor(Date.now() / 1000)) return null;
   const url = await getSignedUrl(s3, new GetObjectCommand({ Bucket: bucketName, Key: publication.assetKey, ResponseContentDisposition: `attachment; filename="${publication.assetKey}"`, ResponseContentType: "application/pdf" }), { expiresIn: 300 });
-  await recordEvent("download_link_issued", slug, String(session.Item.requestId));
+  await recordEvent("download_link_issued", canonicalSlug, String(session.Item.requestId));
   return url;
 }

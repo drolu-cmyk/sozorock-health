@@ -5,7 +5,7 @@ SozoRock Health is a non-clinical public-interest initiative of The SozoRock Fou
 ## Public resources
 
 - [SozoRock Health](https://health.sozorockfoundation.org/)
-- [Health Systems Assurance, Volume 1](https://health.sozorockfoundation.org/publications/health-systems-assurance)
+- [Health Systems Assurance, Volume 1](https://health.sozorockfoundation.org/publications/health-systems-assurance-volume-1)
 - [SozoRock AI Lab](https://ai-lab.sozorockfoundation.org/)
 - [County-Based Community Access Platform (CB-CAP)](https://cbcap.sozorockfoundation.org/)
 - [The SozoRock Foundation](https://www.sozorockfoundation.org/)

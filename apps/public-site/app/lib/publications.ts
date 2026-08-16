@@ -2,6 +2,7 @@ export type PublicationStatus = "Available" | "In development";
 
 export type Publication = {
   slug: string;
+  legacySlugs?: readonly string[];
   title: string;
   shortTitle: string;
   description: string;
@@ -9,6 +10,8 @@ export type Publication = {
   status: PublicationStatus;
   tags: readonly string[];
   cover: string | null;
+  coverWidth?: number;
+  coverHeight?: number;
   assetKey: string | null;
   author?: string;
   publisher?: string;
@@ -29,6 +32,8 @@ export const publications: readonly Publication[] = [
     status: "Available",
     tags: ["Rural health", "Health access", "Public systems"],
     cover: "/publications/covers/rural-equity-blueprint-volume-1.png",
+    coverWidth: 2481,
+    coverHeight: 3508,
     assetKey: "rural-equity-blueprint-volume-1.pdf",
   },
   {
@@ -39,11 +44,14 @@ export const publications: readonly Publication[] = [
     relevance: "Explains how public, private, and community institutions can use shared accountability and systems intelligence.",
     status: "Available",
     tags: ["Governance", "County systems", "Accountability"],
-    cover: "/publications/covers/rethinking-rural-governance-volume-1.png",
+    cover: "/publications/covers/rethinking-rural-governance-volume-1.jpg",
+    coverWidth: 2550,
+    coverHeight: 3300,
     assetKey: "rethinking-rural-governance-volume-1.pdf",
   },
   {
-    slug: "health-systems-assurance",
+    slug: "health-systems-assurance-volume-1",
+    legacySlugs: ["health-systems-assurance"],
     title: "Health Systems Assurance, Volume 1",
     shortTitle: "Health Systems Assurance, Volume 1",
     description: "From compliance to evidence-based digital assurance.",
@@ -51,6 +59,8 @@ export const publications: readonly Publication[] = [
     status: "Available",
     tags: ["Digital assurance", "Operating evidence", "Health infrastructure"],
     cover: "/publications/covers/health-systems-assurance-volume-1.jpg",
+    coverWidth: 2550,
+    coverHeight: 3300,
     assetKey: "health-systems-assurance-volume-1.pdf",
     author: "Dr. Oluwabiyi Adeyemo",
     publisher: "The SozoRock Foundation Inc.",
@@ -63,5 +73,12 @@ export const publications: readonly Publication[] = [
 ] as const;
 
 export function getPublication(slug: string) {
-  return publications.find((publication) => publication.slug === slug);
+  return publications.find(
+    (publication) =>
+      publication.slug === slug || publication.legacySlugs?.includes(slug),
+  );
+}
+
+export function canonicalPublicationSlug(slug: string) {
+  return getPublication(slug)?.slug;
 }
