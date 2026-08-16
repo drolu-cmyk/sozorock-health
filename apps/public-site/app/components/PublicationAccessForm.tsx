@@ -2,6 +2,10 @@
 
 import Link from "next/link";
 import { useState, type FormEvent } from "react";
+import {
+  MIN_PUBLICATION_REASON_LENGTH,
+  PUBLICATION_SECTORS,
+} from "../lib/publication-validation";
 import styles from "../publications/publications.module.css";
 
 type State = "idle" | "sending" | "sent" | "error";
@@ -9,6 +13,7 @@ type FieldName =
   | "firstName"
   | "lastName"
   | "email"
+  | "organization"
   | "sector"
   | "cityOrRegion"
   | "state"
@@ -25,11 +30,18 @@ function validate(form: FormData): Errors {
   if (!value("email")) errors.email = "Enter your email address.";
   else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value("email")))
     errors.email = "Enter a valid email address.";
+  if (!value("organization")) errors.organization = "Enter your organization or affiliation.";
   if (!value("sector")) errors.sector = "Choose a role or sector.";
   if (!value("cityOrRegion")) errors.cityOrRegion = "Enter your city or region.";
-  if (!value("state")) errors.state = "Enter your state or province.";
   if (!value("country")) errors.country = "Enter your country.";
+  const country = value("country").toLowerCase();
+  const regionName = ["united states", "united states of america", "us", "usa"].includes(country)
+    ? "state or territory"
+    : "state, province, or region";
+  if (!value("state")) errors.state = `Enter your ${regionName}.`;
   if (!value("reason")) errors.reason = "Tell us why the publication is useful to you.";
+  else if (value("reason").length < MIN_PUBLICATION_REASON_LENGTH)
+    errors.reason = `Use at least ${MIN_PUBLICATION_REASON_LENGTH} characters.`;
   if (form.get("deliveryConsent") !== "yes")
     errors.deliveryConsent = "Confirm that we may email your access link.";
   return errors;
@@ -39,6 +51,13 @@ export function PublicationAccessForm({ slug, title }: { slug: string; title: st
   const [state, setState] = useState<State>("idle");
   const [message, setMessage] = useState("");
   const [errors, setErrors] = useState<Errors>({});
+  const [country, setCountry] = useState("United States");
+  const isUnitedStates = ["united states", "united states of america", "us", "usa"].includes(
+    country.trim().toLowerCase(),
+  );
+  const regionLabel = isUnitedStates
+    ? "State or territory"
+    : "State, province, or region";
 
   const clearError = (name: string) => {
     if (!(name in errors)) return;
@@ -148,22 +167,17 @@ export function PublicationAccessForm({ slug, title }: { slug: string; title: st
         {fieldError("email")}
       </label>
       <label htmlFor="publication-organization">
-        Organization <span>(optional)</span>
-        <input id="publication-organization" autoComplete="organization" name="organization" />
+        Organization or affiliation
+        <input id="publication-organization" required autoComplete="organization" name="organization" aria-invalid={Boolean(errors.organization)} aria-describedby={errors.organization ? "publication-organization-error" : undefined} />
+        {fieldError("organization")}
       </label>
       <label htmlFor="publication-sector">
         Role or sector
         <select id="publication-sector" required name="sector" defaultValue="" aria-invalid={Boolean(errors.sector)} aria-describedby={errors.sector ? "publication-sector-error" : undefined}>
           <option value="" disabled>Select one</option>
-          <option>Community organization</option>
-          <option>County or state agency</option>
-          <option>Healthcare organization</option>
-          <option>University or research</option>
-          <option>Foundation or funder</option>
-          <option>Policymaker</option>
-          <option>Student</option>
-          <option>Individual or family</option>
-          <option>Other</option>
+          {PUBLICATION_SECTORS.map((sector) => (
+            <option key={sector}>{sector}</option>
+          ))}
         </select>
         {fieldError("sector")}
       </label>
@@ -174,19 +188,20 @@ export function PublicationAccessForm({ slug, title }: { slug: string; title: st
           {fieldError("cityOrRegion")}
         </label>
         <label htmlFor="publication-state">
-          State
+          {regionLabel}
           <input id="publication-state" required autoComplete="address-level1" name="state" aria-invalid={Boolean(errors.state)} aria-describedby={errors.state ? "publication-state-error" : undefined} />
           {fieldError("state")}
         </label>
       </div>
       <label htmlFor="publication-country">
         Country
-        <input id="publication-country" required autoComplete="country-name" name="country" defaultValue="United States" aria-invalid={Boolean(errors.country)} aria-describedby={errors.country ? "publication-country-error" : undefined} />
+        <input id="publication-country" required autoComplete="country-name" name="country" value={country} onChange={(event) => setCountry(event.target.value)} aria-invalid={Boolean(errors.country)} aria-describedby={errors.country ? "publication-country-error" : undefined} />
         {fieldError("country")}
       </label>
       <label htmlFor="publication-reason">
         Reason for interest
-        <textarea id="publication-reason" required name="reason" rows={4} maxLength={800} aria-invalid={Boolean(errors.reason)} aria-describedby={errors.reason ? "publication-reason-error" : undefined} />
+        <textarea id="publication-reason" required name="reason" rows={4} minLength={MIN_PUBLICATION_REASON_LENGTH} maxLength={800} aria-invalid={Boolean(errors.reason)} aria-describedby={`publication-reason-hint${errors.reason ? " publication-reason-error" : ""}`} />
+        <span id="publication-reason-hint">Use at least {MIN_PUBLICATION_REASON_LENGTH} characters. Do not include health or medical information.</span>
         {fieldError("reason")}
       </label>
       <div className={styles.honeypot} aria-hidden="true">

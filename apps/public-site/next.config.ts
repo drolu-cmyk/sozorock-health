@@ -74,6 +74,16 @@ const nextConfig: NextConfig = {
   async redirects() {
     return [
       {
+        source: "/publications/health-systems-assurance",
+        destination: "/publications/health-systems-assurance-volume-1",
+        permanent: true,
+      },
+      {
+        source: "/publications/health-systems-assurance/:path*",
+        destination: "/publications/health-systems-assurance-volume-1/:path*",
+        permanent: true,
+      },
+      {
         source: "/:path*",
         has: [{ type: "host", value: "www.health.sozorockfoundation.org" }],
         destination: "https://health.sozorockfoundation.org/:path*",

@@ -267,10 +267,11 @@ export default function SpanishHome() {
             <article>
               <Image
                 src="/publications/covers/rural-equity-blueprint-volume-1.png"
-                width={1320}
-                height={1688}
+                width={2481}
+                height={3508}
                 alt="Portada de Rural Equity Blueprint Series, Volume 1: Access Day"
                 sizes="(max-width: 600px) 130px, 280px"
+                quality={95}
               />
               <div>
                 <span>Disponible</span>
@@ -283,11 +284,12 @@ export default function SpanishHome() {
             </article>
             <article>
               <Image
-                src="/publications/covers/rethinking-rural-governance-volume-1.png"
-                width={1275}
-                height={1650}
+                src="/publications/covers/rethinking-rural-governance-volume-1.jpg"
+                width={2550}
+                height={3300}
                 alt="Portada de Rethinking Rural Governance, Volume 1"
                 sizes="(max-width: 600px) 130px, 280px"
+                quality={95}
               />
               <div>
                 <span>Disponible</span>
@@ -305,12 +307,13 @@ export default function SpanishHome() {
                 height={3300}
                 alt="Portada de Health Systems Assurance, Volume 1"
                 sizes="(max-width: 600px) 130px, 280px"
+                quality={95}
               />
               <div>
                 <span>Disponible</span>
                 <h3>Health Systems Assurance, Volume 1</h3>
                 <p>De cumplimiento normativo a garantía digital basada en evidencia.</p>
-                <a href="/publications/health-systems-assurance">
+                <a href="/publications/health-systems-assurance-volume-1">
                   Acceder a la publicación <ArrowRight size={15} aria-hidden="true" />
                 </a>
               </div>
@@ -334,7 +337,7 @@ export default function SpanishHome() {
             <span>Decisión</span>
           </div>
           <p>Para organismos públicos, proveedores, investigadores e instituciones que necesitan conectar obligaciones y riesgos con evidencia operativa y decisiones responsables.</p>
-          <a href="/publications/health-systems-assurance">
+          <a href="/publications/health-systems-assurance-volume-1">
             Acceder a la publicación <ArrowRight size={15} aria-hidden="true" />
           </a>
         </section>
@@ -361,7 +364,7 @@ export default function SpanishHome() {
               <span>Publicaciones seleccionadas</span>
               <a href="/publications/rural-equity-blueprint-volume-1">Rural Equity Blueprint, Volume 1</a>
               <a href="/publications/rethinking-rural-governance-volume-1">Rethinking Rural Governance, Volume 1</a>
-              <a href="/publications/health-systems-assurance">Health Systems Assurance, Volume 1</a>
+              <a href="/publications/health-systems-assurance-volume-1">Health Systems Assurance, Volume 1</a>
             </div>
           </div>
         </section>

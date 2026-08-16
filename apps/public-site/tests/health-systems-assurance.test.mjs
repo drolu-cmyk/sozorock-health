@@ -15,7 +15,7 @@ const spanishPage = readFileSync(
 );
 
 test("Health Systems Assurance Volume 1 is available with its controlled asset", () => {
-  const publication = getPublication("health-systems-assurance");
+  const publication = getPublication("health-systems-assurance-volume-1");
 
   assert.ok(publication);
   assert.equal(publication.status, "Available");
@@ -35,8 +35,15 @@ test("Health Systems Assurance Volume 1 is available with its controlled asset",
   );
 });
 
-test("the approved 300dpi front cover remains pinned", () => {
+test("the legacy Health Systems Assurance route resolves to the Volume 1 publication", () => {
   const publication = getPublication("health-systems-assurance");
+
+  assert.ok(publication);
+  assert.equal(publication.slug, "health-systems-assurance-volume-1");
+});
+
+test("the approved 300dpi front cover remains pinned", () => {
+  const publication = getPublication("health-systems-assurance-volume-1");
 
   assert.ok(publication);
   assert.equal(publication.cover.endsWith(".jpg"), true);
