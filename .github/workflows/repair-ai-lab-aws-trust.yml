@@ -1,8 +1,6 @@
 name: Repair AI Lab AWS trust
 
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -16,15 +14,25 @@ jobs:
     environment: production
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - name: Validate dedicated repair configuration
+        env:
+          TRUST_REPAIR_ROLE_ARN: ${{ vars.AI_LAB_TRUST_REPAIR_ROLE_ARN }}
+          AI_LAB_DEPLOY_ROLE_NAME: ${{ vars.AI_LAB_DEPLOY_ROLE_NAME }}
+        run: |
+          set -euo pipefail
+          test -n "$TRUST_REPAIR_ROLE_ARN"
+          test -n "$AI_LAB_DEPLOY_ROLE_NAME"
       - name: Assume trusted SozoRock production role
         uses: aws-actions/configure-aws-credentials@7474bc4690e29a8392af63c5b98e7449536d5c3a
         with:
-          role-to-assume: ${{ vars.CBCAP_AWS_DEPLOY_ROLE_ARN }}
+          role-to-assume: ${{ vars.AI_LAB_TRUST_REPAIR_ROLE_ARN }}
           role-session-name: ai-lab-trust-repair
           aws-region: ${{ vars.AWS_REGION || 'us-east-1' }}
       - name: Repair and verify AI Lab deployment trust
         id: repair
         continue-on-error: true
+        env:
+          AI_LAB_DEPLOY_ROLE_NAME: ${{ vars.AI_LAB_DEPLOY_ROLE_NAME }}
         run: |
           set -o pipefail
           bash scripts/repair-ai-lab-aws-trust.sh 2>&1 | tee /tmp/ai-lab-trust-repair.log
