@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireWorkspaceActor } from "../../../../../../lib/explore-workspace-auth";
 import { createWorkspaceShareLink, requireCollaborationCapability } from "../../../../../../lib/explore-workspace-runtime";
-import { isTrustedSameOrigin, readBoundedText } from "../../../../../../lib/request-security";
+import { isTrustedSameOrigin, publicSiteUrl, readBoundedText } from "../../../../../../lib/request-security";
 
 export const runtime = "nodejs";
 type Context = { params: Promise<{ workspaceId: string }> };
@@ -25,9 +25,14 @@ export async function POST(request: NextRequest, context: Context) {
     const scope = body.scope === "contributor" ? "contributor" : "read_only";
     const expiresInHours = typeof body.expiresInHours === "number" ? body.expiresInHours : undefined;
     const share = await createWorkspaceShareLink({ workspaceId, tenantId: actor.tenantId, actor, scope, expiresInHours });
-    return NextResponse.json({ contractVersion: "explore.workspace-share.v1", share }, { status: 201, headers: { "Cache-Control": "no-store" } });
+    const { token, ...publicShare } = share;
+    const url = publicSiteUrl(`/explore/share#token=${encodeURIComponent(token)}`).toString();
+    return NextResponse.json(
+      { contractVersion: "explore.workspace-share.v1", share: { ...publicShare, url } },
+      { status: 201, headers: { "Cache-Control": "private, no-store, max-age=0", "Referrer-Policy": "no-referrer" } },
+    );
   } catch (error) {
     const message = (error as Error).message;
-    return NextResponse.json({ error: message }, { status: /authorized|authenticated|tenant|participant/i.test(message) ? 403 : 503 });
+    return NextResponse.json({ error: /authorized|authenticated|tenant|participant/i.test(message) ? "You are not authorized to share this workspace." : "The share link could not be created." }, { status: /authorized|authenticated|tenant|participant/i.test(message) ? 403 : 503 });
   }
 }
