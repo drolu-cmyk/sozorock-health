@@ -106,7 +106,7 @@ jobs:
             --arg oa "$OPENAI_SECRET_ARN" --arg pt "$publication_table" --arg pb "$publication_bucket" \
             --arg pe "$PUBLICATION_EMAIL_FROM" --arg ps "$publication_salt_arn" --arg pu "$PUBLIC_SITE_URL" --arg au "$ACCESS_ALLOWED_ORIGINS" \
             --arg va "$VOICE_PROVIDER_ALIAS" --arg rm "$OPENAI_REALTIME_MODEL" --arg re "$OPENAI_REALTIME_ENABLED" --arg lm "$OPENAI_GPT_LIVE_MODEL" \
-            '. + {CONTACT_SUBMISSIONS_TABLE:$ct,CONTACT_NOTIFICATION_TOPIC_ARN:$cn,CONTACT_RATE_LIMIT_SALT_SECRET_ARN:$cs,ACCESS_REQUESTS_TABLE:$at,ACCESS_NOTIFICATION_TOPIC_ARN:$cn,ACCESS_RATE_LIMIT_SALT_SECRET_ARN:$as,ACCESS_ALLOWED_ORIGINS:$au,OPENAI_SECRET_ARN:$oa,PUBLICATION_ACCESS_TABLE:$pt,PUBLICATION_ASSET_BUCKET:$pb,PUBLICATION_EMAIL_FROM:$pe,PUBLICATION_HASH_SALT_SECRET_ARN:$ps,PUBLIC_SITE_URL:$pu,VOICE_PROVIDER_ALIAS:$va,OPENAI_REALTIME_MODEL:$rm,OPENAI_REALTIME_ENABLED:$re,OPENAI_GPT_LIVE_MODEL:$lm}' <<<"$current_env")
+            '. + {CONTACT_SUBMISSIONS_TABLE:$ct,CONTACT_NOTIFICATION_TOPIC_ARN:$cn,CONTACT_RATE_LIMIT_SALT_SECRET_ARN:$cs,ACCESS_REQUESTS_TABLE:$at,ACCESS_NOTIFICATION_TOPIC_ARN:$cn,ACCESS_RATE_LIMIT_SALT_SECRET_ARN:$as,ACCESS_ALLOWED_ORIGINS:$au,PUBLICATION_ALLOWED_HOSTS:$au,OPENAI_SECRET_ARN:$oa,PUBLICATION_ACCESS_TABLE:$pt,PUBLICATION_ASSET_BUCKET:$pb,PUBLICATION_EMAIL_FROM:$pe,PUBLICATION_HASH_SALT_SECRET_ARN:$ps,PUBLIC_SITE_URL:$pu,VOICE_PROVIDER_ALIAS:$va,OPENAI_REALTIME_MODEL:$rm,OPENAI_REALTIME_ENABLED:$re,OPENAI_GPT_LIVE_MODEL:$lm}' <<<"$current_env")
           aws amplify update-app --app-id "$PUBLIC_APP_ID" --compute-role-arn "$public_compute_role" --environment-variables "$merged_env" >/dev/null
 
           # CB-CAP is intentionally released by deploy-cbcap.yml with its
@@ -125,3 +125,51 @@ jobs:
               exit 1
             fi
           done
+
+          origin="${PUBLIC_SITE_URL%/}"
+          for attempt in $(seq 1 12); do
+            if curl --fail --silent --show-error --max-time 20 "$origin/" >/dev/null; then
+              break
+            fi
+            if [[ "$attempt" -eq 12 ]]; then
+              echo "Production origin did not become healthy after release."
+              exit 1
+            fi
+            sleep 10
+          done
+
+          headers=$(mktemp)
+          curl --silent --show-error --dump-header "$headers" --output /dev/null "$origin/"
+          grep -Eqi '^strict-transport-security:[[:space:]]*max-age=' "$headers"
+          grep -Eqi '^content-security-policy:' "$headers"
+          grep -Eqi '^x-content-type-options:[[:space:]]*nosniff' "$headers"
+          grep -Eqi '^x-frame-options:[[:space:]]*DENY' "$headers"
+
+          hostile_status=$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' \
+            --request POST \
+            --header 'Origin: https://attacker.invalid' \
+            --header 'Content-Type: application/json' \
+            --data '{"event":"publication_viewed","publicationSlug":"health-systems-assurance-digital-assurance"}' \
+            "$origin/api/publications/events")
+          test "$hostile_status" = "403"
+
+          verify_headers=$(mktemp)
+          verify_status=$(curl --silent --show-error --dump-header "$verify_headers" --output /dev/null --write-out '%{http_code}' \
+            "$origin/api/publications/verify")
+          test "$verify_status" = "303"
+          grep -Eqi '^cache-control:.*no-store' "$verify_headers"
+          grep -Eqi '^referrer-policy:[[:space:]]*no-referrer' "$verify_headers"
+
+          download_headers=$(mktemp)
+          download_status=$(curl --silent --show-error --dump-header "$download_headers" --output /dev/null --write-out '%{http_code}' \
+            "$origin/api/publications/health-systems-assurance-digital-assurance/download")
+          test "$download_status" = "303"
+          grep -Eqi '^cache-control:.*no-store' "$download_headers"
+          grep -Eqi '^referrer-policy:[[:space:]]*no-referrer' "$download_headers"
+
+          share_headers=$(mktemp)
+          share_status=$(curl --silent --show-error --dump-header "$share_headers" --output /dev/null --write-out '%{http_code}' \
+            "$origin/api/evidence/v1/workspace-share?token=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
+          test "$share_status" = "404"
+          grep -Eqi '^cache-control:.*no-store' "$share_headers"
+          grep -Eqi '^referrer-policy:[[:space:]]*no-referrer' "$share_headers"
