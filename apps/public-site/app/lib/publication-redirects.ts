@@ -10,11 +10,8 @@ function redirect(path: string, status: PublicationRedirect["status"]) {
 }
 
 export const publicationRedirects = {
-  beginVerification(token: string) {
-    const path = token
-      ? `/publications/verify?token=${encodeURIComponent(token)}`
-      : "/publications?verification=missing";
-    return redirect(path, 307);
+  beginVerification() {
+    return redirect("/publications/verify", 303);
   },
   missingVerification() {
     return redirect("/publications?verification=missing", 303);
