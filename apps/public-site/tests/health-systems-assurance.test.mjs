@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import test from "node:test";
 
@@ -31,6 +32,21 @@ test("Health Systems Assurance Volume 1 is available with its controlled asset",
   );
   assert.ok(
     existsSync(new URL(`../public${publication.cover}`, import.meta.url)),
+  );
+});
+
+test("the approved 300dpi front cover remains pinned", () => {
+  const publication = getPublication("health-systems-assurance");
+
+  assert.ok(publication);
+  assert.equal(publication.cover.endsWith(".jpg"), true);
+  assert.equal(
+    createHash("sha256")
+      .update(
+        readFileSync(new URL(`../public${publication.cover}`, import.meta.url)),
+      )
+      .digest("hex"),
+    "220ed9cf4c347f9b3c28d6b63750470eaf8c3891f4f16b3815d0e6034ab5086f",
   );
 });
 

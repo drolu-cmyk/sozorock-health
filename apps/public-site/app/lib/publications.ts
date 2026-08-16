@@ -50,7 +50,7 @@ export const publications: readonly Publication[] = [
     relevance: "Connects obligations and risk objectives to operating evidence, monitoring, exceptions, remediation, and accountable decisions.",
     status: "Available",
     tags: ["Digital assurance", "Operating evidence", "Health infrastructure"],
-    cover: "/publications/covers/health-systems-assurance-volume-1.png",
+    cover: "/publications/covers/health-systems-assurance-volume-1.jpg",
     assetKey: "health-systems-assurance-volume-1.pdf",
     author: "Dr. Oluwabiyi Adeyemo",
     publisher: "The SozoRock Foundation Inc.",
