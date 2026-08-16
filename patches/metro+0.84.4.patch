@@ -1,0 +1,12 @@
+diff --git a/node_modules/metro/package.json b/node_modules/metro/package.json
+--- a/node_modules/metro/package.json
++++ b/node_modules/metro/package.json
+@@ -34,7 +34,7 @@
+     "flow-enums-runtime": "^0.0.6",
+     "graceful-fs": "^4.2.4",
+     "hermes-parser": "0.35.0",
+-    "image-size": "^1.0.2",
++    "image-size": "2.0.3-sozorock.1",
+     "invariant": "^2.2.4",
+     "jest-worker": "^29.7.0",
+     "jsc-safe-url": "^0.2.2",

@@ -1,0 +1,28 @@
+{
+  "name": "image-size",
+  "version": "2.0.3-sozorock.1",
+  "description": "SozoRock-maintained hardening of image-size 1.2.1 for malformed image denial-of-service protection",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "bin/image-size.js",
+    "LICENSE",
+    "SOZOROCK-PATCH.md"
+  ],
+  "engines": {
+    "node": ">=16.x"
+  },
+  "bin": "bin/image-size.js",
+  "keywords": [
+    "image",
+    "size",
+    "dimensions",
+    "security"
+  ],
+  "repository": "https://github.com/drolu-cmyk/sozorock-health",
+  "license": "MIT",
+  "dependencies": {
+    "queue": "6.0.2"
+  }
+}

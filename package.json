@@ -8,13 +8,25 @@
     "packages/*"
   ],
   "overrides": {
+    "brace-expansion@<2.0.0": "1.1.18",
+    "brace-expansion@>=4.0.0 <6.0.0": "5.0.9",
+    "fast-uri": "3.1.5",
+    "image-size": "$image-size",
+    "js-yaml": "4.3.1",
+    "metro": {
+      "image-size": "$image-size"
+    },
+    "nanoid": "3.3.18",
+    "next": {
+      "postcss": "$postcss"
+    },
     "postcss": "$postcss",
     "xcode": {
       "uuid": "11.1.1"
     }
   },
   "resolutions": {
-    "postcss": "8.5.22",
+    "postcss": "8.5.23",
     "uuid": "11.1.1"
   },
   "engines": {
@@ -41,9 +53,10 @@
     "esbuild": "^0.28.1",
     "eslint": "^9.39.5",
     "eslint-config-next": "^15.5.21",
+    "image-size": "file:vendor/image-size",
     "patch-package": "^8.0.1",
     "pixelmatch": "^7.2.0",
     "pngjs": "^7.0.0",
-    "postcss": "8.5.22"
+    "postcss": "8.5.23"
   }
 }
