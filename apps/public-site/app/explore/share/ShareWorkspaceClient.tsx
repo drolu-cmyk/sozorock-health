@@ -42,8 +42,7 @@ function tokenFromLocation() {
 }
 
 function cleanAddressBar() {
-  const clean = `${window.location.pathname}${window.location.search ? "" : ""}`;
-  window.history.replaceState(null, "", clean);
+  window.history.replaceState(null, "", window.location.pathname);
 }
 
 async function loadSharedPlan() {
