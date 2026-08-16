@@ -104,7 +104,11 @@ export function publicSiteUrl(
   );
 }
 
-/** Require an exact HTTPS host match, with HTTP permitted only for localhost. */
+/**
+ * Require an exact HTTPS origin match against deployment configuration.
+ * Production never treats Host/X-Forwarded-Host as an authorization source;
+ * those headers describe routing and may differ from the canonical public host.
+ */
 export function isTrustedSameOrigin(
   request: Request,
   configuredHosts: readonly string[] = [],
@@ -113,11 +117,29 @@ export function isTrustedSameOrigin(
   if (!originValue) return false;
   try {
     const origin = new URL(originValue);
-    if (origin.protocol !== "https:" && !localDevelopmentOrigin(origin)) {
+    const production = process.env.NODE_ENV === "production";
+    if (
+      (origin.protocol !== "https:" && !localDevelopmentOrigin(origin)) ||
+      (production && localDevelopmentOrigin(origin)) ||
+      origin.username ||
+      origin.password ||
+      origin.pathname !== "/" ||
+      origin.search ||
+      origin.hash ||
+      originValue !== origin.origin
+    ) {
       return false;
     }
+
+    const canonicalHost = new URL(
+      configuredPublicOrigin(process.env.PUBLIC_SITE_URL, production),
+    ).host.toLowerCase();
     const allowed = new Set(
-      [publicRequestHost(request), ...configuredHosts.map(normalizedConfiguredHost)]
+      [
+        canonicalHost,
+        ...configuredHosts.map(normalizedConfiguredHost),
+        ...(!production ? [publicRequestHost(request)] : []),
+      ]
         .filter((host): host is string => Boolean(host))
         .map((host) => host.toLowerCase()),
     );
