@@ -41,10 +41,9 @@ jobs:
         with:
           role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
           aws-region: ${{ vars.AWS_REGION }}
-      - name: Deploy public site and CB-CAP
+      - name: Deploy public site
         env:
           PUBLIC_APP_ID: ${{ vars.PUBLIC_AMPLIFY_APP_ID }}
-          CBCAP_APP_ID: ${{ vars.CBCAP_AMPLIFY_APP_ID }}
           AMPLIFY_BRANCH: ${{ vars.AMPLIFY_BRANCH_NAME || 'main' }}
           CONTACT_EMAIL: contact@sozorockfoundation.org
           OPENAI_SECRET_ARN: ${{ secrets.OPENAI_SECRET_ARN }}
@@ -60,7 +59,6 @@ jobs:
         run: |
           set -euo pipefail
           test -n "$PUBLIC_APP_ID"
-          test -n "$CBCAP_APP_ID"
           test -n "$OPENAI_SECRET_ARN"
           test -n "$PUBLICATION_HASH_SALT"
           test -n "$SES_IDENTITY_ARN"
@@ -111,14 +109,19 @@ jobs:
             '. + {CONTACT_SUBMISSIONS_TABLE:$ct,CONTACT_NOTIFICATION_TOPIC_ARN:$cn,CONTACT_RATE_LIMIT_SALT_SECRET_ARN:$cs,ACCESS_REQUESTS_TABLE:$at,ACCESS_NOTIFICATION_TOPIC_ARN:$cn,ACCESS_RATE_LIMIT_SALT_SECRET_ARN:$as,ACCESS_ALLOWED_ORIGINS:$au,OPENAI_SECRET_ARN:$oa,PUBLICATION_ACCESS_TABLE:$pt,PUBLICATION_ASSET_BUCKET:$pb,PUBLICATION_EMAIL_FROM:$pe,PUBLICATION_HASH_SALT_SECRET_ARN:$ps,PUBLIC_SITE_URL:$pu,VOICE_PROVIDER_ALIAS:$va,OPENAI_REALTIME_MODEL:$rm,OPENAI_REALTIME_ENABLED:$re,OPENAI_GPT_LIVE_MODEL:$lm}' <<<"$current_env")
           aws amplify update-app --app-id "$PUBLIC_APP_ID" --compute-role-arn "$public_compute_role" --environment-variables "$merged_env" >/dev/null
 
-          for app_id in "$PUBLIC_APP_ID" "$CBCAP_APP_ID"; do
-            job_id=$(aws amplify start-job --app-id "$app_id" --branch-name "$AMPLIFY_BRANCH" --job-type RELEASE --query 'jobSummary.jobId' --output text)
-            while true; do
-              status=$(aws amplify get-job --app-id "$app_id" --branch-name "$AMPLIFY_BRANCH" --job-id "$job_id" --query 'job.summary.status' --output text)
-              case "$status" in
-                SUCCEED) break ;;
-                FAILED|CANCELLED) echo "Amplify job $job_id for $app_id ended with $status"; exit 1 ;;
-                *) sleep 20 ;;
-              esac
-            done
+          # CB-CAP is intentionally released by deploy-cbcap.yml with its
+          # separate least-privilege AWS role and production proof gates.
+          job_id=$(aws amplify start-job --app-id "$PUBLIC_APP_ID" --branch-name "$AMPLIFY_BRANCH" --job-type RELEASE --query 'jobSummary.jobId' --output text)
+          for attempt in $(seq 1 180); do
+            status=$(aws amplify get-job --app-id "$PUBLIC_APP_ID" --branch-name "$AMPLIFY_BRANCH" --job-id "$job_id" --query 'job.summary.status' --output text)
+            case "$status" in
+              SUCCEED) break ;;
+              FAILED|CANCELLED) echo "Public-site Amplify job $job_id ended with $status"; exit 1 ;;
+              *) sleep 20 ;;
+            esac
+
+            if [[ "$attempt" -eq 180 ]]; then
+              echo "Public-site Amplify job $job_id did not finish within 60 minutes."
+              exit 1
+            fi
           done
