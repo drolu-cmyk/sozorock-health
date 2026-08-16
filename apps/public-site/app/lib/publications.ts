@@ -10,6 +10,13 @@ export type Publication = {
   tags: readonly string[];
   cover: string | null;
   assetKey: string | null;
+  author?: string;
+  publisher?: string;
+  published?: string;
+  datePublished?: string;
+  edition?: string;
+  isbn?: string;
+  evidenceCutoff?: string;
 };
 
 export const publications: readonly Publication[] = [
@@ -37,18 +44,24 @@ export const publications: readonly Publication[] = [
   },
   {
     slug: "health-systems-assurance",
-    title: "Health Systems Assurance",
-    shortTitle: "Health Systems Assurance",
-    description: "A forthcoming public-interest series on digital assurance, governance controls, AI-enabled health infrastructure, and accountable implementation.",
-    relevance: "For public agencies, providers, researchers, and institutions preparing to use digital and AI-enabled systems responsibly.",
-    status: "In development",
-    tags: ["Digital assurance", "AI readiness", "Cybersecurity readiness"],
-    cover: null,
-    assetKey: null,
+    title: "Health Systems Assurance, Volume 1",
+    shortTitle: "Health Systems Assurance, Volume 1",
+    description: "From compliance to evidence-based digital assurance.",
+    relevance: "Connects obligations and risk objectives to operating evidence, monitoring, exceptions, remediation, and accountable decisions.",
+    status: "Available",
+    tags: ["Digital assurance", "Operating evidence", "Health infrastructure"],
+    cover: "/publications/covers/health-systems-assurance-volume-1.png",
+    assetKey: "health-systems-assurance-volume-1.pdf",
+    author: "Dr. Oluwabiyi Adeyemo",
+    publisher: "The SozoRock Foundation Inc.",
+    published: "August 2026",
+    datePublished: "2026-08",
+    edition: "First edition",
+    isbn: "979-8-9936477-3-9",
+    evidenceCutoff: "August 12, 2026",
   },
 ] as const;
 
 export function getPublication(slug: string) {
   return publications.find((publication) => publication.slug === slug);
 }
-

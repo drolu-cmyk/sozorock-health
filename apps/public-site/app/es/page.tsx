@@ -298,27 +298,44 @@ export default function SpanishHome() {
                 </a>
               </div>
             </article>
+            <article>
+              <Image
+                src="/publications/covers/health-systems-assurance-volume-1.png"
+                width={1275}
+                height={1650}
+                alt="Portada de Health Systems Assurance, Volume 1"
+                sizes="(max-width: 600px) 130px, 280px"
+              />
+              <div>
+                <span>Disponible</span>
+                <h3>Health Systems Assurance, Volume 1</h3>
+                <p>De cumplimiento normativo a garantía digital basada en evidencia.</p>
+                <a href="/publications/health-systems-assurance">
+                  Acceder a la publicación <ArrowRight size={15} aria-hidden="true" />
+                </a>
+              </div>
+            </article>
           </div>
         </section>
 
         <section className="assurance-section" aria-labelledby="assurance-heading">
           <div>
-            <p className="eyebrow eyebrow--light">En desarrollo</p>
-            <h2 id="assurance-heading">Health Systems Assurance</h2>
-            <p>Garantía digital, gobernanza e infraestructura de salud habilitada por IA</p>
+            <p className="eyebrow eyebrow--light">Publicado · Agosto de 2026</p>
+            <h2 id="assurance-heading">Health Systems Assurance, Volume 1</h2>
+            <p>De cumplimiento normativo a garantía digital basada en evidencia</p>
           </div>
           <div className="assurance-sequence" aria-label="Secuencia de Health Systems Assurance">
-            <span>Educación</span>
+            <span>Objetivo</span>
             <ArrowRight aria-hidden="true" />
-            <span>Implementación</span>
+            <span>Evidencia</span>
             <ArrowRight aria-hidden="true" />
             <span>Verificación</span>
             <ArrowRight aria-hidden="true" />
-            <span>Confianza</span>
+            <span>Decisión</span>
           </div>
-          <p>Para organismos públicos, proveedores, investigadores, instituciones comunitarias y responsables de sistemas digitales seguros y transparentes.</p>
+          <p>Para organismos públicos, proveedores, investigadores e instituciones que necesitan conectar obligaciones y riesgos con evidencia operativa y decisiones responsables.</p>
           <a href="/publications/health-systems-assurance">
-            Ver la serie <ArrowRight size={15} aria-hidden="true" />
+            Acceder a la publicación <ArrowRight size={15} aria-hidden="true" />
           </a>
         </section>
 
@@ -344,6 +361,7 @@ export default function SpanishHome() {
               <span>Publicaciones seleccionadas</span>
               <a href="/publications/rural-equity-blueprint-volume-1">Rural Equity Blueprint, Volume 1</a>
               <a href="/publications/rethinking-rural-governance-volume-1">Rethinking Rural Governance, Volume 1</a>
+              <a href="/publications/health-systems-assurance">Health Systems Assurance, Volume 1</a>
             </div>
           </div>
         </section>
