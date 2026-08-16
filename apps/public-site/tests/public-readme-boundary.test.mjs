@@ -12,7 +12,7 @@ test("public README contains public destinations without protected implementatio
     "https://ai-lab.sozorockfoundation.org/",
     "https://cbcap.sozorockfoundation.org/",
   ]) {
-    assert.match(readme, new RegExp(publicUrl.replaceAll(".", "\\.")));
+    assert.equal(readme.includes(publicUrl), true, publicUrl);
   }
 
   for (const protectedDetail of [

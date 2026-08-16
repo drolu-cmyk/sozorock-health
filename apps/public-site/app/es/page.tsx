@@ -300,9 +300,9 @@ export default function SpanishHome() {
             </article>
             <article>
               <Image
-                src="/publications/covers/health-systems-assurance-volume-1.png"
-                width={1275}
-                height={1650}
+                src="/publications/covers/health-systems-assurance-volume-1.jpg"
+                width={2550}
+                height={3300}
                 alt="Portada de Health Systems Assurance, Volume 1"
                 sizes="(max-width: 600px) 130px, 280px"
               />
