@@ -7,16 +7,12 @@ POLICY_FILE="infrastructure/iam/sozorock-ai-lab-github-trust.json"
 actual_account=$(aws sts get-caller-identity --query Account --output text)
 [[ "$actual_account" == "$ACCOUNT_ID" ]]
 
-role_name="GitHubActionsSozorockAiLabDeployRole"
-if ! aws iam get-role --role-name "$role_name" >/dev/null 2>&1; then
-  mapfile -t candidates < <(
-    aws iam list-roles \
-      --query "Roles[?contains(RoleName, 'AiLab') || contains(RoleName, 'AILab') || contains(RoleName, 'AI-Lab') || contains(RoleName, 'SozorockAi') || contains(RoleName, 'SozoRockAi')].RoleName" \
-      --output text | tr '\t' '\n' | sed '/^$/d' | sort -u
-  )
-  [[ "${#candidates[@]}" -eq 1 ]]
-  role_name="${candidates[0]}"
-fi
+role_name="${AI_LAB_DEPLOY_ROLE_NAME:?AI_LAB_DEPLOY_ROLE_NAME is required}"
+[[ "$role_name" =~ ^[A-Za-z0-9+=,.@_-]{1,64}$ ]]
+
+# Deliberately address one configured role. The repair authority must grant
+# iam:GetRole and iam:UpdateAssumeRolePolicy only for this role's exact ARN.
+aws iam get-role --role-name "$role_name" >/dev/null
 
 aws iam update-assume-role-policy \
   --role-name "$role_name" \
