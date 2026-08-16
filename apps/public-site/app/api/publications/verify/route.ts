@@ -6,7 +6,6 @@ import {
   verifyAccessToken,
 } from "../../../lib/publication-access";
 import { publicationRedirects } from "../../../lib/publication-redirects";
-import { readBoundedText } from "../../../lib/request-security";
 
 export const runtime = "nodejs";
 
@@ -74,39 +73,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  let token = request.cookies.get(verificationCookieName())?.value ?? "";
-
-  // Temporary compatibility path for a verification page opened before this
-  // release. New pages never place the bearer token in rendered HTML.
-  if (!token) {
-    const body = await readBoundedText(request, 2_048, [
-      "application/x-www-form-urlencoded",
-    ]);
-    if (!body.ok) {
-      if (body.error === "unsupported-media-type")
-        return protectResponse(
-          NextResponse.json(
-            { error: "Send this request as a form." },
-            { status: 415 },
-          ),
-        );
-      if (body.error === "too-large")
-        return protectResponse(
-          NextResponse.json(
-            { error: "The request is too large." },
-            { status: 413 },
-          ),
-        );
-      return protectResponse(
-        NextResponse.json(
-          { error: "The verification request was not valid." },
-          { status: 400 },
-        ),
-      );
-    }
-    token = new URLSearchParams(body.text).get("token")?.slice(0, 160) ?? "";
-  }
-
+  const token = request.cookies.get(verificationCookieName())?.value ?? "";
   if (!VERIFICATION_TOKEN_PATTERN.test(token)) {
     const target = publicationRedirects.missingVerification();
     return protectResponse(
