@@ -13,8 +13,8 @@ const volunteerAreas = [
   ["Communications", "Comunicaciones"],
   ["Data and evaluation", "Datos y evaluación"],
   ["Technology and cybersecurity", "Tecnología y ciberseguridad"],
-  ["Professional advisory interest", "Interés en asesoría profesional"],
-  ["Clinical advisory interest", "Interés en asesoría clínica"],
+  ["Professional skills support", "Apoyo con habilidades profesionales"],
+  ["Clinical education support", "Apoyo a la educación clínica"],
   ["Other", "Otro"],
 ] as const;
 
