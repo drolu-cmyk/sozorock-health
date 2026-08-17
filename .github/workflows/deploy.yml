@@ -5,6 +5,7 @@ on:
   workflow_run:
     workflows: ["Verify"]
     types: [completed]
+    branches: [main]
 
 concurrency:
   group: amplify-d307qqji18y8il-production
@@ -18,8 +19,7 @@ jobs:
   deploy:
     if: >-
       github.event_name == 'workflow_dispatch' ||
-      (github.event.workflow_run.conclusion == 'success' &&
-       github.event.workflow_run.head_branch == 'main')
+      github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     environment: production
     steps:
