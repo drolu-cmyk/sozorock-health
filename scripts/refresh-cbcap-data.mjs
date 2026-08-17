@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, rename, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -13,6 +13,8 @@ const CDC_DATASET_ID = "i46a-9kgh";
 const CDC_DATASET_URL = `https://data.cdc.gov/resource/${CDC_DATASET_ID}.json`;
 const CDC_LANDING_URL =
   "https://data.cdc.gov/500-Cities-Places/PLACES-County-Data-GIS-Friendly-Format-2025-releas/i46a-9kgh";
+const APPROVED_SOURCE_HOSTS = new Set(["tigerweb.geo.census.gov", "data.cdc.gov"]);
+const MAX_SOURCE_BYTES = 64 * 1024 * 1024;
 
 const INCLUDED_STATE_FIPS = new Set([
   "01", "02", "04", "05", "06", "08", "09", "10", "11", "12", "13",
@@ -72,21 +74,42 @@ const selectedCdcFields = [
   ...Object.values(PREVENTION_FIELDS).flat(),
 ];
 
+function approvedSourceUrl(value) {
+  const parsed = new URL(value);
+  if (parsed.protocol !== "https:" || !APPROVED_SOURCE_HOSTS.has(parsed.hostname)) {
+    throw new Error(`Unapproved CB-CAP source host: ${parsed.hostname || "unknown"}`);
+  }
+  if (parsed.username || parsed.password) {
+    throw new Error("CB-CAP source URLs must not contain credentials");
+  }
+  return parsed;
+}
+
 async function fetchJson(url) {
-  const response = await fetch(url, {
+  const sourceUrl = approvedSourceUrl(url);
+  const response = await fetch(sourceUrl, {
+    redirect: "error",
     headers: {
       Accept: "application/json",
       "User-Agent": "SozoRock-CB-CAP-Data-Pipeline/1.0",
     },
   });
   if (!response.ok) {
-    throw new Error(`Request failed (${response.status}) for ${url}`);
+    throw new Error(`Request failed (${response.status}) for ${sourceUrl.origin}${sourceUrl.pathname}`);
   }
   const contentType = response.headers.get("content-type") ?? "";
   if (!contentType.includes("json")) {
     throw new Error(`Expected JSON but received ${contentType || "unknown content"}`);
   }
-  return response.json();
+  const declaredLength = Number(response.headers.get("content-length"));
+  if (Number.isFinite(declaredLength) && declaredLength > MAX_SOURCE_BYTES) {
+    throw new Error(`CB-CAP source response exceeds ${MAX_SOURCE_BYTES} bytes`);
+  }
+  const body = await response.text();
+  if (Buffer.byteLength(body, "utf8") > MAX_SOURCE_BYTES) {
+    throw new Error(`CB-CAP source response exceeds ${MAX_SOURCE_BYTES} bytes`);
+  }
+  return JSON.parse(body);
 }
 
 function numberOrNull(value) {
@@ -174,7 +197,10 @@ async function main() {
     resultRecordCount: "10000",
   });
   const tiger = await fetchJson(`${TIGER_COUNTIES}?${tigerParams}`);
-  const counties = (tiger.features ?? [])
+  if (!Array.isArray(tiger?.features)) {
+    throw new Error("Census county response did not contain a feature array");
+  }
+  const counties = tiger.features
     .map((feature) => feature.attributes ?? {})
     .filter((attributes) => INCLUDED_STATE_FIPS.has(String(attributes.STATE).padStart(2, "0")));
 
@@ -187,8 +213,11 @@ async function main() {
     resultRecordCount: "100",
   });
   const tigerStates = await fetchJson(`${TIGER_STATES}?${stateParams}`);
+  if (!Array.isArray(tigerStates?.features)) {
+    throw new Error("Census state response did not contain a feature array");
+  }
   const stateMetadataByFips = new Map(
-    (tigerStates.features ?? [])
+    tigerStates.features
       .map((feature) => feature.attributes ?? {})
       .filter((attributes) => INCLUDED_STATE_FIPS.has(String(attributes.GEOID).padStart(2, "0")))
       .map((attributes) => [String(attributes.GEOID).padStart(2, "0"), attributes]),
@@ -200,6 +229,9 @@ async function main() {
     $order: "countyfips",
   });
   const cdcRows = await fetchJson(`${CDC_DATASET_URL}?${cdcParams}`);
+  if (!Array.isArray(cdcRows)) {
+    throw new Error("CDC PLACES response did not contain a row array");
+  }
   const cdcByFips = new Map(
     cdcRows.map((row) => [String(row.countyfips).padStart(5, "0"), row]),
   );
@@ -360,12 +392,24 @@ async function main() {
     throw new Error("Invalid county FIPS value found");
   }
 
-  await writeFile(path.join(DATA_DIR, "county-planning.json"), dataJson, "utf8");
-  await writeFile(
-    path.join(DATA_DIR, "source-manifest.json"),
-    `${JSON.stringify(manifest, null, 2)}\n`,
-    "utf8",
-  );
+  const countyPath = path.join(DATA_DIR, "county-planning.json");
+  const manifestPath = path.join(DATA_DIR, "source-manifest.json");
+  const countyTempPath = `${countyPath}.${process.pid}.tmp`;
+  const manifestTempPath = `${manifestPath}.${process.pid}.tmp`;
+  try {
+    // This controlled ETL intentionally persists normalized data only from the
+    // HTTPS Census/CDC host allowlist above after schema, geography, and count
+    // validation. The paths are fixed repository artifacts, not network input.
+    // codeql[js/http-to-file-access]
+    await writeFile(countyTempPath, dataJson, { encoding: "utf8", flag: "wx" });
+    // codeql[js/http-to-file-access]
+    await writeFile(manifestTempPath, `${JSON.stringify(manifest, null, 2)}\n`, { encoding: "utf8", flag: "wx" });
+    await rename(countyTempPath, countyPath);
+    await rename(manifestTempPath, manifestPath);
+  } finally {
+    await rm(countyTempPath, { force: true });
+    await rm(manifestTempPath, { force: true });
+  }
 
   console.log(
     JSON.stringify(
