@@ -127,8 +127,12 @@ Resources:
             Resource: !Sub ${PublicationAssets.Arn}/*
           - Sid: VerificationEmail
             Effect: Allow
-            Action: ses:SendEmail
-            Resource: !Ref SesIdentityArn
+            Action:
+              - ses:SendEmail
+              - ses:SendRawEmail
+            Resource:
+              - !Ref SesIdentityArn
+              - !Sub arn:aws:ses:${AWS::Region}:${AWS::AccountId}:identity/*
             Condition:
               StringEquals:
                 ses:FromAddress: !Ref PublicationEmailFrom
