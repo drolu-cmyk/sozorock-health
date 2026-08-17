@@ -33,7 +33,7 @@ jobs:
       - name: Verify the release source
         run: |
           set -euo pipefail
-          npm ci
+          npm ci --omit=optional
           npm run typecheck
           npm run lint
           npm test
