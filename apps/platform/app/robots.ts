@@ -1,6 +1,5 @@
 import type { MetadataRoute } from "next";
-
-const dashboardUrl = "https://cbcap.sozorockfoundation.org";
+import { dashboardUrl } from "./site-config";
 
 export default function robots(): MetadataRoute.Robots {
   return {
