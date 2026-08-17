@@ -113,6 +113,15 @@ jobs:
         with:
           version: v0.72.0
           cache: true
+      - name: Scan tracked repository for secrets
+        run: |
+          set -euo pipefail
+          trivy fs --scanners secret --exit-code 1 \
+            --skip-dirs node_modules \
+            --skip-dirs .git \
+            --skip-dirs apps/public-site/.next \
+            --skip-dirs output \
+            .
       - name: Scan public runtime SBOM
         run: |
           set -euo pipefail
@@ -144,6 +153,7 @@ jobs:
             echo "- Commit: $GITHUB_SHA"
             echo "- Sensitive tracked-file guard: passed"
             echo "- Workflow trust-boundary guard: passed"
+            echo "- Repository secret scan: passed"
             echo "- Typecheck, lint, unit tests, public build, platform build: passed"
             echo "- Public runtime security manifest: generated"
             echo "- CycloneDX runtime SBOM: generated"
