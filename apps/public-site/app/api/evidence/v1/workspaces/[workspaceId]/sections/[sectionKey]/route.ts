@@ -50,10 +50,25 @@ export async function PUT(request: NextRequest, context: Context) {
       headers: { "Cache-Control": "no-store" },
     });
   } catch (error) {
-    const message = (error as Error).message;
-    const status = (error as Error).name === "WorkspaceVersionConflict"
-      ? 409
-      : /authorized|authenticated|human|tenant/i.test(message) ? 403 : 503;
-    return NextResponse.json({ error: message }, { status });
+    const message = error instanceof Error ? error.message : "";
+    const name = error instanceof Error ? error.name : "UnknownError";
+    const conflict = name === "WorkspaceVersionConflict";
+    const unauthorized = /authorized|authenticated|human|tenant|participant/i.test(message);
+    if (!conflict && !unauthorized) {
+      console.error("workspace-section-save-failed", { name });
+    }
+    const status = conflict ? 409 : unauthorized ? 403 : 503;
+    const publicMessage = conflict
+      ? "This section changed before your update could be saved. Refresh and try again."
+      : unauthorized
+        ? "You are not authorized to update this workspace section."
+        : "The workspace section could not be saved.";
+    return NextResponse.json(
+      { error: publicMessage },
+      {
+        status,
+        headers: { "Cache-Control": "private, no-store", "Referrer-Policy": "no-referrer" },
+      },
+    );
   }
 }
