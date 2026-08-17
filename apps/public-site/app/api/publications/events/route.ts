@@ -3,6 +3,8 @@ import { enforceEventRateLimit, recordEvent, sameOrigin, type AccessEvent } from
 import { getPublication } from "../../../lib/publications";
 import { readBoundedText } from "../../../lib/request-security";
 
+export const runtime = "nodejs";
+
 const allowed = new Set<AccessEvent>(["publication_viewed", "access_started", "publication_opened"]);
 
 export async function POST(request: NextRequest) {
@@ -25,6 +27,7 @@ export async function POST(request: NextRequest) {
     }
     console.error("publication-event-rate-limit-failed", {
       name: (error as { name?: string }).name ?? "UnknownError",
+      message: String((error as { message?: string }).message ?? "").slice(0, 240),
     });
     return NextResponse.json({ accepted: false }, { status: 503 });
   }
