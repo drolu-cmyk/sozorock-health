@@ -58,8 +58,8 @@ test("public share projection never calls the internal plan loader and excludes 
   const shareBody = workspace.slice(shareStart, workspace.indexOf("export async function createWorkspaceHandoff", shareStart));
   assert.doesNotMatch(shareBody, /loadWorkspacePlan/);
   assert.match(workspace, /loadPublicWorkspacePlan/);
-   assert.match(publicShare, /PUBLIC_SECTION_KEYS/);
-   assert.match(publicShare, /PUBLIC_CONTENT_KEYS/);
+  assert.match(publicShare, /PUBLIC_SECTION_KEYS/);
+  assert.match(publicShare, /PUBLIC_CONTENT_KEYS/);
   for (const forbidden of ["actorId", "assignedTo", "reviewedBy", "presence", "invitations", "pending"]) {
     assert.doesNotMatch(shareBody, new RegExp(`\\b${forbidden}\\b`));
   }
@@ -108,8 +108,8 @@ test("public share serialization is an allowlist and excludes unreviewed/interna
   for (const forbidden of ["actorId", "pending", "prompt", "internal", "tenantId", "reviewedBy"]) {
     assert.equal(serialized.includes(forbidden), false, `public share leaked ${forbidden}`);
   }
-  assert.equal(serialized.includes("Approved summary"), true);
-  assert.equal(serialized.includes("data.cdc.gov"), true);
+  assert.equal(projected.sections[0].content.title, "Approved summary");
+  assert.deepEqual(projected.sections[0].content.citations, [{ publisher: "CDC", officialUrl: "https://data.cdc.gov" }]);
 });
 
 test("public share includes only explicit public review questions and approved citation metadata", () => {
