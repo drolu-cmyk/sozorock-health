@@ -106,10 +106,10 @@ test("public share serialization is an allowlist and excludes unreviewed/interna
   assert.deepEqual(projected.citations, []);
   const serialized = JSON.stringify(projected);
   for (const forbidden of ["actorId", "pending", "prompt", "internal", "tenantId", "reviewedBy"]) {
-    assert.doesNotMatch(serialized, new RegExp(forbidden));
+    assert.equal(serialized.includes(forbidden), false, `public share leaked ${forbidden}`);
   }
-  assert.match(serialized, /Approved summary/);
-  assert.match(serialized, /data\.cdc\.gov/);
+  assert.equal(serialized.includes("Approved summary"), true);
+  assert.equal(serialized.includes("data.cdc.gov"), true);
 });
 
 test("public share includes only explicit public review questions and approved citation metadata", () => {
