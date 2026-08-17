@@ -91,6 +91,44 @@ for (const file of htmlFiles) {
   if (html.includes("/_next/image")) {
     throw new Error(`Rendered HTML depends on /_next/image: ${file}`);
   }
+
+  const visibleText = html
+    .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/\s+/g, " ");
+  for (const [label, pattern] of [
+    ["internal", /\binternal\b/i],
+    ["advisory", /\badvisory\b/i],
+    ["slug", /\bslug\b/i],
+    ["localhost", /\blocalhost\b/i],
+    ["Amplify default domain", /\bamplifyapp\.com\b/i],
+  ]) {
+    if (pattern.test(visibleText)) {
+      throw new Error(`Rendered public copy contains ${label}: ${file}`);
+    }
+  }
+}
+
+const browserArtifactFiles = files.filter((file) => {
+  const relative = path.relative(runtimeRoot, file).replaceAll("\\", "/");
+  return (relative.startsWith("static/") || file.endsWith(".html"))
+    && /\.(?:js|json|html|txt|map)$/i.test(file);
+});
+const secretSignatures = [
+  ["AWS access key", /\b(?:AKIA|ASIA)[A-Z0-9]{16}\b/],
+  ["OpenAI API key", /\bsk-(?:proj-)?[A-Za-z0-9_-]{20,}\b/],
+  ["GitHub token", /\b(?:gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,})\b/],
+  ["Slack token", /\bxox[baprs]-[A-Za-z0-9-]{20,}\b/],
+  ["private key", /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/],
+];
+for (const file of browserArtifactFiles) {
+  const text = await readFile(file, "utf8");
+  for (const [label, pattern] of secretSignatures) {
+    if (pattern.test(text)) {
+      throw new Error(`Browser-delivered artifact contains a ${label} signature: ${file}`);
+    }
+  }
 }
 
 const manifestEntries = [];
@@ -106,7 +144,7 @@ for (const file of files) {
 manifestEntries.sort((a, b) => a.path.localeCompare(b.path));
 
 const report = {
-  schema: "sozorock.public-runtime-security.v1",
+  schema: "sozorock.public-runtime-security.v2",
   generatedAt: new Date().toISOString(),
   runtimeRoot: "apps/public-site/.next",
   imageMode: "unoptimized",
@@ -115,6 +153,8 @@ const report = {
   libvipsPresent: false,
   nextImageRouteRequiredByRenderedHtml: false,
   runtimeTraceImportsSharp: false,
+  browserSecretSignaturesPresent: false,
+  forbiddenRenderedCopyPresent: false,
   fileCount: manifestEntries.length,
   artifactSha256: createHash("sha256")
     .update(JSON.stringify(manifestEntries))
