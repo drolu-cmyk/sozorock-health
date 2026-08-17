@@ -34,7 +34,17 @@ export async function POST(request: NextRequest, context: Context) {
     });
     return NextResponse.json({ contractVersion: "explore.workspace-fork.v1", ...fork }, { status: 201, headers: { "Cache-Control": "no-store" } });
   } catch (error) {
-    const message = (error as Error).message;
-    return NextResponse.json({ error: message }, { status: /authorized|authenticated|tenant|participant/i.test(message) ? 403 : 503 });
+    const message = error instanceof Error ? error.message : "";
+    const unauthorized = /authorized|authenticated|tenant|participant/i.test(message);
+    if (!unauthorized) {
+      console.error("workspace-fork-failed", { name: error instanceof Error ? error.name : "UnknownError" });
+    }
+    return NextResponse.json(
+      { error: unauthorized ? "You are not authorized to fork this workspace." : "The workspace could not be forked." },
+      {
+        status: unauthorized ? 403 : 503,
+        headers: { "Cache-Control": "private, no-store", "Referrer-Policy": "no-referrer" },
+      },
+    );
   }
 }
