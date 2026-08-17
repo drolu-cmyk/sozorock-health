@@ -17,11 +17,42 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Enforce reviewed CodeQL suppressions
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t suppressions < <(
+            grep -RInE \
+              --exclude-dir=.git \
+              --exclude-dir=node_modules \
+              --include='*.js' \
+              --include='*.jsx' \
+              --include='*.ts' \
+              --include='*.tsx' \
+              --include='*.mjs' \
+              --include='*.cjs' \
+              'codeql\[[^]]+\]' . || true
+          )
+          if [[ "${#suppressions[@]}" -ne 2 ]]; then
+            printf 'Expected exactly two reviewed CodeQL source suppressions; found %s.\n' "${#suppressions[@]}"
+            printf '%s\n' "${suppressions[@]}"
+            exit 1
+          fi
+          for suppression in "${suppressions[@]}"; do
+            case "$suppression" in
+              ./scripts/refresh-cbcap-data.mjs:*'codeql[js/http-to-file-access]'*) ;;
+              *)
+                printf 'Unreviewed CodeQL suppression: %s\n' "$suppression"
+                exit 1
+                ;;
+            esac
+          done
       - uses: github/codeql-action/init@f205ea1c3313d32999d8d6a48b4f6530d4437b38 # v4.37.4
         with:
           languages: javascript-typescript
           queries: security-extended
+          packs: codeql/javascript-queries:AlertSuppression.ql
       - uses: github/codeql-action/analyze@f205ea1c3313d32999d8d6a48b4f6530d4437b38 # v4.37.4
         with:
           category: /language:javascript-typescript
