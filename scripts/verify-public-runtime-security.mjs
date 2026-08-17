@@ -201,7 +201,8 @@ const secretSignatures = [
   ["GitHub token", /\b(?:gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,})\b/],
   ["Slack token", /\bxox[baprs]-[A-Za-z0-9-]{20,}\b/],
   ["private key", /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/],
-  ["AWS resource identifier", /\barn:aws:[a-z0-9-]+:[^\s"'<]+/i],
+  // Match a complete ARN token with explicit boundaries; do not accept an ARN-shaped substring inside a larger identifier.
+  ["AWS resource identifier", /(?:^|[^A-Za-z0-9])arn:aws:[a-z0-9-]+:[^\s"'<]+(?=$|[^A-Za-z0-9])/i],
   ["AWS service endpoint", /\b(?:dynamodb|secretsmanager|s3)\.[a-z0-9-]+\.amazonaws\.com\b/i],
 ];
 for (const file of browserArtifactFiles) {
