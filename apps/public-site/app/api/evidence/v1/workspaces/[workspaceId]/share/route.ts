@@ -32,7 +32,17 @@ export async function POST(request: NextRequest, context: Context) {
       { status: 201, headers: { "Cache-Control": "private, no-store, max-age=0", "Referrer-Policy": "no-referrer" } },
     );
   } catch (error) {
-    const message = (error as Error).message;
-    return NextResponse.json({ error: /authorized|authenticated|tenant|participant/i.test(message) ? "You are not authorized to share this workspace." : "The share link could not be created." }, { status: /authorized|authenticated|tenant|participant/i.test(message) ? 403 : 503 });
+    const message = error instanceof Error ? error.message : "";
+    const unauthorized = /authorized|authenticated|tenant|participant/i.test(message);
+    if (!unauthorized) {
+      console.error("workspace-share-create-failed", { name: error instanceof Error ? error.name : "UnknownError" });
+    }
+    return NextResponse.json(
+      { error: unauthorized ? "You are not authorized to share this workspace." : "The share link could not be created." },
+      {
+        status: unauthorized ? 403 : 503,
+        headers: { "Cache-Control": "private, no-store, max-age=0", "Referrer-Policy": "no-referrer" },
+      },
+    );
   }
 }
