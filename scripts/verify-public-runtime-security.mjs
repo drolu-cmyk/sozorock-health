@@ -31,6 +31,79 @@ async function walk(directory) {
   return files;
 }
 
+function renderedText(html) {
+  const lower = html.toLowerCase();
+  let output = "";
+  let index = 0;
+  let hiddenTag = null;
+
+  while (index < html.length) {
+    if (hiddenTag) {
+      const marker = `</${hiddenTag}`;
+      const closeStart = lower.indexOf(marker, index);
+      if (closeStart < 0) break;
+      const closeEnd = html.indexOf(">", closeStart + marker.length);
+      if (closeEnd < 0) break;
+      hiddenTag = null;
+      index = closeEnd + 1;
+      output += " ";
+      continue;
+    }
+
+    if (html[index] !== "<") {
+      output += html[index];
+      index += 1;
+      continue;
+    }
+
+    const tagEnd = html.indexOf(">", index + 1);
+    if (tagEnd < 0) break;
+    let cursor = index + 1;
+    while (cursor < tagEnd && " \t\r\n".includes(html[cursor])) cursor += 1;
+    const closing = html[cursor] === "/";
+    if (closing) cursor += 1;
+    while (cursor < tagEnd && " \t\r\n".includes(html[cursor])) cursor += 1;
+    const nameStart = cursor;
+    while (cursor < tagEnd) {
+      const code = lower.charCodeAt(cursor);
+      const isNameCharacter =
+        (code >= 97 && code <= 122) ||
+        (code >= 48 && code <= 57) ||
+        code === 45;
+      if (!isNameCharacter) break;
+      cursor += 1;
+    }
+    const tagName = lower.slice(nameStart, cursor);
+    if (!closing && (tagName === "script" || tagName === "style")) {
+      hiddenTag = tagName;
+    }
+    index = tagEnd + 1;
+    output += " ";
+  }
+
+  return output;
+}
+
+function wordTokens(value) {
+  const tokens = [];
+  let current = "";
+  for (const character of value.toLowerCase()) {
+    const code = character.charCodeAt(0);
+    const isWordCharacter =
+      (code >= 97 && code <= 122) ||
+      (code >= 48 && code <= 57) ||
+      code === 95;
+    if (isWordCharacter) {
+      current += character;
+    } else if (current) {
+      tokens.push(current);
+      current = "";
+    }
+  }
+  if (current) tokens.push(current);
+  return tokens;
+}
+
 if (!(await exists(runtimeRoot))) {
   throw new Error("Public production build is missing.");
 }
@@ -91,6 +164,40 @@ for (const file of htmlFiles) {
   if (html.includes("/_next/image")) {
     throw new Error(`Rendered HTML depends on /_next/image: ${file}`);
   }
+
+  const tokens = wordTokens(renderedText(html));
+  const tokenSet = new Set(tokens);
+  for (const forbiddenWord of ["internal", "advisory", "slug", "localhost"]) {
+    if (tokenSet.has(forbiddenWord)) {
+      throw new Error(`Rendered public copy contains ${forbiddenWord}: ${file}`);
+    }
+  }
+  for (let tokenIndex = 0; tokenIndex < tokens.length - 1; tokenIndex += 1) {
+    if (tokens[tokenIndex] === "amplifyapp" && tokens[tokenIndex + 1] === "com") {
+      throw new Error(`Rendered public copy contains an Amplify default domain: ${file}`);
+    }
+  }
+}
+
+const browserArtifactFiles = files.filter((file) => {
+  const relative = path.relative(runtimeRoot, file).replaceAll("\\", "/");
+  return (relative.startsWith("static/") || file.endsWith(".html"))
+    && /\.(?:js|json|html|txt|map)$/i.test(file);
+});
+const secretSignatures = [
+  ["AWS access key", /\b(?:AKIA|ASIA)[A-Z0-9]{16}\b/],
+  ["OpenAI API key", /\bsk-(?:proj-)?[A-Za-z0-9_-]{20,}\b/],
+  ["GitHub token", /\b(?:gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,})\b/],
+  ["Slack token", /\bxox[baprs]-[A-Za-z0-9-]{20,}\b/],
+  ["private key", /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/],
+];
+for (const file of browserArtifactFiles) {
+  const text = await readFile(file, "utf8");
+  for (const [label, pattern] of secretSignatures) {
+    if (pattern.test(text)) {
+      throw new Error(`Browser-delivered artifact contains a ${label} signature: ${file}`);
+    }
+  }
 }
 
 const manifestEntries = [];
@@ -106,7 +213,7 @@ for (const file of files) {
 manifestEntries.sort((a, b) => a.path.localeCompare(b.path));
 
 const report = {
-  schema: "sozorock.public-runtime-security.v1",
+  schema: "sozorock.public-runtime-security.v2",
   generatedAt: new Date().toISOString(),
   runtimeRoot: "apps/public-site/.next",
   imageMode: "unoptimized",
@@ -115,6 +222,8 @@ const report = {
   libvipsPresent: false,
   nextImageRouteRequiredByRenderedHtml: false,
   runtimeTraceImportsSharp: false,
+  browserSecretSignaturesPresent: false,
+  forbiddenRenderedCopyPresent: false,
   fileCount: manifestEntries.length,
   artifactSha256: createHash("sha256")
     .update(JSON.stringify(manifestEntries))

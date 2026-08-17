@@ -22,11 +22,14 @@ jobs:
        github.event.workflow_run.head_branch == 'main')
     runs-on: ubuntu-latest
     environment: production
+    env:
+      NEXT_TELEMETRY_DISABLED: "1"
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || 'main' }}
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+          persist-credentials: false
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
           node-version: 24
           cache: npm
@@ -45,7 +48,7 @@ jobs:
           npm run verify:public-runtime-security
           npm run build:platform
           npm audit --omit=dev --omit=optional --audit-level=moderate
-      - uses: aws-actions/configure-aws-credentials@7474bc4690e29a8392af63c5b98e7449536d5c3a # v4
+      - uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
         with:
           role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
           aws-region: ${{ vars.AWS_REGION }}
@@ -76,8 +79,34 @@ jobs:
             exit 1
           fi
 
-          aws cloudformation deploy \
-            --stack-name sozorock-health-contact \
+          aws cloudformation validate-template \
+            --template-body file://infrastructure/cloudformation/contact-backend.yml \
+            >/dev/null
+          aws cloudformation validate-template \
+            --template-body file://infrastructure/cloudformation/publication-access.yml \
+            >/dev/null
+
+          print_stack_failures() {
+            local stack_name="$1"
+            aws cloudformation describe-stack-events \
+              --stack-name "$stack_name" \
+              --query "StackEvents[?ResourceStatus=='CREATE_FAILED' || ResourceStatus=='UPDATE_FAILED' || ResourceStatus=='UPDATE_ROLLBACK_FAILED' || ResourceStatus=='ROLLBACK_FAILED'].[Timestamp,LogicalResourceId,ResourceType,ResourceStatus,ResourceStatusReason]" \
+              --output table 2>/dev/null \
+              | sed -E 's/[0-9]{12}/[account]/g' \
+              || true
+          }
+
+          deploy_stack() {
+            local stack_name="$1"
+            shift
+            if ! aws cloudformation deploy --stack-name "$stack_name" "$@"; then
+              echo "CloudFormation deployment failed for $stack_name."
+              print_stack_failures "$stack_name"
+              return 1
+            fi
+          }
+
+          deploy_stack sozorock-health-contact \
             --template-file infrastructure/cloudformation/contact-backend.yml \
             --capabilities CAPABILITY_NAMED_IAM \
             --parameter-overrides \
@@ -86,8 +115,7 @@ jobs:
               ContactEmail="$CONTACT_EMAIL" \
               OpenAISecretArn="$OPENAI_SECRET_ARN"
 
-          aws cloudformation deploy \
-            --stack-name sozorock-health-publication-access \
+          deploy_stack sozorock-health-publication-access \
             --template-file infrastructure/cloudformation/publication-access.yml \
             --capabilities CAPABILITY_NAMED_IAM \
             --parameter-overrides \
@@ -135,9 +163,13 @@ jobs:
           done
 
           origin="${PUBLIC_SITE_URL%/}"
+          if [[ "$origin" != "https://health.sozorockfoundation.org" ]]; then
+            echo "Refusing live security checks against an unexpected production origin."
+            exit 1
+          fi
           publication_slug="health-systems-assurance-volume-1"
           for attempt in $(seq 1 12); do
-            if curl --fail --silent --show-error --max-time 20 "$origin/" >/dev/null; then
+            if curl --proto '=https' --tlsv1.2 --fail --silent --show-error --max-time 20 "$origin/" >/dev/null; then
               break
             fi
             if [[ "$attempt" -eq 12 ]]; then
@@ -148,17 +180,17 @@ jobs:
           done
 
           headers=$(mktemp)
-          curl --silent --show-error --dump-header "$headers" --output /dev/null "$origin/"
+          curl --proto '=https' --tlsv1.2 --silent --show-error --dump-header "$headers" --output /dev/null "$origin/"
           grep -Eqi '^strict-transport-security:[[:space:]]*max-age=' "$headers"
           grep -Eqi "^content-security-policy:.*frame-ancestors[[:space:]]+'none'" "$headers"
           grep -Eqi '^x-content-type-options:[[:space:]]*nosniff' "$headers"
           grep -Eqi '^x-frame-options:[[:space:]]*DENY' "$headers"
 
-          publication_status=$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' \
+          publication_status=$(curl --proto '=https' --tlsv1.2 --silent --show-error --output /dev/null --write-out '%{http_code}' \
             "$origin/publications/$publication_slug")
           test "$publication_status" = "200"
 
-          hostile_status=$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' \
+          hostile_status=$(curl --proto '=https' --tlsv1.2 --silent --show-error --output /dev/null --write-out '%{http_code}' \
             --request POST \
             --header 'Origin: https://attacker.invalid' \
             --header 'X-Forwarded-Host: attacker.invalid' \
@@ -167,7 +199,7 @@ jobs:
             "$origin/api/publications/events")
           test "$hostile_status" = "403"
 
-          same_origin_status=$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' \
+          same_origin_status=$(curl --proto '=https' --tlsv1.2 --silent --show-error --output /dev/null --write-out '%{http_code}' \
             --request POST \
             --header "Origin: $origin" \
             --header 'Content-Type: application/json' \
@@ -176,7 +208,7 @@ jobs:
           test "$same_origin_status" = "204"
 
           verify_headers=$(mktemp)
-          verify_status=$(curl --silent --show-error --dump-header "$verify_headers" --output /dev/null --write-out '%{http_code}' \
+          verify_status=$(curl --proto '=https' --tlsv1.2 --silent --show-error --dump-header "$verify_headers" --output /dev/null --write-out '%{http_code}' \
             "$origin/api/publications/verify")
           test "$verify_status" = "303"
           grep -Eqi '^cache-control:.*no-store' "$verify_headers"
@@ -184,7 +216,7 @@ jobs:
 
           dummy_token=$(printf 'A%.0s' {1..43})
           token_headers=$(mktemp)
-          token_status=$(curl --silent --show-error --dump-header "$token_headers" --output /dev/null --write-out '%{http_code}' \
+          token_status=$(curl --proto '=https' --tlsv1.2 --silent --show-error --dump-header "$token_headers" --output /dev/null --write-out '%{http_code}' \
             "$origin/api/publications/verify?token=$dummy_token")
           test "$token_status" = "303"
           token_location=$(awk 'BEGIN{IGNORECASE=1} /^location:/ {sub(/\r$/, ""); sub(/^location:[[:space:]]*/, ""); print; exit}' "$token_headers")
@@ -200,20 +232,20 @@ jobs:
           grep -Eqi '^set-cookie:.*SameSite=Lax' "$token_headers"
 
           download_headers=$(mktemp)
-          download_status=$(curl --silent --show-error --dump-header "$download_headers" --output /dev/null --write-out '%{http_code}' \
+          download_status=$(curl --proto '=https' --tlsv1.2 --silent --show-error --dump-header "$download_headers" --output /dev/null --write-out '%{http_code}' \
             "$origin/api/publications/download/$publication_slug")
           test "$download_status" = "303"
           grep -Eqi '^cache-control:.*no-store' "$download_headers"
           grep -Eqi '^referrer-policy:[[:space:]]*no-referrer' "$download_headers"
 
           share_headers=$(mktemp)
-          share_status=$(curl --silent --show-error --dump-header "$share_headers" --output /dev/null --write-out '%{http_code}' \
+          share_status=$(curl --proto '=https' --tlsv1.2 --silent --show-error --dump-header "$share_headers" --output /dev/null --write-out '%{http_code}' \
             "$origin/api/evidence/v1/workspace-share?token=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
           test "$share_status" = "404"
           grep -Eqi '^cache-control:.*no-store' "$share_headers"
           grep -Eqi '^referrer-policy:[[:space:]]*no-referrer' "$share_headers"
 
-          voice_status=$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' \
+          voice_status=$(curl --proto '=https' --tlsv1.2 --silent --show-error --output /dev/null --write-out '%{http_code}' \
             --request POST \
             --header 'Origin: https://attacker.invalid' \
             --header 'X-Forwarded-Host: attacker.invalid' \

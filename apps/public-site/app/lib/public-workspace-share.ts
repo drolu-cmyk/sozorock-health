@@ -71,13 +71,48 @@ const PUBLIC_FORBIDDEN_KEYS = new Set([
   "internal", "private", "pending", "rejected", "blocked", "agentPrompt", "executionAuditId",
 ]);
 
+function normalizedPublicHttpsUrl(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const candidate = value.trim();
+  if (!candidate || candidate.length > 800) return null;
+  try {
+    const parsed = new URL(candidate);
+    const hostname = parsed.hostname.toLowerCase();
+    const isIpv4 = /^(?:\d{1,3}\.){3}\d{1,3}$/.test(hostname);
+    const isIpv6 = hostname.includes(":") || hostname.startsWith("[");
+    if (
+      parsed.protocol !== "https:" ||
+      parsed.username ||
+      parsed.password ||
+      (parsed.port && parsed.port !== "443") ||
+      !hostname.includes(".") ||
+      hostname === "localhost" ||
+      hostname.endsWith(".localhost") ||
+      hostname.endsWith(".local") ||
+      isIpv4 ||
+      isIpv6
+    ) {
+      return null;
+    }
+    return candidate;
+  } catch {
+    return null;
+  }
+}
+
 function projectPublicValue(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(projectPublicValue);
   if (!value || typeof value !== "object") return value;
   return Object.fromEntries(
     Object.entries(value as Record<string, unknown>)
       .filter(([key]) => PUBLIC_CONTENT_KEYS.has(key) && !PUBLIC_FORBIDDEN_KEYS.has(key))
-      .map(([key, child]) => [key, projectPublicValue(child)]),
+      .flatMap(([key, child]) => {
+        if (key === "officialUrl" || key === "url") {
+          const safeUrl = normalizedPublicHttpsUrl(child);
+          return safeUrl ? [[key, safeUrl]] : [];
+        }
+        return [[key, projectPublicValue(child)]];
+      }),
   );
 }
 
@@ -89,9 +124,7 @@ function isApprovedPublicSection(content: Record<string, unknown>) {
 function projectCitation(value: unknown): PublicWorkspaceCitation | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
   const item = value as Record<string, unknown>;
-  const officialUrl = typeof item.officialUrl === "string" && /^https:\/\//i.test(item.officialUrl)
-    ? item.officialUrl.slice(0, 800)
-    : null;
+  const officialUrl = normalizedPublicHttpsUrl(item.officialUrl);
   const citationId = typeof item.citationId === "string" ? item.citationId.slice(0, 160) : null;
   if (!officialUrl || !citationId) return null;
   const dataPeriod = item.dataPeriod && typeof item.dataPeriod === "object" && !Array.isArray(item.dataPeriod)

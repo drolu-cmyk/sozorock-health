@@ -3,11 +3,21 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 import manifest from "../app/manifest.ts";
 import robots from "../app/robots.ts";
+import { dashboardOrigin, dashboardUrl } from "../app/site-config.ts";
 import sitemap from "../app/sitemap.ts";
 
-const dashboardUrl = "https://cbcap.sozorockfoundation.org";
+function literalHttpsUrls(source) {
+  return [...source.matchAll(/"https:\/\/[^"\s]+"/g)]
+    .map(([literal]) => literal.slice(1, -1))
+    .map((value) => new URL(value));
+}
 
 test("publishes the custom-domain sitemap and robots policy", () => {
+  assert.equal(dashboardOrigin.protocol, "https:");
+  assert.equal(dashboardOrigin.hostname, "cbcap.sozorockfoundation.org");
+  assert.equal(dashboardOrigin.username, "");
+  assert.equal(dashboardOrigin.password, "");
+  assert.equal(dashboardUrl, "https://cbcap.sozorockfoundation.org");
   assert.deepEqual(sitemap(), [{ url: dashboardUrl, changeFrequency: "monthly", priority: 0.7 }]);
   assert.deepEqual(robots(), {
     rules: { userAgent: "*", allow: "/" },
@@ -34,5 +44,8 @@ test("layout links canonical, legal identity, manifest, icon, and social metadat
   assert.match(source, /url: "\/icon-512\.png"/);
   assert.match(source, /images: \["\/icon-512\.png"\]/);
   assert.match(source, /The SozoRock Foundation, Inc\./);
-  assert.equal(source.includes("amplifyapp.com"), false);
+  for (const candidate of literalHttpsUrls(source)) {
+    assert.notEqual(candidate.hostname, "amplifyapp.com");
+    assert.equal(candidate.hostname.endsWith(".amplifyapp.com"), false);
+  }
 });

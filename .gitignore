@@ -22,11 +22,20 @@ scratch-sharp-override/
 .env
 .env.*
 !.env.example
-
-# Mobile build credentials and local IDE files
-*.keystore
+*.pem
+*.key
 *.p8
+*.p12
+*.pfx
+*.keystore
 *.mobileprovision
+id_rsa
+id_rsa.*
+credentials.json
+service-account*.json
+
+# Local package-manager and IDE state
+.npmrc
 .idea/
 .vscode/
 
