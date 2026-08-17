@@ -113,9 +113,17 @@ export async function POST(request: NextRequest, context: Context) {
       headers: { "Cache-Control": "no-store" },
     });
   } catch (error) {
-    const message = (error as Error).message;
-    return NextResponse.json({ error: message }, {
-      status: /authorized|authenticated|human participant|tenant/i.test(message) ? 403 : 503,
-    });
+    const message = error instanceof Error ? error.message : "";
+    const unauthorized = /authorized|authenticated|human participant|tenant|participant/i.test(message);
+    if (!unauthorized) {
+      console.error("workspace-scenario-failed", { name: error instanceof Error ? error.name : "UnknownError" });
+    }
+    return NextResponse.json(
+      { error: unauthorized ? "You are not authorized to create this planning scenario." : "The planning scenario could not be created." },
+      {
+        status: unauthorized ? 403 : 503,
+        headers: { "Cache-Control": "private, no-store", "Referrer-Policy": "no-referrer" },
+      },
+    );
   }
 }
