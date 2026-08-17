@@ -226,15 +226,27 @@ jobs:
             "$origin/api/publications/events")
           test "$hostile_status" = "403"
 
-          same_origin_status=$(curl --proto '=https' --tlsv1.2 --silent --show-error --output /dev/null --write-out '%{http_code}' \
+          same_origin_headers=$(mktemp)
+          same_origin_body=$(mktemp)
+          same_origin_status=$(curl --proto '=https' --tlsv1.2 --silent --show-error --dump-header "$same_origin_headers" --output "$same_origin_body" --write-out '%{http_code}' \
             --request POST \
             --header "Origin: $origin" \
             --header 'Content-Type: application/json' \
             --data "{\"event\":\"publication_viewed\",\"slug\":\"$publication_slug\"}" \
             "$origin/api/publications/events")
           case "$same_origin_status" in
-            204|429) ;;
-            *) echo "Canonical publication event returned $same_origin_status; expected 204 or a valid 429 rate limit."; exit 1 ;;
+            204)
+              test ! -s "$same_origin_body"
+              ;;
+            429)
+              grep -Eqi '^retry-after:[[:space:]]*3600[[:space:]]*$' "$same_origin_headers"
+              grep -Eqi '^content-type:[[:space:]]*application/json' "$same_origin_headers"
+              jq -e 'type == "object" and .accepted == false and keys == ["accepted"]' "$same_origin_body" >/dev/null
+              ;;
+            *)
+              echo "Canonical publication event returned $same_origin_status; expected 204 or the exact 429 throttle contract."
+              exit 1
+              ;;
           esac
 
           verify_headers=$(mktemp)
@@ -291,7 +303,7 @@ jobs:
             echo "- Production origin: $origin"
             echo "- Publication route: 200"
             echo "- Host/origin spoof rejection: 403"
-            echo "- Canonical publication event: $same_origin_status (204 accepted; 429 is an enforced rate limit)"
+            echo "- Canonical publication event: $same_origin_status (204 accepted; 429 requires the exact throttle header and body contract)"
             echo "- Verification redirect: 303, no-store, no-referrer, verifier in HttpOnly Secure SameSite=Lax cookie"
             echo "- Unauthorized download: 303, no-store, no-referrer"
             echo "- Workspace query capability rejected: 404"
