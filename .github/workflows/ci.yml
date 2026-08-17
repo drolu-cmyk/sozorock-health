@@ -11,7 +11,7 @@ permissions:
 jobs:
   verify:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
@@ -52,6 +52,31 @@ jobs:
       - run: npm run build:public
       - run: npm run verify:public-runtime-security
       - run: npm run build:platform
+      - name: Generate public runtime SBOM
+        run: |
+          set -euo pipefail
+          mkdir -p output/security
+          npm sbom --workspace @sozorock/public-site --omit=dev --omit=optional \
+            --sbom-format cyclonedx > output/security/public-runtime.cdx.json
+      - name: Install pinned Trivy
+        uses: aquasecurity/setup-trivy@81e514348e19b6112ce2a7e3ecbafe19c1e1f567 # v0.3.1
+        with:
+          version: v0.72.0
+          cache: true
+      - name: Scan public runtime SBOM
+        run: |
+          set -euo pipefail
+          trivy sbom --severity HIGH,CRITICAL --exit-code 1 \
+            output/security/public-runtime.cdx.json
+      - name: Upload public release security evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: public-release-security-${{ github.sha }}
+          path: |
+            output/security/public-runtime.cdx.json
+            output/security/public-runtime-security.json
+          if-no-files-found: error
+          retention-days: 30
       - name: Validate Expo mobile configuration
         if: steps.mobile-scope.outputs.changed == 'true'
         run: npm exec --workspace @sozorock/mobile -- expo-doctor
@@ -62,3 +87,14 @@ jobs:
         if: steps.mobile-scope.outputs.changed == 'true'
         run: npm exec --workspace @sozorock/mobile -- expo export --platform ios --output-dir dist/ci-ios
       - run: npm audit --omit=dev --omit=optional --audit-level=moderate
+      - name: Record verification evidence
+        run: |
+          {
+            echo "## Verification evidence"
+            echo "- Commit: $GITHUB_SHA"
+            echo "- Typecheck, lint, unit tests, public build, platform build: passed"
+            echo "- Public runtime security manifest: generated"
+            echo "- CycloneDX runtime SBOM: generated"
+            echo "- Trivy HIGH/CRITICAL SBOM scan: passed"
+            echo "- npm production audit at moderate threshold: passed"
+          } >> "$GITHUB_STEP_SUMMARY"

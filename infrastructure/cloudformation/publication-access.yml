@@ -57,6 +57,9 @@ Resources:
         ServerSideEncryptionConfiguration:
           - ServerSideEncryptionByDefault:
               SSEAlgorithm: AES256
+      OwnershipControls:
+        Rules:
+          - ObjectOwnership: BucketOwnerEnforced
       PublicAccessBlockConfiguration:
         BlockPublicAcls: true
         BlockPublicPolicy: true
@@ -75,6 +78,24 @@ Resources:
           Value: SozoRockHealth
         - Key: DataClass
           Value: ControlledPublication
+
+  PublicationAssetsPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref PublicationAssets
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: DenyInsecureTransport
+            Effect: Deny
+            Principal: '*'
+            Action: s3:*
+            Resource:
+              - !GetAtt PublicationAssets.Arn
+              - !Sub ${PublicationAssets.Arn}/*
+            Condition:
+              Bool:
+                aws:SecureTransport: 'false'
 
   PublicationHashSalt:
     Type: AWS::SecretsManager::Secret
@@ -98,6 +119,7 @@ Resources:
               - dynamodb:GetItem
               - dynamodb:PutItem
               - dynamodb:UpdateItem
+              - dynamodb:TransactWriteItems
             Resource: !GetAtt PublicationAccessTable.Arn
           - Sid: ControlledPublicationRead
             Effect: Allow

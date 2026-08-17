@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import styles from "../explore.module.css";
 
@@ -33,39 +33,67 @@ function readableContent(content: Record<string, unknown>) {
     .join("\n");
 }
 
+function tokenFromLocation() {
+  const hash = window.location.hash.startsWith("#") ? window.location.hash.slice(1) : window.location.hash;
+  const hashParams = new URLSearchParams(hash);
+  const fragmentToken = hashParams.get("token")?.trim() ?? (/^[A-Za-z0-9_-]{43}$/.test(hash) ? hash : "");
+  const legacyQueryToken = new URLSearchParams(window.location.search).get("token")?.trim() ?? "";
+  return fragmentToken || legacyQueryToken;
+}
+
+function cleanAddressBar() {
+  window.history.replaceState(null, "", window.location.pathname);
+}
+
+async function loadSharedPlan() {
+  const response = await fetch("/api/evidence/v1/workspace-share", {
+    cache: "no-store",
+    credentials: "same-origin",
+    referrerPolicy: "no-referrer",
+  });
+  const payload = await response.json() as SharedPlan & { error?: string };
+  if (!response.ok) throw new Error(payload.error ?? "This shared workspace link is no longer available.");
+  return payload;
+}
+
 export function ShareWorkspaceClient() {
   const [result, setResult] = useState<SharedPlan | null>(null);
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [error, setError] = useState("");
-  const token = useMemo(() => {
-    if (typeof window === "undefined") return "";
-    return new URLSearchParams(window.location.search).get("token")?.trim() ?? "";
-  }, []);
 
   useEffect(() => {
-    if (!token) {
-      setError("This shared workspace link is incomplete.");
-      setStatus("error");
-      return;
-    }
     let cancelled = false;
-    void fetch(`/api/evidence/v1/workspace-share?token=${encodeURIComponent(token)}`, { cache: "no-store" })
-      .then(async (response) => {
-        const payload = await response.json() as SharedPlan & { error?: string };
-        if (!response.ok) throw new Error(payload.error ?? "This shared workspace link is no longer available.");
+    const run = async () => {
+      try {
+        const token = tokenFromLocation();
+        if (token) {
+          cleanAddressBar();
+          const claim = await fetch("/api/evidence/v1/workspace-share", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ token }),
+            cache: "no-store",
+            credentials: "same-origin",
+            referrerPolicy: "no-referrer",
+          });
+          const claimPayload = await claim.json() as { error?: string };
+          if (!claim.ok) throw new Error(claimPayload.error ?? "This shared workspace link is no longer available.");
+        }
+        const payload = await loadSharedPlan();
         if (!cancelled) {
           setResult(payload);
           setStatus("ready");
         }
-      })
-      .catch((nextError) => {
+      } catch (nextError) {
         if (!cancelled) {
           setError((nextError as Error).message);
           setStatus("error");
         }
-      });
+      }
+    };
+    void run();
     return () => { cancelled = true; };
-  }, [token]);
+  }, []);
 
   if (status === "loading") return <main className={styles.workspace}><div className={styles.shareCard}><p>Loading the shared county plan…</p></div></main>;
   if (status === "error" || !result) return <main className={styles.workspace}><div className={styles.shareCard}><span>Shared plan</span><h1>This link is unavailable.</h1><p>{error}</p><Link className={styles.planReviewCta} href="/explore">Return to Place Intelligence</Link></div></main>;

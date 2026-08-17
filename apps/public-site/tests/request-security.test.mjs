@@ -43,6 +43,36 @@ test("requires an exact HTTPS origin matching the trusted public host", () => {
   assert.equal(isTrustedSameOrigin(insecure), false);
 });
 
+test("pins production origin authorization to configured public hosts, not Host headers", () => {
+  const previousNodeEnv = process.env.NODE_ENV;
+  const previousPublicSiteUrl = process.env.PUBLIC_SITE_URL;
+  process.env.NODE_ENV = "production";
+  process.env.PUBLIC_SITE_URL = "https://health.sozorockfoundation.org";
+  try {
+    const hostile = new Request("https://internal.compute.example/api/contact", {
+      headers: {
+        origin: "https://attacker.example",
+        host: "attacker.example",
+        "x-forwarded-host": "attacker.example",
+      },
+    });
+    const canonical = new Request("https://internal.compute.example/api/contact", {
+      headers: {
+        origin: "https://health.sozorockfoundation.org",
+        host: "attacker.example",
+        "x-forwarded-host": "attacker.example",
+      },
+    });
+    assert.equal(isTrustedSameOrigin(hostile), false);
+    assert.equal(isTrustedSameOrigin(canonical), true);
+  } finally {
+    if (previousNodeEnv === undefined) delete process.env.NODE_ENV;
+    else process.env.NODE_ENV = previousNodeEnv;
+    if (previousPublicSiteUrl === undefined) delete process.env.PUBLIC_SITE_URL;
+    else process.env.PUBLIC_SITE_URL = previousPublicSiteUrl;
+  }
+});
+
 test("allows an exact configured host and local HTTP development only", () => {
   const configured = new Request("https://internal.compute.example/api/contact", {
     headers: { origin: "https://www.health.sozorockfoundation.org" },

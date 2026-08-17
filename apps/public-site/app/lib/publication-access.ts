@@ -1,7 +1,7 @@
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
-import { DynamoDBDocumentClient, GetCommand, PutCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
-import { S3Client, GetObjectCommand } from "@aws-sdk/client-s3";
+import { DynamoDBDocumentClient, GetCommand, PutCommand, TransactWriteCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
+import { S3Client, GetObjectCommand, HeadObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { SESv2Client, SendEmailCommand } from "@aws-sdk/client-sesv2";
 import { GetSecretValueCommand, SecretsManagerClient } from "@aws-sdk/client-secrets-manager";
@@ -9,7 +9,7 @@ import type { NextRequest } from "next/server";
 import { getPublication } from "./publications";
 import type { AccessInput } from "./publication-validation";
 import type { AccessEvent } from "./publication-events";
-import { clientNetworkAddress, isTrustedSameOrigin } from "./request-security";
+import { clientNetworkAddress, isTrustedSameOrigin, publicSiteUrl } from "./request-security";
 
 export type { AccessEvent } from "./publication-events";
 
@@ -19,7 +19,6 @@ const bucketName = process.env.PUBLICATION_ASSET_BUCKET;
 const emailFrom = process.env.PUBLICATION_EMAIL_FROM;
 const hashSalt = process.env.PUBLICATION_HASH_SALT;
 const hashSaltSecretArn = process.env.PUBLICATION_HASH_SALT_SECRET_ARN;
-const publicUrl = process.env.PUBLIC_SITE_URL ?? "https://health.sozorockfoundation.org";
 const configuredHosts = (process.env.PUBLICATION_ALLOWED_HOSTS ?? "").split(";").map((host) => host.trim()).filter(Boolean);
 const dynamo = DynamoDBDocumentClient.from(new DynamoDBClient({ region }), { marshallOptions: { removeUndefinedValues: true } });
 const ses = new SESv2Client({ region });
@@ -28,9 +27,10 @@ const secrets = new SecretsManagerClient({ region });
 let resolvedSalt: Promise<string> | undefined;
 
 const REQUEST_RETENTION_SECONDS = 180 * 24 * 60 * 60;
-const VERIFY_SECONDS = 30 * 60;
-const SESSION_SECONDS = 12 * 60 * 60;
+export const VERIFY_SECONDS = 30 * 60;
+export const SESSION_SECONDS = 12 * 60 * 60;
 const MAX_REQUESTS_PER_HOUR = 4;
+const VERIFICATION_TOKEN_PATTERN = /^[A-Za-z0-9_-]{43}$/;
 
 export function sameOrigin(request: NextRequest) {
   return isTrustedSameOrigin(request, configuredHosts);
@@ -107,29 +107,47 @@ export async function createAccessRequest(slug: string, input: AccessInput) {
   const verifyToken = randomBytes(32).toString("base64url");
   const verifyHash = await hash(verifyToken);
   const requestKey = await hash(`${input.email}:${canonicalSlug}`);
-  await Promise.all([
-    dynamo.send(new PutCommand({ TableName: tableName, Item: {
-      pk: `REQUEST#${requestKey}`, sk: "META", recordType: "publication-request", requestId, publicationSlug: canonicalSlug,
-      firstName: input.firstName, lastName: input.lastName, email: input.email, emailHash, organization: input.organization,
-      sector: input.sector, cityOrRegion: input.cityOrRegion, state: input.state, country: input.country, reason: input.reason,
-      deliveryConsent: true, deliveryConsentedAt: now.toISOString(), updatesConsent: input.updatesConsent,
-      updatesConsentedAt: input.updatesConsent ? now.toISOString() : undefined, status: "pending-verification",
-      createdAt: now.toISOString(), updatedAt: now.toISOString(), expiresAt: epoch + REQUEST_RETENTION_SECONDS,
-    } })),
-    dynamo.send(new PutCommand({ TableName: tableName, Item: {
-      pk: `VERIFY#${verifyHash}`, sk: "TOKEN", recordType: "verification-token", requestId, requestKey,
-      publicationSlug: canonicalSlug, emailHash, createdAt: now.toISOString(), expiresAt: epoch + VERIFY_SECONDS,
-    }, ConditionExpression: "attribute_not_exists(pk)" })),
-  ]);
-  const verifyUrl = `${publicUrl}/publications/verify?token=${encodeURIComponent(verifyToken)}`;
+
+  await dynamo.send(new TransactWriteCommand({
+    TransactItems: [
+      {
+        Put: {
+          TableName: tableName,
+          Item: {
+            pk: `REQUEST#${requestKey}`, sk: "META", recordType: "publication-request", requestId, publicationSlug: canonicalSlug,
+            firstName: input.firstName, lastName: input.lastName, email: input.email, emailHash, organization: input.organization,
+            sector: input.sector, cityOrRegion: input.cityOrRegion, state: input.state, country: input.country, reason: input.reason,
+            deliveryConsent: true, deliveryConsentedAt: now.toISOString(), updatesConsent: input.updatesConsent,
+            updatesConsentedAt: input.updatesConsent ? now.toISOString() : undefined, status: "pending-verification",
+            createdAt: now.toISOString(), updatedAt: now.toISOString(), expiresAt: epoch + REQUEST_RETENTION_SECONDS,
+          },
+        },
+      },
+      {
+        Put: {
+          TableName: tableName,
+          Item: {
+            pk: `VERIFY#${verifyHash}`, sk: "TOKEN", recordType: "verification-token", requestId, requestKey,
+            publicationSlug: canonicalSlug, emailHash, createdAt: now.toISOString(), expiresAt: epoch + VERIFY_SECONDS,
+          },
+          ConditionExpression: "attribute_not_exists(pk)",
+        },
+      },
+    ],
+  }));
+
+  const verifyUrl = publicSiteUrl(`/api/publications/verify?token=${encodeURIComponent(verifyToken)}`).toString();
   await ses.send(new SendEmailCommand({ FromEmailAddress: emailFrom, Destination: { ToAddresses: [input.email] }, Content: { Simple: {
     Subject: { Data: `Confirm access to ${publication.shortTitle}` },
     Body: {
       Text: { Data: `Hello ${input.firstName},\n\nConfirm your email to access ${publication.title}:\n${verifyUrl}\n\nThis link expires in 30 minutes. You did not subscribe to updates unless you selected that separate option.\n\nSozoRock Health\nAn initiative of The SozoRock Foundation, Inc.` },
-      Html: { Data: `<p>Hello ${escapeHtml(input.firstName)},</p><p>Confirm your email to access <strong>${escapeHtml(publication.title)}</strong>.</p><p><a href="${verifyUrl}">Confirm email and access publication</a></p><p>This link expires in 30 minutes. You did not subscribe to updates unless you selected that separate option.</p><p>SozoRock Health<br>An initiative of The SozoRock Foundation, Inc.</p>` },
+      Html: { Data: `<p>Hello ${escapeHtml(input.firstName)},</p><p>Confirm your email to access <strong>${escapeHtml(publication.title)}</strong>.</p><p><a href="${escapeHtml(verifyUrl)}">Confirm email and access publication</a></p><p>This link expires in 30 minutes. You did not subscribe to updates unless you selected that separate option.</p><p>SozoRock Health<br>An initiative of The SozoRock Foundation, Inc.</p>` },
     },
   } } }));
-  await Promise.all([recordEvent("access_form_completed", canonicalSlug, requestId), recordEvent("verification_sent", canonicalSlug, requestId)]);
+  await Promise.all([
+    recordEvent("access_form_completed", canonicalSlug, requestId).catch(() => undefined),
+    recordEvent("verification_sent", canonicalSlug, requestId).catch(() => undefined),
+  ]);
   return requestId;
 }
 
@@ -138,29 +156,86 @@ function escapeHtml(value: string) {
 }
 
 export async function verifyAccessToken(token: string) {
+  if (!VERIFICATION_TOKEN_PATTERN.test(token)) return null;
   const { tableName } = requireConfig();
   const tokenKey = { pk: `VERIFY#${await hash(token)}`, sk: "TOKEN" };
   const result = await dynamo.send(new GetCommand({ TableName: tableName, Key: tokenKey, ConsistentRead: true }));
   const item = result.Item;
   const epoch = Math.floor(Date.now() / 1000);
   if (!item || Number(item.expiresAt) < epoch || item.consumedAt) return null;
+
+  const requestKey = { pk: `REQUEST#${String(item.requestKey)}`, sk: "META" };
+  const requestResult = await dynamo.send(new GetCommand({ TableName: tableName, Key: requestKey, ConsistentRead: true }));
+  const requestItem = requestResult.Item;
+  if (
+    !requestItem ||
+    String(requestItem.requestId) !== String(item.requestId) ||
+    String(requestItem.publicationSlug) !== String(item.publicationSlug) ||
+    String(requestItem.emailHash) !== String(item.emailHash)
+  ) return null;
+
   const sessionToken = randomBytes(32).toString("base64url");
   const sessionHash = await hash(sessionToken);
   const now = new Date().toISOString();
   const publicationSlug = getPublication(String(item.publicationSlug))?.slug ?? String(item.publicationSlug);
-  await dynamo.send(new UpdateCommand({ TableName: tableName, Key: tokenKey, UpdateExpression: "SET consumedAt = :now", ConditionExpression: "attribute_not_exists(consumedAt) AND expiresAt >= :epoch", ExpressionAttributeValues: { ":now": now, ":epoch": epoch } }));
-  await Promise.all([
-    dynamo.send(new UpdateCommand({ TableName: tableName, Key: { pk: `REQUEST#${item.requestKey}`, sk: "META" }, UpdateExpression: "SET #status = :verified, emailVerifiedAt = :now, updatedAt = :now", ExpressionAttributeNames: { "#status": "status" }, ExpressionAttributeValues: { ":verified": "verified", ":now": now } })),
-    dynamo.send(new PutCommand({ TableName: tableName, Item: { pk: `SESSION#${sessionHash}`, sk: `ACCESS#${publicationSlug}`, recordType: "publication-session", requestId: item.requestId, publicationSlug, emailHash: item.emailHash, createdAt: now, expiresAt: epoch + SESSION_SECONDS } })),
-  ]);
-  await recordEvent("email_verified", publicationSlug, String(item.requestId));
+
+  try {
+    await dynamo.send(new TransactWriteCommand({
+      TransactItems: [
+        {
+          Update: {
+            TableName: tableName,
+            Key: tokenKey,
+            UpdateExpression: "SET consumedAt = :now",
+            ConditionExpression: "attribute_not_exists(consumedAt) AND expiresAt >= :epoch",
+            ExpressionAttributeValues: { ":now": now, ":epoch": epoch },
+          },
+        },
+        {
+          Update: {
+            TableName: tableName,
+            Key: requestKey,
+            UpdateExpression: "SET #status = :verified, emailVerifiedAt = :now, updatedAt = :now",
+            ConditionExpression: "requestId = :requestId AND publicationSlug = :slug AND emailHash = :emailHash",
+            ExpressionAttributeNames: { "#status": "status" },
+            ExpressionAttributeValues: {
+              ":verified": "verified",
+              ":now": now,
+              ":requestId": item.requestId,
+              ":slug": item.publicationSlug,
+              ":emailHash": item.emailHash,
+            },
+          },
+        },
+        {
+          Put: {
+            TableName: tableName,
+            Item: {
+              pk: `SESSION#${sessionHash}`, sk: `ACCESS#${publicationSlug}`, recordType: "publication-session",
+              requestId: item.requestId, publicationSlug, emailHash: item.emailHash, createdAt: now,
+              expiresAt: epoch + SESSION_SECONDS,
+            },
+            ConditionExpression: "attribute_not_exists(pk)",
+          },
+        },
+      ],
+    }));
+  } catch (error) {
+    if ((error as { name?: string }).name === "TransactionCanceledException") {
+      const latest = await dynamo.send(new GetCommand({ TableName: tableName, Key: tokenKey, ConsistentRead: true }));
+      if (!latest.Item || latest.Item.consumedAt || Number(latest.Item.expiresAt) < Math.floor(Date.now() / 1000)) return null;
+    }
+    throw error;
+  }
+
+  await recordEvent("email_verified", publicationSlug, String(item.requestId)).catch(() => undefined);
   return { sessionToken, slug: publicationSlug };
 }
 
-export async function createDownloadUrl(sessionToken: string, slug: string) {
+export async function validatePublicationSession(sessionToken: string, slug: string) {
   const publication = getPublication(slug);
-  if (!publication?.assetKey) return null;
-  const { tableName, bucketName } = requireConfig();
+  if (!publication?.assetKey || !sessionToken) return null;
+  const { tableName } = requireConfig();
   const canonicalSlug = publication.slug;
   const sessionHash = await hash(sessionToken);
   const acceptedSlugs = [canonicalSlug, slug, ...(publication.legacySlugs ?? [])]
@@ -170,9 +245,25 @@ export async function createDownloadUrl(sessionToken: string, slug: string) {
       dynamo.send(new GetCommand({ TableName: tableName, Key: { pk: `SESSION#${sessionHash}`, sk: `ACCESS#${acceptedSlug}` }, ConsistentRead: true })),
     ),
   );
-  const session = sessions.find((result) => result.Item);
-  if (!session?.Item || Number(session.Item.expiresAt) < Math.floor(Date.now() / 1000)) return null;
-  const url = await getSignedUrl(s3, new GetObjectCommand({ Bucket: bucketName, Key: publication.assetKey, ResponseContentDisposition: `attachment; filename="${publication.assetKey}"`, ResponseContentType: "application/pdf" }), { expiresIn: 300 });
-  await recordEvent("download_link_issued", canonicalSlug, String(session.Item.requestId));
+  const session = sessions.find((candidate) => candidate.Item)?.Item;
+  if (!session || Number(session.expiresAt) < Math.floor(Date.now() / 1000)) return null;
+  return { requestId: String(session.requestId), slug: canonicalSlug };
+}
+
+export async function createDownloadUrl(sessionToken: string, slug: string) {
+  const publication = getPublication(slug);
+  if (!publication?.assetKey) return null;
+  const { bucketName } = requireConfig();
+  const session = await validatePublicationSession(sessionToken, publication.slug);
+  if (!session) return null;
+
+  await s3.send(new HeadObjectCommand({ Bucket: bucketName, Key: publication.assetKey }));
+  const url = await getSignedUrl(s3, new GetObjectCommand({
+    Bucket: bucketName,
+    Key: publication.assetKey,
+    ResponseContentDisposition: `attachment; filename="${publication.assetKey}"`,
+    ResponseContentType: "application/pdf",
+  }), { expiresIn: 300 });
+  await recordEvent("download_link_issued", publication.slug, session.requestId).catch(() => undefined);
   return url;
 }

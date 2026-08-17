@@ -5,6 +5,7 @@ export const metadata: Metadata = {
   title: "Shared county plan | SozoRock Place Intelligence",
   description: "A read-only, evidence-linked county planning workspace shared through SozoRock Place Intelligence.",
   robots: { index: false, follow: false },
+  referrer: "no-referrer",
 };
 
 export default function SharedWorkspacePage() {

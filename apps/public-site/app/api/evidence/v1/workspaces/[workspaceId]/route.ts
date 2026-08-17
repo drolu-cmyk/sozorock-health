@@ -25,6 +25,17 @@ export async function GET(request: NextRequest, context: Context) {
       headers: { "Cache-Control": "no-store" },
     });
   } catch (error) {
-    return NextResponse.json({ error: (error as Error).message }, { status: 403 });
+    const message = error instanceof Error ? error.message : "";
+    const unauthorized = /authorized|authenticated|tenant|participant/i.test(message);
+    console.error("workspace-plan-read-failed", {
+      name: error instanceof Error ? error.name : "UnknownError",
+    });
+    return NextResponse.json(
+      { error: unauthorized ? "You are not authorized to access this workspace." : "The workspace could not be loaded." },
+      {
+        status: unauthorized ? 403 : 503,
+        headers: { "Cache-Control": "private, no-store", "Referrer-Policy": "no-referrer" },
+      },
+    );
   }
 }

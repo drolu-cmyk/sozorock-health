@@ -16,7 +16,7 @@ export async function POST(request: NextRequest, context: Context) {
     const actor = await requireWorkspaceActor(request);
     const { workspaceId } = await context.params;
     if (!/^[0-9a-f-]{36}$/i.test(workspaceId)) return NextResponse.json({ error: "Workspace identifier is invalid." }, { status: 400 });
-    // A bearer handoff token never grants workspace access by itself.  The
+    // A bearer handoff token never grants workspace access by itself. The
     // accepting identity must already be an active participant in the same
     // tenant and workspace before a realtime session is minted.
     await requireWorkspaceMembership({ workspaceId, tenantId: actor.tenantId, actor });
@@ -28,7 +28,17 @@ export async function POST(request: NextRequest, context: Context) {
     const session = await acceptRealtimeHandoff({ token, workspaceId, tenantId: actor.tenantId, actor });
     return NextResponse.json({ contractVersion: "explore.realtime-handoff-accept.v1", session }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
-    const message = (error as Error).message;
-    return NextResponse.json({ error: message }, { status: /authorized|authenticated|tenant|workspace/i.test(message) ? 403 : 503 });
+    const message = error instanceof Error ? error.message : "";
+    const unauthorized = /authorized|authenticated|tenant|participant|workspace/i.test(message);
+    if (!unauthorized) {
+      console.error("workspace-realtime-handoff-accept-failed", { name: error instanceof Error ? error.name : "UnknownError" });
+    }
+    return NextResponse.json(
+      { error: unauthorized ? "You are not authorized to accept this realtime handoff." : "The realtime handoff could not be accepted." },
+      {
+        status: unauthorized ? 403 : 503,
+        headers: { "Cache-Control": "private, no-store", "Referrer-Policy": "no-referrer" },
+      },
+    );
   }
 }

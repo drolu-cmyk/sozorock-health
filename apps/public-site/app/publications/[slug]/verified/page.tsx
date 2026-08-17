@@ -4,12 +4,14 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { PublicationEvent } from "../../../components/PublicationEvent";
 import { LogoLockup } from "../../../components/LogoLockup";
+import { validatePublicationSession } from "../../../lib/publication-access";
 import { getPublication } from "../../../lib/publications";
 import styles from "../../publications.module.css";
 
 export const metadata: Metadata = {
   title: "Publication ready",
   robots: { index: false, follow: false },
+  referrer: "no-referrer",
 };
 
 export default async function VerifiedPage({
@@ -19,9 +21,20 @@ export default async function VerifiedPage({
 }) {
   const publication = getPublication((await params).slug);
   if (!publication?.assetKey) notFound();
+
   const publicationCookies = await cookies();
-  if (!publicationCookies.has("__Host-srh_publication_access") && !publicationCookies.has("srh_publication_access"))
+  const production = process.env.NODE_ENV === "production";
+  const session = publicationCookies.get(
+    production ? "__Host-srh_publication_access" : "srh_publication_access",
+  )?.value;
+
+  if (!session)
     redirect(`/publications/${publication.slug}/access?session=required`);
+
+  const validated = await validatePublicationSession(session, publication.slug);
+  if (!validated)
+    redirect(`/publications/${publication.slug}/access?session=expired`);
+
   return (
     <div className={styles.page}>
       <PublicationEvent event="publication_opened" slug={publication.slug} />
@@ -36,9 +49,8 @@ export default async function VerifiedPage({
           <p className={styles.status}>Email verified</p>
           <h1>{publication.shortTitle} is ready.</h1>
           <p>
-            Your secure download link will be created when you select the
-            button. It expires after five minutes. The PDF is delivered from
-            the Foundation&apos;s private publication store, not Google Drive.
+            Your verified access session is ready. Select the button below to
+            create a download link. The link expires after five minutes.
           </p>
           <a
             className={styles.primary}

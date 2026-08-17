@@ -9,6 +9,14 @@ const verifyRoute = readFileSync(
   new URL("../app/api/publications/verify/route.ts", import.meta.url),
   "utf8",
 );
+const verifyPage = readFileSync(
+  new URL("../app/publications/verify/page.tsx", import.meta.url),
+  "utf8",
+);
+const verifiedPage = readFileSync(
+  new URL("../app/publications/[slug]/verified/page.tsx", import.meta.url),
+  "utf8",
+);
 const downloadRoute = readFileSync(
   new URL("../app/api/publications/download/[slug]/route.ts", import.meta.url),
   "utf8",
@@ -61,8 +69,7 @@ test("maps every local publication redirect to the public origin and status", ()
   const previous = process.env.PUBLIC_SITE_URL;
   process.env.PUBLIC_SITE_URL = canonicalOrigin;
   const cases = [
-    [publicationRedirects.beginVerification(""), "/publications?verification=missing", 307],
-    [publicationRedirects.beginVerification("token/value"), "/publications/verify?token=token%2Fvalue", 307],
+    [publicationRedirects.beginVerification(), "/publications/verify", 303],
     [publicationRedirects.missingVerification(), "/publications?verification=missing", 303],
     [publicationRedirects.expiredVerification(), "/publications?verification=expired", 303],
     [publicationRedirects.completedVerification("publication/slug"), "/publications/publication%2Fslug/verified", 303],
@@ -82,22 +89,36 @@ test("maps every local publication redirect to the public origin and status", ()
   }
 });
 
-test("proxy localhost and signed-download redirect regressions stay closed", () => {
+test("verification bearer is moved to an HttpOnly cookie before rendering", () => {
+  assert.match(verifyRoute, /__Host-srh_publication_verify/);
+  assert.match(verifyRoute, /httpOnly: true/);
+  assert.match(verifyRoute, /sameSite: "lax"/);
+  assert.match(verifyRoute, /publicationRedirects\.beginVerification\(\)/);
+  assert.match(verifyRoute, /Cache-Control", "private, no-store"/);
+  assert.match(verifyRoute, /Referrer-Policy", "no-referrer"/);
+  assert.doesNotMatch(verifyRoute, /readBoundedText/);
+  assert.doesNotMatch(verifyRoute, /URLSearchParams/);
+  assert.doesNotMatch(verifyPage, /type="hidden"\s+name="token"/);
+  assert.doesNotMatch(verifyPage, /value=\{token\}/);
+  assert.match(verifyPage, /redirect\(`\/api\/publications\/verify\?token=/);
+});
+
+test("verified and download routes enforce the session boundary", () => {
+  assert.match(verifiedPage, /validatePublicationSession\(session, publication\.slug\)/);
+  assert.doesNotMatch(verifiedPage, /not Google Drive/i);
+  assert.match(downloadRoute, /request\.cookies\.get\(accessCookieName\(\)\)/);
+  assert.match(downloadRoute, /Cache-Control", "private, no-store"/);
+  assert.match(downloadRoute, /Referrer-Policy", "no-referrer"/);
+  assert.match(downloadRoute, /NextResponse\.redirect\(url, 307\)/);
+});
+
+test("proxy localhost redirect regressions stay closed", () => {
   const proxyRequestUrl = new URL(
     "https://localhost:3000/api/publications/verify?token=test-token",
   );
-  const redirect = publicSiteUrl(
-    "/publications/verify?token=test-token",
-    canonicalOrigin,
-  );
+  const redirect = publicSiteUrl("/publications/verify", canonicalOrigin);
   assert.notEqual(redirect.origin, proxyRequestUrl.origin);
-  assert.equal(
-    redirect.href,
-    `${canonicalOrigin}/publications/verify?token=test-token`,
-  );
+  assert.equal(redirect.href, `${canonicalOrigin}/publications/verify`);
   assert.doesNotMatch(verifyRoute, /new URL\([^\n]*request\.url/);
   assert.doesNotMatch(downloadRoute, /new URL\([^\n]*request\.url/);
-  assert.match(verifyRoute, /publicationRedirects\.beginVerification\(token\)/);
-  assert.match(downloadRoute, /publicationRedirects\.sessionRequired\(publication\.slug\)/);
-  assert.match(downloadRoute, /return NextResponse\.redirect\(url\);/);
 });

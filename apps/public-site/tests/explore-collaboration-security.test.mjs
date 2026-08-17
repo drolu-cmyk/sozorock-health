@@ -9,6 +9,27 @@ const eventRoute = await readFile(
   new URL("../app/api/evidence/v1/workspaces/[workspaceId]/events/route.ts", import.meta.url),
   "utf8",
 );
+const workspaceRoutePaths = [
+  "../app/api/evidence/v1/workspaces/[workspaceId]/route.ts",
+  "../app/api/evidence/v1/workspaces/[workspaceId]/events/route.ts",
+  "../app/api/evidence/v1/workspaces/[workspaceId]/fork/route.ts",
+  "../app/api/evidence/v1/workspaces/[workspaceId]/handoff/route.ts",
+  "../app/api/evidence/v1/workspaces/[workspaceId]/invitations/route.ts",
+  "../app/api/evidence/v1/workspaces/[workspaceId]/realtime-session/route.ts",
+  "../app/api/evidence/v1/workspaces/[workspaceId]/realtime-session/handoff/route.ts",
+  "../app/api/evidence/v1/workspaces/[workspaceId]/realtime-session/handoff/accept/route.ts",
+  "../app/api/evidence/v1/workspaces/[workspaceId]/scenarios/route.ts",
+  "../app/api/evidence/v1/workspaces/[workspaceId]/sections/[sectionKey]/route.ts",
+  "../app/api/evidence/v1/workspaces/[workspaceId]/share/route.ts",
+];
+const workspaceRoutes = await Promise.all(
+  workspaceRoutePaths.map((path) => readFile(new URL(path, import.meta.url), "utf8")),
+);
+const workspaceShareCreateRoute = workspaceRoutes.at(-1);
+const shareClient = await readFile(
+  new URL("../app/explore/share/ShareWorkspaceClient.tsx", import.meta.url),
+  "utf8",
+);
 const infrastructure = await readFile(
   new URL("../../../infrastructure/cloudformation/explore-collaboration.yml", import.meta.url),
   "utf8",
@@ -112,6 +133,26 @@ test("workspace event route enforces same-origin, authentication and human-only 
   assert.doesNotMatch(telemetryRoute, /body\.environment/);
 });
 
+test("workspace share capabilities leave the URL before server reads", () => {
+  assert.ok(workspaceShareCreateRoute);
+  assert.match(workspaceShareCreateRoute, /\/explore\/share#token=/);
+  assert.match(workspaceShareCreateRoute, /const \{ token, \.\.\.publicShare \} = share/);
+  assert.doesNotMatch(workspaceShareCreateRoute, /share:\s*share\b/);
+  assert.match(shareClient, /window\.location\.hash/);
+  assert.match(shareClient, /window\.history\.replaceState/);
+  assert.match(shareRoute, /httpOnly:\s*true/);
+  assert.match(shareRoute, /sameSite:\s*"lax"/);
+  assert.match(shareRoute, /Referrer-Policy/);
+  assert.doesNotMatch(shareRoute, /nextUrl\.searchParams/);
+});
+
+test("workspace APIs do not return raw caught error messages", () => {
+  for (const route of workspaceRoutes) {
+    assert.doesNotMatch(route, /\{\s*error:\s*\(error as Error\)\.message\s*\}/);
+    assert.doesNotMatch(route, /\{\s*error:\s*message\s*\}/);
+  }
+});
+
 test("collaboration records that carry history are immutable", () => {
   for (const trigger of [
     "workspace_event_append_only",
@@ -130,8 +171,8 @@ test("collaboration records that carry history are immutable", () => {
     assert.match(advancedMigration, new RegExp(trigger));
   }
   assert.match(advancedMigration, /workspace_share_link/);
-  assert.match(advancedMigration, /workspace_handoff/);
   assert.match(advancedMigration, /explore_onboarding_request/);
+  assert.match(advancedMigration, /workspace_handoff/);
 });
 
 test("public review questions require an explicit public flag", () => {
