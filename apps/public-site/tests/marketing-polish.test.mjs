@@ -57,9 +57,9 @@ test("the approved marketing homepage and publication access remain locked toget
   assert.doesNotMatch(homepage, /Nonprofit health-equity systems infrastructure/);
   assert.match(homepage, /appointment-distance\.webp/);
   assert.match(homepage, /history\.replaceState/);
-  assert.match(homepage, /instagram\.com\/srockfoundation/);
+  assert.equal(homepage.includes("instagram.com/srockfoundation"), true);
   assert.match(homepage, /youtube\.com\/@srockfoundation/);
-  assert.match(homepage, /x\.com\/srockfoundation/);
+  assert.equal(homepage.includes("x.com/srockfoundation"), true);
   assert.match(locationSearch, /replace\(\/\^ZIP\\s\+\/i, ""\)/);
   assert.match(locationSearch, /selected\?\.display === query/);
   assert.match(locationSearch, /place-result/);

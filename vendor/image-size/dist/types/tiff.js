@@ -8,18 +8,28 @@ const utils_1 = require("./utils");
 // Read IFD (image-file-directory) into a buffer
 function readIFD(input, filepath, isBigEndian) {
     const ifdOffset = (0, utils_1.readUInt)(input, 32, 4, isBigEndian);
-    // read only till the end of the file
-    let bufferSize = 1024;
-    const fileSize = fs.statSync(filepath).size;
-    if (ifdOffset + bufferSize > fileSize) {
-        bufferSize = fileSize - ifdOffset - 10;
-    }
-    // populate the buffer
-    const endBuffer = new Uint8Array(bufferSize);
+    // Open first, then inspect and read the same descriptor. This avoids a
+    // stat/open time-of-check/time-of-use race if the path changes.
     const descriptor = fs.openSync(filepath, 'r');
-    fs.readSync(descriptor, endBuffer, 0, bufferSize, ifdOffset);
-    fs.closeSync(descriptor);
-    return endBuffer.slice(2);
+    try {
+        const fileSize = fs.fstatSync(descriptor).size;
+        if (!Number.isSafeInteger(ifdOffset) || ifdOffset < 0 || ifdOffset > fileSize - 2) {
+            throw new TypeError('Invalid Tiff. IFD offset is outside the file');
+        }
+        const bufferSize = Math.min(1024, fileSize - ifdOffset);
+        if (bufferSize < 2) {
+            throw new TypeError('Invalid Tiff. IFD is truncated');
+        }
+        const endBuffer = new Uint8Array(bufferSize);
+        const bytesRead = fs.readSync(descriptor, endBuffer, 0, bufferSize, ifdOffset);
+        if (bytesRead < 2) {
+            throw new TypeError('Invalid Tiff. IFD is truncated');
+        }
+        return endBuffer.slice(2, bytesRead);
+    }
+    finally {
+        fs.closeSync(descriptor);
+    }
 }
 // TIFF values seem to be messed up on Big-Endian, this helps
 function readValue(input, isBigEndian) {

@@ -34,5 +34,5 @@ test("layout links canonical, legal identity, manifest, icon, and social metadat
   assert.match(source, /url: "\/icon-512\.png"/);
   assert.match(source, /images: \["\/icon-512\.png"\]/);
   assert.match(source, /The SozoRock Foundation, Inc\./);
-  assert.doesNotMatch(source, /amplifyapp\.com/);
+  assert.equal(source.includes("amplifyapp.com"), false);
 });
