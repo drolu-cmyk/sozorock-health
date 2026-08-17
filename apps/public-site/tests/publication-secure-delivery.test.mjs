@@ -54,8 +54,8 @@ test("publication access state changes are atomic and supported by least privile
 });
 
 test("verification email enters through the server handoff route", () => {
-  assert.match(accessSource, /\/api\/publications\/verify\?token=/);
-  assert.doesNotMatch(accessSource, /\/publications\/verify\?token=/);
+  assert.match(accessSource, /publicSiteUrl\(`\/api\/publications\/verify\?token=/);
+  assert.doesNotMatch(accessSource, /publicSiteUrl\(`\/publications\/verify\?token=/);
   assert.match(accessSource, /This link expires in 30 minutes/);
 });
 
