@@ -76,6 +76,9 @@ test("the approved marketing homepage and publication access remain locked toget
   assert.doesNotMatch(locationRoute, /queryPointLayer/);
   assert.match(contactForm, /CB-CAP inquiry/);
   assert.match(contactForm, /Media inquiry/);
+  assert.match(contactForm, /Professional skills support/);
+  assert.match(contactForm, /Clinical education support/);
+  assert.doesNotMatch(contactForm, /\badvisory\b/i);
   assert.match(publicationSection, /publication\.cover/);
   assert.match(publicationSection, /href=\{`\/publications\/\$\{publication\.slug\}`\}/);
   assert.match(publicationSection, /Access publication/);
