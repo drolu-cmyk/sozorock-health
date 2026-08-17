@@ -34,7 +34,17 @@ export async function POST(request: NextRequest, context: Context) {
     const handoff = await createWorkspaceHandoff({ workspaceId, tenantId: actor.tenantId, actor, targetRole, targetPrincipalId, expiresInHours });
     return NextResponse.json({ contractVersion: "explore.workspace-handoff.v1", handoff }, { status: 201, headers: { "Cache-Control": "no-store" } });
   } catch (error) {
-    const message = (error as Error).message;
-    return NextResponse.json({ error: message }, { status: /authorized|authenticated|tenant|participant/i.test(message) ? 403 : 503 });
+    const message = error instanceof Error ? error.message : "";
+    const unauthorized = /authorized|authenticated|tenant|participant/i.test(message);
+    if (!unauthorized) {
+      console.error("workspace-handoff-failed", { name: error instanceof Error ? error.name : "UnknownError" });
+    }
+    return NextResponse.json(
+      { error: unauthorized ? "You are not authorized to create this handoff." : "The workspace handoff could not be created." },
+      {
+        status: unauthorized ? 403 : 503,
+        headers: { "Cache-Control": "private, no-store", "Referrer-Policy": "no-referrer" },
+      },
+    );
   }
 }
