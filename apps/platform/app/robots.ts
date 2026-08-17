@@ -1,5 +1,5 @@
 import type { MetadataRoute } from "next";
-import { dashboardUrl } from "./site-config";
+import { dashboardUrl } from "./site-config.ts";
 
 export default function robots(): MetadataRoute.Robots {
   return {
