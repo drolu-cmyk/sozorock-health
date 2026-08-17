@@ -17,19 +17,15 @@ const methodPath = join(voiceDir, "PRODUCTION-METHOD.json");
 
 mkdirSync(output, {recursive: true});
 const lockPath = join(output, ".render-final.lock");
-if (existsSync(lockPath)) {
-  const recordedPid = Number(readFileSync(lockPath, "utf8"));
-  let active = false;
-  if (Number.isInteger(recordedPid) && recordedPid > 0) {
-    try {
-      process.kill(recordedPid, 0);
-      active = true;
-    } catch {}
+let lockFd;
+try {
+  lockFd = openSync(lockPath, "wx");
+} catch (error) {
+  if (error?.code === "EEXIST") {
+    throw new Error("Final render blocked: the render lock already exists. Verify that no render is active before removing a stale lock manually.");
   }
-  if (active) throw new Error(`Final render blocked: another render is active under process ${recordedPid}.`);
-  rmSync(lockPath, {force: true});
+  throw error;
 }
-const lockFd = openSync(lockPath, "wx");
 writeFileSync(lockFd, String(process.pid));
 const releaseLock = () => {
   try { closeSync(lockFd); } catch {}
