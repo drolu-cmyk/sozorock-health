@@ -87,7 +87,8 @@ test("workspace authentication is Cognito-backed and tenant scoped", () => {
   assert.doesNotMatch(runtime, /DO UPDATE SET idempotency_key/);
   assert.match(runtime, /authority='census'/);
   assert.doesNotMatch(runtime, /authority='US_CENSUS'/);
-  assert.match(runtime, /!trustedMembership && \(!access \|\| access === "viewer"\)/);
+  assert.match(runtime, /role !== input\.actor\.role/);
+  assert.match(runtime, /access !== input\.actor\.access/);
 });
 
 test("real-time session is opaque, short-lived and never authorizes mutations", () => {
@@ -122,8 +123,9 @@ test("Amplify exposes only approved server configuration to the Next.js runtime"
 test("workspace event route enforces same-origin, authentication and human-only review", () => {
   assert.match(eventRoute, /isTrustedSameOrigin/);
   assert.match(eventRoute, /requireWorkspaceActor/);
-  assert.match(eventRoute, /eventRequiresHumanAcceptance/);
-  assert.match(eventRoute, /This action requires an authorized human participant/);
+  assert.match(eventRoute, /clientActivityEventTypes/);
+  assert.match(eventRoute, /enforceWorkspaceEventRateLimit/);
+  assert.doesNotMatch(eventRoute, /eventRequiresHumanAcceptance/);
   assert.doesNotMatch(eventRoute, /Access-Control-Allow-Origin/);
   assert.match(shareRoute, /getSharedWorkspacePlan/);
   assert.doesNotMatch(shareRoute, /tenantId/);
@@ -131,6 +133,7 @@ test("workspace event route enforces same-origin, authentication and human-only 
   assert.doesNotMatch(onboardingRoute, /body\.environment/);
   assert.match(telemetryRoute, /evidenceRuntimeEnvironment\(\)/);
   assert.doesNotMatch(telemetryRoute, /body\.environment/);
+  assert.match(telemetryRoute, /Performance telemetry is server-generated/);
 });
 
 test("workspace share capabilities leave the URL before server reads", () => {

@@ -5,7 +5,7 @@ import {
   requireCollaborationCapability,
   saveWorkspaceSection,
 } from "../../../../../../../lib/explore-workspace-runtime";
-import { isTrustedSameOrigin, readBoundedText } from "../../../../../../../lib/request-security";
+import { isBoundedJsonValue, isTrustedSameOrigin, readBoundedText } from "../../../../../../../lib/request-security";
 
 export const runtime = "nodejs";
 type Context = { params: Promise<{ workspaceId: string; sectionKey: string }> };
@@ -34,6 +34,13 @@ export async function PUT(request: NextRequest, context: Context) {
       || !content
       || typeof content !== "object"
       || Array.isArray(content)
+      || !isBoundedJsonValue(content, {
+        maxDepth: 8,
+        maxNodes: 1_000,
+        maxObjectKeys: 80,
+        maxArrayLength: 80,
+        maxStringLength: 4_000,
+      })
     ) {
       return NextResponse.json({ error: "Provide a valid expected version and section content." }, { status: 400 });
     }

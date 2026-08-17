@@ -36,6 +36,11 @@ jobs:
       - name: Verify the release source
         run: |
           set -euo pipefail
+          release_sha=$(git rev-parse HEAD)
+          origin_main_before=$(git ls-remote --exit-code origin refs/heads/main | awk '{print $1}')
+          test -n "$origin_main_before"
+          test "$origin_main_before" = "$release_sha"
+          echo "RELEASE_SHA=$release_sha" >> "$GITHUB_ENV"
           npm ci --omit=optional
           npm run typecheck
           npm run lint
@@ -79,12 +84,10 @@ jobs:
             exit 1
           fi
 
-          aws cloudformation validate-template \
-            --template-body file://infrastructure/cloudformation/contact-backend.yml \
-            >/dev/null
-          aws cloudformation validate-template \
-            --template-body file://infrastructure/cloudformation/publication-access.yml \
-            >/dev/null
+          # `cloudformation deploy` performs template validation while creating
+          # the change set. Keep the release role limited to the deploy actions
+          # it is authorized to use; a separate ValidateTemplate API call is
+          # redundant and is not granted to the production role.
 
           print_stack_failures() {
             local stack_name="$1"
@@ -147,9 +150,16 @@ jobs:
 
           # CB-CAP is intentionally released by deploy-cbcap.yml with its
           # separate least-privilege AWS role and production proof gates.
-          job_id=$(aws amplify start-job --app-id "$PUBLIC_APP_ID" --branch-name "$AMPLIFY_BRANCH" --job-type RELEASE --query 'jobSummary.jobId' --output text)
+          release_sha="${RELEASE_SHA:-$(git rev-parse HEAD)}"
+          test "$release_sha" = "$(git rev-parse HEAD)"
+          origin_main_before=$(git ls-remote --exit-code origin refs/heads/main | awk '{print $1}')
+          test -n "$origin_main_before"
+          test "$origin_main_before" = "$release_sha"
+
+          job_id=$(aws amplify start-job --app-id "$PUBLIC_APP_ID" --branch-name "$AMPLIFY_BRANCH" --job-type RELEASE --job-reason "Public-site release $release_sha" --query 'jobSummary.jobId' --output text)
           for attempt in $(seq 1 180); do
-            status=$(aws amplify get-job --app-id "$PUBLIC_APP_ID" --branch-name "$AMPLIFY_BRANCH" --job-id "$job_id" --query 'job.summary.status' --output text)
+            job_json=$(aws amplify get-job --app-id "$PUBLIC_APP_ID" --branch-name "$AMPLIFY_BRANCH" --job-id "$job_id" --output json)
+            status=$(jq -r '.job.summary.status' <<<"$job_json")
             case "$status" in
               SUCCEED) break ;;
               FAILED|CANCELLED) echo "Public-site Amplify job $job_id ended with $status"; exit 1 ;;
@@ -161,6 +171,23 @@ jobs:
               exit 1
             fi
           done
+
+          origin_main_after=$(git ls-remote --exit-code origin refs/heads/main | awk '{print $1}')
+          test -n "$origin_main_after"
+          if [[ "$origin_main_before" != "$release_sha" || "$origin_main_after" != "$release_sha" ]]; then
+            echo "The protected main branch moved during the public-site release."
+            exit 1
+          fi
+
+          deployed_commit=$(jq -r '.job.summary.commitId // ""' <<<"$job_json")
+          if [[ "$deployed_commit" == "HEAD" ]]; then
+            : # Amplify reports HEAD for some connected-repository releases.
+          elif [[ "$deployed_commit" =~ ^[0-9a-f]{7,40}$ && "$release_sha" == "$deployed_commit"* ]]; then
+            : # Accept a full or unambiguous abbreviated form of the pinned SHA.
+          else
+            echo "The completed public-site release reports an unexpected source identity."
+            exit 1
+          fi
 
           origin="${PUBLIC_SITE_URL%/}"
           if [[ "$origin" != "https://health.sozorockfoundation.org" ]]; then

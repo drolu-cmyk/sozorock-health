@@ -100,18 +100,20 @@ function normalizedPublicHttpsUrl(value: unknown): string | null {
   }
 }
 
-function projectPublicValue(value: unknown): unknown {
-  if (Array.isArray(value)) return value.map(projectPublicValue);
+function projectPublicValue(value: unknown, depth = 0): unknown {
+  if (depth > 8) return null;
+  if (Array.isArray(value)) return value.slice(0, 80).map((child) => projectPublicValue(child, depth + 1));
   if (!value || typeof value !== "object") return value;
   return Object.fromEntries(
     Object.entries(value as Record<string, unknown>)
+      .slice(0, 80)
       .filter(([key]) => PUBLIC_CONTENT_KEYS.has(key) && !PUBLIC_FORBIDDEN_KEYS.has(key))
       .flatMap(([key, child]) => {
         if (key === "officialUrl" || key === "url") {
           const safeUrl = normalizedPublicHttpsUrl(child);
           return safeUrl ? [[key, safeUrl]] : [];
         }
-        return [[key, projectPublicValue(child)]];
+        return [[key, projectPublicValue(child, depth + 1)]];
       }),
   );
 }

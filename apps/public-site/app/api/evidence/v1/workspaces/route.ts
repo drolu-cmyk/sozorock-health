@@ -52,8 +52,11 @@ export async function POST(request: NextRequest) {
       headers: { "Cache-Control": "no-store" },
     });
   } catch (error) {
-    const message = (error as Error).message;
+    const message = error instanceof Error ? error.message : "";
     const status = /authenticated|authorized|assignment|tenant/i.test(message) ? 403 : 503;
-    return NextResponse.json({ error: status === 403 ? message : "County workspace is temporarily unavailable." }, { status });
+    console.error("workspace-create-failed", {
+      name: error instanceof Error ? error.name : "UnknownError",
+    });
+    return NextResponse.json({ error: status === 403 ? "You are not authorized to create this county workspace." : "County workspace is temporarily unavailable." }, { status, headers: { "Cache-Control": "private, no-store", "Referrer-Policy": "no-referrer" } });
   }
 }

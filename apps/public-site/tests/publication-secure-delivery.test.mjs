@@ -57,12 +57,19 @@ test("verification email enters through the server handoff route", () => {
   assert.match(accessSource, /publicSiteUrl\(`\/api\/publications\/verify\?token=/);
   assert.doesNotMatch(accessSource, /publicSiteUrl\(`\/publications\/verify\?token=/);
   assert.match(accessSource, /This link expires in 30 minutes/);
+  assert.match(accessSource, /NETWORK_RATE#/);
+  assert.match(accessSource, /RECIPIENT_RATE#/);
+  assert.match(accessSource, /canonicalSlug}:\$\{requestId\}/);
+  assert.match(accessSource, /enforceVerificationRateLimit/);
 });
 
 test("public application source contains no Google Drive publication URL", () => {
   const driveUrl = /(?:https?:)?\/\/(?:drive\.google\.com|docs\.google\.com|[^\s"']*googleusercontent\.com)/i;
+  const internalDisclosure = /private\s+publication\s+store|google\s+drive/i;
 
   for (const path of sourceFiles(appRoot)) {
-    assert.doesNotMatch(readFileSync(path, "utf8"), driveUrl, path);
+    const source = readFileSync(path, "utf8");
+    assert.doesNotMatch(source, driveUrl, path);
+    assert.doesNotMatch(source, internalDisclosure, path);
   }
 });

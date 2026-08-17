@@ -182,7 +182,8 @@ test("trusted membership events preserve the viewer write prohibition", () => {
   assert.match(workspace, /trustedMembershipAuthorization/);
   assert.match(workspace, /appendTrustedMembershipEvent/);
   assert.match(workspace, /trustedMembership && !\["participant_joined", "workspace_handoff_accepted"\]/);
-  assert.match(workspace, /!trustedMembership && \(!access \|\| access === "viewer"\)/);
+  assert.match(workspace, /role !== input\.actor\.role/);
+  assert.match(workspace, /access !== input\.actor\.access/);
   assert.match(workspace, /intended_principal_id/);
   assert.match(workspace, /target_principal_id/);
 });

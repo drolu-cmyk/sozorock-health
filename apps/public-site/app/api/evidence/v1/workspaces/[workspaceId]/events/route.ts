@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { randomUUID } from "node:crypto";
 import {
   WORKSPACE_EVENT_TYPES,
-  eventRequiresHumanAcceptance,
   type WorkspaceEventType,
 } from "@sozorock/evidence-core";
 import { requireWorkspaceActor } from "../../../../../../lib/explore-workspace-auth";
@@ -16,11 +15,13 @@ import {
   readBoundedText,
 } from "../../../../../../lib/request-security";
 import { broadcastWorkspaceEvent } from "../../../../../../lib/explore-realtime";
+import { enforceWorkspaceEventRateLimit } from "../../../../../../lib/evidence-rate-limit";
 
 export const runtime = "nodejs";
 
 type Context = { params: Promise<{ workspaceId: string }> };
 const eventTypes = new Set<WorkspaceEventType>(WORKSPACE_EVENT_TYPES);
+const clientActivityEventTypes = new Set<WorkspaceEventType>(["evidence_loaded", "question_asked"]);
 
 function uuid(value: string) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
@@ -82,19 +83,41 @@ export async function POST(request: NextRequest, context: Context) {
     const actor = await requireWorkspaceActor(request);
     const { workspaceId } = await context.params;
     if (!uuid(workspaceId)) return NextResponse.json({ error: "Workspace identifier is invalid." }, { status: 400 });
+    const limited = await enforceWorkspaceEventRateLimit(request, workspaceId, actor.principalId);
+    if (!limited.allowed) {
+      return NextResponse.json(
+        { error: limited.retryAfter ? "Workspace activity rate limit reached." : "Workspace activity is temporarily unavailable." },
+        { status: limited.retryAfter ? 429 : 503, headers: limited.retryAfter ? { "Retry-After": String(limited.retryAfter) } : undefined },
+      );
+    }
     const bounded = await readBoundedText(request, 32_000, ["application/json"]);
     if (!bounded.ok) return NextResponse.json({ error: "The request was not accepted." }, { status: 400 });
-    const body = JSON.parse(bounded.text) as Record<string, unknown>;
+    let body: Record<string, unknown>;
+    try {
+      body = JSON.parse(bounded.text) as Record<string, unknown>;
+    } catch {
+      return NextResponse.json({ error: "The request body was not valid JSON." }, { status: 400 });
+    }
     const eventType = body.eventType as WorkspaceEventType;
     const payload = body.payload;
-    if (!eventTypes.has(eventType) || !payload || typeof payload !== "object" || Array.isArray(payload)) {
-      return NextResponse.json({ error: "Provide an approved event type and object payload." }, { status: 400 });
+    if (!eventTypes.has(eventType) || !clientActivityEventTypes.has(eventType) || !payload || typeof payload !== "object" || Array.isArray(payload)) {
+      return NextResponse.json({ error: "Only bounded client activity events may be recorded here." }, { status: 403 });
     }
-    if (
-      actor.actorType === "agent"
-      && (eventRequiresHumanAcceptance(eventType) || eventType === "workspace_archived")
-    ) {
-      return NextResponse.json({ error: "This action requires an authorized human participant." }, { status: 403 });
+    type SafePayloadValue = string | number | boolean | null;
+    const safeEntries: Array<[string, SafePayloadValue]> = [];
+    for (const [key, value] of Object.entries(payload as Record<string, unknown>).slice(0, 20)) {
+      if (!/^[a-zA-Z0-9_.-]{1,64}$/.test(key)) continue;
+      if (value === null || typeof value === "boolean") {
+        safeEntries.push([key, value]);
+      } else if (typeof value === "number" && Number.isFinite(value)) {
+        safeEntries.push([key, value]);
+      } else if (typeof value === "string") {
+        safeEntries.push([key, value.slice(0, 240)]);
+      }
+    }
+    const safePayload = Object.fromEntries(safeEntries);
+    if (!Object.keys(safePayload).length) {
+      return NextResponse.json({ error: "Provide an approved event type and object payload." }, { status: 400 });
     }
     const event = await appendWorkspaceEvent({
       workspaceId,
@@ -102,13 +125,13 @@ export async function POST(request: NextRequest, context: Context) {
       eventType,
       actor,
       idempotencyKey: request.headers.get("idempotency-key")?.trim() || randomUUID(),
-      evidenceSnapshotId: typeof body.evidenceSnapshotId === "string" ? body.evidenceSnapshotId : null,
-      payload: payload as Record<string, unknown>,
-      modelVersion: typeof body.modelVersion === "string" ? body.modelVersion : null,
-      promptVersion: typeof body.promptVersion === "string" ? body.promptVersion : null,
-      toolName: typeof body.toolName === "string" ? body.toolName : null,
-      requestHash: typeof body.requestHash === "string" ? body.requestHash : null,
-      responseHash: typeof body.responseHash === "string" ? body.responseHash : null,
+      evidenceSnapshotId: null,
+      payload: safePayload,
+      modelVersion: null,
+      promptVersion: null,
+      toolName: null,
+      requestHash: null,
+      responseHash: null,
       outcome: "recorded",
     });
     let realtimeDelivery: "sent" | "poll_required" = "sent";

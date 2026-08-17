@@ -26,7 +26,6 @@ jobs:
     environment: production
     timeout-minutes: 120
     env:
-      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
       EXPO_PROJECT_ID: ${{ vars.EXPO_PROJECT_ID }}
       EXPO_OWNER: ${{ vars.EXPO_OWNER }}
       EXPO_PUBLIC_ACCESS_API_URL: ${{ vars.EXPO_PUBLIC_ACCESS_API_URL }}
@@ -47,6 +46,8 @@ jobs:
           cache: npm
 
       - name: Confirm release authority and linkage
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: |
           set -euo pipefail
           test -n "${EXPO_TOKEN:-}" || { echo "Missing production secret EXPO_TOKEN"; exit 1; }
@@ -86,6 +87,8 @@ jobs:
 
       - name: Confirm Expo account and project
         working-directory: apps/mobile
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: |
           set -euo pipefail
           npx --yes eas-cli@20.5.1 whoami
@@ -93,6 +96,8 @@ jobs:
 
       - name: Create signed iOS and Android production builds
         working-directory: apps/mobile
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: |
           set -euo pipefail
           mkdir -p ../../dist/mobile-release
@@ -108,9 +113,13 @@ jobs:
       - name: Submit iOS build to App Store Connect
         if: inputs.submission != 'build-only'
         working-directory: apps/mobile
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: npx --yes eas-cli@20.5.1 submit --platform ios --profile production --latest --non-interactive
 
       - name: Submit Android build
         if: inputs.submission != 'build-only'
         working-directory: apps/mobile
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: npx --yes eas-cli@20.5.1 submit --platform android --profile "${{ inputs.submission }}" --latest --non-interactive

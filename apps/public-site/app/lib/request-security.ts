@@ -7,6 +7,14 @@ export type BoundedBodyResult =
   | { ok: true; text: string }
   | { ok: false; error: BoundedBodyError };
 
+export type BoundedJsonOptions = {
+  maxDepth?: number;
+  maxNodes?: number;
+  maxObjectKeys?: number;
+  maxArrayLength?: number;
+  maxStringLength?: number;
+};
+
 const DEFAULT_PUBLIC_ORIGIN = "https://health.sozorockfoundation.org";
 
 function values(header: string | null) {
@@ -27,6 +35,52 @@ export function lastForwardedValue(headers: Headers, name: string) {
 
 export function clientNetworkAddress(headers: Headers) {
   return lastForwardedValue(headers, "x-forwarded-for") ?? "unknown";
+}
+
+/**
+ * Bound the shape of parsed JSON before it is persisted or recursively
+ * projected. JSON.parse already guarantees there are no cycles, so an
+ * explicit stack keeps the check iterative and prevents deep input from
+ * consuming the call stack.
+ */
+export function isBoundedJsonValue(
+  value: unknown,
+  options: BoundedJsonOptions = {},
+) {
+  const maxDepth = options.maxDepth ?? 8;
+  const maxNodes = options.maxNodes ?? 1_000;
+  const maxObjectKeys = options.maxObjectKeys ?? 100;
+  const maxArrayLength = options.maxArrayLength ?? 100;
+  const maxStringLength = options.maxStringLength ?? 4_000;
+  const stack: Array<{ value: unknown; depth: number }> = [{ value, depth: 0 }];
+  let nodes = 0;
+  while (stack.length) {
+    const current = stack.pop();
+    if (!current) continue;
+    nodes += 1;
+    if (nodes > maxNodes || current.depth > maxDepth) return false;
+    if (typeof current.value === "string") {
+      if (current.value.length > maxStringLength) return false;
+      continue;
+    }
+    if (current.value === null || typeof current.value === "number" || typeof current.value === "boolean") {
+      if (typeof current.value === "number" && !Number.isFinite(current.value)) return false;
+      continue;
+    }
+    if (Array.isArray(current.value)) {
+      if (current.value.length > maxArrayLength) return false;
+      for (const child of current.value) stack.push({ value: child, depth: current.depth + 1 });
+      continue;
+    }
+    if (typeof current.value !== "object") return false;
+    const entries = Object.entries(current.value as Record<string, unknown>);
+    if (entries.length > maxObjectKeys) return false;
+    for (const [key, child] of entries) {
+      if (key.length > 128) return false;
+      stack.push({ value: child, depth: current.depth + 1 });
+    }
+  }
+  return true;
 }
 
 function normalizedConfiguredHost(value: string) {

@@ -159,13 +159,24 @@ for (const file of traceFiles) {
 }
 
 const htmlFiles = files.filter((file) => file.endsWith(".html"));
+const forbiddenDisclosurePhrases = [
+  ["private publication store", /private\s+publication\s+store/i],
+  ["Google Drive publication delivery", /google\s+drive/i],
+];
 for (const file of htmlFiles) {
   const html = await readFile(file, "utf8");
   if (html.includes("/_next/image")) {
     throw new Error(`Rendered HTML depends on /_next/image: ${file}`);
   }
 
-  const tokens = wordTokens(renderedText(html));
+  const visibleText = renderedText(html);
+  for (const [label, pattern] of forbiddenDisclosurePhrases) {
+    if (pattern.test(visibleText)) {
+      throw new Error(`Rendered public copy contains ${label}: ${file}`);
+    }
+  }
+
+  const tokens = wordTokens(visibleText);
   const tokenSet = new Set(tokens);
   for (const forbiddenWord of ["internal", "advisory", "slug", "localhost"]) {
     if (tokenSet.has(forbiddenWord)) {
@@ -190,6 +201,8 @@ const secretSignatures = [
   ["GitHub token", /\b(?:gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,})\b/],
   ["Slack token", /\bxox[baprs]-[A-Za-z0-9-]{20,}\b/],
   ["private key", /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/],
+  ["AWS resource identifier", /\barn:aws:[a-z0-9-]+:[^\s"'<]+/i],
+  ["AWS service endpoint", /\b(?:dynamodb|secretsmanager|s3)\.[a-z0-9-]+\.amazonaws\.com\b/i],
 ];
 for (const file of browserArtifactFiles) {
   const text = await readFile(file, "utf8");

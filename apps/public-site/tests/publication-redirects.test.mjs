@@ -94,6 +94,7 @@ test("verification bearer is moved to an HttpOnly cookie before rendering", () =
   assert.match(verifyRoute, /httpOnly: true/);
   assert.match(verifyRoute, /sameSite: "lax"/);
   assert.match(verifyRoute, /publicationRedirects\.beginVerification\(\)/);
+  assert.match(verifyRoute, /enforceVerificationRateLimit\(request\)/);
   assert.match(verifyRoute, /Cache-Control", "private, no-store"/);
   assert.match(verifyRoute, /Referrer-Policy", "no-referrer"/);
   assert.doesNotMatch(verifyRoute, /readBoundedText/);

@@ -161,6 +161,41 @@ try {
 
   // The latest correctness migrations must be reversible and re-applicable in
   // the disposable database before any protected environment is touched.
+  const down0014 = await readFile(
+    path.join(migrationsDir, "rollback", "0014_workspace_publication_controls.down.sql"),
+    "utf8",
+  );
+  await client.query(down0014);
+  const publicationControlsAfter0014Rollback = await client.query(
+    `SELECT column_name FROM information_schema.columns
+     WHERE table_schema='evidence' AND table_name='workspace_section'
+       AND column_name IN ('publication_status','published_by','published_at')`,
+  );
+  if (publicationControlsAfter0014Rollback.rows.length !== 0) {
+    throw new Error("Migration 0014 rollback did not remove publication controls.");
+  }
+  const publicSharingAfter0014Rollback = await client.query(
+    "SELECT 1 FROM evidence.capability_switch WHERE capability_key='explore:public-sharing'",
+  );
+  if (publicSharingAfter0014Rollback.rows.length !== 0) {
+    throw new Error("Migration 0014 rollback did not remove the public-sharing capability.");
+  }
+  await client.query(await readFile(path.join(migrationsDir, "0014_workspace_publication_controls.sql"), "utf8"));
+  const publicationControlsAfter0014Reapply = await client.query(
+    `SELECT column_name FROM information_schema.columns
+     WHERE table_schema='evidence' AND table_name='workspace_section'
+       AND column_name IN ('publication_status','published_by','published_at')`,
+  );
+  if (publicationControlsAfter0014Reapply.rows.length !== 3) {
+    throw new Error("Migration 0014 did not restore all publication controls.");
+  }
+  const publicSharingAfter0014Reapply = await client.query(
+    "SELECT enabled FROM evidence.capability_switch WHERE capability_key='explore:public-sharing'",
+  );
+  if (publicSharingAfter0014Reapply.rows[0]?.enabled !== false) {
+    throw new Error("Migration 0014 did not restore public sharing in the disabled state.");
+  }
+
   const down0012 = await readFile(path.join(migrationsDir, "rollback", "0012_acs_provenance_backfill.down.sql"), "utf8");
   const down0013 = await readFile(path.join(migrationsDir, "rollback", "0013_public_review_questions.down.sql"), "utf8");
   await client.query(down0013);
@@ -342,6 +377,8 @@ try {
     reapply0012Passed: true,
     rollback0013Passed: true,
     reapply0013Passed: true,
+    rollback0014Passed: true,
+    reapply0014Passed: true,
   }, null, 2));
 } finally {
   await client.end();

@@ -66,7 +66,7 @@ export async function requireWorkspaceMembership(input: {
   transactionId?: string;
 }) {
   const result = await executeEvidenceSql(
-    `SELECT p.access::text
+    `SELECT p.role::text, p.access::text
      FROM evidence.county_workspace w
      JOIN evidence.workspace_participant p ON p.workspace_id=w.id
      WHERE w.id=CAST(:workspace_id AS uuid)
@@ -82,11 +82,12 @@ export async function requireWorkspaceMembership(input: {
     ],
     input.transactionId,
   );
-  const access = String(evidenceFieldValue(result.records?.[0]?.[0]) ?? "");
-  if (!access || (input.write && access === "viewer")) {
+  const role = String(evidenceFieldValue(result.records?.[0]?.[0]) ?? "");
+  const access = String(evidenceFieldValue(result.records?.[0]?.[1]) ?? "");
+  if (!role || !access || role !== input.actor.role || access !== input.actor.access || (input.write && access === "viewer")) {
     throw new Error("The participant is not authorized for this county workspace.");
   }
-  return access;
+  return { role, access };
 }
 
 export async function createCountyWorkspace(input: {
@@ -197,7 +198,7 @@ export async function appendWorkspaceEvent(input: WorkspaceEventInput) {
       transactionId,
     );
     const authorization = await executeEvidenceSql(
-      `SELECT p.access::text
+      `SELECT p.role::text, p.access::text
        FROM evidence.county_workspace w
        JOIN evidence.workspace_participant p ON p.workspace_id=w.id
        WHERE w.id=CAST(:workspace_id AS uuid)
@@ -212,7 +213,8 @@ export async function appendWorkspaceEvent(input: WorkspaceEventInput) {
       ],
       transactionId,
     );
-    const access = String(evidenceFieldValue(authorization.records?.[0]?.[0]) ?? "");
+    const role = String(evidenceFieldValue(authorization.records?.[0]?.[0]) ?? "");
+    const access = String(evidenceFieldValue(authorization.records?.[0]?.[1]) ?? "");
     const trustedMembership = input[trustedMembershipAuthorization] === true;
     // Read-only participants may observe the event stream, but they may never
     // append an event. The only exception is the private server-side,
@@ -220,7 +222,7 @@ export async function appendWorkspaceEvent(input: WorkspaceEventInput) {
     if (trustedMembership && !["participant_joined", "workspace_handoff_accepted"].includes(input.eventType)) {
       throw new Error("The trusted membership path only records membership events.");
     }
-    if (!trustedMembership && (!access || access === "viewer")) {
+    if (!trustedMembership && (!role || !access || role !== input.actor.role || access !== input.actor.access || access === "viewer")) {
       throw new Error("The participant is not authorized to write this workspace event.");
     }
     const inserted = await executeEvidenceSql(
@@ -574,6 +576,7 @@ async function loadPublicWorkspacePlan(input: { workspaceId: string; tenantId: s
        FROM evidence.workspace_section
         WHERE workspace_id=CAST(:workspace_id AS uuid)
           AND section_key IN (${sectionKeyPlaceholders})
+          AND publication_status='approved'
           AND content->>'public'='true'
           AND content->>'reviewStatus' IN ('verified', 'approved')
        ORDER BY section_key`,
@@ -707,7 +710,8 @@ export async function saveWorkspaceSection(input: {
        )
        ON CONFLICT (workspace_id, section_key) DO UPDATE SET
          version=EXCLUDED.version, content=EXCLUDED.content,
-         updated_by=EXCLUDED.updated_by, updated_at=EXCLUDED.updated_at`,
+         updated_by=EXCLUDED.updated_by, updated_at=EXCLUDED.updated_at,
+         publication_status='private', published_by=NULL, published_at=NULL`,
       [
         { name: "workspace_id", value: { stringValue: input.workspaceId } },
         { name: "section_key", value: { stringValue: input.sectionKey } },
@@ -950,6 +954,10 @@ export async function readWorkspaceShareLink(input: { token: string }) {
  * write access or returning the tenant identifier to the caller.
  */
 export async function getSharedWorkspacePlan(input: { token: string }) {
+  // Public sharing remains disabled until a separate reviewed-publication
+  // capability is enabled. This prevents a workspace contributor from making
+  // client-supplied content public through a bearer share link.
+  await requireEvidenceCapability("explore:public-sharing");
   const share = await readWorkspaceShareLink(input);
   const plan = await loadPublicWorkspacePlan({
     workspaceId: share.workspaceId,
