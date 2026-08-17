@@ -150,7 +150,7 @@ jobs:
           headers=$(mktemp)
           curl --silent --show-error --dump-header "$headers" --output /dev/null "$origin/"
           grep -Eqi '^strict-transport-security:[[:space:]]*max-age=' "$headers"
-          grep -Eqi '^content-security-policy:.*frame-ancestors[[:space:]]+'"'"'none'"'"'' "$headers"
+          grep -Eqi "^content-security-policy:.*frame-ancestors[[:space:]]+'none'" "$headers"
           grep -Eqi '^x-content-type-options:[[:space:]]*nosniff' "$headers"
           grep -Eqi '^x-frame-options:[[:space:]]*DENY' "$headers"
 
@@ -194,7 +194,10 @@ jobs:
           esac
           grep -Eqi '^cache-control:.*no-store' "$token_headers"
           grep -Eqi '^referrer-policy:[[:space:]]*no-referrer' "$token_headers"
-          grep -Eqi '^set-cookie:.*__Host-srh_publication_verify=.*HttpOnly.*SameSite=Lax' "$token_headers"
+          grep -Eqi '^set-cookie:.*__Host-srh_publication_verify=' "$token_headers"
+          grep -Eqi '^set-cookie:.*HttpOnly' "$token_headers"
+          grep -Eqi '^set-cookie:.*Secure' "$token_headers"
+          grep -Eqi '^set-cookie:.*SameSite=Lax' "$token_headers"
 
           download_headers=$(mktemp)
           download_status=$(curl --silent --show-error --dump-header "$download_headers" --output /dev/null --write-out '%{http_code}' \
@@ -227,7 +230,7 @@ jobs:
             echo "- Publication route: 200"
             echo "- Host/origin spoof rejection: 403"
             echo "- Canonical publication event: 204"
-            echo "- Verification redirect: 303, no-store, no-referrer, verifier in HttpOnly cookie"
+            echo "- Verification redirect: 303, no-store, no-referrer, verifier in HttpOnly Secure SameSite=Lax cookie"
             echo "- Unauthorized download: 303, no-store, no-referrer"
             echo "- Workspace query capability rejected: 404"
             echo "- Voice hostile-origin request rejected: 403"
