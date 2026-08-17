@@ -98,6 +98,17 @@ test("publication event throttling distinguishes limits from service failures", 
   assert.match(eventRoute, /status: 503/);
 });
 
+test("the production gate verifies the complete publication throttle contract", () => {
+  assert.match(deployWorkflow, /same_origin_headers=\$\(mktemp\)/);
+  assert.match(deployWorkflow, /same_origin_body=\$\(mktemp\)/);
+  assert.match(deployWorkflow, /retry-after:\[\[:space:\]\]\*3600/);
+  assert.match(deployWorkflow, /content-type:\[\[:space:\]\]\*application\/json/);
+  assert.match(
+    deployWorkflow,
+    /\.accepted == false and keys == \["accepted"\]/,
+  );
+});
+
 test("public application source contains no Google Drive publication URL", () => {
   const driveUrl = /(?:https?:)?\/\/(?:drive\.google\.com|docs\.google\.com|[^\s"']*googleusercontent\.com)/i;
   const internalDisclosure = /private\s+publication\s+store|google\s+drive/i;
