@@ -28,7 +28,17 @@ export async function POST(request: NextRequest, context: Context) {
     const handoff = await mintRealtimeHandoff({ workspaceId, tenantId: actor.tenantId, actor, sessionId });
     return NextResponse.json({ contractVersion: "explore.realtime-handoff.v1", handoff }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
-    const message = (error as Error).message;
-    return NextResponse.json({ error: message }, { status: /authorized|authenticated|tenant|participant/i.test(message) ? 403 : 503 });
+    const message = error instanceof Error ? error.message : "";
+    const unauthorized = /authorized|authenticated|tenant|participant|workspace/i.test(message);
+    if (!unauthorized) {
+      console.error("workspace-realtime-handoff-failed", { name: error instanceof Error ? error.name : "UnknownError" });
+    }
+    return NextResponse.json(
+      { error: unauthorized ? "You are not authorized to hand off this realtime session." : "The realtime handoff could not be created." },
+      {
+        status: unauthorized ? 403 : 503,
+        headers: { "Cache-Control": "private, no-store", "Referrer-Policy": "no-referrer" },
+      },
+    );
   }
 }
