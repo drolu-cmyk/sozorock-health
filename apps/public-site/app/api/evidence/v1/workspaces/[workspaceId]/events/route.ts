@@ -34,6 +34,21 @@ function trusted(request: NextRequest) {
   return isTrustedSameOrigin(request, allowedHosts);
 }
 
+function protectedError(error: unknown, unavailableMessage: string) {
+  const message = error instanceof Error ? error.message : "";
+  const unauthorized = /authorized|authenticated|tenant|participant/i.test(message);
+  console.error("workspace-events-request-failed", {
+    name: error instanceof Error ? error.name : "UnknownError",
+  });
+  return NextResponse.json(
+    { error: unauthorized ? "You are not authorized to access this workspace." : unavailableMessage },
+    {
+      status: unauthorized ? 403 : 503,
+      headers: { "Cache-Control": "private, no-store", "Referrer-Policy": "no-referrer" },
+    },
+  );
+}
+
 export async function GET(request: NextRequest, context: Context) {
   try {
     await requireCollaborationCapability();
@@ -54,7 +69,7 @@ export async function GET(request: NextRequest, context: Context) {
       headers: { "Cache-Control": "no-store" },
     });
   } catch (error) {
-    return NextResponse.json({ error: (error as Error).message }, { status: 403 });
+    return protectedError(error, "Workspace events could not be loaded.");
   }
 }
 
@@ -111,7 +126,6 @@ export async function POST(request: NextRequest, context: Context) {
       headers: { "Cache-Control": "no-store" },
     });
   } catch (error) {
-    const message = (error as Error).message;
-    return NextResponse.json({ error: message }, { status: /authorized|authenticated|tenant/i.test(message) ? 403 : 503 });
+    return protectedError(error, "The workspace event could not be recorded.");
   }
 }
