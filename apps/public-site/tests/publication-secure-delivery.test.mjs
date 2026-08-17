@@ -17,6 +17,12 @@ const publicationInfrastructure = readFileSync(
   new URL("../../../infrastructure/cloudformation/publication-access.yml", import.meta.url),
   "utf8",
 );
+const deploymentPolicy = JSON.parse(
+  readFileSync(
+    new URL("../../../infrastructure/iam/github-amplify-bootstrap-policy.json", import.meta.url),
+    "utf8",
+  ),
+);
 
 function sourceFiles(directory) {
   return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
@@ -43,6 +49,23 @@ test("publication delivery uses short-lived signed links from the private asset 
   assert.match(publicationInfrastructure, /ObjectOwnership: BucketOwnerEnforced/);
   assert.match(publicationInfrastructure, /Sid: DenyInsecureTransport/);
   assert.match(publicationInfrastructure, /aws:SecureTransport: 'false'/);
+});
+
+test("the deploy role can manage only the exact private publication bucket policy", () => {
+  const statement = deploymentPolicy.Statement.find(
+    ({ Sid }) => Sid === "ProvisionControlledPublicationStorage",
+  );
+  assert.ok(statement);
+  assert.equal(
+    statement.Resource,
+    "arn:aws:s3:::sozorock-health-publications-791860731989-us-east-1",
+  );
+  assert.deepEqual(
+    ["s3:GetBucketPolicy", "s3:PutBucketPolicy", "s3:DeleteBucketPolicy"].filter(
+      (action) => !statement.Action.includes(action),
+    ),
+    [],
+  );
 });
 
 test("publication access state changes are atomic and supported by least privilege IAM", () => {

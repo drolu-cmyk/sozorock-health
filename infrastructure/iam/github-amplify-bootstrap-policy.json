@@ -269,6 +269,9 @@
         "s3:GetBucketOwnershipControls",
         "s3:PutBucketOwnershipControls",
         "s3:DeleteBucketOwnershipControls",
+        "s3:GetBucketPolicy",
+        "s3:PutBucketPolicy",
+        "s3:DeleteBucketPolicy",
         "s3:ListBucket"
       ],
       "Resource": "arn:aws:s3:::sozorock-health-publications-791860731989-us-east-1"
