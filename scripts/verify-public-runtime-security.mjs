@@ -31,6 +31,79 @@ async function walk(directory) {
   return files;
 }
 
+function renderedText(html) {
+  const lower = html.toLowerCase();
+  let output = "";
+  let index = 0;
+  let hiddenTag = null;
+
+  while (index < html.length) {
+    if (hiddenTag) {
+      const marker = `</${hiddenTag}`;
+      const closeStart = lower.indexOf(marker, index);
+      if (closeStart < 0) break;
+      const closeEnd = html.indexOf(">", closeStart + marker.length);
+      if (closeEnd < 0) break;
+      hiddenTag = null;
+      index = closeEnd + 1;
+      output += " ";
+      continue;
+    }
+
+    if (html[index] !== "<") {
+      output += html[index];
+      index += 1;
+      continue;
+    }
+
+    const tagEnd = html.indexOf(">", index + 1);
+    if (tagEnd < 0) break;
+    let cursor = index + 1;
+    while (cursor < tagEnd && " \t\r\n".includes(html[cursor])) cursor += 1;
+    const closing = html[cursor] === "/";
+    if (closing) cursor += 1;
+    while (cursor < tagEnd && " \t\r\n".includes(html[cursor])) cursor += 1;
+    const nameStart = cursor;
+    while (cursor < tagEnd) {
+      const code = lower.charCodeAt(cursor);
+      const isNameCharacter =
+        (code >= 97 && code <= 122) ||
+        (code >= 48 && code <= 57) ||
+        code === 45;
+      if (!isNameCharacter) break;
+      cursor += 1;
+    }
+    const tagName = lower.slice(nameStart, cursor);
+    if (!closing && (tagName === "script" || tagName === "style")) {
+      hiddenTag = tagName;
+    }
+    index = tagEnd + 1;
+    output += " ";
+  }
+
+  return output;
+}
+
+function wordTokens(value) {
+  const tokens = [];
+  let current = "";
+  for (const character of value.toLowerCase()) {
+    const code = character.charCodeAt(0);
+    const isWordCharacter =
+      (code >= 97 && code <= 122) ||
+      (code >= 48 && code <= 57) ||
+      code === 95;
+    if (isWordCharacter) {
+      current += character;
+    } else if (current) {
+      tokens.push(current);
+      current = "";
+    }
+  }
+  if (current) tokens.push(current);
+  return tokens;
+}
+
 if (!(await exists(runtimeRoot))) {
   throw new Error("Public production build is missing.");
 }
@@ -92,20 +165,16 @@ for (const file of htmlFiles) {
     throw new Error(`Rendered HTML depends on /_next/image: ${file}`);
   }
 
-  const visibleText = html
-    .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, " ")
-    .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, " ")
-    .replace(/<[^>]+>/g, " ")
-    .replace(/\s+/g, " ");
-  for (const [label, pattern] of [
-    ["internal", /\binternal\b/i],
-    ["advisory", /\badvisory\b/i],
-    ["slug", /\bslug\b/i],
-    ["localhost", /\blocalhost\b/i],
-    ["Amplify default domain", /\bamplifyapp\.com\b/i],
-  ]) {
-    if (pattern.test(visibleText)) {
-      throw new Error(`Rendered public copy contains ${label}: ${file}`);
+  const tokens = wordTokens(renderedText(html));
+  const tokenSet = new Set(tokens);
+  for (const forbiddenWord of ["internal", "advisory", "slug", "localhost"]) {
+    if (tokenSet.has(forbiddenWord)) {
+      throw new Error(`Rendered public copy contains ${forbiddenWord}: ${file}`);
+    }
+  }
+  for (let tokenIndex = 0; tokenIndex < tokens.length - 1; tokenIndex += 1) {
+    if (tokens[tokenIndex] === "amplifyapp" && tokens[tokenIndex + 1] === "com") {
+      throw new Error(`Rendered public copy contains an Amplify default domain: ${file}`);
     }
   }
 }
