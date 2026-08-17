@@ -57,6 +57,14 @@ const nextConfig: NextConfig = {
         { key: "Permissions-Policy", value: "camera=(), geolocation=(), microphone=(self)" },
         { key: "X-Frame-Options", value: "DENY" },
       ] },
+      {
+        source: "/api/publications/:path*",
+        headers: [{ key: "Referrer-Policy", value: "no-referrer" }],
+      },
+      {
+        source: "/api/evidence/v1/workspace-share",
+        headers: [{ key: "Referrer-Policy", value: "no-referrer" }],
+      },
     ];
   },
 };

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
+import nextConfig from "../next.config.ts";
 import { publicSiteUrl } from "../app/lib/request-security.ts";
 import { publicationRedirects } from "../app/lib/publication-redirects.ts";
 
@@ -74,9 +75,9 @@ test("maps every local publication redirect to the public origin and status", ()
     [publicationRedirects.expiredVerification(), "/publications?verification=expired", 303],
     [publicationRedirects.completedVerification("publication/slug"), "/publications/publication%2Fslug/verified", 303],
     [publicationRedirects.failedVerification(), "/publications?verification=failed", 303],
-    [publicationRedirects.sessionRequired("publication/slug"), "/publications/publication%2Fslug/access?session=required", 307],
-    [publicationRedirects.sessionExpired("publication/slug"), "/publications/publication%2Fslug/access?session=expired", 307],
-    [publicationRedirects.downloadFailed("publication/slug"), "/publications/publication%2Fslug/access?download=failed", 307],
+    [publicationRedirects.sessionRequired("publication/slug"), "/publications/publication%2Fslug/access?session=required", 303],
+    [publicationRedirects.sessionExpired("publication/slug"), "/publications/publication%2Fslug/access?session=expired", 303],
+    [publicationRedirects.downloadFailed("publication/slug"), "/publications/publication%2Fslug/access?download=failed", 303],
   ];
   try {
     for (const [target, path, status] of cases) {
@@ -86,6 +87,27 @@ test("maps every local publication redirect to the public origin and status", ()
   } finally {
     if (previous === undefined) delete process.env.PUBLIC_SITE_URL;
     else process.env.PUBLIC_SITE_URL = previous;
+  }
+});
+
+test("sensitive publication responses override the site-wide referrer policy", async () => {
+  const rules = await nextConfig.headers?.();
+  assert.ok(rules);
+  const globalIndex = rules.findIndex(({ source }) => source === "/(.*)");
+  const publicationIndex = rules.findIndex(
+    ({ source }) => source === "/api/publications/:path*",
+  );
+  const shareIndex = rules.findIndex(
+    ({ source }) => source === "/api/evidence/v1/workspace-share",
+  );
+  assert.ok(globalIndex >= 0);
+  assert.ok(publicationIndex > globalIndex);
+  assert.ok(shareIndex > globalIndex);
+  for (const index of [publicationIndex, shareIndex]) {
+    assert.deepEqual(
+      rules[index].headers.find(({ key }) => key === "Referrer-Policy"),
+      { key: "Referrer-Policy", value: "no-referrer" },
+    );
   }
 });
 
