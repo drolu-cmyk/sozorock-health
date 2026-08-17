@@ -28,19 +28,19 @@ export const publicationRedirects = {
   sessionRequired(slug: string) {
     return redirect(
       `/publications/${encodeURIComponent(slug)}/access?session=required`,
-      307,
+      303,
     );
   },
   sessionExpired(slug: string) {
     return redirect(
       `/publications/${encodeURIComponent(slug)}/access?session=expired`,
-      307,
+      303,
     );
   },
   downloadFailed(slug: string) {
     return redirect(
       `/publications/${encodeURIComponent(slug)}/access?download=failed`,
-      307,
+      303,
     );
   },
 } as const;

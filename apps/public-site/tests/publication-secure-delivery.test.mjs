@@ -17,6 +17,10 @@ const publicationInfrastructure = readFileSync(
   new URL("../../../infrastructure/cloudformation/publication-access.yml", import.meta.url),
   "utf8",
 );
+const eventRoute = readFileSync(
+  new URL("../app/api/publications/events/route.ts", import.meta.url),
+  "utf8",
+);
 const deploymentPolicy = JSON.parse(
   readFileSync(
     new URL("../../../infrastructure/iam/github-amplify-bootstrap-policy.json", import.meta.url),
@@ -84,6 +88,14 @@ test("verification email enters through the server handoff route", () => {
   assert.match(accessSource, /RECIPIENT_RATE#/);
   assert.match(accessSource, /canonicalSlug}:\$\{requestId\}/);
   assert.match(accessSource, /enforceVerificationRateLimit/);
+});
+
+test("publication event throttling distinguishes limits from service failures", () => {
+  assert.match(eventRoute, /ConditionalCheckFailedException/);
+  assert.match(eventRoute, /status: 429/);
+  assert.match(eventRoute, /"Retry-After": "3600"/);
+  assert.match(eventRoute, /publication-event-rate-limit-failed/);
+  assert.match(eventRoute, /status: 503/);
 });
 
 test("public application source contains no Google Drive publication URL", () => {

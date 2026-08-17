@@ -14,7 +14,20 @@ export async function POST(request: NextRequest) {
       { status: rawBody.error === "unsupported-media-type" ? 415 : rawBody.error === "too-large" ? 413 : 400 },
     );
   }
-  try { await enforceEventRateLimit(request); } catch { return NextResponse.json({ accepted: false }, { status: 429 }); }
+  try {
+    await enforceEventRateLimit(request);
+  } catch (error) {
+    if ((error as { name?: string }).name === "ConditionalCheckFailedException") {
+      return NextResponse.json(
+        { accepted: false },
+        { status: 429, headers: { "Retry-After": "3600" } },
+      );
+    }
+    console.error("publication-event-rate-limit-failed", {
+      name: (error as { name?: string }).name ?? "UnknownError",
+    });
+    return NextResponse.json({ accepted: false }, { status: 503 });
+  }
   let body: { event?: AccessEvent; slug?: string } | null = null;
   try {
     const parsed = JSON.parse(rawBody.text || "null") as unknown;

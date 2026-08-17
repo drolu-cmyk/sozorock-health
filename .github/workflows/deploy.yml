@@ -232,7 +232,10 @@ jobs:
             --header 'Content-Type: application/json' \
             --data "{\"event\":\"publication_viewed\",\"slug\":\"$publication_slug\"}" \
             "$origin/api/publications/events")
-          test "$same_origin_status" = "204"
+          case "$same_origin_status" in
+            204|429) ;;
+            *) echo "Canonical publication event returned $same_origin_status; expected 204 or a valid 429 rate limit."; exit 1 ;;
+          esac
 
           verify_headers=$(mktemp)
           verify_status=$(curl --proto '=https' --tlsv1.2 --silent --show-error --dump-header "$verify_headers" --output /dev/null --write-out '%{http_code}' \
@@ -288,7 +291,7 @@ jobs:
             echo "- Production origin: $origin"
             echo "- Publication route: 200"
             echo "- Host/origin spoof rejection: 403"
-            echo "- Canonical publication event: 204"
+            echo "- Canonical publication event: $same_origin_status (204 accepted; 429 is an enforced rate limit)"
             echo "- Verification redirect: 303, no-store, no-referrer, verifier in HttpOnly Secure SameSite=Lax cookie"
             echo "- Unauthorized download: 303, no-store, no-referrer"
             echo "- Workspace query capability rejected: 404"
