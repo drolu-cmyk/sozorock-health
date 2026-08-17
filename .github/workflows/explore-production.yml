@@ -40,15 +40,23 @@ jobs:
       EVIDENCE_MIGRATION_TEST_DISPOSABLE: "true"
       NATIONAL_SNAPSHOT_DATE: "2026-07-23T00:00:00.000Z"
     steps:
+      - name: Validate exact release input
+        env:
+          RELEASE_SHA: ${{ inputs.release_sha }}
+        run: |
+          set -euo pipefail
+          [[ "$RELEASE_SHA" =~ ^[0-9a-f]{40}$ ]]
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           ref: ${{ inputs.release_sha }}
       - name: Verify exact release commit and main ancestry
+        env:
+          RELEASE_SHA: ${{ inputs.release_sha }}
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD)" = "${{ inputs.release_sha }}"
+          test "$(git rev-parse HEAD)" = "$RELEASE_SHA"
           git fetch --no-tags origin main
-          test "$(git rev-parse origin/main)" = "${{ inputs.release_sha }}"
+          test "$(git rev-parse origin/main)" = "$RELEASE_SHA"
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: "24"
@@ -101,7 +109,7 @@ jobs:
           NODE
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: explore-production-gates-${{ inputs.release_sha }}
+          name: explore-production-gates
           path: |
             packages/evidence-core/data/national/national-coverage-report.v1.json
             packages/evidence-core/data/national/national-coverage-report.v1.md
@@ -438,7 +446,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: non-explore-production-regression-${{ inputs.release_sha }}
+          name: non-explore-production-regression
           path: output/non-explore-regression
       - name: Enable and verify agent capability after deterministic acceptance
         run: |

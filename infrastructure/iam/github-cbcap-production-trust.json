@@ -12,6 +12,9 @@
         "StringEquals": {
           "token.actions.githubusercontent.com:aud": "sts.amazonaws.com",
           "token.actions.githubusercontent.com:sub": "repo:drolu-cmyk/sozorock-health:environment:production"
+        },
+        "StringLike": {
+          "token.actions.githubusercontent.com:job_workflow_ref": "drolu-cmyk/sozorock-health/.github/workflows/deploy-cbcap.yml@refs/heads/main"
         }
       }
     }

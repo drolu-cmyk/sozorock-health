@@ -6,10 +6,17 @@
     "Action": "sts:AssumeRoleWithWebIdentity",
     "Condition": {
       "StringEquals": {"token.actions.githubusercontent.com:aud": "sts.amazonaws.com"},
-      "ForAnyValue:StringLike": {"token.actions.githubusercontent.com:sub": [
-        "repo:drolu-cmyk/sozorock-health:environment:staging",
-        "repo:drolu-cmyk/sozorock-health:environment:production"
-      ]}
+      "ForAnyValue:StringLike": {
+        "token.actions.githubusercontent.com:sub": [
+          "repo:drolu-cmyk/sozorock-health:environment:staging",
+          "repo:drolu-cmyk/sozorock-health:environment:production"
+        ],
+        "token.actions.githubusercontent.com:job_workflow_ref": [
+          "drolu-cmyk/sozorock-health/.github/workflows/deploy.yml@refs/heads/main",
+          "drolu-cmyk/sozorock-health/.github/workflows/explore-production.yml@refs/heads/main",
+          "drolu-cmyk/sozorock-health/.github/workflows/milestone-10-staging.yml@refs/heads/codex/explore-agentic-collaboration"
+        ]
+      }
     }
   }]
 }

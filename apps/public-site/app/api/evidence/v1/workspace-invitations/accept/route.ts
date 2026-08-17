@@ -35,6 +35,14 @@ export async function POST(request: NextRequest) {
       headers: { "Cache-Control": "no-store" },
     });
   } catch (error) {
-    return NextResponse.json({ error: (error as Error).message }, { status: 403 });
+    const message = error instanceof Error ? error.message : "";
+    const unauthorized = /authorized|authenticated|tenant|participant|invitation/i.test(message);
+    console.error("workspace-invitation-accept-failed", {
+      name: error instanceof Error ? error.name : "UnknownError",
+    });
+    return NextResponse.json(
+      { error: unauthorized ? "This workspace invitation is invalid or you are not authorized to accept it." : "The workspace invitation could not be accepted." },
+      { status: unauthorized ? 403 : 503, headers: { "Cache-Control": "private, no-store", "Referrer-Policy": "no-referrer" } },
+    );
   }
 }

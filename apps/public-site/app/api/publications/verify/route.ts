@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   SESSION_SECONDS,
   VERIFY_SECONDS,
+  enforceVerificationRateLimit,
   sameOrigin,
   verifyAccessToken,
 } from "../../../lib/publication-access";
@@ -84,6 +85,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
+    await enforceVerificationRateLimit(request);
     const verified = await verifyAccessToken(token);
     if (!verified) {
       const target = publicationRedirects.expiredVerification();
@@ -107,6 +109,13 @@ export async function POST(request: NextRequest) {
     });
     return protectResponse(response);
   } catch (error) {
+    if ((error as { name?: string }).name === "ConditionalCheckFailedException") {
+      const response = NextResponse.json(
+        { error: "Too many verification attempts. Please try again later." },
+        { status: 429, headers: { "Retry-After": "3600" } },
+      );
+      return protectResponse(response);
+    }
     console.error("publication-verification-failed", {
       name: (error as { name?: string }).name ?? "UnknownError",
     });

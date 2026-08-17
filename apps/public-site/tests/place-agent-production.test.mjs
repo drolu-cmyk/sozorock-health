@@ -16,6 +16,10 @@ const evidenceInfrastructure = await readFile(
   "utf8",
 );
 const nextConfig = await readFile(new URL("../next.config.ts", import.meta.url), "utf8");
+const amplifyBuild = await readFile(
+  new URL("../../../infrastructure/amplify/public-site.yml", import.meta.url),
+  "utf8",
+);
 const runtimeVerifier = await readFile(new URL("../../../scripts/verify-public-runtime-security.mjs", import.meta.url), "utf8");
 const runtimeAuthority = await readFile(new URL("../app/lib/evidence-runtime-authority.ts", import.meta.url), "utf8");
 const exploreRoute = await readFile(new URL("../app/api/explore/route.ts", import.meta.url), "utf8");
@@ -140,8 +144,12 @@ test("public collaboration runtime has cluster-scoped transactional Data API acc
 
 test("public runtime removes optional Sharp while preserving upstream lock metadata", () => {
   assert.match(nextConfig, /unoptimized:\s*true/);
+  assert.doesNotMatch(nextConfig, /^\s*env:\s*\{/m);
+  assert.match(amplifyBuild, /PUBLICATION_HASH_SALT_SECRET_ARN/);
+  assert.doesNotMatch(amplifyBuild, /env \| grep/);
   assert.match(runtimeVerifier, /Runtime trace imports Sharp\/libvips/);
   assert.match(runtimeVerifier, /Rendered HTML depends on \/_next\/image/);
+  assert.match(runtimeVerifier, /AWS resource identifier/);
   const versions = Object.entries(packageLock.packages)
     .filter(([name]) => /(^|\/)sharp$/.test(name))
     .map(([, value]) => ({ version: value.version, optional: value.optional }));

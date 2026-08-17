@@ -15,57 +15,9 @@ const nextConfig: NextConfig = {
     unoptimized: true,
   },
   outputFileTracingRoot: path.join(process.cwd(), "../.."),
-  // Amplify SSR does not forward app environment variables to the compute
-  // runtime. These values are referenced only by server routes and are
-  // compiled into the trusted server bundle during the release build.
-  env: {
-    CONTACT_SUBMISSIONS_TABLE: process.env.CONTACT_SUBMISSIONS_TABLE,
-    CONTACT_NOTIFICATION_TOPIC_ARN: process.env.CONTACT_NOTIFICATION_TOPIC_ARN,
-    CONTACT_RATE_LIMIT_SALT_SECRET_ARN: process.env.CONTACT_RATE_LIMIT_SALT_SECRET_ARN,
-    CONTACT_ALLOWED_HOSTS: process.env.CONTACT_ALLOWED_HOSTS,
-    ACCESS_REQUESTS_TABLE: process.env.ACCESS_REQUESTS_TABLE,
-    ACCESS_NOTIFICATION_TOPIC_ARN: process.env.ACCESS_NOTIFICATION_TOPIC_ARN,
-    ACCESS_RATE_LIMIT_SALT_SECRET_ARN:
-      process.env.ACCESS_RATE_LIMIT_SALT_SECRET_ARN,
-    ACCESS_ALLOWED_ORIGINS: process.env.ACCESS_ALLOWED_ORIGINS,
-    OPENAI_SECRET_ARN: process.env.OPENAI_SECRET_ARN,
-    OPENAI_PLACE_EVIDENCE_SECRET_ARN:
-      process.env.OPENAI_PLACE_EVIDENCE_SECRET_ARN,
-    VOICE_PROVIDER_ALIAS: process.env.VOICE_PROVIDER_ALIAS,
-    OPENAI_REALTIME_MODEL: process.env.OPENAI_REALTIME_MODEL,
-    OPENAI_REALTIME_ENABLED: process.env.OPENAI_REALTIME_ENABLED,
-    OPENAI_GPT_LIVE_MODEL: process.env.OPENAI_GPT_LIVE_MODEL,
-    PUBLICATION_ACCESS_TABLE: process.env.PUBLICATION_ACCESS_TABLE,
-    PUBLICATION_ASSET_BUCKET: process.env.PUBLICATION_ASSET_BUCKET,
-    PUBLICATION_EMAIL_FROM: process.env.PUBLICATION_EMAIL_FROM,
-    PUBLICATION_HASH_SALT_SECRET_ARN: process.env.PUBLICATION_HASH_SALT_SECRET_ARN,
-    PUBLICATION_ALLOWED_HOSTS: process.env.PUBLICATION_ALLOWED_HOSTS,
-    PUBLIC_SITE_URL: process.env.PUBLIC_SITE_URL,
-    PARTNER_EVIDENCE_REVIEW_ENABLED:
-      process.env.PARTNER_EVIDENCE_REVIEW_ENABLED,
-    EVIDENCE_DATABASE_CLUSTER_ARN:
-      process.env.EVIDENCE_DATABASE_CLUSTER_ARN,
-    EVIDENCE_DATABASE_SECRET_ARN:
-      process.env.EVIDENCE_DATABASE_SECRET_ARN,
-    EVIDENCE_DATABASE_NAME:
-      process.env.EVIDENCE_DATABASE_NAME,
-    EVIDENCE_ALLOWED_HOSTS:
-      process.env.EVIDENCE_ALLOWED_HOSTS,
-    OPENAI_PLACE_EVIDENCE_MODEL:
-      process.env.OPENAI_PLACE_EVIDENCE_MODEL,
-    PLACE_EVIDENCE_PROVIDER:
-      process.env.PLACE_EVIDENCE_PROVIDER,
-    EVIDENCE_SOURCE_CDC_PLACES_ENABLED:
-      process.env.EVIDENCE_SOURCE_CDC_PLACES_ENABLED,
-    PLACE_AGENT_MAX_PER_NETWORK_HOUR:
-      process.env.PLACE_AGENT_MAX_PER_NETWORK_HOUR,
-    PLACE_AGENT_MAX_GLOBAL_DAY:
-      process.env.PLACE_AGENT_MAX_GLOBAL_DAY,
-    PLACE_AGENT_RATE_LIMIT_NAMESPACE:
-      process.env.PLACE_AGENT_RATE_LIMIT_NAMESPACE,
-    RUNTIME_ENV: process.env.RUNTIME_ENV,
-    EVIDENCE_SNAPSHOT_CONTENT_HASH: process.env.EVIDENCE_SNAPSHOT_CONTENT_HASH,
-  },
+  // Server routes read configuration from process.env. The Amplify build
+  // writes a server-only .env.production file; values are deliberately not
+  // mapped through nextConfig.env, which would expose them to browser code.
   outputFileTracingIncludes: {
     "/review/partner-evidence/download/*": [
       "../../output/pdf/milestone-6/*.pdf",

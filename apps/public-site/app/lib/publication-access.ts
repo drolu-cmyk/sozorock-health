@@ -30,6 +30,9 @@ const REQUEST_RETENTION_SECONDS = 180 * 24 * 60 * 60;
 export const VERIFY_SECONDS = 30 * 60;
 export const SESSION_SECONDS = 12 * 60 * 60;
 const MAX_REQUESTS_PER_HOUR = 4;
+const MAX_NETWORK_REQUESTS_PER_HOUR = 20;
+const MAX_RECIPIENT_REQUESTS_PER_HOUR = 8;
+const MAX_VERIFICATION_ATTEMPTS_PER_HOUR = 60;
 const VERIFICATION_TOKEN_PATTERN = /^[A-Za-z0-9_-]{43}$/;
 
 export function sameOrigin(request: NextRequest) {
@@ -66,18 +69,57 @@ export async function recordEvent(event: AccessEvent, slug: string, requestId?: 
   } }));
 }
 
+async function incrementRateLimit(
+  tableName: string,
+  key: string,
+  epoch: number,
+  maximum: number,
+  recordType: string,
+) {
+  await dynamo.send(new UpdateCommand({
+    TableName: tableName,
+    Key: { pk: key, sk: "HOUR" },
+    UpdateExpression: "ADD requestCount :one SET expiresAt = :expiry, recordType = :type",
+    ConditionExpression: "attribute_not_exists(requestCount) OR requestCount < :maximum",
+    ExpressionAttributeValues: {
+      ":one": 1,
+      ":maximum": maximum,
+      ":expiry": epoch + 7200,
+      ":type": recordType,
+    },
+  }));
+}
+
 export async function enforceRateLimit(request: NextRequest, email: string) {
   const { tableName } = requireConfig();
   const epoch = Math.floor(Date.now() / 1000);
   const bucket = Math.floor(epoch / 3600);
   const ip = clientNetworkAddress(request.headers);
-  const key = await hash(`${ip}:${email}:${bucket}`);
-  await dynamo.send(new UpdateCommand({
-    TableName: tableName, Key: { pk: `RATE#${key}`, sk: "HOUR" },
-    UpdateExpression: "ADD requestCount :one SET expiresAt = :expiry, recordType = :type",
-    ConditionExpression: "attribute_not_exists(requestCount) OR requestCount < :maximum",
-    ExpressionAttributeValues: { ":one": 1, ":maximum": MAX_REQUESTS_PER_HOUR, ":expiry": epoch + 7200, ":type": "rate-limit" },
-  }));
+  const [emailKey, networkKey, recipientKey] = await Promise.all([
+    hash(`${ip}:${email}:${bucket}`),
+    hash(`network:${ip}:${bucket}`),
+    hash(`recipient:${email}:${bucket}`),
+  ]);
+  await Promise.all([
+    incrementRateLimit(tableName, `RATE#${emailKey}`, epoch, MAX_REQUESTS_PER_HOUR, "rate-limit"),
+    incrementRateLimit(tableName, `NETWORK_RATE#${networkKey}`, epoch, MAX_NETWORK_REQUESTS_PER_HOUR, "network-rate-limit"),
+    incrementRateLimit(tableName, `RECIPIENT_RATE#${recipientKey}`, epoch, MAX_RECIPIENT_REQUESTS_PER_HOUR, "recipient-rate-limit"),
+  ]);
+}
+
+export async function enforceVerificationRateLimit(request: NextRequest) {
+  const { tableName } = requireConfig();
+  const epoch = Math.floor(Date.now() / 1000);
+  const bucket = Math.floor(epoch / 3600);
+  const ip = clientNetworkAddress(request.headers);
+  const key = await hash(`verification:${ip}:${bucket}`);
+  await incrementRateLimit(
+    tableName,
+    `VERIFY_RATE#${key}`,
+    epoch,
+    MAX_VERIFICATION_ATTEMPTS_PER_HOUR,
+    "verification-rate-limit",
+  );
 }
 
 export async function enforceEventRateLimit(request: NextRequest) {
@@ -86,13 +128,7 @@ export async function enforceEventRateLimit(request: NextRequest) {
   const bucket = Math.floor(epoch / 3600);
   const ip = clientNetworkAddress(request.headers);
   const key = await hash(`event:${ip}:${bucket}`);
-  await dynamo.send(new UpdateCommand({
-    TableName: tableName,
-    Key: { pk: `EVENT_RATE#${key}`, sk: "HOUR" },
-    UpdateExpression: "ADD requestCount :one SET expiresAt = :expiry, recordType = :type",
-    ConditionExpression: "attribute_not_exists(requestCount) OR requestCount < :maximum",
-    ExpressionAttributeValues: { ":one": 1, ":maximum": 60, ":expiry": epoch + 7200, ":type": "event-rate-limit" },
-  }));
+  await incrementRateLimit(tableName, `EVENT_RATE#${key}`, epoch, 60, "event-rate-limit");
 }
 
 export async function createAccessRequest(slug: string, input: AccessInput) {
@@ -106,7 +142,7 @@ export async function createAccessRequest(slug: string, input: AccessInput) {
   const emailHash = await hash(input.email);
   const verifyToken = randomBytes(32).toString("base64url");
   const verifyHash = await hash(verifyToken);
-  const requestKey = await hash(`${input.email}:${canonicalSlug}`);
+  const requestKey = await hash(`${input.email}:${canonicalSlug}:${requestId}`);
 
   await dynamo.send(new TransactWriteCommand({
     TransactItems: [

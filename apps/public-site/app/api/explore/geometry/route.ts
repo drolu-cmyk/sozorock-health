@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createRequire } from "node:module";
+import { enforceEvidenceRateLimit } from "../../../lib/evidence-rate-limit";
 import { safeGeoid, type ExploreKind } from "../../../lib/explore-health";
 
 export const runtime = "nodejs";
@@ -10,6 +11,11 @@ type FeatureCollection = {
 };
 
 const emptyCollection: FeatureCollection = { type: "FeatureCollection", features: [] };
+const UPSTREAM_TIMEOUT_MS = 8_000;
+const UPSTREAM_MAX_BYTES = 2_000_000;
+const MAX_FEATURES = 25;
+const MAX_COORDINATE_POINTS = 250_000;
+const MAX_COORDINATE_DEPTH = 12;
 const countyBoundaries = createRequire(import.meta.url)(
   "../../../../../../packages/evidence-core/data/national/county-boundaries.v2025.json",
 ) as {
@@ -19,13 +25,14 @@ const countyBoundaries = createRequire(import.meta.url)(
   byGeoid: Record<string, FeatureCollection["features"][number]>;
 };
 
-function collectNumbers(value: unknown, points: number[][]) {
+function collectNumbers(value: unknown, points: number[][], depth = 0) {
+  if (depth > MAX_COORDINATE_DEPTH || points.length >= MAX_COORDINATE_POINTS) return;
   if (!Array.isArray(value)) return;
   if (value.length >= 2 && value.every((item) => typeof item === "number")) {
     points.push(value as number[]);
     return;
   }
-  value.forEach((item) => collectNumbers(item, points));
+  value.forEach((item) => collectNumbers(item, points, depth + 1));
 }
 
 function bounds(collection: FeatureCollection) {
@@ -53,16 +60,51 @@ async function arcGisGeoJson(url: string, parameters: Record<string, string>) {
     outSR: "4326",
     ...parameters,
   }).forEach(([key, value]) => query.searchParams.set(key, value));
-  const response = await fetch(query, {
-    headers: {
-      Accept: "application/geo+json,application/json",
-      "User-Agent": "SozoRock-Health-Place-Evidence/1.0",
-    },
-    next: { revalidate: 604_800 },
-  });
-  if (!response.ok) return emptyCollection;
-  const data = (await response.json()) as FeatureCollection;
-  return data.type === "FeatureCollection" ? data : emptyCollection;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), UPSTREAM_TIMEOUT_MS);
+  try {
+    const response = await fetch(query, {
+      headers: {
+        Accept: "application/geo+json,application/json",
+        "User-Agent": "SozoRock-Health-Place-Evidence/1.0",
+      },
+      signal: controller.signal,
+      next: { revalidate: 604_800 },
+    });
+    if (!response.ok) return emptyCollection;
+    const declaredLength = Number(response.headers.get("content-length") ?? "0");
+    if (declaredLength > UPSTREAM_MAX_BYTES) return emptyCollection;
+    if (!response.body) return emptyCollection;
+    const reader = response.body.getReader();
+    const chunks: Uint8Array[] = [];
+    let total = 0;
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      total += value.byteLength;
+      if (total > UPSTREAM_MAX_BYTES) {
+        await reader.cancel().catch(() => undefined);
+        return emptyCollection;
+      }
+      chunks.push(value);
+    }
+    const bytes = new Uint8Array(total);
+    let offset = 0;
+    for (const chunk of chunks) {
+      bytes.set(chunk, offset);
+      offset += chunk.byteLength;
+    }
+    const data = JSON.parse(new TextDecoder().decode(bytes)) as FeatureCollection;
+    return data.type === "FeatureCollection"
+      && Array.isArray(data.features)
+      && data.features.length <= MAX_FEATURES
+      ? data
+      : emptyCollection;
+  } catch {
+    return emptyCollection;
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 async function areaGeometry(kind: ExploreKind, geoid: string) {
@@ -101,6 +143,13 @@ export async function GET(request: NextRequest) {
   if (!kind) return NextResponse.json({ area: emptyCollection, verifiedResources: emptyCollection });
   const geoid = safeGeoid(kind, request.nextUrl.searchParams.get("geoid") ?? "");
   if (!geoid) return NextResponse.json({ area: emptyCollection, verifiedResources: emptyCollection });
+  const rate = await enforceEvidenceRateLimit(request);
+  if (!rate.allowed) {
+    return NextResponse.json(
+      { error: "Geometry rate limit reached." },
+      { status: rate.retryAfter ? 429 : 503, headers: rate.retryAfter ? { "Retry-After": String(rate.retryAfter) } : undefined },
+    );
+  }
   const area = await areaGeometry(kind, geoid);
   const contextKindValue = request.nextUrl.searchParams.get("contextKind");
   const contextKind = contextKindValue === "county" || contextKindValue === "place" || contextKindValue === "zip"
