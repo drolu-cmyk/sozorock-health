@@ -40,6 +40,9 @@ test("publication delivery uses short-lived signed links from the private asset 
   assert.match(publicationInfrastructure, /BlockPublicAcls: true/);
   assert.match(publicationInfrastructure, /BlockPublicPolicy: true/);
   assert.match(publicationInfrastructure, /RestrictPublicBuckets: true/);
+  assert.match(publicationInfrastructure, /ObjectOwnership: BucketOwnerEnforced/);
+  assert.match(publicationInfrastructure, /Sid: DenyInsecureTransport/);
+  assert.match(publicationInfrastructure, /aws:SecureTransport: 'false'/);
 });
 
 test("publication access state changes are atomic and supported by least privilege IAM", () => {
