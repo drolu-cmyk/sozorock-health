@@ -54,9 +54,21 @@ async function hash(value: string) {
   return createHash("sha256").update(`${salt}:${value}`).digest("hex");
 }
 
-function requireConfig() {
-  if (!tableName || !bucketName || !emailFrom || (!hashSalt && !hashSaltSecretArn)) throw new Error("Publication access is not configured");
-  return { tableName, bucketName, emailFrom };
+function requireHashingConfig() {
+  if (!tableName || (!hashSalt && !hashSaltSecretArn)) throw new Error("Publication access is not configured");
+  return { tableName };
+}
+
+function requireRequestConfig() {
+  const config = requireHashingConfig();
+  if (!emailFrom) throw new Error("Publication access is not configured");
+  return { ...config, emailFrom };
+}
+
+function requireDownloadConfig() {
+  const config = requireHashingConfig();
+  if (!bucketName) throw new Error("Publication access is not configured");
+  return { ...config, bucketName };
 }
 
 export async function recordEvent(event: AccessEvent, slug: string, requestId?: string, details?: Record<string, string | number | boolean>) {
@@ -91,7 +103,7 @@ async function incrementRateLimit(
 }
 
 export async function enforceRateLimit(request: NextRequest, email: string) {
-  const { tableName } = requireConfig();
+  const { tableName } = requireHashingConfig();
   const epoch = Math.floor(Date.now() / 1000);
   const bucket = Math.floor(epoch / 3600);
   const ip = clientNetworkAddress(request.headers);
@@ -108,7 +120,7 @@ export async function enforceRateLimit(request: NextRequest, email: string) {
 }
 
 export async function enforceVerificationRateLimit(request: NextRequest) {
-  const { tableName } = requireConfig();
+  const { tableName } = requireHashingConfig();
   const epoch = Math.floor(Date.now() / 1000);
   const bucket = Math.floor(epoch / 3600);
   const ip = clientNetworkAddress(request.headers);
@@ -123,7 +135,7 @@ export async function enforceVerificationRateLimit(request: NextRequest) {
 }
 
 export async function enforceEventRateLimit(request: NextRequest) {
-  const { tableName } = requireConfig();
+  const { tableName } = requireHashingConfig();
   const epoch = Math.floor(Date.now() / 1000);
   const bucket = Math.floor(epoch / 3600);
   const ip = clientNetworkAddress(request.headers);
@@ -135,7 +147,7 @@ export async function createAccessRequest(slug: string, input: AccessInput) {
   const publication = getPublication(slug);
   if (!publication?.assetKey) throw new Error("Publication is not available for access");
   const canonicalSlug = publication.slug;
-  const { tableName, emailFrom } = requireConfig();
+  const { tableName, emailFrom } = requireRequestConfig();
   const now = new Date();
   const epoch = Math.floor(now.getTime() / 1000);
   const requestId = randomUUID();
@@ -217,7 +229,7 @@ function escapeHtml(value: string) {
 
 export async function verifyAccessToken(token: string) {
   if (!VERIFICATION_TOKEN_PATTERN.test(token)) return null;
-  const { tableName } = requireConfig();
+  const { tableName } = requireHashingConfig();
   const tokenKey = { pk: `VERIFY#${await hash(token)}`, sk: "TOKEN" };
   const result = await dynamo.send(new GetCommand({ TableName: tableName, Key: tokenKey, ConsistentRead: true }));
   const item = result.Item;
@@ -295,7 +307,7 @@ export async function verifyAccessToken(token: string) {
 export async function validatePublicationSession(sessionToken: string, slug: string) {
   const publication = getPublication(slug);
   if (!publication?.assetKey || !sessionToken) return null;
-  const { tableName } = requireConfig();
+  const { tableName } = requireHashingConfig();
   const canonicalSlug = publication.slug;
   const sessionHash = await hash(sessionToken);
   const acceptedSlugs = [canonicalSlug, slug, ...(publication.legacySlugs ?? [])]
@@ -313,7 +325,7 @@ export async function validatePublicationSession(sessionToken: string, slug: str
 export async function createDownloadUrl(sessionToken: string, slug: string) {
   const publication = getPublication(slug);
   if (!publication?.assetKey) return null;
-  const { bucketName } = requireConfig();
+  const { bucketName } = requireDownloadConfig();
   const session = await validatePublicationSession(sessionToken, publication.slug);
   if (!session) return null;
 

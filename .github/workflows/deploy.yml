@@ -135,10 +135,34 @@ jobs:
           publication_table=$(aws cloudformation describe-stacks --stack-name sozorock-health-publication-access --query "Stacks[0].Outputs[?OutputKey=='PublicationAccessTableName'].OutputValue" --output text)
           publication_bucket=$(aws cloudformation describe-stacks --stack-name sozorock-health-publication-access --query "Stacks[0].Outputs[?OutputKey=='PublicationAssetBucketName'].OutputValue" --output text)
           publication_salt_arn=$(aws cloudformation describe-stacks --stack-name sozorock-health-publication-access --query "Stacks[0].Outputs[?OutputKey=='PublicationHashSaltSecretArn'].OutputValue" --output text)
+          test -n "$publication_table"
+          test -n "$publication_bucket"
+          test -n "$publication_salt_arn"
+
+          # Verify the policy that the Amplify SSR compute role will actually
+          # use. CloudFormation can report the stack as healthy while a role
+          # or inline-policy attachment is still wrong, so fail before release
+          # rather than publishing a site whose access flow cannot reach AWS.
+          public_compute_role_name="${public_compute_role##*/}"
+          runtime_policy_response=$(aws iam get-role-policy \
+            --role-name "$public_compute_role_name" \
+            --policy-name SozoRockHealthPublicationAccess \
+            --output json)
+          runtime_policy=$(python3 -c 'import json, sys, urllib.parse; value = json.load(sys.stdin)["PolicyDocument"]; print(urllib.parse.unquote(value) if isinstance(value, str) else json.dumps(value))' <<<"$runtime_policy_response")
+          jq -e '
+            def actions: if (.Action | type) == "array" then .Action else [.Action] end;
+            ([.Statement[] | select(.Sid == "PublicationRecords") | actions[]] | sort) as $records
+            | (["dynamodb:GetItem", "dynamodb:PutItem", "dynamodb:UpdateItem", "dynamodb:TransactWriteItems"] - $records | length) == 0
+            and ([.Statement[] | select(.Sid == "ReadHashSalt") | actions[]] | index("secretsmanager:GetSecretValue")) != null
+            and ([.Statement[] | select(.Sid == "ControlledPublicationRead") | actions[]] | index("s3:GetObject")) != null
+            and ([.Statement[] | select(.Sid == "VerificationEmail") | actions[]] | index("ses:SendEmail")) != null
+            and ([.Statement[] | select(.Sid == "VerificationEmail") | actions[]] | index("ses:SendRawEmail")) != null
+          ' <<<"$runtime_policy" >/dev/null
 
           aws s3 sync infrastructure/assets/publications "s3://$publication_bucket/" --exclude '*' --include '*.pdf' --sse AES256 --only-show-errors
 
           current_env=$(aws amplify get-app --app-id "$PUBLIC_APP_ID" --query 'app.environmentVariables' --output json)
+          public_build_spec=$(cat infrastructure/amplify/public-site.yml)
           merged_env=$(jq -c \
             --arg ct "$contact_table" --arg cn "$contact_topic" --arg cs "$contact_salt_arn" \
             --arg at "$access_table" --arg as "$access_salt_arn" \
@@ -146,7 +170,59 @@ jobs:
             --arg pe "$PUBLICATION_EMAIL_FROM" --arg ps "$publication_salt_arn" --arg pu "$PUBLIC_SITE_URL" --arg au "$ACCESS_ALLOWED_ORIGINS" \
             --arg va "$VOICE_PROVIDER_ALIAS" --arg rm "$OPENAI_REALTIME_MODEL" --arg re "$OPENAI_REALTIME_ENABLED" --arg lm "$OPENAI_GPT_LIVE_MODEL" \
             '. + {CONTACT_SUBMISSIONS_TABLE:$ct,CONTACT_NOTIFICATION_TOPIC_ARN:$cn,CONTACT_RATE_LIMIT_SALT_SECRET_ARN:$cs,ACCESS_REQUESTS_TABLE:$at,ACCESS_NOTIFICATION_TOPIC_ARN:$cn,ACCESS_RATE_LIMIT_SALT_SECRET_ARN:$as,ACCESS_ALLOWED_ORIGINS:$au,CONTACT_ALLOWED_HOSTS:$au,EVIDENCE_ALLOWED_HOSTS:$au,PUBLICATION_ALLOWED_HOSTS:$au,OPENAI_SECRET_ARN:$oa,PUBLICATION_ACCESS_TABLE:$pt,PUBLICATION_ASSET_BUCKET:$pb,PUBLICATION_EMAIL_FROM:$pe,PUBLICATION_HASH_SALT_SECRET_ARN:$ps,PUBLIC_SITE_URL:$pu,VOICE_PROVIDER_ALIAS:$va,OPENAI_REALTIME_MODEL:$rm,OPENAI_REALTIME_ENABLED:$re,OPENAI_GPT_LIVE_MODEL:$lm}' <<<"$current_env")
-          aws amplify update-app --app-id "$PUBLIC_APP_ID" --compute-role-arn "$public_compute_role" --environment-variables "$merged_env" >/dev/null
+          aws amplify update-app \
+            --app-id "$PUBLIC_APP_ID" \
+            --compute-role-arn "$public_compute_role" \
+            --build-spec "$public_build_spec" \
+            --environment-variables "$merged_env" >/dev/null
+
+          # Amplify can retain branch-level variables and build definitions
+          # independently of app-level settings. Reconcile both layers so the
+          # production branch cannot build with stale publication resources.
+          branch_env=$(aws amplify get-branch \
+            --app-id "$PUBLIC_APP_ID" \
+            --branch-name "$AMPLIFY_BRANCH" \
+            --query 'branch.environmentVariables' \
+            --output json)
+          publication_branch_env=$(jq -c \
+            --arg pt "$publication_table" --arg pb "$publication_bucket" \
+            --arg pe "$PUBLICATION_EMAIL_FROM" --arg ps "$publication_salt_arn" \
+            --arg pu "$PUBLIC_SITE_URL" --arg au "$ACCESS_ALLOWED_ORIGINS" \
+            '. + {PUBLICATION_ACCESS_TABLE:$pt,PUBLICATION_ASSET_BUCKET:$pb,PUBLICATION_EMAIL_FROM:$pe,PUBLICATION_HASH_SALT_SECRET_ARN:$ps,PUBLICATION_ALLOWED_HOSTS:$au,PUBLIC_SITE_URL:$pu}' \
+            <<<"$branch_env")
+          aws amplify update-branch \
+            --app-id "$PUBLIC_APP_ID" \
+            --branch-name "$AMPLIFY_BRANCH" \
+            --build-spec "$public_build_spec" \
+            --environment-variables "$publication_branch_env" >/dev/null
+
+          expected_build_spec_hash=$(printf '%s' "$public_build_spec" | sha256sum | cut -d' ' -f1)
+          for attempt in $(seq 1 12); do
+            app_build_spec=$(aws amplify get-app --app-id "$PUBLIC_APP_ID" --query 'app.buildSpec' --output text)
+            branch_build_spec=$(aws amplify get-branch --app-id "$PUBLIC_APP_ID" --branch-name "$AMPLIFY_BRANCH" --query 'branch.buildSpec' --output text)
+            app_build_spec_hash=$(printf '%s' "$app_build_spec" | sha256sum | cut -d' ' -f1)
+            branch_build_spec_hash=$(printf '%s' "$branch_build_spec" | sha256sum | cut -d' ' -f1)
+            if [[ "$app_build_spec_hash" == "$expected_build_spec_hash" && "$branch_build_spec_hash" == "$expected_build_spec_hash" ]]; then
+              break
+            fi
+            if [[ "$attempt" -eq 12 ]]; then
+              echo "Amplify did not converge on the approved public build specification."
+              exit 1
+            fi
+            sleep 5
+          done
+
+          branch_env_after=$(aws amplify get-branch \
+            --app-id "$PUBLIC_APP_ID" \
+            --branch-name "$AMPLIFY_BRANCH" \
+            --query 'branch.environmentVariables' \
+            --output json)
+          jq -e \
+            --arg pt "$publication_table" --arg pb "$publication_bucket" \
+            --arg pe "$PUBLICATION_EMAIL_FROM" --arg ps "$publication_salt_arn" \
+            --arg pu "$PUBLIC_SITE_URL" --arg au "$ACCESS_ALLOWED_ORIGINS" \
+            '.PUBLICATION_ACCESS_TABLE == $pt and .PUBLICATION_ASSET_BUCKET == $pb and .PUBLICATION_EMAIL_FROM == $pe and .PUBLICATION_HASH_SALT_SECRET_ARN == $ps and .PUBLICATION_ALLOWED_HOSTS == $au and .PUBLIC_SITE_URL == $pu' \
+            <<<"$branch_env_after" >/dev/null
 
           # CB-CAP is intentionally released by deploy-cbcap.yml with its
           # separate least-privilege AWS role and production proof gates.
@@ -249,6 +325,17 @@ jobs:
               ;;
           esac
 
+          access_headers=$(mktemp)
+          access_body=$(mktemp)
+          access_status=$(curl --proto '=https' --tlsv1.2 --silent --show-error --dump-header "$access_headers" --output "$access_body" --write-out '%{http_code}' \
+            --request POST \
+            --header "Origin: $origin" \
+            --header 'Content-Type: application/json' \
+            --data '{"firstName":"Release","lastName":"Smoke","email":"success@simulator.amazonses.com","organization":"SozoRock Health release check","sector":"Community organization","cityOrRegion":"Synthetic City","state":"Synthetic State","country":"United States","reason":"Synthetic production verification for publication access delivery.","deliveryConsent":true,"updatesConsent":false,"website":""}' \
+            "$origin/api/publications/access/$publication_slug")
+          test "$access_status" = "202"
+          jq -e 'type == "object" and .accepted == true and (.message | test("verification link"; "i"))' "$access_body" >/dev/null
+
           verify_headers=$(mktemp)
           verify_status=$(curl --proto '=https' --tlsv1.2 --silent --show-error --dump-header "$verify_headers" --output /dev/null --write-out '%{http_code}' \
             "$origin/api/publications/verify")
@@ -304,6 +391,7 @@ jobs:
             echo "- Publication route: 200"
             echo "- Host/origin spoof rejection: 403"
             echo "- Canonical publication event: $same_origin_status (204 accepted; 429 requires the exact throttle header and body contract)"
+            echo "- Synthetic publication access request: 202 with SES simulator recipient"
             echo "- Verification redirect: 303, no-store, no-referrer, verifier in HttpOnly Secure SameSite=Lax cookie"
             echo "- Unauthorized download: 303, no-store, no-referrer"
             echo "- Workspace query capability rejected: 404"
