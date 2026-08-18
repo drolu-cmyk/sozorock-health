@@ -109,6 +109,24 @@ test("the production gate verifies the complete publication throttle contract", 
   );
 });
 
+test("production deployment reconciles the active Amplify branch for publication delivery", () => {
+  assert.match(deployWorkflow, /aws amplify get-branch/);
+  assert.match(deployWorkflow, /aws amplify update-branch/);
+  assert.match(deployWorkflow, /PUBLICATION_HASH_SALT_SECRET_ARN/);
+  assert.match(deployWorkflow, /infrastructure\/amplify\/public-site\.yml/);
+  assert.match(deployWorkflow, /success@simulator\.amazonses\.com/);
+  assert.match(deployWorkflow, /Synthetic publication access request: 202/);
+});
+
+test("publication infrastructure checks only the configuration needed at each stage", () => {
+  assert.match(accessSource, /function requireHashingConfig\(\)/);
+  assert.match(accessSource, /function requireRequestConfig\(\)/);
+  assert.match(accessSource, /function requireDownloadConfig\(\)/);
+  assert.match(accessSource, /const \{ tableName \} = requireHashingConfig\(\);/);
+  assert.match(accessSource, /const \{ tableName, emailFrom \} = requireRequestConfig\(\);/);
+  assert.match(accessSource, /const \{ bucketName \} = requireDownloadConfig\(\);/);
+});
+
 test("public application source contains no Google Drive publication URL", () => {
   const driveUrl = /(?:https?:)?\/\/(?:drive\.google\.com|docs\.google\.com|[^\s"']*googleusercontent\.com)/i;
   const internalDisclosure = /private\s+publication\s+store|google\s+drive/i;
