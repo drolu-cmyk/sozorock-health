@@ -79,6 +79,16 @@ jobs:
           test -n "$PUBLICATION_HASH_SALT"
           test -n "$SES_IDENTITY_ARN"
 
+          ses_account=$(aws sesv2 get-account --region "${AWS_REGION:-us-east-1}" --output json)
+          if [[ "$(jq -r '.ProductionAccessEnabled // false' <<<"$ses_account")" != "true" ]]; then
+            echo "Amazon SES production access is not enabled in ${AWS_REGION:-us-east-1}; refusing to release public verification email delivery."
+            exit 1
+          fi
+          if [[ "$(jq -r '.SendingEnabled // false' <<<"$ses_account")" != "true" ]]; then
+            echo "Amazon SES sending is disabled in ${AWS_REGION:-us-east-1}; refusing to release public verification email delivery."
+            exit 1
+          fi
+
           if find apps/public-site/public/publications -type f -name '*.pdf' -print -quit | grep -q .; then
             echo "Publication PDFs must never be stored beneath the public web root."
             exit 1
