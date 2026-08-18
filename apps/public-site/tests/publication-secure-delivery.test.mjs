@@ -13,10 +13,6 @@ const deployWorkflow = readFileSync(
   new URL("../../../.github/workflows/deploy.yml", import.meta.url),
   "utf8",
 );
-const sesProductionWorkflow = readFileSync(
-  new URL("../../../.github/workflows/request-ses-production-access.yml", import.meta.url),
-  "utf8",
-);
 const publicationInfrastructure = readFileSync(
   new URL("../../../infrastructure/cloudformation/publication-access.yml", import.meta.url),
   "utf8",
@@ -125,10 +121,10 @@ test("production deployment reconciles the active Amplify branch for publication
 test("production deployment cannot pass while SES is sandboxed", () => {
   assert.match(deployWorkflow, /aws sesv2 get-account/);
   assert.match(deployWorkflow, /ProductionAccessEnabled/);
+  assert.match(deployWorkflow, /aws sesv2 put-account-details/);
+  assert.match(deployWorkflow, /--mail-type TRANSACTIONAL/);
+  assert.match(deployWorkflow, /--production-access-enabled/);
   assert.match(deployWorkflow, /refusing to release public verification email delivery/);
-  assert.match(sesProductionWorkflow, /aws sesv2 put-account-details/);
-  assert.match(sesProductionWorkflow, /--mail-type TRANSACTIONAL/);
-  assert.match(sesProductionWorkflow, /--production-access-enabled/);
   const statement = deploymentPolicy.Statement.find(
     ({ Sid }) => Sid === "RequestSesProductionAccess",
   );

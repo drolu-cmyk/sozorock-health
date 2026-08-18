@@ -80,8 +80,22 @@ jobs:
           test -n "$SES_IDENTITY_ARN"
 
           ses_account=$(aws sesv2 get-account --region "${AWS_REGION:-us-east-1}" --output json)
-          if [[ "$(jq -r '.ProductionAccessEnabled // false' <<<"$ses_account")" != "true" ]]; then
-            echo "Amazon SES production access is not enabled in ${AWS_REGION:-us-east-1}; refusing to release public verification email delivery."
+          ses_production_access=$(jq -r '.ProductionAccessEnabled // false' <<<"$ses_account")
+          if [[ "$ses_production_access" != "true" ]]; then
+            echo "Amazon SES production access is not enabled in ${AWS_REGION:-us-east-1}; submitting a transactional production-access request."
+            aws sesv2 put-account-details \
+              --region "${AWS_REGION:-us-east-1}" \
+              --mail-type TRANSACTIONAL \
+              --website-url "$PUBLIC_SITE_URL" \
+              --contact-language EN \
+              --additional-contact-email-addresses "$CONTACT_EMAIL" \
+              --use-case-description "SozoRock Health sends low-volume transactional verification emails only after a user requests access to the Health Systems Assurance publication. Each message contains a single-use link that expires after 30 minutes. The recipient provides the email address and explicit access consent through the publication form. Marketing updates are separate and optional." \
+              --production-access-enabled
+            ses_account=$(aws sesv2 get-account --region "${AWS_REGION:-us-east-1}" --output json)
+            ses_production_access=$(jq -r '.ProductionAccessEnabled // false' <<<"$ses_account")
+          fi
+          if [[ "$ses_production_access" != "true" ]]; then
+            echo "Amazon SES production access remains pending AWS review; refusing to release public verification email delivery."
             exit 1
           fi
           if [[ "$(jq -r '.SendingEnabled // false' <<<"$ses_account")" != "true" ]]; then
