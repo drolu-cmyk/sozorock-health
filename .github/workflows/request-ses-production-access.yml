@@ -1,0 +1,78 @@
+name: Request SES production access
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/request-ses-production-access.yml
+      - infrastructure/iam/github-amplify-bootstrap-policy.json
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: sozorock-health-ses-production-access
+  cancel-in-progress: false
+
+jobs:
+  request:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: production
+    env:
+      AWS_REGION: ${{ vars.AWS_REGION || 'us-east-1' }}
+      PUBLIC_SITE_URL: ${{ vars.PUBLIC_SITE_URL || 'https://health.sozorockfoundation.org' }}
+      SES_CONTACT_EMAIL: ${{ vars.SES_CONTACT_EMAIL || 'contact@sozorockfoundation.org' }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION || 'us-east-1' }}
+      - name: Inspect and request transactional SES production access
+        run: |
+          set -euo pipefail
+          account=$(aws sesv2 get-account --region "$AWS_REGION" --output json)
+          production_access=$(jq -r '.ProductionAccessEnabled // false' <<<"$account")
+          sending_enabled=$(jq -r '.SendingEnabled // false' <<<"$account")
+
+          if [[ "$production_access" == "true" && "$sending_enabled" == "true" ]]; then
+            echo "SES production access and sending are already enabled in $AWS_REGION."
+            {
+              echo "## SES production access"
+              echo "- Region: $AWS_REGION"
+              echo "- Production access: enabled"
+              echo "- Sending: enabled"
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          echo "Submitting a transactional SES production-access request in $AWS_REGION."
+          aws sesv2 put-account-details \
+            --region "$AWS_REGION" \
+            --mail-type TRANSACTIONAL \
+            --website-url "$PUBLIC_SITE_URL" \
+            --contact-language EN \
+            --additional-contact-email-addresses "$SES_CONTACT_EMAIL" \
+            --use-case-description "SozoRock Health sends low-volume transactional verification emails only after a user requests access to the Health Systems Assurance publication. Each message contains a single-use link that expires after 30 minutes. The recipient provides the email address and explicit access consent through the publication form. Marketing updates are separate and optional." \
+            --production-access-enabled
+
+          after=$(aws sesv2 get-account --region "$AWS_REGION" --output json)
+          after_production_access=$(jq -r '.ProductionAccessEnabled // false' <<<"$after")
+          after_sending_enabled=$(jq -r '.SendingEnabled // false' <<<"$after")
+          {
+            echo "## SES production-access request"
+            echo "- Region: $AWS_REGION"
+            echo "- Request submitted: yes"
+            echo "- Production access immediately enabled: $after_production_access"
+            echo "- Sending immediately enabled: $after_sending_enabled"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          if [[ "$after_production_access" != "true" || "$after_sending_enabled" != "true" ]]; then
+            echo "AWS accepted the request submission, but production access remains pending AWS review."
+            exit 1
+          fi

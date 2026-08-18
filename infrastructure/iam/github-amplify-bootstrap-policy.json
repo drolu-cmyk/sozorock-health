@@ -353,6 +353,15 @@
         "sns:ListSubscriptionsByTopic"
       ],
       "Resource": "arn:aws:sns:us-east-1:791860731989:sozorock-health-contact-notifications"
+    },
+    {
+      "Sid": "RequestSesProductionAccess",
+      "Effect": "Allow",
+      "Action": [
+        "ses:GetAccount",
+        "ses:PutAccountDetails"
+      ],
+      "Resource": "*"
     }
   ]
 }
