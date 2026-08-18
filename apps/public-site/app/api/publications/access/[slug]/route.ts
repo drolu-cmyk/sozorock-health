@@ -40,7 +40,11 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     return NextResponse.json({ accepted: true, message: "Check your email for a verification link. It expires in 30 minutes." }, { status: 202 });
   } catch (error) {
     if (error instanceof ConditionalCheckFailedException || (error as { name?: string }).name === "ConditionalCheckFailedException") return NextResponse.json({ error: "Please wait before requesting another link." }, { status: 429 });
-    console.error("publication-access-failed", { name: (error as { name?: string }).name ?? "UnknownError", message: String((error as { message?: string }).message ?? "").slice(0, 240), slug: publication.slug });
+    console.error("publication-access-failed", {
+      name: (error as { name?: string }).name ?? "UnknownError",
+      statusCode: (error as { $metadata?: { httpStatusCode?: number } }).$metadata?.httpStatusCode,
+      slug: publication.slug,
+    });
     await recordEvent("access_failed", publication.slug, undefined, { stage: "request" }).catch(() => undefined);
     return NextResponse.json({ error: "Publication access is temporarily unavailable. Please try again later." }, { status: 503 });
   }
