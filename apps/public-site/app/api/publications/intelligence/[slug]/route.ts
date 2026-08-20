@@ -2,17 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireWorkspaceActor } from "../../../../lib/explore-workspace-auth";
 import { getPublicationIntelligence } from "../../../../lib/publication-reporting";
 import { getPublication } from "../../../../lib/publications";
-import { isTrustedSameOrigin } from "../../../../lib/request-security";
 
 export const runtime = "nodejs";
-
-function trusted(request: NextRequest) {
-  const allowedHosts = (process.env.EVIDENCE_ALLOWED_HOSTS ?? process.env.ACCESS_ALLOWED_ORIGINS ?? "")
-    .split(";")
-    .map((value) => value.trim())
-    .filter(Boolean);
-  return isTrustedSameOrigin(request, allowedHosts);
-}
 
 function protectedJson(body: unknown, status = 200) {
   return NextResponse.json(body, {
@@ -29,7 +20,6 @@ export async function GET(
   { params }: { params: Promise<{ slug: string }> },
 ) {
   try {
-    if (!trusted(request)) return protectedJson({ error: "Request origin was not accepted." }, 403);
     const actor = await requireWorkspaceActor(request);
     if (actor.role !== "foundation_reviewer") {
       return protectedJson({ error: "Foundation reviewer access is required." }, 403);
