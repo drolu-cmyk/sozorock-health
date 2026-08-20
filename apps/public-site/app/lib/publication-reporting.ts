@@ -81,8 +81,9 @@ export async function getPublicationIntelligence(slug: string) {
     increment(countries, text(request.country));
     increment(regions, [text(request.countryCode), text(request.state)].filter(Boolean).join(" / "));
     increment(sectors, text(request.sector));
-    increment(sources, text(request.source) || (text(request.referrerHost) ? "referral" : "direct"));
-    increment(media, text(request.medium) || (text(request.referrerHost) ? "referral" : "direct"));
+    const referrer = text(request.referrerHost);
+    increment(sources, text(request.source) || referrer || "direct");
+    increment(media, text(request.medium) || (referrer ? "referral" : "direct"));
     if (text(request.campaign)) increment(campaigns, text(request.campaign));
     increment(devices, text(request.deviceClass));
     increment(browsers, text(request.browserFamily));
@@ -134,8 +135,8 @@ export async function getPublicationIntelligence(slug: string) {
       state: text(request.state),
       country: text(request.country),
       countryCode: text(request.countryCode),
-      source: text(request.source),
-      medium: text(request.medium),
+      source: text(request.source) || text(request.referrerHost) || "direct",
+      medium: text(request.medium) || (text(request.referrerHost) ? "referral" : "direct"),
       campaign: text(request.campaign),
       referrerHost: text(request.referrerHost),
       landingPath: text(request.landingPath),
