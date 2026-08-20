@@ -1,5 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { enforceEventRateLimit, recordEvent, sameOrigin, type AccessEvent } from "../../../lib/publication-access";
+import {
+  enforceEventRateLimit,
+  recordAttributedEvent,
+  sameOrigin,
+  type AccessEvent,
+} from "../../../lib/publication-access";
+import { parsePublicationAttribution } from "../../../lib/publication-intelligence";
 import { getPublication } from "../../../lib/publications";
 import { readBoundedText } from "../../../lib/request-security";
 
@@ -9,7 +15,7 @@ const allowed = new Set<AccessEvent>(["publication_viewed", "access_started", "p
 
 export async function POST(request: NextRequest) {
   if (!sameOrigin(request)) return NextResponse.json({ accepted: false }, { status: 403 });
-  const rawBody = await readBoundedText(request, 2_048, ["application/json"]);
+  const rawBody = await readBoundedText(request, 4_096, ["application/json"]);
   if (!rawBody.ok) {
     return NextResponse.json(
       { accepted: false },
@@ -31,16 +37,19 @@ export async function POST(request: NextRequest) {
     });
     return NextResponse.json({ accepted: false }, { status: 503 });
   }
-  let body: { event?: AccessEvent; slug?: string } | null = null;
+  let body: (Record<string, unknown> & { event?: AccessEvent; slug?: string }) | null = null;
   try {
     const parsed = JSON.parse(rawBody.text || "null") as unknown;
     body = parsed && typeof parsed === "object" && !Array.isArray(parsed)
-      ? parsed as { event?: AccessEvent; slug?: string }
+      ? parsed as Record<string, unknown> & { event?: AccessEvent; slug?: string }
       : null;
   } catch {
     body = null;
   }
-  if (!body?.event || !allowed.has(body.event) || !body.slug || !getPublication(body.slug)) return NextResponse.json({ accepted: false }, { status: 400 });
-  await recordEvent(body.event, body.slug).catch(() => undefined);
+  if (!body?.event || !allowed.has(body.event) || !body.slug || !getPublication(body.slug)) {
+    return NextResponse.json({ accepted: false }, { status: 400 });
+  }
+  const attribution = parsePublicationAttribution(body);
+  await recordAttributedEvent(body.event, body.slug, request, attribution).catch(() => undefined);
   return new NextResponse(null, { status: 204 });
 }
