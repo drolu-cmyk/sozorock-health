@@ -3,6 +3,7 @@ export const publicationEventNames = [
   "access_started",
   "access_form_completed",
   "verification_sent",
+  "verification_delivery_failed",
   "email_verified",
   "publication_opened",
   "download_link_issued",

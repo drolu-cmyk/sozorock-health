@@ -36,10 +36,10 @@ export default async function PublicationsPage({
         {verification ? (
           <p className={styles.error} role="alert">
             {verification === "expired"
-              ? "That verification link has expired or was already used. Request a new link from the publication page."
+              ? "That email verification link has expired or was already used. You can still access the publication from its page; submit the access form again if your secure session has expired."
               : verification === "missing"
-                ? "The verification link is incomplete."
-                : "We could not verify that link. Please request a new one."}
+                ? "The email verification link is incomplete. Publication access does not depend on this link."
+                : "We could not confirm that email verification link. You can still access the publication from its page."}
           </p>
         ) : null}
         <div className={styles.list}>
