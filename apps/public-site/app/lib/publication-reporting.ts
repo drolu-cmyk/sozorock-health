@@ -56,14 +56,35 @@ function sortedCounts(values: Record<string, number>) {
     .map(([label, count]) => ({ label, count }));
 }
 
+function isSyntheticRequest(request: Item) {
+  return text(request.email).toLowerCase().endsWith("@simulator.amazonses.com");
+}
+
+function isBotEvent(event: Item) {
+  const details = event.details;
+  return Boolean(
+    details &&
+    typeof details === "object" &&
+    !Array.isArray(details) &&
+    text((details as Record<string, unknown>).deviceClass) === "bot"
+  );
+}
+
 export async function getPublicationIntelligence(slug: string) {
   const publication = getPublication(slug);
   if (!publication) return null;
 
-  const [requests, events] = await Promise.all([
+  const [allRequests, allEvents] = await Promise.all([
     queryPartition(`REQUESTS#${publication.slug}`),
     queryPartition(`EVENTS#${publication.slug}`),
   ]);
+  const syntheticRequestIds = new Set(
+    allRequests.filter(isSyntheticRequest).map((request) => text(request.requestId)).filter(Boolean),
+  );
+  const requests = allRequests.filter((request) => !isSyntheticRequest(request));
+  const events = allEvents.filter(
+    (event) => !isBotEvent(event) && !syntheticRequestIds.has(text(event.requestId)),
+  );
 
   const quality: Record<string, number> = {};
   const countries: Record<string, number> = {};
@@ -105,6 +126,7 @@ export async function getPublicationIntelligence(slug: string) {
       unverifiedEmails: Math.max(0, requests.length - verified),
       verificationRate: requests.length ? Math.round((verified / requests.length) * 1_000) / 10 : 0,
       downloadLinksIssued: downloadLinks,
+      syntheticReleaseChecksExcluded: allRequests.length - requests.length,
       averageQualityScore: requests.length
         ? Math.round((requests.reduce((sum, request) => sum + number(request.qualityScore), 0) / requests.length) * 10) / 10
         : 0,
