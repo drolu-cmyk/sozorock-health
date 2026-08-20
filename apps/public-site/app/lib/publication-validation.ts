@@ -91,7 +91,7 @@ export function validateAccessInput(input: AccessInput) {
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.email)) return "Enter a valid email address.";
   const emailDomain = input.email.split("@").at(-1) ?? "";
   if (RESERVED_EMAIL_DOMAIN.test(emailDomain)) return "Enter an email address you actually use.";
-  if (!meaningfulShortText(input.organization, 3)) return "Enter a meaningful organization or affiliation.";
+  if (!meaningfulShortText(input.organization, 2)) return "Enter a meaningful organization or affiliation.";
   if (!PUBLICATION_SECTORS.includes(input.sector as (typeof PUBLICATION_SECTORS)[number])) return "Choose a valid role or sector.";
   if (!meaningfulShortText(input.cityOrRegion, 2)) return "Enter a meaningful city or locality.";
   const country = getPublicationCountry(input.country);
