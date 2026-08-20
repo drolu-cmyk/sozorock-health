@@ -176,6 +176,11 @@ jobs:
           test -n "$publication_table"
           test -n "$publication_bucket"
           test -n "$publication_salt_arn"
+          publication_intelligence_index_status=$(aws dynamodb describe-table \
+            --table-name "$publication_table" \
+            --query "Table.GlobalSecondaryIndexes[?IndexName=='PublicationIntelligence'].IndexStatus | [0]" \
+            --output text)
+          test "$publication_intelligence_index_status" = "ACTIVE"
 
           # Verify the policy that the Amplify SSR compute role will actually
           # use. CloudFormation can report the stack as healthy while a role
@@ -191,6 +196,7 @@ jobs:
             def actions: if (.Action | type) == "array" then .Action else [.Action] end;
             ([.Statement[] | select(.Sid == "PublicationRecords") | actions[]] | sort) as $records
             | (["dynamodb:GetItem", "dynamodb:PutItem", "dynamodb:UpdateItem", "dynamodb:TransactWriteItems"] - $records | length) == 0
+            and ([.Statement[] | select(.Sid == "PublicationIntelligenceQuery") | actions[]] | index("dynamodb:Query")) != null
             and ([.Statement[] | select(.Sid == "ReadHashSalt") | actions[]] | index("secretsmanager:GetSecretValue")) != null
             and ([.Statement[] | select(.Sid == "ControlledPublicationRead") | actions[]] | index("s3:GetObject")) != null
             and ([.Statement[] | select(.Sid == "VerificationEmail") | actions[]] | index("ses:SendEmail")) != null
@@ -370,7 +376,7 @@ jobs:
             --request POST \
             --header "Origin: $origin" \
             --header 'Content-Type: application/json' \
-            --data '{"firstName":"Release","lastName":"Smoke","email":"success@simulator.amazonses.com","organization":"SozoRock Health release check","sector":"Community organization","cityOrRegion":"Synthetic City","state":"Synthetic State","country":"United States","reason":"Synthetic production verification for publication access delivery.","deliveryConsent":true,"updatesConsent":false,"website":""}' \
+            --data '{"firstName":"Release","lastName":"Smoke","email":"success@simulator.amazonses.com","organization":"SozoRock Health release check","sector":"Community organization","cityOrRegion":"Albany","state":"New York","country":"United States","reason":"Synthetic production verification for publication access delivery.","deliveryConsent":true,"updatesConsent":false,"website":""}' \
             "$origin/api/publications/access/$publication_slug")
           test "$access_status" = "202"
           jq -e --arg path "/api/publications/download/$publication_slug" 'type == "object" and .accepted == true and .accessGranted == true and (.verificationSent | type == "boolean") and .downloadUrl == $path' "$access_body" >/dev/null
@@ -447,6 +453,7 @@ jobs:
             echo "- Publication route: 200"
             echo "- Host/origin spoof rejection: 403"
             echo "- Canonical publication event: $same_origin_status (204 accepted; 429 requires the exact throttle header and body contract)"
+            echo "- Publication intelligence index: $publication_intelligence_index_status"
             echo "- Synthetic publication access request: 202 with secure HttpOnly session"
             echo "- Authorized publication download: 307 to an AWS-signed private asset URL"
             echo "- SES verification delivery ready: $ses_delivery_ready"

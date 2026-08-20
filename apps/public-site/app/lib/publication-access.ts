@@ -6,6 +6,14 @@ import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { SESv2Client, SendEmailCommand } from "@aws-sdk/client-sesv2";
 import { GetSecretValueCommand, SecretsManagerClient } from "@aws-sdk/client-secrets-manager";
 import type { NextRequest } from "next/server";
+import {
+  assessPublicationAccessQuality,
+  classifyPublicationUserAgent,
+  scoreAfterEmailVerification,
+  type PublicationAttribution,
+  type PublicationRequestTechnicalContext,
+} from "./publication-intelligence";
+import { getPublicationCountry } from "./publication-locations";
 import { getPublication } from "./publications";
 import type { AccessInput } from "./publication-validation";
 import type { AccessEvent } from "./publication-events";
@@ -32,6 +40,9 @@ export const SESSION_SECONDS = 12 * 60 * 60;
 const MAX_REQUESTS_PER_HOUR = 4;
 const MAX_NETWORK_REQUESTS_PER_HOUR = 20;
 const MAX_RECIPIENT_REQUESTS_PER_HOUR = 8;
+const MAX_NETWORK_REQUESTS_PER_DAY = 80;
+const MAX_RECIPIENT_REQUESTS_PER_DAY = 12;
+const MAX_VISITOR_REQUESTS_PER_DAY = 12;
 const MAX_VERIFICATION_ATTEMPTS_PER_HOUR = 60;
 const VERIFICATION_TOKEN_PATTERN = /^[A-Za-z0-9_-]{43}$/;
 
@@ -70,14 +81,51 @@ function requireDownloadConfig() {
   return { ...config, bucketName };
 }
 
+export function publicationTechnicalContext(request: NextRequest): PublicationRequestTechnicalContext {
+  const agent = classifyPublicationUserAgent(request.headers.get("user-agent") ?? "");
+  return {
+    ...agent,
+    networkCountry: (request.headers.get("cloudfront-viewer-country") ?? "").trim().slice(0, 8),
+    networkRegion: (request.headers.get("cloudfront-viewer-country-region") ?? "").trim().slice(0, 24),
+  };
+}
+
 export async function recordEvent(event: AccessEvent, slug: string, requestId?: string, details?: Record<string, string | number | boolean>) {
   if (!tableName) return;
   const now = new Date();
+  const eventId = randomUUID();
   await dynamo.send(new PutCommand({ TableName: tableName, Item: {
-    pk: `EVENT#${now.toISOString().slice(0, 10)}`, sk: `${now.toISOString()}#${randomUUID()}`,
+    pk: `EVENT#${now.toISOString().slice(0, 10)}`, sk: `${now.toISOString()}#${eventId}`,
+    gsi1pk: `EVENTS#${slug}`, gsi1sk: `${now.toISOString()}#${eventId}`,
     recordType: "publication-event", event, publicationSlug: slug, requestId, details,
     createdAt: now.toISOString(), expiresAt: Math.floor(now.getTime() / 1000) + REQUEST_RETENTION_SECONDS,
   } }));
+}
+
+export async function recordAttributedEvent(
+  event: AccessEvent,
+  slug: string,
+  request: NextRequest,
+  attribution: PublicationAttribution,
+  requestId?: string,
+) {
+  const technical = publicationTechnicalContext(request);
+  const visitorHash = attribution.visitorId ? (await hash(`visitor:${attribution.visitorId}`)).slice(0, 32) : "";
+  return recordEvent(event, slug, requestId, {
+    visitorHash,
+    source: attribution.utmSource,
+    medium: attribution.utmMedium,
+    campaign: attribution.utmCampaign,
+    referrerHost: attribution.referrerHost,
+    landingPath: attribution.landingPath,
+    timezone: attribution.timezone,
+    language: attribution.language,
+    deviceClass: technical.deviceClass,
+    osFamily: technical.osFamily,
+    browserFamily: technical.browserFamily,
+    networkCountry: technical.networkCountry,
+    networkRegion: technical.networkRegion,
+  });
 }
 
 async function incrementRateLimit(
@@ -86,36 +134,45 @@ async function incrementRateLimit(
   epoch: number,
   maximum: number,
   recordType: string,
+  ttlSeconds = 7200,
 ) {
   await dynamo.send(new UpdateCommand({
     TableName: tableName,
-    Key: { pk: key, sk: "HOUR" },
+    Key: { pk: key, sk: "WINDOW" },
     UpdateExpression: "ADD requestCount :one SET expiresAt = :expiry, recordType = :type",
     ConditionExpression: "attribute_not_exists(requestCount) OR requestCount < :maximum",
     ExpressionAttributeValues: {
       ":one": 1,
       ":maximum": maximum,
-      ":expiry": epoch + 7200,
+      ":expiry": epoch + ttlSeconds,
       ":type": recordType,
     },
   }));
 }
 
-export async function enforceRateLimit(request: NextRequest, email: string) {
+export async function enforceRateLimit(request: NextRequest, email: string, visitorId = "") {
   const { tableName } = requireHashingConfig();
   const epoch = Math.floor(Date.now() / 1000);
-  const bucket = Math.floor(epoch / 3600);
+  const hour = Math.floor(epoch / 3600);
+  const day = Math.floor(epoch / 86400);
   const ip = clientNetworkAddress(request.headers);
-  const [emailKey, networkKey, recipientKey] = await Promise.all([
-    hash(`${ip}:${email}:${bucket}`),
-    hash(`network:${ip}:${bucket}`),
-    hash(`recipient:${email}:${bucket}`),
+  const [emailKey, networkKey, recipientKey, networkDayKey, recipientDayKey, visitorDayKey] = await Promise.all([
+    hash(`${ip}:${email}:${hour}`),
+    hash(`network:${ip}:${hour}`),
+    hash(`recipient:${email}:${hour}`),
+    hash(`network-day:${ip}:${day}`),
+    hash(`recipient-day:${email}:${day}`),
+    visitorId ? hash(`visitor-day:${visitorId}:${day}`) : Promise.resolve(""),
   ]);
-  await Promise.all([
+  const checks = [
     incrementRateLimit(tableName, `RATE#${emailKey}`, epoch, MAX_REQUESTS_PER_HOUR, "rate-limit"),
     incrementRateLimit(tableName, `NETWORK_RATE#${networkKey}`, epoch, MAX_NETWORK_REQUESTS_PER_HOUR, "network-rate-limit"),
     incrementRateLimit(tableName, `RECIPIENT_RATE#${recipientKey}`, epoch, MAX_RECIPIENT_REQUESTS_PER_HOUR, "recipient-rate-limit"),
-  ]);
+    incrementRateLimit(tableName, `NETWORK_DAY_RATE#${networkDayKey}`, epoch, MAX_NETWORK_REQUESTS_PER_DAY, "network-day-rate-limit", 172800),
+    incrementRateLimit(tableName, `RECIPIENT_DAY_RATE#${recipientDayKey}`, epoch, MAX_RECIPIENT_REQUESTS_PER_DAY, "recipient-day-rate-limit", 172800),
+  ];
+  if (visitorDayKey) checks.push(incrementRateLimit(tableName, `VISITOR_DAY_RATE#${visitorDayKey}`, epoch, MAX_VISITOR_REQUESTS_PER_DAY, "visitor-day-rate-limit", 172800));
+  await Promise.all(checks);
 }
 
 export async function enforceVerificationRateLimit(request: NextRequest) {
@@ -124,13 +181,7 @@ export async function enforceVerificationRateLimit(request: NextRequest) {
   const bucket = Math.floor(epoch / 3600);
   const ip = clientNetworkAddress(request.headers);
   const key = await hash(`verification:${ip}:${bucket}`);
-  await incrementRateLimit(
-    tableName,
-    `VERIFY_RATE#${key}`,
-    epoch,
-    MAX_VERIFICATION_ATTEMPTS_PER_HOUR,
-    "verification-rate-limit",
-  );
+  await incrementRateLimit(tableName, `VERIFY_RATE#${key}`, epoch, MAX_VERIFICATION_ATTEMPTS_PER_HOUR, "verification-rate-limit");
 }
 
 export async function enforceEventRateLimit(request: NextRequest) {
@@ -142,7 +193,12 @@ export async function enforceEventRateLimit(request: NextRequest) {
   await incrementRateLimit(tableName, `EVENT_RATE#${key}`, epoch, 60, "event-rate-limit");
 }
 
-export async function createAccessRequest(slug: string, input: AccessInput) {
+export async function createAccessRequest(
+  slug: string,
+  input: AccessInput,
+  request: NextRequest,
+  attribution: PublicationAttribution,
+) {
   const publication = getPublication(slug);
   if (!publication?.assetKey) throw new Error("Publication is not available for access");
   const canonicalSlug = publication.slug;
@@ -156,6 +212,12 @@ export async function createAccessRequest(slug: string, input: AccessInput) {
   const sessionToken = randomBytes(32).toString("base64url");
   const sessionHash = await hash(sessionToken);
   const requestKey = await hash(`${input.email}:${canonicalSlug}:${requestId}`);
+  const networkIdentifier = (await hash(`network:${clientNetworkAddress(request.headers)}`)).slice(0, 32);
+  const visitorIdentifier = attribution.visitorId ? (await hash(`visitor:${attribution.visitorId}`)).slice(0, 32) : "";
+  const technical = publicationTechnicalContext(request);
+  const quality = assessPublicationAccessQuality(input, attribution, technical);
+  const country = getPublicationCountry(input.country);
+  const emailDomain = input.email.split("@").at(-1) ?? "";
 
   await dynamo.send(new TransactWriteCommand({
     TransactItems: [
@@ -163,9 +225,20 @@ export async function createAccessRequest(slug: string, input: AccessInput) {
         Put: {
           TableName: tableName,
           Item: {
-            pk: `REQUEST#${requestKey}`, sk: "META", recordType: "publication-request", requestId, publicationSlug: canonicalSlug,
-            firstName: input.firstName, lastName: input.lastName, email: input.email, emailHash, organization: input.organization,
-            sector: input.sector, cityOrRegion: input.cityOrRegion, state: input.state, country: input.country, reason: input.reason,
+            pk: `REQUEST#${requestKey}`, sk: "META", gsi1pk: `REQUESTS#${canonicalSlug}`, gsi1sk: `${now.toISOString()}#${requestId}`,
+            recordType: "publication-request", requestId, publicationSlug: canonicalSlug,
+            firstName: input.firstName, lastName: input.lastName, email: input.email, emailHash, emailDomain,
+            organization: input.organization, sector: input.sector, cityOrRegion: input.cityOrRegion, state: input.state,
+            country: input.country, countryCode: country?.code ?? "", reason: input.reason,
+            visitorIdentifier, networkIdentifier,
+            source: attribution.utmSource, medium: attribution.utmMedium, campaign: attribution.utmCampaign,
+            campaignContent: attribution.utmContent, campaignTerm: attribution.utmTerm,
+            referrerHost: attribution.referrerHost, landingPath: attribution.landingPath,
+            timezone: attribution.timezone, language: attribution.language,
+            deviceClass: technical.deviceClass, osFamily: technical.osFamily, browserFamily: technical.browserFamily,
+            networkCountry: technical.networkCountry, networkRegion: technical.networkRegion,
+            qualityScore: quality.score, qualityBand: quality.band, qualityFlags: quality.flags,
+            emailDomainCategory: quality.emailDomainCategory,
             deliveryConsent: true, deliveryConsentedAt: now.toISOString(), updatesConsent: input.updatesConsent,
             updatesConsentedAt: input.updatesConsent ? now.toISOString() : undefined, status: "pending-verification",
             accessGrantedAt: now.toISOString(), createdAt: now.toISOString(), updatedAt: now.toISOString(),
@@ -224,26 +297,22 @@ export async function createAccessRequest(slug: string, input: AccessInput) {
       verificationSent = true;
     } catch (error) {
       verificationFailureReason = (error as { name?: string }).name ?? "UnknownError";
-      console.error("publication-verification-email-failed", {
-        name: verificationFailureReason,
-        slug: canonicalSlug,
-        fromConfigured: true,
-      });
+      console.error("publication-verification-email-failed", { name: verificationFailureReason, slug: canonicalSlug, fromConfigured: true });
     }
   } else {
-    console.error("publication-verification-email-unavailable", {
-      slug: canonicalSlug,
-      fromConfigured: false,
-    });
+    console.error("publication-verification-email-unavailable", { slug: canonicalSlug, fromConfigured: false });
   }
 
   await Promise.all([
-    recordEvent("access_form_completed", canonicalSlug, requestId).catch(() => undefined),
+    recordEvent("access_form_completed", canonicalSlug, requestId, {
+      qualityBand: quality.band, qualityScore: quality.score, source: attribution.utmSource,
+      medium: attribution.utmMedium, deviceClass: technical.deviceClass, countryCode: country?.code ?? "",
+    }).catch(() => undefined),
     verificationSent
       ? recordEvent("verification_sent", canonicalSlug, requestId).catch(() => undefined)
       : recordEvent("verification_delivery_failed", canonicalSlug, requestId, { reason: verificationFailureReason }).catch(() => undefined),
   ]);
-  return { requestId, sessionToken, verificationSent };
+  return { requestId, sessionToken, verificationSent, qualityBand: quality.band };
 }
 
 function escapeHtml(value: string) {
@@ -262,17 +331,16 @@ export async function verifyAccessToken(token: string) {
   const requestKey = { pk: `REQUEST#${String(item.requestKey)}`, sk: "META" };
   const requestResult = await dynamo.send(new GetCommand({ TableName: tableName, Key: requestKey, ConsistentRead: true }));
   const requestItem = requestResult.Item;
-  if (
-    !requestItem ||
-    String(requestItem.requestId) !== String(item.requestId) ||
-    String(requestItem.publicationSlug) !== String(item.publicationSlug) ||
-    String(requestItem.emailHash) !== String(item.emailHash)
-  ) return null;
+  if (!requestItem || String(requestItem.requestId) !== String(item.requestId) || String(requestItem.publicationSlug) !== String(item.publicationSlug) || String(requestItem.emailHash) !== String(item.emailHash)) return null;
 
   const sessionToken = randomBytes(32).toString("base64url");
   const sessionHash = await hash(sessionToken);
   const now = new Date().toISOString();
   const publicationSlug = getPublication(String(item.publicationSlug))?.slug ?? String(item.publicationSlug);
+  const verifiedQuality = scoreAfterEmailVerification(
+    Number(requestItem.qualityScore ?? 50),
+    Array.isArray(requestItem.qualityFlags) ? requestItem.qualityFlags.map(String) : [],
+  );
 
   try {
     await dynamo.send(new TransactWriteCommand({
@@ -290,15 +358,13 @@ export async function verifyAccessToken(token: string) {
           Update: {
             TableName: tableName,
             Key: requestKey,
-            UpdateExpression: "SET #status = :verified, emailVerifiedAt = :now, updatedAt = :now",
+            UpdateExpression: "SET #status = :verified, emailVerifiedAt = :now, updatedAt = :now, qualityScore = :qualityScore, qualityBand = :qualityBand, qualityFlags = :qualityFlags",
             ConditionExpression: "requestId = :requestId AND publicationSlug = :slug AND emailHash = :emailHash",
             ExpressionAttributeNames: { "#status": "status" },
             ExpressionAttributeValues: {
-              ":verified": "verified",
-              ":now": now,
-              ":requestId": item.requestId,
-              ":slug": item.publicationSlug,
-              ":emailHash": item.emailHash,
+              ":verified": "verified", ":now": now, ":requestId": item.requestId, ":slug": item.publicationSlug,
+              ":emailHash": item.emailHash, ":qualityScore": verifiedQuality.score, ":qualityBand": verifiedQuality.band,
+              ":qualityFlags": verifiedQuality.flags,
             },
           },
         },
@@ -323,7 +389,7 @@ export async function verifyAccessToken(token: string) {
     throw error;
   }
 
-  await recordEvent("email_verified", publicationSlug, String(item.requestId)).catch(() => undefined);
+  await recordEvent("email_verified", publicationSlug, String(item.requestId), { qualityBand: verifiedQuality.band, qualityScore: verifiedQuality.score }).catch(() => undefined);
   return { sessionToken, slug: publicationSlug };
 }
 
@@ -333,13 +399,8 @@ export async function validatePublicationSession(sessionToken: string, slug: str
   const { tableName } = requireHashingConfig();
   const canonicalSlug = publication.slug;
   const sessionHash = await hash(sessionToken);
-  const acceptedSlugs = [canonicalSlug, slug, ...(publication.legacySlugs ?? [])]
-    .filter((value, index, values) => values.indexOf(value) === index);
-  const sessions = await Promise.all(
-    acceptedSlugs.map((acceptedSlug) =>
-      dynamo.send(new GetCommand({ TableName: tableName, Key: { pk: `SESSION#${sessionHash}`, sk: `ACCESS#${acceptedSlug}` }, ConsistentRead: true })),
-    ),
-  );
+  const acceptedSlugs = [canonicalSlug, slug, ...(publication.legacySlugs ?? [])].filter((value, index, values) => values.indexOf(value) === index);
+  const sessions = await Promise.all(acceptedSlugs.map((acceptedSlug) => dynamo.send(new GetCommand({ TableName: tableName, Key: { pk: `SESSION#${sessionHash}`, sk: `ACCESS#${acceptedSlug}` }, ConsistentRead: true }))));
   const session = sessions.find((candidate) => candidate.Item)?.Item;
   if (!session || Number(session.expiresAt) < Math.floor(Date.now() / 1000)) return null;
   return { requestId: String(session.requestId), slug: canonicalSlug };

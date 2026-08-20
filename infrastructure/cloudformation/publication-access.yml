@@ -29,11 +29,24 @@ Resources:
           AttributeType: S
         - AttributeName: sk
           AttributeType: S
+        - AttributeName: gsi1pk
+          AttributeType: S
+        - AttributeName: gsi1sk
+          AttributeType: S
       KeySchema:
         - AttributeName: pk
           KeyType: HASH
         - AttributeName: sk
           KeyType: RANGE
+      GlobalSecondaryIndexes:
+        - IndexName: PublicationIntelligence
+          KeySchema:
+            - AttributeName: gsi1pk
+              KeyType: HASH
+            - AttributeName: gsi1sk
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
       SSESpecification:
         SSEEnabled: true
       TimeToLiveSpecification:
@@ -121,6 +134,11 @@ Resources:
               - dynamodb:UpdateItem
               - dynamodb:TransactWriteItems
             Resource: !GetAtt PublicationAccessTable.Arn
+          - Sid: PublicationIntelligenceQuery
+            Effect: Allow
+            Action:
+              - dynamodb:Query
+            Resource: !Sub ${PublicationAccessTable.Arn}/index/PublicationIntelligence
           - Sid: ControlledPublicationRead
             Effect: Allow
             Action: s3:GetObject
@@ -150,6 +168,8 @@ Outputs:
     Value: !Ref PublicationEmailFrom
   PublicationHashSaltSecretArn:
     Value: !Ref PublicationHashSalt
+  PublicationIntelligenceIndexName:
+    Value: PublicationIntelligence
   RequiredRuntimeEnvironment:
     Description: Server-only variables required by the public-site compute runtime.
     Value: PUBLICATION_ACCESS_TABLE, PUBLICATION_ASSET_BUCKET, PUBLICATION_EMAIL_FROM, PUBLICATION_HASH_SALT_SECRET_ARN, PUBLIC_SITE_URL, PUBLICATION_ALLOWED_HOSTS
