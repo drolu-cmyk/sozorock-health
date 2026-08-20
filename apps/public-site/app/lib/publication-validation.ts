@@ -1,7 +1,7 @@
 import {
   getPublicationCountry,
   isValidPublicationSubdivision,
-} from "./publication-locations";
+} from "./publication-locations.ts";
 
 export type AccessInput = {
   firstName: string;
