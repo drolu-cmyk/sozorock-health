@@ -15,6 +15,25 @@ function protectedJson(body: unknown, status = 200) {
   });
 }
 
+function csvCell(value: unknown) {
+  const text = Array.isArray(value) ? value.join("|") : String(value ?? "");
+  return `"${text.replace(/"/g, '""')}"`;
+}
+
+function csvExport(requests: Array<Record<string, unknown>>) {
+  const columns = [
+    "requestId", "createdAt", "firstName", "lastName", "email", "emailVerifiedAt", "organization",
+    "sector", "cityOrRegion", "state", "country", "countryCode", "source", "medium", "campaign",
+    "referrerHost", "landingPath", "deviceClass", "osFamily", "browserFamily", "language", "timezone",
+    "networkCountry", "networkRegion", "qualityScore", "qualityBand", "qualityFlags", "emailDomainCategory",
+    "updatesConsent",
+  ];
+  return [
+    columns.map(csvCell).join(","),
+    ...requests.map((record) => columns.map((column) => csvCell(record[column])).join(",")),
+  ].join("\r\n");
+}
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ slug: string }> },
@@ -29,6 +48,19 @@ export async function GET(
     if (!publication) return protectedJson({ error: "Publication not found." }, 404);
     const intelligence = await getPublicationIntelligence(publication.slug);
     if (!intelligence) return protectedJson({ error: "Publication not found." }, 404);
+
+    if (request.nextUrl.searchParams.get("format") === "csv") {
+      return new NextResponse(csvExport(intelligence.requests), {
+        status: 200,
+        headers: {
+          "Content-Type": "text/csv; charset=utf-8",
+          "Content-Disposition": `attachment; filename="${publication.slug}-access-intelligence.csv"`,
+          "Cache-Control": "private, no-store",
+          "Referrer-Policy": "no-referrer",
+        },
+      });
+    }
+
     return protectedJson({
       contractVersion: "publication.intelligence.v1",
       intelligence,
