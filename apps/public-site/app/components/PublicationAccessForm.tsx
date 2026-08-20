@@ -125,12 +125,25 @@ export function PublicationAccessForm({ slug, title }: { slug: string; title: st
     }
   }
 
+  function trackPublicationOpen() {
+    void fetch("/api/publications/events", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        event: "publication_opened",
+        slug,
+        ...getPublicationClientContext(formStartedAt),
+      }),
+      keepalive: true,
+    });
+  }
+
   if (state === "sent") {
     return (
       <section className={styles.confirmation} aria-labelledby="access-confirmation">
         <h2 id="access-confirmation">Your publication is ready.</h2>
         <p>{message}</p>
-        <a className={styles.primary} href={downloadUrl}>Download publication</a>
+        <a className={styles.primary} href={downloadUrl} onClick={trackPublicationOpen}>Download publication</a>
         <p>{verificationSent
           ? "We also sent an optional email verification link. It expires in 30 minutes, but you do not need to wait for it to download the publication."
           : "You do not need to wait for an email. Your secure access is active in this browser."}</p>
