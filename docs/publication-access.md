@@ -77,7 +77,7 @@ Browser-originated funnel events carry the same first-touch source/referral and 
 
 The DynamoDB table has a `PublicationIntelligence` index for publication-specific request and event queries. The reporting service aggregates requests, verification, quality, country/region, sector, source, medium, campaign, device/browser, email-domain category, and funnel events. Individual access-request records are available only through the authenticated publication-intelligence API.
 
-`GET /api/publications/intelligence/{slug}` requires the existing Cognito workspace authentication and a `foundation_reviewer` role. The endpoint is same-origin only and returns `private, no-store` responses. It does not expose raw IP addresses, session tokens, verification tokens, or salted network/visitor identifiers.
+`GET /api/publications/intelligence/{slug}` requires the existing Cognito workspace bearer authentication and a `foundation_reviewer` role, returns `private, no-store` responses, and can return a CSV export with `?format=csv`. Because the credential is carried in the `Authorization` header rather than a browser cookie, the read endpoint does not depend on an `Origin` header. It does not expose raw IP addresses, session tokens, verification tokens, or salted network/visitor identifiers.
 
 ## Release prerequisites
 
