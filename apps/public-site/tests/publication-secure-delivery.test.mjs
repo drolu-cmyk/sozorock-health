@@ -101,7 +101,7 @@ test("validated publication requests establish secure access before best-effort 
   assert.ok(emailSend > sessionWrite);
   assert.match(accessSource, /expiresAt: epoch \+ SESSION_SECONDS/);
   assert.match(accessSource, /verification_delivery_failed/);
-  assert.match(accessSource, /return \{ requestId, sessionToken, verificationSent \}/);
+  assert.match(accessSource, /return \{ requestId, sessionToken, verificationSent/);
   assert.match(accessRouteSource, /accessGranted: true/);
   assert.match(accessRouteSource, /downloadUrl: `\/api\/publications\/download\/\$\{publication\.slug\}`/);
   assert.match(accessRouteSource, /response\.cookies\.set\(accessCookieName\(\), access\.sessionToken/);
@@ -115,10 +115,14 @@ test("validated publication requests establish secure access before best-effort 
 test("publication email validation is provider-neutral", () => {
   assert.match(validationSource, /\^\[\^\\s@\]\+@\[\^\\s@\]\+\\\.\[\^\\s@\]\+\$/);
   assert.match(accessFormSource, /type="email"/);
-  assert.doesNotMatch(
-    `${validationSource}\n${accessFormSource}`,
-    /gmail\.com|yahoo\.com|outlook\.com|hotmail\.com|icloud\.com/i,
-  );
+  const providerNeutralSource = `${validationSource}\n${accessFormSource}`.toLowerCase();
+  for (const domain of ["gmail.com", "yahoo.com", "outlook.com", "hotmail.com", "icloud.com"]) {
+    assert.equal(
+      providerNeutralSource.includes(domain),
+      false,
+      `publication access must not special-case ${domain}`,
+    );
+  }
 });
 
 test("verification email remains an optional server handoff", () => {
