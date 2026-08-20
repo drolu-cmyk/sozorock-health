@@ -12,6 +12,7 @@ const form = readFileSync(new URL("../app/components/PublicationAccessForm.tsx",
 const eventRoute = readFileSync(new URL("../app/api/publications/events/route.ts", import.meta.url), "utf8");
 const intelligenceRoute = readFileSync(new URL("../app/api/publications/intelligence/[slug]/route.ts", import.meta.url), "utf8");
 const infrastructure = readFileSync(new URL("../../../infrastructure/cloudformation/publication-access.yml", import.meta.url), "utf8");
+const deployWorkflow = readFileSync(new URL("../../../.github/workflows/deploy.yml", import.meta.url), "utf8");
 const privacy = readFileSync(new URL("../app/privacy/page.tsx", import.meta.url), "utf8");
 
 test("publication form uses global country selection and country-aware subdivisions", () => {
@@ -41,6 +42,8 @@ test("access intelligence scores confidence without treating verification as ide
   assert.match(intelligence, /email_verified/);
   assert.match(intelligence, /consumer_email/);
   assert.match(intelligence, /disposable_email/);
+  assert.match(intelligence, /organization_domain_match/);
+  assert.match(intelligence, /organization_domain_unmatched/);
   assert.match(intelligence, /declared_network_country_mismatch/);
   assert.match(intelligence, /rapid_submission/);
   assert.match(intelligence, /automation_suspected/);
@@ -79,10 +82,23 @@ test("publication intelligence is queryable only through the protected index and
   assert.match(reporting, /verifiedEmails/);
   assert.match(reporting, /sources: sortedCounts\(sources\)/);
   assert.match(reporting, /media: sortedCounts\(media\)/);
+  assert.match(reporting, /syntheticReleaseChecksExcluded/);
+  assert.match(reporting, /@simulator\.amazonses\.com/);
   assert.doesNotMatch(reporting, /networkIdentifier/);
   assert.doesNotMatch(reporting, /visitorIdentifier/);
   assert.match(intelligenceRoute, /actor\.role !== "foundation_reviewer"/);
+  assert.match(intelligenceRoute, /format\) === "csv"/);
   assert.match(intelligenceRoute, /Cache-Control": "private, no-store"/);
+});
+
+test("production release proves the intelligence index and valid structured location", () => {
+  assert.match(deployWorkflow, /PublicationIntelligenceQuery/);
+  assert.match(deployWorkflow, /index\(\"dynamodb:Query\"\)/);
+  assert.match(deployWorkflow, /PublicationIntelligence'\]\.IndexStatus/);
+  assert.match(deployWorkflow, /publication_intelligence_index_status/);
+  assert.match(deployWorkflow, /\"cityOrRegion\":\"Albany\"/);
+  assert.match(deployWorkflow, /\"state\":\"New York\"/);
+  assert.doesNotMatch(deployWorkflow, /\"state\":\"Synthetic State\"/);
 });
 
 test("privacy notice discloses publication attribution and quality indicators", () => {
