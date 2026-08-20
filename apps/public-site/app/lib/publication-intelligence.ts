@@ -96,6 +96,13 @@ function emailCategory(email: string): PublicationQualityAssessment["emailDomain
   return "organizational";
 }
 
+function organizationDomainMatch(organization: string, email: string) {
+  const domain = email.split("@").at(-1)?.toLowerCase() ?? "";
+  const root = domain.split(".")[0]?.replace(/[^a-z0-9]/g, "") ?? "";
+  const normalizedOrganization = organization.toLowerCase().replace(/[^a-z0-9]/g, "");
+  return root.length >= 4 && normalizedOrganization.includes(root);
+}
+
 function rapidSubmission(formStartedAt: string) {
   if (!formStartedAt) return false;
   const elapsed = Date.now() - Date.parse(formStartedAt);
@@ -113,7 +120,15 @@ export function assessPublicationAccessQuality(
   const localPart = input.email.split("@", 1)[0] ?? "";
   const country = getPublicationCountry(input.country);
 
-  if (category === "organizational") score += 10;
+  if (category === "organizational") {
+    score += 10;
+    if (organizationDomainMatch(input.organization, input.email)) {
+      score += 5;
+      flags.push("organization_domain_match");
+    } else {
+      flags.push("organization_domain_unmatched");
+    }
+  }
   if (category === "consumer") flags.push("consumer_email");
   if (category === "disposable") {
     score -= 25;
