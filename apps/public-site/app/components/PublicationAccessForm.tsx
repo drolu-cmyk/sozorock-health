@@ -22,6 +22,15 @@ type FieldName =
   | "deliveryConsent";
 type Errors = Partial<Record<FieldName, string>>;
 
+type AccessResponse = {
+  accepted?: boolean;
+  accessGranted?: boolean;
+  verificationSent?: boolean;
+  downloadUrl?: string;
+  message?: string;
+  error?: string;
+};
+
 function validate(form: FormData): Errors {
   const value = (name: FieldName) => String(form.get(name) ?? "").trim();
   const errors: Errors = {};
@@ -43,13 +52,15 @@ function validate(form: FormData): Errors {
   else if (value("reason").length < MIN_PUBLICATION_REASON_LENGTH)
     errors.reason = `Use at least ${MIN_PUBLICATION_REASON_LENGTH} characters.`;
   if (form.get("deliveryConsent") !== "yes")
-    errors.deliveryConsent = "Confirm that we may email your access link.";
+    errors.deliveryConsent = "Confirm that we may use your email for publication access.";
   return errors;
 }
 
 export function PublicationAccessForm({ slug, title }: { slug: string; title: string }) {
   const [state, setState] = useState<State>("idle");
   const [message, setMessage] = useState("");
+  const [downloadUrl, setDownloadUrl] = useState("");
+  const [verificationSent, setVerificationSent] = useState(false);
   const [errors, setErrors] = useState<Errors>({});
   const [country, setCountry] = useState("United States");
   const isUnitedStates = ["united states", "united states of america", "us", "usa"].includes(
@@ -89,6 +100,8 @@ export function PublicationAccessForm({ slug, title }: { slug: string; title: st
     setErrors({});
     setState("sending");
     setMessage("");
+    setDownloadUrl("");
+    setVerificationSent(false);
     const body = Object.fromEntries(form.entries());
     const payload = {
       ...body,
@@ -104,11 +117,15 @@ export function PublicationAccessForm({ slug, title }: { slug: string; title: st
           body: JSON.stringify(payload),
         },
       );
-      const result = (await response.json()) as { message?: string; error?: string };
+      const result = (await response.json()) as AccessResponse;
       if (!response.ok)
         throw new Error(result.error ?? "We could not process this request.");
+      if (!result.accessGranted || !result.downloadUrl)
+        throw new Error("Secure publication access was not established. Please try again.");
       setState("sent");
-      setMessage(result.message ?? "Check your email for a verification link.");
+      setMessage(result.message ?? "Your publication is ready to download.");
+      setDownloadUrl(result.downloadUrl);
+      setVerificationSent(result.verificationSent === true);
       formElement.reset();
     } catch (error) {
       setState("error");
@@ -123,11 +140,15 @@ export function PublicationAccessForm({ slug, title }: { slug: string; title: st
   if (state === "sent")
     return (
       <section className={styles.confirmation} aria-labelledby="access-confirmation">
-        <h2 id="access-confirmation">Check your email.</h2>
+        <h2 id="access-confirmation">Your publication is ready.</h2>
         <p>{message}</p>
+        <a className={styles.primary} href={downloadUrl}>
+          Download publication
+        </a>
         <p>
-          The verification link expires in 30 minutes. If it does not arrive,
-          check your spam folder or submit the form again.
+          {verificationSent
+            ? "We also sent an optional email verification link. It expires in 30 minutes, but you do not need to wait for it to download the publication."
+            : "You do not need to wait for an email. Your secure access is active in this browser."}
         </p>
         <Link href={`/publications/${slug}`}>Return to the publication</Link>
       </section>
@@ -145,8 +166,9 @@ export function PublicationAccessForm({ slug, title }: { slug: string; title: st
         <p>Publication access</p>
         <h1>Request {title}</h1>
         <p>
-          Complete this short form. We will send a verification link to your
-          email address. We do not ask for health or medical information.
+          Complete this short form to receive secure access. We will also try to
+          send an optional email verification link. We do not ask for health or
+          medical information.
         </p>
       </div>
       <div className={styles.twoColumns}>
@@ -210,8 +232,8 @@ export function PublicationAccessForm({ slug, title }: { slug: string; title: st
       <label className={styles.checkbox} htmlFor="publication-delivery-consent">
         <input id="publication-delivery-consent" required type="checkbox" name="deliveryConsent" value="yes" aria-invalid={Boolean(errors.deliveryConsent)} aria-describedby={errors.deliveryConsent ? "publication-deliveryConsent-error" : undefined} />
         <span>
-          I agree that The SozoRock Foundation, Inc. may email me the verification
-          and access link for this publication.
+          I agree that The SozoRock Foundation, Inc. may use my email to provide
+          publication access and send an optional verification link.
           {fieldError("deliveryConsent")}
         </span>
       </label>
@@ -227,7 +249,7 @@ export function PublicationAccessForm({ slug, title }: { slug: string; title: st
         not include health or medical information. See our <Link href="/privacy">privacy notice</Link>.
       </p>
       <button type="submit" disabled={state === "sending"}>
-        {state === "sending" ? "Sending verification…" : "Email my verification link"}
+        {state === "sending" ? "Preparing secure access…" : "Get secure access"}
       </button>
       <p id="access-status" className={state === "error" ? styles.error : styles.status} role="status" aria-live="polite">
         {message}
