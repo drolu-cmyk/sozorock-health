@@ -71,6 +71,26 @@ export type GatewaySourceVersion = {
   review_status: ReviewStatus;
 };
 
+export type GatewaySourceCoverageStatus =
+  | "complete_with_records"
+  | "complete_no_records"
+  | "partial"
+  | "unavailable"
+  | "stale";
+
+export type GatewaySourceCoverageAssertion = {
+  id: string;
+  source_id: string;
+  source_version_id: string;
+  geography_id: string;
+  coverage_key: string;
+  status: GatewaySourceCoverageStatus;
+  records_matched: number;
+  evaluated_at: string;
+  review_status: ReviewStatus;
+  caveat: string | null;
+};
+
 export type GatewayMetricSemantics = {
   id: string;
   source_measure_id: string;
@@ -120,6 +140,7 @@ export type PublicEvidencePackageV1 = {
   metric_semantics: GatewayMetricSemantics[];
   measures: GatewayMeasure[];
   source_versions: GatewaySourceVersion[];
+  source_coverage: GatewaySourceCoverageAssertion[];
 };
 
 export type EvidenceGatewayManifestV1 = {
@@ -147,6 +168,7 @@ export type BuildEvidenceGatewayInput = {
   measureDefinitions: MeasureDefinition[];
   observations: MetricObservation[];
   metricPolicies?: Record<string, MetricSemanticPolicy>;
+  sourceCoverage?: GatewaySourceCoverageAssertion[];
 };
 
 const SAFE_DEFAULT_POLICY: MetricSemanticPolicy = {
@@ -247,6 +269,49 @@ function toGatewayMetricSemantics(
   };
 }
 
+function validateCoverageAssertions({
+  assertions,
+  geographyById,
+  sourceVersionById,
+}: {
+  assertions: GatewaySourceCoverageAssertion[];
+  geographyById: Map<string, GatewayGeography>;
+  sourceVersionById: Map<string, GatewaySourceVersion>;
+}) {
+  const ids = new Set<string>();
+  for (const assertion of assertions) {
+    if (!assertion.id.trim()) throw new Error("Evidence Gateway source coverage id is required");
+    if (ids.has(assertion.id)) throw new Error(`Duplicate source coverage id ${assertion.id}`);
+    ids.add(assertion.id);
+    if (!assertion.coverage_key.trim()) {
+      throw new Error(`Source coverage ${assertion.id} requires coverage_key`);
+    }
+    if (!Number.isInteger(assertion.records_matched) || assertion.records_matched < 0) {
+      throw new Error(`Source coverage ${assertion.id} requires non-negative integer records_matched`);
+    }
+    if (!Number.isFinite(Date.parse(assertion.evaluated_at))) {
+      throw new Error(`Source coverage ${assertion.id} requires an ISO-compatible evaluated_at`);
+    }
+    const geography = geographyById.get(assertion.geography_id);
+    if (!geography) {
+      throw new Error(`Source coverage ${assertion.id} references missing geography ${assertion.geography_id}`);
+    }
+    const sourceVersion = sourceVersionById.get(assertion.source_version_id);
+    if (!sourceVersion) {
+      throw new Error(`Source coverage ${assertion.id} references missing source version ${assertion.source_version_id}`);
+    }
+    if (sourceVersion.source_id !== assertion.source_id) {
+      throw new Error(`Source coverage ${assertion.id} source_id does not match its source version`);
+    }
+    if (assertion.status === "complete_with_records" && assertion.records_matched === 0) {
+      throw new Error(`Source coverage ${assertion.id} marked complete_with_records with zero records`);
+    }
+    if (assertion.status === "complete_no_records" && assertion.records_matched !== 0) {
+      throw new Error(`Source coverage ${assertion.id} marked complete_no_records with matched records`);
+    }
+  }
+}
+
 export function buildEvidenceGatewayResponseV1(
   input: BuildEvidenceGatewayInput,
 ): EvidenceGatewayResponseV1 {
@@ -263,6 +328,13 @@ export function buildEvidenceGatewayResponseV1(
     toGatewaySourceVersion(sourceVersion, input.sourceCatalog),
   );
   const sourceVersionById = new Map(sourceVersions.map((item) => [item.source_version_id, item]));
+
+  const sourceCoverage = (input.sourceCoverage ?? []).map((item) => ({ ...item }));
+  validateCoverageAssertions({
+    assertions: sourceCoverage,
+    geographyById,
+    sourceVersionById,
+  });
 
   const metricSemantics = input.measureDefinitions.map((definition) =>
     toGatewayMetricSemantics(definition, input.metricPolicies?.[definition.id]),
@@ -316,6 +388,7 @@ export function buildEvidenceGatewayResponseV1(
     metric_semantics: metricSemantics,
     measures,
     source_versions: sourceVersions,
+    source_coverage: sourceCoverage,
   };
 
   const releaseHash = `sha256:${createHash("sha256")
