@@ -13,6 +13,10 @@ BEGIN
   END IF;
 END $$;
 
+DROP TRIGGER IF EXISTS source_coverage_review_status_normalize
+  ON evidence.source_coverage;
+DROP FUNCTION IF EXISTS evidence.normalize_source_coverage_review_status();
+
 DROP INDEX IF EXISTS evidence.source_coverage_snapshot_geography_idx;
 DROP INDEX IF EXISTS evidence.source_coverage_status_idx;
 
