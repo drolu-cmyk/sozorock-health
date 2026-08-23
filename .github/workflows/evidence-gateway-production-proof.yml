@@ -1,0 +1,142 @@
+name: Evidence Gateway production proof
+
+on:
+  workflow_dispatch:
+  workflow_run:
+    workflows: ["Deploy"]
+    types: [completed]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: evidence-gateway-production-proof
+  cancel-in-progress: false
+
+jobs:
+  prove:
+    name: Prove published five-county gateway
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.head_branch == 'main')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      ORIGIN: https://health.sozorockfoundation.org
+      EXPECTED_CONTRACT: sozorock.evidence-gateway.v1
+    steps:
+      - name: Prove contract, county boundary, release identity, and ETag behavior
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          counties=(36001 36093 36057 42029 48029)
+          expected_release_id=""
+          albany_release_hash=""
+          proof_file=$(mktemp)
+
+          for geoid in "${counties[@]}"; do
+            headers=$(mktemp)
+            body=$(mktemp)
+
+            status=$(curl \
+              --proto '=https' \
+              --tlsv1.2 \
+              --fail-with-body \
+              --silent \
+              --show-error \
+              --retry 6 \
+              --retry-delay 5 \
+              --retry-all-errors \
+              --max-time 30 \
+              --dump-header "$headers" \
+              --output "$body" \
+              --write-out '%{http_code}' \
+              "$ORIGIN/api/evidence/v1/gateway?geoid=$geoid")
+            test "$status" = "200"
+
+            content_type=$(awk 'BEGIN{IGNORECASE=1} /^content-type:/ {sub(/\r$/, ""); sub(/^content-type:[[:space:]]*/, ""); print; exit}' "$headers")
+            contract=$(awk 'BEGIN{IGNORECASE=1} /^x-evidence-contract:/ {sub(/\r$/, ""); sub(/^x-evidence-contract:[[:space:]]*/, ""); print; exit}' "$headers")
+            release_id=$(awk 'BEGIN{IGNORECASE=1} /^x-evidence-release:/ {sub(/\r$/, ""); sub(/^x-evidence-release:[[:space:]]*/, ""); print; exit}' "$headers")
+            release_hash=$(awk 'BEGIN{IGNORECASE=1} /^x-evidence-release-hash:/ {sub(/\r$/, ""); sub(/^x-evidence-release-hash:[[:space:]]*/, ""); print; exit}' "$headers")
+            etag=$(awk 'BEGIN{IGNORECASE=1} /^etag:/ {sub(/\r$/, ""); sub(/^etag:[[:space:]]*/, ""); print; exit}' "$headers")
+
+            grep -Eqi '^application/json([;[:space:]]|$)' <<<"$content_type"
+            test "$contract" = "$EXPECTED_CONTRACT"
+            test -n "$release_id"
+            [[ "$release_hash" =~ ^sha256:[0-9a-f]{64}$ ]]
+            test "$etag" = "\"$release_hash\""
+
+            jq -e \
+              --arg contract "$EXPECTED_CONTRACT" \
+              --arg release_id "$release_id" \
+              --arg release_hash "$release_hash" \
+              --arg geoid "$geoid" '
+                .manifest.contract_version == $contract and
+                .package.contract_version == $contract and
+                .manifest.release_id == $release_id and
+                .package.release_id == $release_id and
+                .manifest.release_hash == $release_hash and
+                (.package.geographies | length) == 1 and
+                .package.geographies[0].kind == "county" and
+                .package.geographies[0].county_fips == $geoid and
+                (.package.source_versions | type) == "array" and
+                (.package.source_versions | length) > 0 and
+                (.package.metric_semantics | type) == "array" and
+                (.package.metric_semantics | length) > 0 and
+                (.package.measures | type) == "array" and
+                (.package.measures | length) > 0 and
+                (.package.source_coverage | type) == "array"
+              ' "$body" >/dev/null
+
+            if [[ -z "$expected_release_id" ]]; then
+              expected_release_id="$release_id"
+            else
+              test "$release_id" = "$expected_release_id"
+            fi
+            if [[ "$geoid" == "36001" ]]; then
+              albany_release_hash="$release_hash"
+            fi
+
+            printf '%s\t%s\t%s\t%s\t%s\n' \
+              "$geoid" \
+              "$(jq -r '.package.measures | length' "$body")" \
+              "$(jq -r '.package.source_coverage | length' "$body")" \
+              "$release_id" \
+              "$release_hash" >> "$proof_file"
+          done
+
+          test -n "$albany_release_hash"
+          conditional_headers=$(mktemp)
+          conditional_body=$(mktemp)
+          conditional_status=$(curl \
+            --proto '=https' \
+            --tlsv1.2 \
+            --silent \
+            --show-error \
+            --dump-header "$conditional_headers" \
+            --output "$conditional_body" \
+            --write-out '%{http_code}' \
+            --header "If-None-Match: \"$albany_release_hash\"" \
+            "$ORIGIN/api/evidence/v1/gateway?geoid=36001")
+          test "$conditional_status" = "304"
+          test ! -s "$conditional_body"
+          grep -Eqi "^etag:[[:space:]]*\"$albany_release_hash\"[[:space:]]*$" "$conditional_headers"
+          grep -Eqi "^x-evidence-contract:[[:space:]]*$EXPECTED_CONTRACT[[:space:]]*$" "$conditional_headers"
+          grep -Eqi "^x-evidence-release-hash:[[:space:]]*$albany_release_hash[[:space:]]*$" "$conditional_headers"
+
+          {
+            echo "## Evidence Gateway production proof"
+            echo "- Contract: $EXPECTED_CONTRACT"
+            echo "- Published release: $expected_release_id"
+            echo "- County responses: 5/5 returned 200 and one exact county"
+            echo "- Package hashes: validated independently per county"
+            echo "- Albany conditional request: 304 with an empty body"
+            echo ""
+            echo "| County GEOID | Measures | Coverage assertions | Release | Package hash |"
+            echo "| --- | ---: | ---: | --- | --- |"
+            while IFS=$'\t' read -r geoid measures coverage release package_hash; do
+              echo "| $geoid | $measures | $coverage | $release | $package_hash |"
+            done < "$proof_file"
+          } >> "$GITHUB_STEP_SUMMARY"
