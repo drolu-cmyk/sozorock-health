@@ -137,5 +137,6 @@
       "schema_version": "evaluation-observations.v1",
       "review_status": "verified"
     }
-  ]
+  ],
+  "source_coverage": []
 }
