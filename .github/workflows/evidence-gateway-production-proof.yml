@@ -8,6 +8,7 @@ on:
 
 permissions:
   contents: read
+  statuses: write
 
 concurrency:
   group: evidence-gateway-production-proof
@@ -25,8 +26,38 @@ jobs:
     env:
       ORIGIN: https://health.sozorockfoundation.org
       EXPECTED_CONTRACT: sozorock.evidence-gateway.v1
+      STATUS_CONTEXT: evidence-gateway/production-proof
+      TARGET_SHA: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
+      GH_STATUS_TOKEN: ${{ github.token }}
     steps:
+      - name: Publish pending production-proof status
+        shell: bash
+        run: |
+          set -euo pipefail
+          target_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          payload=$(jq -cn \
+            --arg state pending \
+            --arg target_url "$target_url" \
+            --arg description "Five-county Evidence Gateway production proof is running" \
+            --arg context "$STATUS_CONTEXT" \
+            '{state:$state,target_url:$target_url,description:$description,context:$context}')
+          curl \
+            --proto '=https' \
+            --tlsv1.2 \
+            --fail \
+            --silent \
+            --show-error \
+            --request POST \
+            --header "Authorization: Bearer $GH_STATUS_TOKEN" \
+            --header "Accept: application/vnd.github+json" \
+            --header "X-GitHub-Api-Version: 2022-11-28" \
+            --header "Content-Type: application/json" \
+            --data "$payload" \
+            "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/statuses/$TARGET_SHA" >/dev/null
+
       - name: Prove contract, county boundary, release identity, and ETag behavior
+        id: proof
+        continue-on-error: true
         shell: bash
         run: |
           set -euo pipefail
@@ -140,3 +171,43 @@ jobs:
               echo "| $geoid | $measures | $coverage | $release | $package_hash |"
             done < "$proof_file"
           } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Publish final production-proof status
+        if: always()
+        shell: bash
+        env:
+          PROOF_OUTCOME: ${{ steps.proof.outcome }}
+        run: |
+          set -euo pipefail
+          target_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          if [[ "$PROOF_OUTCOME" == "success" ]]; then
+            state=success
+            description="Five-county Evidence Gateway production proof passed"
+          else
+            state=failure
+            description="Five-county Evidence Gateway production proof failed"
+          fi
+          payload=$(jq -cn \
+            --arg state "$state" \
+            --arg target_url "$target_url" \
+            --arg description "$description" \
+            --arg context "$STATUS_CONTEXT" \
+            '{state:$state,target_url:$target_url,description:$description,context:$context}')
+          curl \
+            --proto '=https' \
+            --tlsv1.2 \
+            --fail \
+            --silent \
+            --show-error \
+            --request POST \
+            --header "Authorization: Bearer $GH_STATUS_TOKEN" \
+            --header "Accept: application/vnd.github+json" \
+            --header "X-GitHub-Api-Version: 2022-11-28" \
+            --header "Content-Type: application/json" \
+            --data "$payload" \
+            "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/statuses/$TARGET_SHA" >/dev/null
+
+      - name: Fail the workflow when production proof fails
+        if: steps.proof.outcome != 'success'
+        shell: bash
+        run: exit 1
