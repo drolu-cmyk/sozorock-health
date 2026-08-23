@@ -56,7 +56,10 @@ test("Evidence Gateway production proof preserves five-county cache and ETag acc
     /EXPECTED_CACHE_CONTROL: public, s-maxage=86400, stale-while-revalidate=604800/,
   );
   assert.match(proof, /test "\$etag" = "\\\"\$release_hash\\\""/);
-  assert.match(proof, /--header "If-None-Match: \\"\$albany_release_hash\\""/);
+  assert.ok(
+    proof.includes('--header "If-None-Match: \\"$albany_release_hash\\""'),
+    "conditional request must send the exact release hash as the ETag",
+  );
   assert.match(proof, /test "\$conditional_status" = "304"/);
   assert.match(proof, /test ! -s "\$conditional_body"/);
 });
