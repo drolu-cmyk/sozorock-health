@@ -26,6 +26,7 @@ jobs:
     env:
       ORIGIN: https://health.sozorockfoundation.org
       EXPECTED_CONTRACT: sozorock.evidence-gateway.v1
+      EXPECTED_CACHE_CONTROL: public, s-maxage=86400, stale-while-revalidate=604800
       STATUS_CONTEXT: evidence-gateway/production-proof
       TARGET_SHA: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
       GH_STATUS_TOKEN: ${{ github.token }}
@@ -55,7 +56,7 @@ jobs:
             --data "$payload" \
             "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/statuses/$TARGET_SHA" >/dev/null
 
-      - name: Prove contract, county boundary, release identity, and ETag behavior
+      - name: Prove contract, county boundary, release identity, cache semantics, and ETag behavior
         id: proof
         continue-on-error: true
         shell: bash
@@ -88,12 +89,14 @@ jobs:
             test "$status" = "200"
 
             content_type=$(awk 'BEGIN{IGNORECASE=1} /^content-type:/ {sub(/\r$/, ""); sub(/^content-type:[[:space:]]*/, ""); print; exit}' "$headers")
+            cache_control=$(awk 'BEGIN{IGNORECASE=1} /^cache-control:/ {sub(/\r$/, ""); sub(/^cache-control:[[:space:]]*/, ""); print; exit}' "$headers")
             contract=$(awk 'BEGIN{IGNORECASE=1} /^x-evidence-contract:/ {sub(/\r$/, ""); sub(/^x-evidence-contract:[[:space:]]*/, ""); print; exit}' "$headers")
             release_id=$(awk 'BEGIN{IGNORECASE=1} /^x-evidence-release:/ {sub(/\r$/, ""); sub(/^x-evidence-release:[[:space:]]*/, ""); print; exit}' "$headers")
             release_hash=$(awk 'BEGIN{IGNORECASE=1} /^x-evidence-release-hash:/ {sub(/\r$/, ""); sub(/^x-evidence-release-hash:[[:space:]]*/, ""); print; exit}' "$headers")
             etag=$(awk 'BEGIN{IGNORECASE=1} /^etag:/ {sub(/\r$/, ""); sub(/^etag:[[:space:]]*/, ""); print; exit}' "$headers")
 
             grep -Eqi '^application/json([;[:space:]]|$)' <<<"$content_type"
+            test "$cache_control" = "$EXPECTED_CACHE_CONTROL"
             test "$contract" = "$EXPECTED_CONTRACT"
             test -n "$release_id"
             [[ "$release_hash" =~ ^sha256:[0-9a-f]{64}$ ]]
@@ -153,6 +156,7 @@ jobs:
             "$ORIGIN/api/evidence/v1/gateway?geoid=36001")
           test "$conditional_status" = "304"
           test ! -s "$conditional_body"
+          grep -Eqi "^cache-control:[[:space:]]*${EXPECTED_CACHE_CONTROL//\//\/}[[:space:]]*$" "$conditional_headers"
           grep -Eqi "^etag:[[:space:]]*\"$albany_release_hash\"[[:space:]]*$" "$conditional_headers"
           grep -Eqi "^x-evidence-contract:[[:space:]]*$EXPECTED_CONTRACT[[:space:]]*$" "$conditional_headers"
           grep -Eqi "^x-evidence-release-hash:[[:space:]]*$albany_release_hash[[:space:]]*$" "$conditional_headers"
@@ -162,8 +166,9 @@ jobs:
             echo "- Contract: $EXPECTED_CONTRACT"
             echo "- Published release: $expected_release_id"
             echo "- County responses: 5/5 returned 200 and one exact county"
+            echo "- Cache policy: $EXPECTED_CACHE_CONTROL"
             echo "- Package hashes: validated independently per county"
-            echo "- Albany conditional request: 304 with an empty body"
+            echo "- Albany conditional request: 304 with an empty body and preserved cache identity"
             echo ""
             echo "| County GEOID | Measures | Coverage assertions | Release | Package hash |"
             echo "| --- | ---: | ---: | --- | --- |"
