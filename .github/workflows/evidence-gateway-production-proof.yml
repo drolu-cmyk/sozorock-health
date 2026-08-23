@@ -3,7 +3,7 @@ name: Evidence Gateway production proof
 on:
   workflow_dispatch:
   workflow_run:
-    workflows: ["Deploy"]
+    workflows: ["Explore production"]
     types: [completed]
 
 permissions:
