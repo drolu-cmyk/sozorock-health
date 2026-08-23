@@ -1,5 +1,10 @@
 import type { MeasureDefinition } from "./contracts.ts";
-import type { MetricSemanticPolicy } from "./evidence-gateway.ts";
+import {
+  buildEvidenceGatewayResponseV1,
+  type BuildEvidenceGatewayInput,
+  type EvidenceGatewayResponseV1,
+  type MetricSemanticPolicy,
+} from "./evidence-gateway.ts";
 
 const CROSS_SECTIONAL_AREA_VIEWS = [
   "choropleth",
@@ -113,4 +118,27 @@ export function buildMetricSemanticPolicies(
   return Object.fromEntries(
     definitions.map((definition) => [definition.id, metricSemanticPolicyFor(definition)]),
   );
+}
+
+export type CuratedEvidenceGatewayInput = Omit<BuildEvidenceGatewayInput, "metricPolicies"> & {
+  metricPolicies?: Record<string, MetricSemanticPolicy>;
+};
+
+/**
+ * Build a CB-CAP-ready public evidence package using reviewed semantic policy.
+ *
+ * Explicit caller overrides may narrow or extend a reviewed definition, but an
+ * unrecognized measure remains fail-closed through SAFE_UNCURATED_METRIC_POLICY.
+ */
+export function buildCuratedEvidenceGatewayResponseV1(
+  input: CuratedEvidenceGatewayInput,
+): EvidenceGatewayResponseV1 {
+  const reviewedPolicies = buildMetricSemanticPolicies(input.measureDefinitions);
+  return buildEvidenceGatewayResponseV1({
+    ...input,
+    metricPolicies: {
+      ...reviewedPolicies,
+      ...(input.metricPolicies ?? {}),
+    },
+  });
 }
