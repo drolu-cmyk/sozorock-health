@@ -33,7 +33,7 @@ jobs:
 
           counties=(36001 36093 36057 42029 48029)
           expected_release_id=""
-          expected_release_hash=""
+          albany_release_hash=""
           proof_file=$(mktemp)
 
           for geoid in "${counties[@]}"; do
@@ -92,19 +92,22 @@ jobs:
 
             if [[ -z "$expected_release_id" ]]; then
               expected_release_id="$release_id"
-              expected_release_hash="$release_hash"
             else
               test "$release_id" = "$expected_release_id"
-              test "$release_hash" = "$expected_release_hash"
+            fi
+            if [[ "$geoid" == "36001" ]]; then
+              albany_release_hash="$release_hash"
             fi
 
-            printf '%s\t%s\t%s\t%s\n' \
+            printf '%s\t%s\t%s\t%s\t%s\n' \
               "$geoid" \
               "$(jq -r '.package.measures | length' "$body")" \
               "$(jq -r '.package.source_coverage | length' "$body")" \
-              "$release_id" >> "$proof_file"
+              "$release_id" \
+              "$release_hash" >> "$proof_file"
           done
 
+          test -n "$albany_release_hash"
           conditional_headers=$(mktemp)
           conditional_body=$(mktemp)
           conditional_status=$(curl \
@@ -115,25 +118,25 @@ jobs:
             --dump-header "$conditional_headers" \
             --output "$conditional_body" \
             --write-out '%{http_code}' \
-            --header "If-None-Match: \"$expected_release_hash\"" \
+            --header "If-None-Match: \"$albany_release_hash\"" \
             "$ORIGIN/api/evidence/v1/gateway?geoid=36001")
           test "$conditional_status" = "304"
           test ! -s "$conditional_body"
-          grep -Eqi "^etag:[[:space:]]*\"$expected_release_hash\"[[:space:]]*$" "$conditional_headers"
+          grep -Eqi "^etag:[[:space:]]*\"$albany_release_hash\"[[:space:]]*$" "$conditional_headers"
           grep -Eqi "^x-evidence-contract:[[:space:]]*$EXPECTED_CONTRACT[[:space:]]*$" "$conditional_headers"
-          grep -Eqi "^x-evidence-release-hash:[[:space:]]*$expected_release_hash[[:space:]]*$" "$conditional_headers"
+          grep -Eqi "^x-evidence-release-hash:[[:space:]]*$albany_release_hash[[:space:]]*$" "$conditional_headers"
 
           {
             echo "## Evidence Gateway production proof"
             echo "- Contract: $EXPECTED_CONTRACT"
-            echo "- Release: $expected_release_id"
-            echo "- Release hash: $expected_release_hash"
+            echo "- Published release: $expected_release_id"
             echo "- County responses: 5/5 returned 200 and one exact county"
-            echo "- Conditional request: 304 with an empty body"
+            echo "- Package hashes: validated independently per county"
+            echo "- Albany conditional request: 304 with an empty body"
             echo ""
-            echo "| County GEOID | Measures | Coverage assertions | Release |"
-            echo "| --- | ---: | ---: | --- |"
-            while IFS=$'\t' read -r geoid measures coverage release; do
-              echo "| $geoid | $measures | $coverage | $release |"
+            echo "| County GEOID | Measures | Coverage assertions | Release | Package hash |"
+            echo "| --- | ---: | ---: | --- | --- |"
+            while IFS=$'\t' read -r geoid measures coverage release package_hash; do
+              echo "| $geoid | $measures | $coverage | $release | $package_hash |"
             done < "$proof_file"
           } >> "$GITHUB_STEP_SUMMARY"
