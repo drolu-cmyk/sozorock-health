@@ -99,6 +99,7 @@ export type GatewayMeasure = {
   semantics: GatewayMetricSemantics;
   geography: GatewayGeography;
   source_version: GatewaySourceVersion;
+  geography_level: MetricObservation["geographyLevel"];
   value: number | string | boolean | null;
   numeric_value: number | null;
   confidence_low: number | null;
@@ -106,6 +107,7 @@ export type GatewayMeasure = {
   margin_of_error: number | null;
   data_period_start: string | null;
   data_period_end: string | null;
+  source_metadata: Record<string, string | number | boolean | null>;
   review_status: ReviewStatus;
 };
 
@@ -292,6 +294,7 @@ export function buildEvidenceGatewayResponseV1(
       semantics,
       geography,
       source_version: sourceVersion,
+      geography_level: observation.geographyLevel,
       value: observation.value,
       numeric_value: observation.numericValue,
       confidence_low: observation.confidenceLow,
@@ -299,6 +302,7 @@ export function buildEvidenceGatewayResponseV1(
       margin_of_error: observation.marginOfError,
       data_period_start: observation.dataPeriodStart,
       data_period_end: observation.dataPeriodEnd,
+      source_metadata: { ...observation.sourceMetadata },
       review_status: observation.reviewStatus,
     };
   });
