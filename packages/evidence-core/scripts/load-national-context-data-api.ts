@@ -10,6 +10,7 @@ import {
   RDSDataClient,
   ExecuteStatementCommand,
   type ExecuteStatementCommandInput,
+  type Field,
   type SqlParameter,
 } from "@aws-sdk/client-rds-data";
 
@@ -85,8 +86,6 @@ type NationalContextArtifact = {
   counties: CountyContext[];
 };
 
-type FieldValue = { stringValue?: string; longValue?: number; doubleValue?: number; booleanValue?: boolean; isNull?: boolean };
-
 const SCRIPT_DIR = resolve(fileURLToPath(new URL(".", import.meta.url)));
 const DEFAULT_ARTIFACT = resolve(SCRIPT_DIR, "../generated/national-context.json");
 const DATABASE = process.env.EVIDENCE_DATABASE_NAME ?? "postgres";
@@ -105,7 +104,7 @@ if (!/^sha256:[0-9a-fA-F]{64}$/.test(SNAPSHOT_HASH)) {
 
 const rds = new RDSDataClient({ region: AWS_REGION });
 
-function sqlValue(value: unknown): FieldValue {
+function sqlValue(value: unknown): Field {
   if (value === null || value === undefined) return { isNull: true };
   if (typeof value === "boolean") return { booleanValue: value };
   if (typeof value === "number") {
@@ -136,7 +135,7 @@ async function execute(
 }
 
 function text(field: unknown) {
-  const value = field as FieldValue | undefined;
+  const value = field as Field | undefined;
   if (!value || value.isNull) return null;
   if (value.stringValue !== undefined) return value.stringValue;
   if (value.longValue !== undefined) return String(value.longValue);
