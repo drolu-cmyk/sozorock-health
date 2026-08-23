@@ -82,6 +82,81 @@ test("metric behavior is fail-closed unless curated", () => {
   assert.deepEqual(protective.allowed_visualizations, []);
 });
 
+test("source coverage can prove a completed source check with zero records", () => {
+  const albany = byId(
+    PLACE_AGENT_EVALUATION_SNAPSHOT.geographyCatalog.geographies,
+    "county:36001",
+  );
+  const sourceVersion = byId(
+    PLACE_AGENT_EVALUATION_SNAPSHOT.sourceVersions,
+    "source-version:cdc-places-current-eval",
+  );
+  const coverageResponse = buildEvidenceGatewayResponseV1({
+    releaseId: "coverage-evaluation-v1",
+    generatedAt: "2026-08-22T22:00:00Z",
+    evidenceCoreSchemaVersion: "evidence-core.contracts.v1",
+    geographies: [albany],
+    sourceCatalog: PLACE_AGENT_EVALUATION_SNAPSHOT.sourceCatalog,
+    sourceVersions: [sourceVersion],
+    measureDefinitions: [],
+    observations: [],
+    sourceCoverage: [
+      {
+        id: "coverage:cdc-places:36001:controlled",
+        source_id: "cdc-places",
+        source_version_id: sourceVersion.id,
+        geography_id: albany.id,
+        coverage_key: "cdc-places:controlled",
+        status: "complete_no_records",
+        records_matched: 0,
+        evaluated_at: "2026-08-22T22:00:00Z",
+        review_status: "verified",
+        caveat: "Controlled gateway coverage fixture.",
+      },
+    ],
+  });
+
+  assert.equal(coverageResponse.package.source_coverage.length, 1);
+  assert.equal(coverageResponse.package.source_coverage[0]?.status, "complete_no_records");
+  assert.equal(coverageResponse.package.source_coverage[0]?.records_matched, 0);
+});
+
+test("source coverage rejects internally inconsistent negative evidence", () => {
+  const albany = byId(
+    PLACE_AGENT_EVALUATION_SNAPSHOT.geographyCatalog.geographies,
+    "county:36001",
+  );
+  const sourceVersion = byId(
+    PLACE_AGENT_EVALUATION_SNAPSHOT.sourceVersions,
+    "source-version:cdc-places-current-eval",
+  );
+
+  assert.throws(() => buildEvidenceGatewayResponseV1({
+    releaseId: "bad-coverage-evaluation-v1",
+    generatedAt: "2026-08-22T22:00:00Z",
+    evidenceCoreSchemaVersion: "evidence-core.contracts.v1",
+    geographies: [albany],
+    sourceCatalog: PLACE_AGENT_EVALUATION_SNAPSHOT.sourceCatalog,
+    sourceVersions: [sourceVersion],
+    measureDefinitions: [],
+    observations: [],
+    sourceCoverage: [
+      {
+        id: "coverage:bad",
+        source_id: "cdc-places",
+        source_version_id: sourceVersion.id,
+        geography_id: albany.id,
+        coverage_key: "cdc-places:controlled",
+        status: "complete_no_records",
+        records_matched: 1,
+        evaluated_at: "2026-08-22T22:00:00Z",
+        review_status: "verified",
+        caveat: null,
+      },
+    ],
+  }), /complete_no_records/);
+});
+
 test("public Evidence Gateway does not emit CB-CAP private state", () => {
   const serialized = JSON.stringify(response.package);
   assert.equal(serialized.includes("tenant_id"), false);
