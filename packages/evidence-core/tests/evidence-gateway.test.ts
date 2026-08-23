@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import { PLACE_AGENT_EVALUATION_SNAPSHOT } from "../src/agent/evaluation-fixture.ts";
@@ -6,6 +7,16 @@ import {
   SHARED_EVIDENCE_CONTRACT_VERSION,
   buildEvidenceGatewayResponseV1,
 } from "../src/evidence-gateway.ts";
+
+const metricPolicies = {
+  "measure:adverse-eval": {
+    trendable: true,
+    forecastable: false,
+    aggregatable: false,
+    allowedGeographyKinds: ["county" as const],
+    allowedVisualizations: ["choropleth", "ranked_dot", "distribution"],
+  },
+};
 
 const response = buildEvidenceGatewayResponseV1({
   releaseId: "evaluation-release-v1",
@@ -17,16 +28,14 @@ const response = buildEvidenceGatewayResponseV1({
   sourceVersions: PLACE_AGENT_EVALUATION_SNAPSHOT.sourceVersions,
   measureDefinitions: PLACE_AGENT_EVALUATION_SNAPSHOT.measureDefinitions,
   observations: PLACE_AGENT_EVALUATION_SNAPSHOT.observations,
-  metricPolicies: {
-    "measure:adverse-eval": {
-      trendable: true,
-      forecastable: false,
-      aggregatable: false,
-      allowedGeographyKinds: ["county"],
-      allowedVisualizations: ["choropleth", "ranked_dot", "distribution"],
-    },
-  },
+  metricPolicies,
 });
+
+function byId<T extends { id: string }>(items: T[], id: string): T {
+  const item = items.find((candidate) => candidate.id === id);
+  if (!item) throw new Error(`Missing fixture item ${id}`);
+  return item;
+}
 
 test("Evidence Gateway emits the locked version and release identity", () => {
   assert.equal(response.manifest.contract_version, SHARED_EVIDENCE_CONTRACT_VERSION);
@@ -91,4 +100,45 @@ test("all initial evaluation counties remain represented", () => {
   for (const expected of ["36001", "36093", "36057", "42029", "48029"]) {
     assert.equal(fips.has(expected), true);
   }
+});
+
+test("canonical cross-repository fixture matches the serializer", () => {
+  const albany = byId(
+    PLACE_AGENT_EVALUATION_SNAPSHOT.geographyCatalog.geographies,
+    "county:36001",
+  );
+  const sourceVersion = byId(
+    PLACE_AGENT_EVALUATION_SNAPSHOT.sourceVersions,
+    "source-version:cdc-places-current-eval",
+  );
+  const definition = byId(
+    PLACE_AGENT_EVALUATION_SNAPSHOT.measureDefinitions,
+    "measure:adverse-eval",
+  );
+  const observation = byId(
+    PLACE_AGENT_EVALUATION_SNAPSHOT.observations,
+    "observation:albany-adverse",
+  );
+
+  const canonical = buildEvidenceGatewayResponseV1({
+    releaseId: "cross-repo-fixture-v1",
+    generatedAt: "2026-08-22T22:00:00Z",
+    evidenceCoreSchemaVersion: "evidence-core.contracts.v1",
+    geographies: [albany],
+    geographyRelationships: [],
+    sourceCatalog: PLACE_AGENT_EVALUATION_SNAPSHOT.sourceCatalog,
+    sourceVersions: [sourceVersion],
+    measureDefinitions: [definition],
+    observations: [observation],
+    metricPolicies,
+  });
+
+  const fixture = JSON.parse(
+    readFileSync(
+      new URL("./fixtures/evidence-gateway-v1.json", import.meta.url),
+      "utf8",
+    ),
+  );
+
+  assert.deepEqual(canonical.package, fixture);
 });
