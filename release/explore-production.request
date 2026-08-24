@@ -7,6 +7,8 @@ includes:
   - reviewed-planning-evidence-extension
   - planning-evidence-production-proof
   - governed-visualization-semantic-permissions
+  - production-data-api-import-contract-fix
+  - non-explore-regression-evidence-path-fix
 approval: user-authorized-production-release
-request_generation: 6
-retry_reason: replace superseded waiting release with exact main including reviewed visualization permissions
+request_generation: 7
+retry_reason: generation 6 failed closed after the primary 3144-county import because the national-context loader used legacy environment names and required the approved snapshot hash before the combined import completed; generation 7 includes the tested import orchestrator and release-evidence path correction
