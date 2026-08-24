@@ -2,3 +2,5 @@ bootstrap: cbcap-agentic-production
 repository: drolu-cmyk/sozorock-health-agentic
 environment: production
 approval: user-authorized-production-activation
+request_generation: 2
+reason: tighten-deploy-role-permissions-and-add-emergency-scale-to-zero

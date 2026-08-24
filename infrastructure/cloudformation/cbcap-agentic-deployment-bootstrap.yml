@@ -242,6 +242,7 @@ Resources:
                   - ecs:DescribeTasks
                   - ecs:DescribeServices
                   - ecs:DescribeTaskDefinition
+                  - ecs:UpdateService
                 Resource: '*'
               - Sid: PassRuntimeTaskRoles
                 Effect: Allow
@@ -263,16 +264,9 @@ Resources:
               - Sid: CognitoPreflightIdentity
                 Effect: Allow
                 Action:
-                  - cognito-idp:CreateUserPoolClient
-                  - cognito-idp:DeleteUserPoolClient
                   - cognito-idp:AdminCreateUser
                   - cognito-idp:AdminSetUserPassword
                   - cognito-idp:AdminDeleteUser
-                  - cognito-idp:AdminGetUser
-                  - cognito-idp:AdminInitiateAuth
-                  - cognito-idp:AdminRespondToAuthChallenge
-                  - cognito-idp:AssociateSoftwareToken
-                  - cognito-idp:VerifySoftwareToken
                 Resource: '*'
               - Sid: ReadLiveDeploymentState
                 Effect: Allow
