@@ -1,11 +1,14 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import test from "node:test";
 
 import { PLACE_AGENT_EVALUATION_SNAPSHOT } from "../src/agent/evaluation-fixture.ts";
 import {
   PLANNING_EVIDENCE_EXTENSION_VERSION,
+  attachPlanningEvidenceToGatewayV1,
   buildPlanningEvidenceExtensionV1,
 } from "../src/evidence-gateway-planning.ts";
+import { buildEvidenceGatewayResponseV1 } from "../src/evidence-gateway.ts";
 
 const geographyId = "county:36001";
 
@@ -72,6 +75,29 @@ test("a claim cannot cross document, source-version, or county boundaries", () =
     planningCitations: [{ ...citation, sourceVersionId: "source-version:cdc-places-current-eval" }],
   });
   assert.equal(wrongSource.planning_claims.length, 0);
+});
+
+test("planning extension is part of the package release hash", () => {
+  const geography = PLACE_AGENT_EVALUATION_SNAPSHOT.geographyCatalog.geographies.find((item) => item.id === geographyId);
+  const sourceVersion = PLACE_AGENT_EVALUATION_SNAPSHOT.sourceVersions.find((item) => item.id === "source-version:albany-plan-eval");
+  assert.ok(geography);
+  assert.ok(sourceVersion);
+
+  const base = buildEvidenceGatewayResponseV1({
+    releaseId: "planning-extension-evaluation-v1",
+    generatedAt: "2026-08-22T22:00:00Z",
+    evidenceCoreSchemaVersion: "evidence-core.contracts.v1",
+    geographies: [geography],
+    sourceCatalog: PLACE_AGENT_EVALUATION_SNAPSHOT.sourceCatalog,
+    sourceVersions: [sourceVersion],
+    measureDefinitions: [],
+    observations: [],
+  });
+  const combined = attachPlanningEvidenceToGatewayV1(base, build({ sourceVersions: [sourceVersion] }));
+  const expected = `sha256:${createHash("sha256").update(JSON.stringify(combined.package)).digest("hex")}`;
+  assert.equal(combined.manifest.release_hash, expected);
+  assert.notEqual(combined.manifest.release_hash, base.manifest.release_hash);
+  assert.equal(combined.package.release_id, base.package.release_id);
 });
 
 test("planning extension never serializes private tenant or approval state", () => {
