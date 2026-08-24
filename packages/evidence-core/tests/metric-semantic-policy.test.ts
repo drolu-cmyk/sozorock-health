@@ -28,18 +28,55 @@ function definition(
   };
 }
 
-test("adverse HRSN barrier measures receive cross-sectional and relationship views", () => {
+test("adverse HRSN barrier measures receive governed cross-sectional workspace views", () => {
   const policy = metricSemanticPolicyFor(definition("LACKTRPT:Crude"));
   assert.deepEqual(policy.allowedGeographyKinds, ["county"]);
   assert.equal(policy.trendable, false);
   assert.equal(policy.forecastable, false);
   assert.equal(policy.aggregatable, false);
-  assert.ok(policy.allowedVisualizations.includes("choropleth"));
-  assert.ok(policy.allowedVisualizations.includes("ranked_dot"));
-  assert.ok(policy.allowedVisualizations.includes("scatterplot"));
-  assert.ok(policy.allowedVisualizations.includes("bivariate_map"));
+  for (const view of [
+    "choropleth",
+    "ranked_dot",
+    "scatterplot",
+    "bivariate_map",
+    "barrier_matrix",
+    "service_gap",
+  ]) {
+    assert.ok(policy.allowedVisualizations.includes(view), `${view} should be governed for reviewed HRSN barriers`);
+  }
   assert.equal(policy.allowedVisualizations.includes("density_heatmap"), false);
   assert.equal(policy.allowedVisualizations.includes("trend_line"), false);
+});
+
+test("official HRSA designation semantics support overlay and service-gap composition without becoming rankable", () => {
+  for (const sourceMeasureId of ["HPSA_DESIGNATION", "MUA_P_DESIGNATION"]) {
+    const policy = metricSemanticPolicyFor(definition(sourceMeasureId, {
+      direction: "contextual",
+      higherValueMeaning: "context_dependent",
+      comparisonPolicy: "context_only",
+      unit: "designation",
+      universe: "Official HRSA designation records",
+      adjustment: "not_applicable",
+    }));
+    assert.deepEqual(policy.allowedGeographyKinds, ["county"]);
+    assert.ok(policy.allowedVisualizations.includes("designation_overlay"));
+    assert.ok(policy.allowedVisualizations.includes("service_gap"));
+    assert.equal(policy.allowedVisualizations.includes("ranked_dot"), false);
+    assert.equal(policy.allowedVisualizations.includes("choropleth"), false);
+    assert.equal(policy.trendable, false);
+    assert.equal(policy.forecastable, false);
+    assert.equal(policy.aggregatable, false);
+  }
+});
+
+test("designation semantic mismatch fails closed", () => {
+  const policy = metricSemanticPolicyFor(definition("HPSA_DESIGNATION", {
+    direction: "adverse",
+    higherValueMeaning: "adverse",
+    comparisonPolicy: "higher_is_concern",
+    unit: "designation",
+  }));
+  assert.deepEqual(policy, SAFE_UNCURATED_METRIC_POLICY);
 });
 
 test("disability remains contextual and does not receive barrier relationship permissions", () => {
@@ -52,6 +89,8 @@ test("disability remains contextual and does not receive barrier relationship pe
   assert.ok(policy.allowedVisualizations.includes("ranked_dot"));
   assert.equal(policy.allowedVisualizations.includes("scatterplot"), false);
   assert.equal(policy.allowedVisualizations.includes("bivariate_map"), false);
+  assert.equal(policy.allowedVisualizations.includes("barrier_matrix"), false);
+  assert.equal(policy.allowedVisualizations.includes("service_gap"), false);
 });
 
 test("semantic mismatch fails closed even for a known barrier measure", () => {
@@ -72,4 +111,5 @@ test("policy map is keyed by stable internal definition id while curation uses s
   const first = definition("LACKTRPT:Crude", { id: "uuid-like-definition-id" });
   const policies = buildMetricSemanticPolicies([first]);
   assert.ok(policies["uuid-like-definition-id"].allowedVisualizations.includes("choropleth"));
+  assert.ok(policies["uuid-like-definition-id"].allowedVisualizations.includes("barrier_matrix"));
 });
