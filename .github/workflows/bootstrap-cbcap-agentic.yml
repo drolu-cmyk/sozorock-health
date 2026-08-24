@@ -1,0 +1,78 @@
+name: Bootstrap CB-CAP agentic deployment
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "release/cbcap-agentic-bootstrap.request"
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: cbcap-agentic-bootstrap-production
+  cancel-in-progress: false
+
+jobs:
+  bootstrap:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: production
+    env:
+      AWS_REGION: us-east-1
+      EXPECTED_AWS_ACCOUNT_ID: '791860731989'
+      STACK_NAME: cbcap-agentic-deployment-bootstrap
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: main
+          persist-credentials: false
+
+      - name: Assume existing CB-CAP production role
+        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
+        with:
+          role-to-assume: ${{ vars.CBCAP_AWS_DEPLOY_ROLE_ARN }}
+          role-session-name: cbcap-agentic-bootstrap
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Verify account and OIDC provider
+        shell: bash
+        run: |
+          set -euo pipefail
+          account_id=$(aws sts get-caller-identity --query Account --output text)
+          test "$account_id" = "$EXPECTED_AWS_ACCOUNT_ID"
+          oidc_arn="arn:aws:iam::$account_id:oidc-provider/token.actions.githubusercontent.com"
+          aws iam get-open-id-connect-provider --open-id-connect-provider-arn "$oidc_arn" >/dev/null
+          echo "GITHUB_OIDC_PROVIDER_ARN=$oidc_arn" >> "$GITHUB_ENV"
+
+      - name: Deploy repo-scoped OIDC roles
+        shell: bash
+        run: |
+          set -euo pipefail
+          aws cloudformation deploy \
+            --stack-name "$STACK_NAME" \
+            --template-file infrastructure/cloudformation/cbcap-agentic-deployment-bootstrap.yml \
+            --capabilities CAPABILITY_NAMED_IAM \
+            --parameter-overrides \
+              GitHubOidcProviderArn="$GITHUB_OIDC_PROVIDER_ARN" \
+              GitHubRepository=drolu-cmyk/sozorock-health-agentic \
+              GitHubEnvironment=production \
+            --no-fail-on-empty-changeset
+
+      - name: Prove exact trust boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          deploy_role=$(aws cloudformation describe-stacks --stack-name "$STACK_NAME" --query "Stacks[0].Outputs[?OutputKey=='GitHubDeployRoleArn'].OutputValue" --output text)
+          cf_role=$(aws cloudformation describe-stacks --stack-name "$STACK_NAME" --query "Stacks[0].Outputs[?OutputKey=='CloudFormationServiceRoleArn'].OutputValue" --output text)
+          test "$deploy_role" = "arn:aws:iam::$EXPECTED_AWS_ACCOUNT_ID:role/cbcap-agentic-github-deploy"
+          test "$cf_role" = "arn:aws:iam::$EXPECTED_AWS_ACCOUNT_ID:role/cbcap-agentic-cloudformation"
+
+          trust=$(aws iam get-role --role-name cbcap-agentic-github-deploy --query 'Role.AssumeRolePolicyDocument' --output json)
+          jq -e --arg subject 'repo:drolu-cmyk/sozorock-health-agentic:environment:production' '
+            any(.Statement[];
+              .Action == "sts:AssumeRoleWithWebIdentity" and
+              .Condition.StringEquals["token.actions.githubusercontent.com:aud"] == "sts.amazonaws.com" and
+              .Condition.StringEquals["token.actions.githubusercontent.com:sub"] == $subject)
+          ' <<<"$trust" >/dev/null
