@@ -17,7 +17,7 @@ concurrency:
 
 jobs:
   dispatch:
-    name: Dispatch and verify the protected Explore production workflow
+    name: Retire superseded queued releases, dispatch, and verify exact production run
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -60,7 +60,44 @@ jobs:
           }
           trap on_error ERR
 
-          publish_status pending 'Waiting for exact Explore production workflow run' "$DISPATCH_RUN_URL"
+          publish_status pending 'Validating release queue before exact Explore production dispatch' "$DISPATCH_RUN_URL"
+
+          current_main=$(curl --fail-with-body --silent --show-error \
+            --header "Accept: application/vnd.github+json" \
+            --header "Authorization: Bearer $GH_TOKEN" \
+            --header "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/$REPOSITORY/commits/main" | jq -r '.sha')
+          test "$current_main" = "$RELEASE_SHA"
+
+          runs=$(curl --fail-with-body --silent --show-error \
+            --header "Accept: application/vnd.github+json" \
+            --header "Authorization: Bearer $GH_TOKEN" \
+            --header "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/$REPOSITORY/actions/workflows/explore-production.yml/runs?event=workflow_dispatch&branch=main&per_page=100")
+
+          mapfile -t stale_safe_runs < <(jq -r --arg sha "$RELEASE_SHA" '
+            .workflow_runs[]
+            | select(.head_sha != $sha)
+            | select(.status == "pending" or .status == "queued" or .status == "waiting" or .status == "requested")
+            | .id
+          ' <<<"$runs")
+          for run_id in "${stale_safe_runs[@]}"; do
+            test -n "$run_id"
+            echo "Cancelling superseded non-running Explore production run $run_id."
+            curl --fail-with-body --silent --show-error \
+              --request POST \
+              --header "Accept: application/vnd.github+json" \
+              --header "Authorization: Bearer $GH_TOKEN" \
+              --header "X-GitHub-Api-Version: 2022-11-28" \
+              "https://api.github.com/repos/$REPOSITORY/actions/runs/$run_id/cancel" >/dev/null
+          done
+
+          unsafe_running=$(jq -r --arg sha "$RELEASE_SHA" '
+            [.workflow_runs[] | select(.head_sha != $sha and .status == "in_progress")] | length
+          ' <<<"$runs")
+          if [[ "$unsafe_running" != "0" ]]; then
+            echo "A superseded Explore production run is actively executing. Refusing to cancel active production work; the exact release will queue behind it."
+          fi
 
           payload=$(jq -cn \
             --arg ref "main" \
@@ -77,7 +114,7 @@ jobs:
 
           run_url=''
           for attempt in $(seq 1 60); do
-            runs=$(curl --fail-with-body --silent --show-error \
+            exact_runs=$(curl --fail-with-body --silent --show-error \
               --header "Accept: application/vnd.github+json" \
               --header "Authorization: Bearer $GH_TOKEN" \
               --header "X-GitHub-Api-Version: 2022-11-28" \
@@ -85,7 +122,7 @@ jobs:
             run_url=$(jq -r --arg sha "$RELEASE_SHA" '
               [.workflow_runs[] | select(.head_sha == $sha and .event == "workflow_dispatch")]
               | sort_by(.created_at) | reverse | .[0].html_url // ""
-            ' <<<"$runs")
+            ' <<<"$exact_runs")
             if [[ -n "$run_url" ]]; then break; fi
             if [[ "$attempt" -eq 60 ]]; then
               echo "Explore production dispatch returned but no exact-SHA workflow run appeared."
