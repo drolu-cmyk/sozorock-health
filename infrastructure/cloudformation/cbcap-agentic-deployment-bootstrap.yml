@@ -227,6 +227,7 @@ Resources:
                   - ecr:CompleteLayerUpload
                   - ecr:DescribeImages
                   - ecr:DescribeImageScanFindings
+                  - ecr:DescribeRepositories
                   - ecr:GetDownloadUrlForLayer
                   - ecr:InitiateLayerUpload
                   - ecr:ListImages
@@ -277,6 +278,7 @@ Resources:
                   - secretsmanager:DescribeSecret
                   - logs:DescribeLogGroups
                   - logs:DescribeLogStreams
+                  - logs:FilterLogEvents
                   - cloudwatch:DescribeAlarms
                   - sns:GetTopicAttributes
                   - route53:ListResourceRecordSets
