@@ -48,10 +48,10 @@ jobs:
             "https://api.github.com/repos/$REPOSITORY/statuses/$RELEASE_SHA" \
             --data "$payload" >/dev/null
 
-      - name: Assume existing CB-CAP production role
+      - name: Assume established SozoRock Health production role
         uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
         with:
-          role-to-assume: ${{ vars.CBCAP_AWS_DEPLOY_ROLE_ARN }}
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
           role-session-name: cbcap-agentic-bootstrap
           aws-region: ${{ env.AWS_REGION }}
 
