@@ -2,5 +2,5 @@ bootstrap: cbcap-agentic-production
 repository: drolu-cmyk/sozorock-health-agentic
 environment: production
 approval: user-authorized-production-activation
-request_generation: 6
-reason: newest exact-SHA bootstrap supersedes stale waiting bootstrap requests
+request_generation: 7
+reason: refresh protected production bootstrap on current main after Explore generation 7 release repair
