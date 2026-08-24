@@ -260,6 +260,20 @@ Resources:
                   - rds:DeleteDBInstance
                   - rds:AddTagsToResource
                 Resource: '*'
+              - Sid: CognitoPreflightIdentity
+                Effect: Allow
+                Action:
+                  - cognito-idp:CreateUserPoolClient
+                  - cognito-idp:DeleteUserPoolClient
+                  - cognito-idp:AdminCreateUser
+                  - cognito-idp:AdminSetUserPassword
+                  - cognito-idp:AdminDeleteUser
+                  - cognito-idp:AdminGetUser
+                  - cognito-idp:AdminInitiateAuth
+                  - cognito-idp:AdminRespondToAuthChallenge
+                  - cognito-idp:AssociateSoftwareToken
+                  - cognito-idp:VerifySoftwareToken
+                Resource: '*'
               - Sid: ReadLiveDeploymentState
                 Effect: Allow
                 Action:
