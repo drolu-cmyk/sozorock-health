@@ -5,7 +5,6 @@ import type {
   PlanningDocument,
   PlanningDocumentScope,
   ReviewStatus,
-  SourceVersion,
 } from "./contracts.ts";
 
 export const PLANNING_EVIDENCE_EXTENSION_VERSION = "sozorock.evidence-gateway.planning.v1" as const;
@@ -63,20 +62,25 @@ export type PublicPlanningEvidenceExtensionV1 = {
   planning_citations: GatewayPlanningCitation[];
 };
 
+type ReviewedSourceVersionRef = {
+  id: string;
+  reviewStatus: ReviewStatus;
+};
+
 type BuildPlanningEvidenceExtensionInput = {
   geographyId: string;
-  sourceVersions: SourceVersion[];
+  sourceVersions: ReviewedSourceVersionRef[];
   planningDocuments?: PlanningDocument[];
   planningClaims?: EvidenceClaim[];
   planningCitations?: EvidenceCitation[];
 };
 
-function reviewed(value: { reviewStatus: ReviewStatus; reviewedBy?: string | null; reviewedAt?: string | null }) {
+function humanReviewed(value: { reviewStatus: ReviewStatus; reviewedBy?: string | null; reviewedAt?: string | null }) {
   return value.reviewStatus === "verified" && Boolean(value.reviewedBy?.trim() && value.reviewedAt?.trim());
 }
 
 function requiredLocator(citation: EvidenceCitation) {
-  return Number.isInteger(citation.pageNumber) && Number(citation.pageNumber) > 0
+  return (Number.isInteger(citation.pageNumber) && Number(citation.pageNumber) > 0)
     || Boolean(citation.section?.trim());
 }
 
@@ -87,12 +91,12 @@ export function buildPlanningEvidenceExtensionV1(
 
   const sourceVersionById = new Map(
     input.sourceVersions
-      .filter((source) => reviewed(source))
+      .filter((source) => source.reviewStatus === "verified")
       .map((source) => [source.id, source]),
   );
 
   const documents = (input.planningDocuments ?? []).filter((document) =>
-    reviewed(document)
+    humanReviewed(document)
     && document.coverageScope === "county_specific"
     && document.geographyIds.length === 1
     && document.geographyIds[0] === input.geographyId
@@ -101,7 +105,7 @@ export function buildPlanningEvidenceExtensionV1(
   const documentById = new Map(documents.map((document) => [document.id, document]));
 
   const candidateClaims = (input.planningClaims ?? []).filter((claim) =>
-    reviewed(claim)
+    humanReviewed(claim)
     && claim.geographyIds.length === 1
     && claim.geographyIds[0] === input.geographyId
     && documentById.has(claim.documentId),
