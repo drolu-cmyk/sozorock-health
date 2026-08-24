@@ -237,6 +237,7 @@ Resources:
                   - ecs:DescribeTasks
                   - ecs:DescribeServices
                   - ecs:DescribeTaskDefinition
+                  - ecs:DescribeClusters
                   - ecs:UpdateService
                 Resource: '*'
               - Sid: PassRuntimeTaskRoles

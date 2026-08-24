@@ -2,5 +2,5 @@ bootstrap: cbcap-agentic-production
 repository: drolu-cmyk/sozorock-health-agentic
 environment: production
 approval: user-authorized-production-activation
-request_generation: 4
-reason: exact-sha-observable-bootstrap-and-deploy-diagnostics
+request_generation: 5
+reason: requeue-observable-bootstrap-after-merge
