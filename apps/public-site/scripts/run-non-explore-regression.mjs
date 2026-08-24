@@ -1,16 +1,21 @@
 import { createHash } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import pixelmatch from "pixelmatch";
 import { PNG } from "pngjs";
 import { chromium } from "@playwright/test";
 
-const [mode, baseUrl, evidenceDirectory] = process.argv.slice(2);
-if (!["capture", "compare"].includes(mode) || !baseUrl || !evidenceDirectory) {
+const [mode, baseUrl, evidenceDirectoryInput] = process.argv.slice(2);
+if (!["capture", "compare"].includes(mode) || !baseUrl || !evidenceDirectoryInput) {
   throw new Error(
     "Usage: node run-non-explore-regression.mjs <capture|compare> <base-url> <evidence-directory>",
   );
 }
+
+const scriptDirectory = path.dirname(fileURLToPath(import.meta.url));
+const repositoryRoot = path.resolve(scriptDirectory, "../../..");
+const evidenceDirectory = path.resolve(repositoryRoot, evidenceDirectoryInput);
 
 const routes = [
   "/",
