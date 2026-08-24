@@ -143,9 +143,8 @@ export default async function PublicationPage({
                   Access publication
                 </Link>
                 <p className={styles.note}>
-                  Public-interest access is free. The short access form helps us
-                  understand who the work serves; the PDF is delivered through a
-                  secure, time-limited download.
+                  Public-interest access is free. Complete the short access form and
+                  confirm your email address to receive a secure, time-limited download.
                 </p>
               </>
             ) : (
