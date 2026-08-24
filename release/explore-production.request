@@ -9,6 +9,7 @@ includes:
   - governed-visualization-semantic-permissions
   - production-data-api-import-contract-fix
   - non-explore-regression-evidence-path-fix
+  - bounded-cbcap-agentic-bootstrap-authority-definition
 approval: user-authorized-production-release
-request_generation: 7
-retry_reason: generation 6 failed closed after the primary 3144-county import because the national-context loader used legacy environment names and required the approved snapshot hash before the combined import completed; generation 7 includes the tested import orchestrator and release-evidence path correction
+request_generation: 8
+retry_reason: generation 7 was superseded before deployment when main advanced to repair the CB-CAP bootstrap authority boundary; generation 8 binds the Explore release to the resulting current main SHA and retains all generation 7 production fixes
