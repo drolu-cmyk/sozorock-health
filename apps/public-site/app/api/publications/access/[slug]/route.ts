@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ConditionalCheckFailedException } from "@aws-sdk/client-dynamodb";
 import {
-  SESSION_SECONDS,
   createAccessRequest,
   enforceRateLimit,
   recordEvent,
@@ -13,16 +12,6 @@ import { getPublication } from "../../../../lib/publications";
 import { readBoundedText } from "../../../../lib/request-security";
 
 export const runtime = "nodejs";
-
-function productionCookies() {
-  return process.env.NODE_ENV === "production";
-}
-
-function accessCookieName() {
-  return productionCookies()
-    ? "__Host-srh_publication_access"
-    : "srh_publication_access";
-}
 
 function protectResponse(response: NextResponse) {
   response.headers.set("Cache-Control", "private, no-store");
@@ -50,30 +39,21 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   }
   if (!body) return NextResponse.json({ error: "Enter the required information." }, { status: 400 });
   const input = parseAccessInput(body);
-  if (input.website) return NextResponse.json({ accepted: true, message: "Request accepted." }, { status: 202 });
+  if (input.website) return protectResponse(NextResponse.json({ accepted: true, verificationSent: true, message: "Check your email for a verification link." }, { status: 202 }));
   const attribution = parsePublicationAttribution(body);
   const validationError = validateAccessInput(input);
   if (validationError) return NextResponse.json({ error: validationError }, { status: 400 });
   try {
     await enforceRateLimit(request, input.email, attribution.visitorId);
     const access = await createAccessRequest(publication.slug, input, request, attribution);
-    const response = NextResponse.json({
+    if (access.verificationSent !== true) {
+      return protectResponse(NextResponse.json({ error: "Email verification is temporarily unavailable. Please try again later." }, { status: 503 }));
+    }
+    return protectResponse(NextResponse.json({
       accepted: true,
-      accessGranted: true,
-      verificationSent: access.verificationSent,
-      downloadUrl: `/api/publications/download/${publication.slug}`,
-      message: access.verificationSent
-        ? "Your publication is ready to download. We also sent an optional email verification link; it expires in 30 minutes."
-        : "Your publication is ready to download. Email verification is unavailable right now, but it does not block your access.",
-    }, { status: 202 });
-    response.cookies.set(accessCookieName(), access.sessionToken, {
-      httpOnly: true,
-      secure: productionCookies(),
-      sameSite: "lax",
-      path: "/",
-      maxAge: SESSION_SECONDS,
-    });
-    return protectResponse(response);
+      verificationSent: true,
+      message: "Check your email for a verification link. It expires in 30 minutes. After verification, you can download the publication securely.",
+    }, { status: 202 }));
   } catch (error) {
     if (error instanceof ConditionalCheckFailedException || (error as { name?: string }).name === "ConditionalCheckFailedException") {
       return NextResponse.json({ error: "Too many access attempts were received. Please wait and try again later." }, { status: 429, headers: { "Retry-After": "3600" } });

@@ -6,7 +6,7 @@ import { LogoLockup } from "../../components/LogoLockup";
 import styles from "../publications.module.css";
 
 export const metadata: Metadata = {
-  title: "Confirm publication email",
+  title: "Confirm publication access",
   robots: { index: false, follow: false },
   referrer: "no-referrer",
 };
@@ -38,17 +38,17 @@ export default async function ConfirmPublicationAccess({
       </header>
       <main className={styles.formWrap}>
         <section className={styles.confirmation}>
-          <p className={styles.status}>Email verification</p>
+          <p className={styles.status}>Publication access</p>
           <h1>Confirm your email address.</h1>
           {hasVerification ? (
             <>
               <p>
-                Select continue to confirm this email address and refresh your
-                secure publication access session.
+                Select continue to verify this email address and open a secure,
+                time-limited publication download session.
               </p>
               <form action="/api/publications/verify" method="post">
                 <button className={styles.primary} type="submit">
-                  Confirm email
+                  Confirm email and continue
                 </button>
               </form>
             </>

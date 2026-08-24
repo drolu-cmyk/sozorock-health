@@ -72,6 +72,7 @@ function requireHashingConfig() {
 
 function requireRequestConfig() {
   const config = requireHashingConfig();
+  if (!emailFrom) throw new Error("Publication access is not configured");
   return { ...config, emailFrom };
 }
 
@@ -209,8 +210,6 @@ export async function createAccessRequest(
   const emailHash = await hash(input.email);
   const verifyToken = randomBytes(32).toString("base64url");
   const verifyHash = await hash(verifyToken);
-  const sessionToken = randomBytes(32).toString("base64url");
-  const sessionHash = await hash(sessionToken);
   const requestKey = await hash(`${input.email}:${canonicalSlug}:${requestId}`);
   const networkIdentifier = (await hash(`network:${clientNetworkAddress(request.headers)}`)).slice(0, 32);
   const visitorIdentifier = attribution.visitorId ? (await hash(`visitor:${attribution.visitorId}`)).slice(0, 32) : "";
@@ -241,7 +240,7 @@ export async function createAccessRequest(
             emailDomainCategory: quality.emailDomainCategory,
             deliveryConsent: true, deliveryConsentedAt: now.toISOString(), updatesConsent: input.updatesConsent,
             updatesConsentedAt: input.updatesConsent ? now.toISOString() : undefined, status: "pending-verification",
-            accessGrantedAt: now.toISOString(), createdAt: now.toISOString(), updatedAt: now.toISOString(),
+            createdAt: now.toISOString(), updatedAt: now.toISOString(),
             expiresAt: epoch + REQUEST_RETENTION_SECONDS,
           },
         },
@@ -256,51 +255,35 @@ export async function createAccessRequest(
           ConditionExpression: "attribute_not_exists(pk)",
         },
       },
-      {
-        Put: {
-          TableName: tableName,
-          Item: {
-            pk: `SESSION#${sessionHash}`, sk: `ACCESS#${canonicalSlug}`, recordType: "publication-session",
-            requestId, publicationSlug: canonicalSlug, emailHash, createdAt: now.toISOString(),
-            expiresAt: epoch + SESSION_SECONDS,
-          },
-          ConditionExpression: "attribute_not_exists(pk)",
-        },
-      },
     ],
   }));
 
   const verifyUrl = publicSiteUrl(`/api/publications/verify?token=${encodeURIComponent(verifyToken)}`).toString();
-  let verificationSent = false;
-  let verificationFailureReason = "not-configured";
-  if (emailFrom) {
-    try {
-      await ses.send(new SendEmailCommand({
-        FromEmailAddress: emailFrom,
-        Destination: { ToAddresses: [input.email] },
-        Content: {
-          Simple: {
-            Subject: { Data: `Confirm your email for ${publication.shortTitle}`, Charset: "UTF-8" },
-            Body: {
-              Text: {
-                Data: `Hello ${input.firstName},\n\nConfirm your email for ${publication.title}:\n${verifyUrl}\n\nYour secure publication access was already granted when you submitted the request form. This verification link expires in 30 minutes. You did not subscribe to updates unless you selected that separate option.\n\nSozoRock Health\nAn initiative of The SozoRock Foundation, Inc.`,
-                Charset: "UTF-8",
-              },
-              Html: {
-                Data: `<p>Hello ${escapeHtml(input.firstName)},</p><p>Confirm your email for <strong>${escapeHtml(publication.title)}</strong>.</p><p><a href="${escapeHtml(verifyUrl)}">Confirm email</a></p><p>Your secure publication access was already granted when you submitted the request form. This verification link expires in 30 minutes. You did not subscribe to updates unless you selected that separate option.</p><p>SozoRock Health<br>An initiative of The SozoRock Foundation, Inc.</p>`,
-                Charset: "UTF-8",
-              },
+  try {
+    await ses.send(new SendEmailCommand({
+      FromEmailAddress: emailFrom,
+      Destination: { ToAddresses: [input.email] },
+      Content: {
+        Simple: {
+          Subject: { Data: `Confirm access to ${publication.shortTitle}`, Charset: "UTF-8" },
+          Body: {
+            Text: {
+              Data: `Hello ${input.firstName},\n\nConfirm your email to access ${publication.title}:\n${verifyUrl}\n\nThis link expires in 30 minutes. You did not subscribe to updates unless you selected that separate option.\n\nSozoRock Health\nAn initiative of The SozoRock Foundation, Inc.`,
+              Charset: "UTF-8",
+            },
+            Html: {
+              Data: `<p>Hello ${escapeHtml(input.firstName)},</p><p>Confirm your email to access <strong>${escapeHtml(publication.title)}</strong>.</p><p><a href="${escapeHtml(verifyUrl)}">Confirm email and access publication</a></p><p>This link expires in 30 minutes. You did not subscribe to updates unless you selected that separate option.</p><p>SozoRock Health<br>An initiative of The SozoRock Foundation, Inc.</p>`,
+              Charset: "UTF-8",
             },
           },
         },
-      }));
-      verificationSent = true;
-    } catch (error) {
-      verificationFailureReason = (error as { name?: string }).name ?? "UnknownError";
-      console.error("publication-verification-email-failed", { name: verificationFailureReason, slug: canonicalSlug, fromConfigured: true });
-    }
-  } else {
-    console.error("publication-verification-email-unavailable", { slug: canonicalSlug, fromConfigured: false });
+      },
+    }));
+  } catch (error) {
+    const reason = (error as { name?: string }).name ?? "UnknownError";
+    console.error("publication-verification-email-failed", { name: reason, slug: canonicalSlug, fromConfigured: true });
+    await recordEvent("verification_delivery_failed", canonicalSlug, requestId, { reason }).catch(() => undefined);
+    throw error;
   }
 
   await Promise.all([
@@ -308,11 +291,9 @@ export async function createAccessRequest(
       qualityBand: quality.band, qualityScore: quality.score, source: attribution.utmSource,
       medium: attribution.utmMedium, deviceClass: technical.deviceClass, countryCode: country?.code ?? "",
     }).catch(() => undefined),
-    verificationSent
-      ? recordEvent("verification_sent", canonicalSlug, requestId).catch(() => undefined)
-      : recordEvent("verification_delivery_failed", canonicalSlug, requestId, { reason: verificationFailureReason }).catch(() => undefined),
+    recordEvent("verification_sent", canonicalSlug, requestId).catch(() => undefined),
   ]);
-  return { requestId, sessionToken, verificationSent, qualityBand: quality.band };
+  return { requestId, verificationSent: true, qualityBand: quality.band };
 }
 
 function escapeHtml(value: string) {

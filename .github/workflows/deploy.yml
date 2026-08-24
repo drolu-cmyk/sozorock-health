@@ -79,43 +79,35 @@ jobs:
           test -n "$PUBLICATION_HASH_SALT"
           test -n "$SES_IDENTITY_ARN"
 
-          # Verification email is additive evidence of mailbox control, not the
-          # authorization gate for the private publication. Keep requesting and
-          # reporting SES production readiness, but never strand a legitimate
-          # publication visitor while AWS review or mailbox delivery is pending.
-          ses_delivery_ready=false
-          ses_account='{}'
-          if ses_account=$(aws sesv2 get-account --region "${AWS_REGION:-us-east-1}" --output json); then
+          # Email verification is the authorization gate for publication access.
+          # A production release must therefore prove that SES is allowed to send
+          # to ordinary public mailboxes before the request flow is published.
+          ses_account=$(aws sesv2 get-account --region "${AWS_REGION:-us-east-1}" --output json)
+          ses_production_access=$(jq -r '.ProductionAccessEnabled // false' <<<"$ses_account")
+          if [[ "$ses_production_access" != "true" ]]; then
+            echo "Amazon SES production access is not enabled in ${AWS_REGION:-us-east-1}; submitting a transactional production-access request."
+            aws sesv2 put-account-details \
+              --region "${AWS_REGION:-us-east-1}" \
+              --mail-type TRANSACTIONAL \
+              --website-url "$PUBLIC_SITE_URL" \
+              --contact-language EN \
+              --additional-contact-email-addresses "$CONTACT_EMAIL" \
+              --use-case-description "SozoRock Health sends low-volume transactional verification emails only after a visitor requests a Foundation publication. Verification is required before a secure publication access session is created. Each verification link is single use and expires after 30 minutes. Marketing updates are separate and optional." \
+              --production-access-enabled || true
+            ses_account=$(aws sesv2 get-account --region "${AWS_REGION:-us-east-1}" --output json)
             ses_production_access=$(jq -r '.ProductionAccessEnabled // false' <<<"$ses_account")
-            if [[ "$ses_production_access" != "true" ]]; then
-              echo "Amazon SES production access is not enabled in ${AWS_REGION:-us-east-1}; submitting a transactional production-access request."
-              if aws sesv2 put-account-details \
-                --region "${AWS_REGION:-us-east-1}" \
-                --mail-type TRANSACTIONAL \
-                --website-url "$PUBLIC_SITE_URL" \
-                --contact-language EN \
-                --additional-contact-email-addresses "$CONTACT_EMAIL" \
-                --use-case-description "SozoRock Health sends low-volume transactional verification emails after a user requests access to the Health Systems Assurance publication. Secure publication access is granted through the validated request flow and does not depend on email delivery. Each optional verification message contains a single-use link that expires after 30 minutes. Marketing updates are separate and optional." \
-                --production-access-enabled; then
-                if ses_account=$(aws sesv2 get-account --region "${AWS_REGION:-us-east-1}" --output json); then
-                  ses_production_access=$(jq -r '.ProductionAccessEnabled // false' <<<"$ses_account")
-                else
-                  echo "::warning::Unable to refresh Amazon SES account status after the production-access request. Secure publication access remains available without email verification."
-                fi
-              else
-                echo "::warning::Unable to submit the Amazon SES production-access request. Secure publication access remains available without email verification."
-              fi
-            fi
-            ses_sending_enabled=$(jq -r '.SendingEnabled // false' <<<"$ses_account")
-            if [[ "$ses_production_access" == "true" && "$ses_sending_enabled" == "true" ]]; then
-              ses_delivery_ready=true
-            else
-              echo "::warning::Amazon SES verification delivery is not production-ready. Publication access will continue through the secure browser session while email verification remains unavailable or limited."
-            fi
-          else
-            echo "::warning::Unable to read Amazon SES account state. Publication access will continue through the secure browser session while email verification status is unknown."
           fi
-          echo "SES_DELIVERY_READY=$ses_delivery_ready" >> "$GITHUB_ENV"
+          if [[ "$ses_production_access" != "true" ]]; then
+            echo "Amazon SES production access remains unavailable; refusing to release a publication flow that requires email verification."
+            exit 1
+          fi
+          ses_sending_enabled=$(jq -r '.SendingEnabled // false' <<<"$ses_account")
+          if [[ "$ses_sending_enabled" != "true" ]]; then
+            echo "Amazon SES sending is disabled; refusing to release a publication flow that requires email verification."
+            exit 1
+          fi
+          ses_delivery_ready=true
+          echo "SES_DELIVERY_READY=true" >> "$GITHUB_ENV"
 
           if find apps/public-site/public/publications -type f -name '*.pdf' -print -quit | grep -q .; then
             echo "Publication PDFs must never be stored beneath the public web root."
@@ -371,32 +363,27 @@ jobs:
 
           access_headers=$(mktemp)
           access_body=$(mktemp)
-          access_cookies=$(mktemp)
-          access_status=$(curl --proto '=https' --tlsv1.2 --silent --show-error --dump-header "$access_headers" --cookie-jar "$access_cookies" --output "$access_body" --write-out '%{http_code}' \
+          access_status=$(curl --proto '=https' --tlsv1.2 --silent --show-error --dump-header "$access_headers" --output "$access_body" --write-out '%{http_code}' \
             --request POST \
             --header "Origin: $origin" \
             --header 'Content-Type: application/json' \
             --data '{"firstName":"Release","lastName":"Smoke","email":"success@simulator.amazonses.com","organization":"SozoRock Health release check","sector":"Community organization","cityOrRegion":"Albany","state":"New York","country":"United States","reason":"Synthetic production verification for publication access delivery.","deliveryConsent":true,"updatesConsent":false,"website":""}' \
             "$origin/api/publications/access/$publication_slug")
           test "$access_status" = "202"
-          jq -e --arg path "/api/publications/download/$publication_slug" 'type == "object" and .accepted == true and .accessGranted == true and (.verificationSent | type == "boolean") and .downloadUrl == $path' "$access_body" >/dev/null
+          jq -e 'type == "object" and .accepted == true and .verificationSent == true and (has("accessGranted") | not) and (has("downloadUrl") | not)' "$access_body" >/dev/null
           grep -Eqi '^cache-control:.*no-store' "$access_headers"
           grep -Eqi '^referrer-policy:[[:space:]]*no-referrer' "$access_headers"
-          grep -Eqi '^set-cookie:.*__Host-srh_publication_access=' "$access_headers"
-          grep -Eqi '^set-cookie:.*HttpOnly' "$access_headers"
-          grep -Eqi '^set-cookie:.*Secure' "$access_headers"
-          grep -Eqi '^set-cookie:.*SameSite=Lax' "$access_headers"
+          if grep -Eqi '^set-cookie:.*__Host-srh_publication_access=' "$access_headers"; then
+            echo "Form submission must not issue a publication access cookie before email verification."
+            exit 1
+          fi
 
-          authorized_download_headers=$(mktemp)
-          authorized_download_status=$(curl --proto '=https' --tlsv1.2 --silent --show-error --cookie "$access_cookies" --dump-header "$authorized_download_headers" --output /dev/null --write-out '%{http_code}' \
+          preverification_download_headers=$(mktemp)
+          preverification_download_status=$(curl --proto '=https' --tlsv1.2 --silent --show-error --dump-header "$preverification_download_headers" --output /dev/null --write-out '%{http_code}' \
             "$origin/api/publications/download/$publication_slug")
-          test "$authorized_download_status" = "307"
-          authorized_download_location=$(awk 'BEGIN{IGNORECASE=1} /^location:/ {sub(/\r$/, ""); sub(/^location:[[:space:]]*/, ""); print; exit}' "$authorized_download_headers")
-          test -n "$authorized_download_location"
-          grep -Eq '^https://' <<<"$authorized_download_location"
-          grep -Eq '[?&]X-Amz-(Algorithm|Signature)=' <<<"$authorized_download_location"
-          grep -Eqi '^cache-control:.*no-store' "$authorized_download_headers"
-          grep -Eqi '^referrer-policy:[[:space:]]*no-referrer' "$authorized_download_headers"
+          test "$preverification_download_status" = "303"
+          grep -Eqi '^cache-control:.*no-store' "$preverification_download_headers"
+          grep -Eqi '^referrer-policy:[[:space:]]*no-referrer' "$preverification_download_headers"
 
           verify_headers=$(mktemp)
           verify_status=$(curl --proto '=https' --tlsv1.2 --silent --show-error --dump-header "$verify_headers" --output /dev/null --write-out '%{http_code}' \
@@ -454,8 +441,8 @@ jobs:
             echo "- Host/origin spoof rejection: 403"
             echo "- Canonical publication event: $same_origin_status (204 accepted; 429 requires the exact throttle header and body contract)"
             echo "- Publication intelligence index: $publication_intelligence_index_status"
-            echo "- Synthetic publication access request: 202 with secure HttpOnly session"
-            echo "- Authorized publication download: 307 to an AWS-signed private asset URL"
+            echo "- Synthetic publication access request: 202 with required verification email and no access session"
+            echo "- Pre-verification publication download: 303 rejected"
             echo "- SES verification delivery ready: $ses_delivery_ready"
             echo "- Verification redirect: 303, no-store, no-referrer, verifier in HttpOnly Secure SameSite=Lax cookie"
             echo "- Unauthorized download: 303, no-store, no-referrer"
