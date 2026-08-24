@@ -6,6 +6,7 @@ includes:
   - product-scoped-hrsa-coverage
   - reviewed-planning-evidence-extension
   - planning-evidence-production-proof
+  - governed-visualization-semantic-permissions
 approval: user-authorized-production-release
-request_generation: 5
-retry_reason: final exact-SHA governed release after production bootstrap and deploy diagnostics
+request_generation: 6
+retry_reason: replace superseded waiting release with exact main including reviewed visualization permissions
