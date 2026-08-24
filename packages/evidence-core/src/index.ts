@@ -4,6 +4,7 @@ export * from "./quality.ts";
 export * from "./source-catalog.ts";
 export * from "./explore-contract.ts";
 export * from "./evidence-gateway.ts";
+export * from "./evidence-gateway-planning.ts";
 export * from "./metric-semantic-policy.ts";
 export * from "./adapters/index.ts";
 export * from "./ingestion/index.ts";
