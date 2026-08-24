@@ -21,6 +21,7 @@ jobs:
   reconcile:
     if: github.repository == 'drolu-cmyk/sozorock-health' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    environment: production
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
@@ -34,9 +35,13 @@ jobs:
           set -euo pipefail
           test -n "$TRUST_REPAIR_ROLE_ARN"
           test -n "$AI_LAB_DEPLOY_ROLE_NAME"
+          test "$AI_LAB_DEPLOY_ROLE_NAME" = 'GitHubActionsSozorockAiLabDeployRole'
           jq -e '.Version == "2012-10-17" and (.Statement | length) == 1' infrastructure/iam/sozorock-ai-lab-github-trust.json >/dev/null
           jq -e '.Statement[0].Action == "sts:AssumeRoleWithWebIdentity"' infrastructure/iam/sozorock-ai-lab-github-trust.json >/dev/null
           jq -e '.Statement[0].Principal.Federated == "arn:aws:iam::791860731989:oidc-provider/token.actions.githubusercontent.com"' infrastructure/iam/sozorock-ai-lab-github-trust.json >/dev/null
+          actual="$(jq -c '.Statement[0].Condition.StringLike["token.actions.githubusercontent.com:sub"] | sort' infrastructure/iam/sozorock-ai-lab-github-trust.json)"
+          expected='["repo:drolu-cmyk/sozorock-ai-lab:environment:production","repo:drolu-cmyk/sozorock-ai-lab:ref:refs/heads/main","repo:drolu-cmyk/sozorock-foundation:ref:refs/heads/main"]'
+          test "$actual" = "$expected"
 
       - name: Assume dedicated trust-repair role
         uses: aws-actions/configure-aws-credentials@7474bc4690e29a8392af63c5b98e7449536d5c3a
@@ -44,6 +49,7 @@ jobs:
           role-to-assume: ${{ vars.AI_LAB_TRUST_REPAIR_ROLE_ARN }}
           role-session-name: ai-lab-trust-reconcile-${{ github.run_id }}
           aws-region: ${{ vars.AWS_REGION || 'us-east-1' }}
+          retry-max-attempts: 3
 
       - name: Apply reviewed trust document
         env:
@@ -53,7 +59,7 @@ jobs:
           set -euo pipefail
           test "$(aws sts get-caller-identity --query Account --output text)" = '791860731989'
           role_name="$AI_LAB_DEPLOY_ROLE_NAME"
-          [[ "$role_name" =~ ^[A-Za-z0-9+=,.@_-]{1,64}$ ]]
+          test "$role_name" = 'GitHubActionsSozorockAiLabDeployRole'
           aws iam get-role --role-name "$role_name" >/dev/null
           aws iam update-assume-role-policy \
             --role-name "$role_name" \
