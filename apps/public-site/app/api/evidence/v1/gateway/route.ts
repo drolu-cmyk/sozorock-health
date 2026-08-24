@@ -1,3 +1,7 @@
+import {
+  attachPlanningEvidenceToGatewayV1,
+  type ReviewStatus,
+} from "@sozorock/evidence-core";
 import { NextRequest, NextResponse } from "next/server";
 import { enforceEvidenceRateLimit } from "../../../../lib/evidence-rate-limit";
 import {
@@ -5,6 +9,7 @@ import {
   requirePublishedEvidenceSnapshot,
 } from "../../../../lib/evidence-runtime-authority";
 import { getPublishedEvidenceGateway } from "../../../../lib/published-evidence-gateway";
+import { getPublishedPlanningEvidenceExtension } from "../../../../lib/published-planning-evidence";
 import { placeAgentRuntimeVersions } from "../../../../lib/place-agent-openai";
 
 export const runtime = "nodejs";
@@ -50,24 +55,34 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    if (process.env.NODE_ENV === "production") {
-      await requirePublishedEvidenceSnapshot(placeAgentRuntimeVersions.snapshotContentHash);
-      await requireEvidenceGeographyId(
-        geoid,
-        placeAgentRuntimeVersions.snapshotContentHash,
-      );
-    }
-
-    const response = await getPublishedEvidenceGateway(
+    const authority = await requirePublishedEvidenceSnapshot(
+      placeAgentRuntimeVersions.snapshotContentHash,
+    );
+    const geographyId = await requireEvidenceGeographyId(
       geoid,
       placeAgentRuntimeVersions.snapshotContentHash,
     );
-    if (!response) {
+
+    const baseResponse = await getPublishedEvidenceGateway(
+      geoid,
+      placeAgentRuntimeVersions.snapshotContentHash,
+    );
+    if (!baseResponse) {
       return NextResponse.json(
         { error: "County evidence is not available in the approved published snapshot." },
         { status: 404, headers: { "Cache-Control": "no-store" } },
       );
     }
+
+    const planning = await getPublishedPlanningEvidenceExtension({
+      geographyId,
+      snapshotUuid: authority.snapshotUuid,
+      sourceVersions: baseResponse.package.source_versions.map((source) => ({
+        id: source.source_version_id,
+        reviewStatus: source.review_status as ReviewStatus,
+      })),
+    });
+    const response = attachPlanningEvidenceToGatewayV1(baseResponse, planning);
 
     const etag = `"${response.manifest.release_hash}"`;
     const headers: Record<string, string> = {
@@ -76,6 +91,7 @@ export async function GET(request: NextRequest) {
       "X-Evidence-Contract": response.manifest.contract_version,
       "X-Evidence-Release": response.manifest.release_id,
       "X-Evidence-Release-Hash": response.manifest.release_hash,
+      "X-Evidence-Planning-Contract": response.package.planning_contract_version,
     };
 
     if (request.headers.get("if-none-match") === etag) {
