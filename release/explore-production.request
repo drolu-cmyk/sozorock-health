@@ -7,5 +7,5 @@ includes:
   - reviewed-planning-evidence-extension
   - planning-evidence-production-proof
 approval: user-authorized-production-release
-request_generation: 2
-retry_reason: protected Explore workflow did not complete on prior release request
+request_generation: 3
+retry_reason: dispatcher now requires an exact-SHA Explore production workflow run to exist
