@@ -126,6 +126,11 @@ Resources:
                   - kms:UpdateAlias
                   - kms:DeleteAlias
                   - kms:ListAliases
+                  - ssm:PutParameter
+                  - ssm:DeleteParameter
+                  - ssm:AddTagsToResource
+                  - ssm:RemoveTagsFromResource
+                  - ssm:GetParameters
                 Resource: '*'
               - Sid: FoundationDnsOnly
                 Effect: Allow
