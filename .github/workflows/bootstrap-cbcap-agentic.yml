@@ -9,6 +9,7 @@ on:
 permissions:
   contents: read
   id-token: write
+  statuses: write
 
 concurrency:
   group: cbcap-agentic-bootstrap-production
@@ -28,6 +29,24 @@ jobs:
         with:
           ref: main
           persist-credentials: false
+
+      - name: Publish pending bootstrap status
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          RELEASE_SHA: ${{ github.sha }}
+          RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          payload=$(jq -cn --arg state pending --arg target_url "$RUN_URL" --arg description 'Bootstrapping repo-scoped CB-CAP production OIDC roles' --arg context 'cbcap-agentic/bootstrap' '{state:$state,target_url:$target_url,description:$description,context:$context}')
+          curl --fail-with-body --silent --show-error \
+            --request POST \
+            --header "Accept: application/vnd.github+json" \
+            --header "Authorization: Bearer $GH_TOKEN" \
+            --header "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/$REPOSITORY/statuses/$RELEASE_SHA" \
+            --data "$payload" >/dev/null
 
       - name: Assume existing CB-CAP production role
         uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
@@ -76,3 +95,29 @@ jobs:
               .Condition.StringEquals["token.actions.githubusercontent.com:aud"] == "sts.amazonaws.com" and
               .Condition.StringEquals["token.actions.githubusercontent.com:sub"] == $subject)
           ' <<<"$trust" >/dev/null
+
+      - name: Publish successful bootstrap status
+        if: success()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          RELEASE_SHA: ${{ github.sha }}
+          RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          payload=$(jq -cn --arg state success --arg target_url "$RUN_URL" --arg description 'Repo-scoped CB-CAP production OIDC roles verified' --arg context 'cbcap-agentic/bootstrap' '{state:$state,target_url:$target_url,description:$description,context:$context}')
+          curl --fail-with-body --silent --show-error --request POST --header "Accept: application/vnd.github+json" --header "Authorization: Bearer $GH_TOKEN" --header "X-GitHub-Api-Version: 2022-11-28" "https://api.github.com/repos/$REPOSITORY/statuses/$RELEASE_SHA" --data "$payload" >/dev/null
+
+      - name: Publish failed bootstrap status
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          RELEASE_SHA: ${{ github.sha }}
+          RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          payload=$(jq -cn --arg state failure --arg target_url "$RUN_URL" --arg description 'CB-CAP production OIDC bootstrap failed closed' --arg context 'cbcap-agentic/bootstrap' '{state:$state,target_url:$target_url,description:$description,context:$context}')
+          curl --fail-with-body --silent --show-error --request POST --header "Accept: application/vnd.github+json" --header "Authorization: Bearer $GH_TOKEN" --header "X-GitHub-Api-Version: 2022-11-28" "https://api.github.com/repos/$REPOSITORY/statuses/$RELEASE_SHA" --data "$payload" >/dev/null
