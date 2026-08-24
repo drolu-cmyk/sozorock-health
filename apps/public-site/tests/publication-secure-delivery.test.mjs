@@ -13,6 +13,10 @@ const accessRouteSource = readFileSync(
   new URL("../app/api/publications/access/[slug]/route.ts", import.meta.url),
   "utf8",
 );
+const verifyRouteSource = readFileSync(
+  new URL("../app/api/publications/verify/route.ts", import.meta.url),
+  "utf8",
+);
 const accessFormSource = readFileSync(
   new URL("../app/components/PublicationAccessForm.tsx", import.meta.url),
   "utf8",
@@ -92,24 +96,57 @@ test("publication access state changes are atomic and supported by least privile
   assert.match(publicationInfrastructure, /Resource: !GetAtt PublicationAccessTable\.Arn/);
 });
 
-test("validated publication requests establish secure access before best-effort email delivery", () => {
+test("validated publication requests stay pending until required email verification", () => {
   const createRequestStart = accessSource.indexOf("export async function createAccessRequest");
-  const sessionWrite = accessSource.indexOf("pk: `SESSION#${sessionHash}`", createRequestStart);
-  const emailSend = accessSource.indexOf("await ses.send", createRequestStart);
+  const verifyStart = accessSource.indexOf("export async function verifyAccessToken");
   assert.ok(createRequestStart >= 0);
-  assert.ok(sessionWrite > createRequestStart);
-  assert.ok(emailSend > sessionWrite);
-  assert.match(accessSource, /expiresAt: epoch \+ SESSION_SECONDS/);
-  assert.match(accessSource, /verification_delivery_failed/);
-  assert.match(accessSource, /return \{ requestId, sessionToken, verificationSent/);
-  assert.match(accessRouteSource, /accessGranted: true/);
-  assert.match(accessRouteSource, /downloadUrl: `\/api\/publications\/download\/\$\{publication\.slug\}`/);
-  assert.match(accessRouteSource, /response\.cookies\.set\(accessCookieName\(\), access\.sessionToken/);
-  assert.match(accessRouteSource, /httpOnly: true/);
-  assert.match(accessRouteSource, /sameSite: "lax"/);
-  assert.match(accessFormSource, /Download publication/);
-  assert.match(accessFormSource, /result\.accessGranted/);
-  assert.match(accessFormSource, /result\.downloadUrl/);
+  assert.ok(verifyStart > createRequestStart);
+  const requestSource = accessSource.slice(createRequestStart, verifyStart);
+
+  assert.match(requestSource, /status: "pending-verification"/);
+  assert.match(requestSource, /pk: `VERIFY#\$\{verifyHash\}`/);
+  assert.match(requestSource, /await ses\.send\(new SendEmailCommand/);
+  assert.match(requestSource, /recordEvent\("verification_sent"/);
+  assert.match(requestSource, /throw error/);
+  assert.match(requestSource, /return \{ requestId, verificationSent: true/);
+  assert.doesNotMatch(requestSource, /SESSION#/);
+  assert.doesNotMatch(requestSource, /sessionToken/);
+  assert.doesNotMatch(requestSource, /accessGrantedAt/);
+
+  assert.match(accessRouteSource, /verificationSent: true/);
+  assert.match(accessRouteSource, /After verification, you can download the publication securely/);
+  assert.doesNotMatch(accessRouteSource, /accessGranted: true/);
+  assert.doesNotMatch(accessRouteSource, /downloadUrl:/);
+  assert.doesNotMatch(accessRouteSource, /accessCookieName/);
+  assert.doesNotMatch(accessRouteSource, /response\.cookies\.set/);
+
+  assert.match(accessFormSource, /Check your email/);
+  assert.match(accessFormSource, /required verification link/);
+  assert.match(accessFormSource, /Once your email is confirmed, the secure download becomes available/);
+  assert.doesNotMatch(accessFormSource, /Download publication/);
+  assert.doesNotMatch(accessFormSource, /result\.accessGranted/);
+  assert.doesNotMatch(accessFormSource, /result\.downloadUrl/);
+});
+
+test("successful verification atomically consumes the token and creates the access session", () => {
+  const verifyStart = accessSource.indexOf("export async function verifyAccessToken");
+  const validateSessionStart = accessSource.indexOf("export async function validatePublicationSession");
+  assert.ok(verifyStart >= 0);
+  assert.ok(validateSessionStart > verifyStart);
+  const verificationSource = accessSource.slice(verifyStart, validateSessionStart);
+
+  assert.match(verificationSource, /ConditionExpression: "attribute_not_exists\(consumedAt\) AND expiresAt >= :epoch"/);
+  assert.match(verificationSource, /#status = :verified/);
+  assert.match(verificationSource, /pk: `SESSION#\$\{sessionHash\}`/);
+  assert.match(verificationSource, /expiresAt: epoch \+ SESSION_SECONDS/);
+  assert.match(verificationSource, /recordEvent\("email_verified"/);
+  assert.match(verificationSource, /return \{ sessionToken, slug: publicationSlug \}/);
+
+  assert.match(verifyRouteSource, /verifyAccessToken\(token\)/);
+  assert.match(verifyRouteSource, /response\.cookies\.set\(accessCookieName\(\), verified\.sessionToken/);
+  assert.match(verifyRouteSource, /httpOnly: true/);
+  assert.match(verifyRouteSource, /sameSite: "lax"/);
+  assert.match(verifyRouteSource, /maxAge: SESSION_SECONDS/);
 });
 
 test("publication email validation is provider-neutral", () => {
@@ -125,10 +162,13 @@ test("publication email validation is provider-neutral", () => {
   }
 });
 
-test("verification email remains an optional server handoff", () => {
+test("verification email is the required server handoff", () => {
   assert.match(accessSource, /publicSiteUrl\(`\/api\/publications\/verify\?token=/);
   assert.doesNotMatch(accessSource, /publicSiteUrl\(`\/publications\/verify\?token=/);
-  assert.match(accessSource, /This verification link expires in 30 minutes/);
+  assert.match(accessSource, /Confirm email and access publication/);
+  assert.match(accessSource, /This link expires in 30 minutes/);
+  assert.match(accessSource, /function requireRequestConfig\(\)/);
+  assert.match(accessSource, /if \(!emailFrom\) throw new Error\("Publication access is not configured"\)/);
   assert.match(accessSource, /NETWORK_RATE#/);
   assert.match(accessSource, /RECIPIENT_RATE#/);
   assert.match(accessSource, /canonicalSlug}:\$\{requestId\}/);
@@ -154,30 +194,32 @@ test("the production gate verifies the complete publication throttle contract", 
   );
 });
 
-test("production deployment proves a form-issued session reaches a signed private download", () => {
+test("production deployment proves form submission cannot authorize a download", () => {
   assert.match(deployWorkflow, /aws amplify get-branch/);
   assert.match(deployWorkflow, /aws amplify update-branch/);
   assert.match(deployWorkflow, /PUBLICATION_HASH_SALT_SECRET_ARN/);
   assert.match(deployWorkflow, /infrastructure\/amplify\/public-site\.yml/);
   assert.match(deployWorkflow, /success@simulator\.amazonses\.com/);
-  assert.match(deployWorkflow, /\.accessGranted == true/);
-  assert.match(deployWorkflow, /__Host-srh_publication_access=/);
-  assert.match(deployWorkflow, /authorized_download_status/);
-  assert.match(deployWorkflow, /test "\$authorized_download_status" = "307"/);
-  assert.match(deployWorkflow, /X-Amz-\(Algorithm\|Signature\)/);
-  assert.match(deployWorkflow, /Authorized publication download: 307/);
+  assert.match(deployWorkflow, /\.verificationSent == true/);
+  assert.match(deployWorkflow, /has\("accessGranted"\) \| not/);
+  assert.match(deployWorkflow, /has\("downloadUrl"\) \| not/);
+  assert.match(deployWorkflow, /must not issue a publication access cookie before email verification/);
+  assert.match(deployWorkflow, /preverification_download_status/);
+  assert.match(deployWorkflow, /test "\$preverification_download_status" = "303"/);
+  assert.doesNotMatch(deployWorkflow, /Authorized publication download: 307/);
 });
 
-test("SES readiness is reported without gating secure publication access", () => {
+test("SES production readiness gates publication release because verification is required", () => {
   assert.match(deployWorkflow, /aws sesv2 get-account/);
   assert.match(deployWorkflow, /ProductionAccessEnabled/);
   assert.match(deployWorkflow, /aws sesv2 put-account-details/);
   assert.match(deployWorkflow, /--mail-type TRANSACTIONAL/);
   assert.match(deployWorkflow, /--production-access-enabled/);
-  assert.match(deployWorkflow, /ses_delivery_ready=false/);
-  assert.match(deployWorkflow, /::warning::Amazon SES verification delivery is not production-ready/);
-  assert.match(deployWorkflow, /Secure publication access remains available without email verification/);
-  assert.doesNotMatch(deployWorkflow, /refusing to release public verification email delivery/);
+  assert.match(deployWorkflow, /Email verification is the authorization gate/);
+  assert.match(deployWorkflow, /Amazon SES production access remains unavailable/);
+  assert.match(deployWorkflow, /Amazon SES sending is disabled/);
+  assert.match(deployWorkflow, /ses_delivery_ready=true/);
+  assert.doesNotMatch(deployWorkflow, /Secure publication access remains available without email verification/);
   const statement = deploymentPolicy.Statement.find(
     ({ Sid }) => Sid === "RequestSesProductionAccess",
   );
@@ -185,7 +227,7 @@ test("SES readiness is reported without gating secure publication access", () =>
   assert.deepEqual(statement.Action, ["ses:GetAccount", "ses:PutAccountDetails"]);
 });
 
-test("publication infrastructure checks only the configuration needed at each stage", () => {
+test("publication infrastructure checks the configuration needed at each stage", () => {
   assert.match(accessSource, /function requireHashingConfig\(\)/);
   assert.match(accessSource, /function requireRequestConfig\(\)/);
   assert.match(accessSource, /function requireDownloadConfig\(\)/);
