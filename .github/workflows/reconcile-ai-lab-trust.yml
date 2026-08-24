@@ -21,7 +21,6 @@ jobs:
   reconcile:
     if: github.repository == 'drolu-cmyk/sozorock-health' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
-    environment: production
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
