@@ -1,0 +1,4 @@
+bootstrap: cbcap-agentic-production
+repository: drolu-cmyk/sozorock-health-agentic
+environment: production
+approval: user-authorized-production-activation
