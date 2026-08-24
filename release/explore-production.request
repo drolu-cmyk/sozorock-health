@@ -1,7 +1,9 @@
 release: explore-production
-purpose: governed-evidence-gateway-v1
+purpose: governed-evidence-gateway-planning-v1
 includes:
   - evidence-source-coverage-migration-0015
   - published-evidence-gateway-route
   - product-scoped-hrsa-coverage
+  - reviewed-planning-evidence-extension
+  - planning-evidence-production-proof
 approval: user-authorized-production-release
