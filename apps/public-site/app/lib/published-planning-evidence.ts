@@ -5,7 +5,6 @@ import {
   type PlanningDocument,
   type PublicPlanningEvidenceExtensionV1,
   type ReviewStatus,
-  type SourceVersion,
 } from "@sozorock/evidence-core";
 import {
   evidenceFieldValue,
@@ -13,6 +12,7 @@ import {
 } from "./evidence-runtime-authority";
 
 type Row = unknown[];
+type ReviewedSourceVersionRef = { id: string; reviewStatus: ReviewStatus };
 
 function field(row: Row | undefined, index: number) {
   return evidenceFieldValue(row?.[index] as Parameters<typeof evidenceFieldValue>[0]);
@@ -35,7 +35,7 @@ export async function getPublishedPlanningEvidenceExtension({
 }: {
   geographyId: string;
   snapshotUuid: string;
-  sourceVersions: SourceVersion[];
+  sourceVersions: ReviewedSourceVersionRef[];
 }): Promise<PublicPlanningEvidenceExtensionV1> {
   const documentsResult = await executeEvidenceSql(
     `SELECT document.id::text, document.source_version_id::text, document.document_type,
