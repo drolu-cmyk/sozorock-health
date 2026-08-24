@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import type {
   CurrentPlanStatus,
   EvidenceCitation,
@@ -6,6 +7,10 @@ import type {
   PlanningDocumentScope,
   ReviewStatus,
 } from "./contracts.ts";
+import type {
+  EvidenceGatewayResponseV1,
+  PublicEvidencePackageV1,
+} from "./evidence-gateway.ts";
 
 export const PLANNING_EVIDENCE_EXTENSION_VERSION = "sozorock.evidence-gateway.planning.v1" as const;
 
@@ -60,6 +65,10 @@ export type PublicPlanningEvidenceExtensionV1 = {
   planning_documents: GatewayPlanningDocument[];
   planning_claims: GatewayPlanningClaim[];
   planning_citations: GatewayPlanningCitation[];
+};
+
+export type PlanningExtendedEvidenceGatewayResponseV1 = Omit<EvidenceGatewayResponseV1, "package"> & {
+  package: PublicEvidencePackageV1 & PublicPlanningEvidenceExtensionV1;
 };
 
 type ReviewedSourceVersionRef = {
@@ -177,5 +186,25 @@ export function buildPlanningEvidenceExtensionV1(
       quoted_text_hash: citation.quotedTextHash,
       review_status: citation.reviewStatus,
     })),
+  };
+}
+
+export function attachPlanningEvidenceToGatewayV1(
+  response: EvidenceGatewayResponseV1,
+  extension: PublicPlanningEvidenceExtensionV1,
+): PlanningExtendedEvidenceGatewayResponseV1 {
+  const combinedPackage = {
+    ...response.package,
+    ...extension,
+  };
+  const releaseHash = `sha256:${createHash("sha256")
+    .update(JSON.stringify(combinedPackage))
+    .digest("hex")}`;
+  return {
+    manifest: {
+      ...response.manifest,
+      release_hash: releaseHash,
+    },
+    package: combinedPackage,
   };
 }
