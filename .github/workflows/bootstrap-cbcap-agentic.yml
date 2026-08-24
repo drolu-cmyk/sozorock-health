@@ -16,7 +16,37 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  announce:
+    name: Record bootstrap request
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Publish pending bootstrap status
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          RELEASE_SHA: ${{ github.sha }}
+          RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          payload=$(jq -cn \
+            --arg state pending \
+            --arg target_url "$RUN_URL" \
+            --arg description 'CB-CAP production bootstrap request accepted' \
+            --arg context 'cbcap-agentic/bootstrap' \
+            '{state:$state,target_url:$target_url,description:$description,context:$context}')
+          curl --fail-with-body --silent --show-error \
+            --request POST \
+            --header "Accept: application/vnd.github+json" \
+            --header "Authorization: Bearer $GH_TOKEN" \
+            --header "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/$REPOSITORY/statuses/$RELEASE_SHA" \
+            --data "$payload" >/dev/null
+
   bootstrap:
+    name: Apply production OIDC bootstrap
+    needs: announce
     runs-on: ubuntu-latest
     timeout-minutes: 20
     environment: production
@@ -27,26 +57,16 @@ jobs:
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
-          ref: main
+          ref: ${{ github.sha }}
           persist-credentials: false
 
-      - name: Publish pending bootstrap status
-        env:
-          GH_TOKEN: ${{ github.token }}
-          REPOSITORY: ${{ github.repository }}
-          RELEASE_SHA: ${{ github.sha }}
-          RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+      - name: Bind bootstrap to exact triggering commit
         shell: bash
+        env:
+          RELEASE_SHA: ${{ github.sha }}
         run: |
           set -euo pipefail
-          payload=$(jq -cn --arg state pending --arg target_url "$RUN_URL" --arg description 'Bootstrapping repo-scoped CB-CAP production OIDC roles' --arg context 'cbcap-agentic/bootstrap' '{state:$state,target_url:$target_url,description:$description,context:$context}')
-          curl --fail-with-body --silent --show-error \
-            --request POST \
-            --header "Accept: application/vnd.github+json" \
-            --header "Authorization: Bearer $GH_TOKEN" \
-            --header "X-GitHub-Api-Version: 2022-11-28" \
-            "https://api.github.com/repos/$REPOSITORY/statuses/$RELEASE_SHA" \
-            --data "$payload" >/dev/null
+          test "$(git rev-parse HEAD)" = "$RELEASE_SHA"
 
       - name: Assume established SozoRock Health production role
         uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
@@ -94,28 +114,41 @@ jobs:
               .Condition.StringEquals["token.actions.githubusercontent.com:sub"] == $subject)
           ' <<<"$trust" >/dev/null
 
-      - name: Publish successful bootstrap status
-        if: success()
+  finalize:
+    name: Record terminal bootstrap state
+    if: always()
+    needs: [announce, bootstrap]
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Publish terminal bootstrap status
         env:
           GH_TOKEN: ${{ github.token }}
           REPOSITORY: ${{ github.repository }}
           RELEASE_SHA: ${{ github.sha }}
           RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          BOOTSTRAP_RESULT: ${{ needs.bootstrap.result }}
         shell: bash
         run: |
           set -euo pipefail
-          payload=$(jq -cn --arg state success --arg target_url "$RUN_URL" --arg description 'Repo-scoped CB-CAP production OIDC roles verified' --arg context 'cbcap-agentic/bootstrap' '{state:$state,target_url:$target_url,description:$description,context:$context}')
-          curl --fail-with-body --silent --show-error --request POST --header "Accept: application/vnd.github+json" --header "Authorization: Bearer $GH_TOKEN" --header "X-GitHub-Api-Version: 2022-11-28" "https://api.github.com/repos/$REPOSITORY/statuses/$RELEASE_SHA" --data "$payload" >/dev/null
-
-      - name: Publish failed bootstrap status
-        if: failure()
-        env:
-          GH_TOKEN: ${{ github.token }}
-          REPOSITORY: ${{ github.repository }}
-          RELEASE_SHA: ${{ github.sha }}
-          RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          payload=$(jq -cn --arg state failure --arg target_url "$RUN_URL" --arg description 'CB-CAP production OIDC bootstrap failed closed' --arg context 'cbcap-agentic/bootstrap' '{state:$state,target_url:$target_url,description:$description,context:$context}')
-          curl --fail-with-body --silent --show-error --request POST --header "Accept: application/vnd.github+json" --header "Authorization: Bearer $GH_TOKEN" --header "X-GitHub-Api-Version: 2022-11-28" "https://api.github.com/repos/$REPOSITORY/statuses/$RELEASE_SHA" --data "$payload" >/dev/null
+          if [[ "$BOOTSTRAP_RESULT" == "success" ]]; then
+            state=success
+            description='Repo-scoped CB-CAP production OIDC roles verified'
+          else
+            state=failure
+            description="CB-CAP production bootstrap failed closed: $BOOTSTRAP_RESULT"
+          fi
+          payload=$(jq -cn \
+            --arg state "$state" \
+            --arg target_url "$RUN_URL" \
+            --arg description "$description" \
+            --arg context 'cbcap-agentic/bootstrap' \
+            '{state:$state,target_url:$target_url,description:$description,context:$context}')
+          curl --fail-with-body --silent --show-error \
+            --request POST \
+            --header "Accept: application/vnd.github+json" \
+            --header "Authorization: Bearer $GH_TOKEN" \
+            --header "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/$REPOSITORY/statuses/$RELEASE_SHA" \
+            --data "$payload" >/dev/null
+          test "$BOOTSTRAP_RESULT" = "success"
