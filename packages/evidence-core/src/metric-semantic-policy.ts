@@ -17,6 +17,13 @@ const CROSS_SECTIONAL_BARRIER_RELATIONSHIP_VIEWS = [
   ...CROSS_SECTIONAL_AREA_VIEWS,
   "scatterplot",
   "bivariate_map",
+  "barrier_matrix",
+  "service_gap",
+] as const;
+
+const CONTEXTUAL_DESIGNATION_VIEWS = [
+  "designation_overlay",
+  "service_gap",
 ] as const;
 
 const ADVERSE_BARRIER_MEASURES = new Set([
@@ -30,6 +37,11 @@ const ADVERSE_BARRIER_MEASURES = new Set([
 
 const ACCESSIBILITY_CONTEXT_MEASURES = new Set([
   "DISABILITY:Crude",
+]);
+
+const OFFICIAL_DESIGNATION_MEASURES = new Set([
+  "HPSA_DESIGNATION",
+  "MUA_P_DESIGNATION",
 ]);
 
 const CONDITION_MEASURES = new Set([
@@ -103,6 +115,17 @@ export function metricSemanticPolicyFor(
       return SAFE_UNCURATED_METRIC_POLICY;
     }
     return countyCrossSectionalPolicy(CROSS_SECTIONAL_AREA_VIEWS);
+  }
+
+  if (OFFICIAL_DESIGNATION_MEASURES.has(sourceMeasureId)) {
+    if (
+      definition.direction !== "contextual"
+      || definition.higherValueMeaning !== "context_dependent"
+      || definition.comparisonPolicy !== "context_only"
+    ) {
+      return SAFE_UNCURATED_METRIC_POLICY;
+    }
+    return countyCrossSectionalPolicy(CONTEXTUAL_DESIGNATION_VIEWS);
   }
 
   if (CONDITION_MEASURES.has(sourceMeasureId) || PREVENTION_MEASURES.has(sourceMeasureId)) {
