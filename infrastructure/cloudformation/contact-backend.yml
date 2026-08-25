@@ -13,6 +13,13 @@ Parameters:
   OpenAISecretArn:
     Type: String
     Description: ARN of the existing dedicated OpenAI Realtime Voice secret.
+  FoundationAdminUserPoolArn:
+    Type: String
+    Default: ''
+    Description: Optional exact Cognito user-pool ARN for the private Foundation reviewer console.
+
+Conditions:
+  FoundationAdminConfigured: !Not [!Equals [!Ref FoundationAdminUserPoolArn, '']]
 
 Resources:
   ContactSubmissions:
@@ -23,9 +30,22 @@ Resources:
       AttributeDefinitions:
         - AttributeName: submissionId
           AttributeType: S
+        - AttributeName: recordType
+          AttributeType: S
+        - AttributeName: createdAt
+          AttributeType: S
       KeySchema:
         - AttributeName: submissionId
           KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: ContactIntelligence
+          KeySchema:
+            - AttributeName: recordType
+              KeyType: HASH
+            - AttributeName: createdAt
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
       SSESpecification:
         SSEEnabled: true
       TimeToLiveSpecification:
@@ -113,7 +133,8 @@ Resources:
           PolicyDocument:
             Version: '2012-10-17'
             Statement:
-              - Effect: Allow
+              - Sid: PublicIntakeWrites
+                Effect: Allow
                 Action:
                   - dynamodb:PutItem
                   - dynamodb:UpdateItem
@@ -121,15 +142,30 @@ Resources:
                 Resource:
                   - !GetAtt ContactSubmissions.Arn
                   - !GetAtt AccessRequests.Arn
-              - Effect: Allow
+              - Sid: FoundationContactIntelligence
+                Effect: Allow
+                Action: dynamodb:Query
+                Resource: !Sub ${ContactSubmissions.Arn}/index/ContactIntelligence
+              - Sid: ContactNotification
+                Effect: Allow
                 Action: sns:Publish
                 Resource: !Ref ContactNotifications
-              - Effect: Allow
+              - Sid: ReadRuntimeSecrets
+                Effect: Allow
                 Action: secretsmanager:GetSecretValue
                 Resource:
                   - !Ref OpenAISecretArn
                   - !Ref ContactRateLimitSalt
                   - !Ref AccessRateLimitSalt
+              - !If
+                - FoundationAdminConfigured
+                - Sid: FoundationAdminAuthenticationOnly
+                  Effect: Allow
+                  Action:
+                    - cognito-idp:AdminInitiateAuth
+                    - cognito-idp:AdminRespondToAuthChallenge
+                  Resource: !Ref FoundationAdminUserPoolArn
+                - !Ref AWS::NoValue
 
 Outputs:
   ContactTableName:
