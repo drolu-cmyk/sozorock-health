@@ -1,0 +1,349 @@
+name: Foundation consolidation production
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "apps/public-site/app/admin/**"
+      - "apps/public-site/app/api/admin/**"
+      - "apps/public-site/app/lib/foundation-admin-auth.ts"
+      - "infrastructure/cloudformation/contact-backend.yml"
+      - "infrastructure/iam/sozorock-ai-lab-github-trust.json"
+      - "scripts/reconcile-foundation-recovery-trust.sh"
+      - "scripts/enroll-foundation-smoke-mfa.sh"
+      - ".github/workflows/foundation-consolidation-production.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: foundation-consolidation-production
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: 24
+          cache: npm
+      - name: Verify application, trust scripts and runtime security
+        run: |
+          set -euo pipefail
+          bash -n scripts/reconcile-foundation-recovery-trust.sh
+          bash -n scripts/enroll-foundation-smoke-mfa.sh
+          npm ci --omit=optional
+          npm run typecheck
+          npm run lint
+          npm test
+          npm run build:public
+          npm run verify:public-runtime-security
+          npm audit --omit=dev --omit=optional --audit-level=moderate
+
+  consolidate:
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    environment: production
+    env:
+      AWS_REGION: ${{ vars.AWS_REGION || 'us-east-1' }}
+      EXPECTED_AWS_ACCOUNT_ID: '791860731989'
+      PUBLIC_APP_ID: ${{ vars.PUBLIC_AMPLIFY_APP_ID }}
+      AMPLIFY_BRANCH: ${{ vars.AMPLIFY_BRANCH_NAME || 'main' }}
+      PUBLIC_SITE_URL: ${{ vars.PUBLIC_SITE_URL || 'https://health.sozorockfoundation.org' }}
+      FOUNDATION_ADMIN_EMAIL: ${{ vars.FOUNDATION_ADMIN_EMAIL || 'contact@sozorockfoundation.org' }}
+      FOUNDATION_TENANT_ID: '10000000-0000-4000-8000-000000000001'
+      RECOVERY_HELPER_ROLE_ARN: arn:aws:iam::791860731989:role/cbcap-agentic-github-deploy
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: main
+          persist-credentials: false
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci --omit=optional
+      - name: Bind release to current protected main
+        run: |
+          set -euo pipefail
+          release_sha="$(git rev-parse HEAD)"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$release_sha"
+          echo "RELEASE_SHA=$release_sha" >> "$GITHUB_ENV"
+      - name: Assume established Health production role
+        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          unset-current-credentials: true
+      - name: Resolve exact production identity and contact configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(aws sts get-caller-identity --query Account --output text)" = "$EXPECTED_AWS_ACCOUNT_ID"
+          test -n "$PUBLIC_APP_ID"
+          test "$PUBLIC_SITE_URL" = 'https://health.sozorockfoundation.org'
+
+          collaboration_stack='sozorock-explore-collaboration-production'
+          user_pool_id="$(aws cloudformation describe-stacks --stack-name "$collaboration_stack" --query "Stacks[0].Outputs[?OutputKey=='CountyWorkspaceUserPoolId'].OutputValue" --output text)"
+          app_client_id="$(aws cloudformation describe-stacks --stack-name "$collaboration_stack" --query "Stacks[0].Outputs[?OutputKey=='CountyWorkspaceAppClientId'].OutputValue" --output text)"
+          test -n "$user_pool_id"
+          test -n "$app_client_id"
+          user_pool_arn="$(aws cognito-idp describe-user-pool --user-pool-id "$user_pool_id" --query 'UserPool.Arn' --output text)"
+          test "$user_pool_arn" = "arn:aws:cognito-idp:${AWS_REGION}:${EXPECTED_AWS_ACCOUNT_ID}:userpool/${user_pool_id}"
+
+          contact_stack='sozorock-health-contact'
+          contact_email="$(aws cloudformation describe-stacks --stack-name "$contact_stack" --query "Stacks[0].Parameters[?ParameterKey=='ContactEmail'].ParameterValue | [0]" --output text)"
+          openai_secret="$(aws cloudformation describe-stacks --stack-name "$contact_stack" --query "Stacks[0].Parameters[?ParameterKey=='OpenAISecretArn'].ParameterValue | [0]" --output text)"
+          test -n "$contact_email"
+          test -n "$openai_secret"
+
+          {
+            echo "FOUNDATION_ADMIN_COGNITO_USER_POOL_ID=$user_pool_id"
+            echo "FOUNDATION_ADMIN_COGNITO_CLIENT_ID=$app_client_id"
+            echo "FOUNDATION_ADMIN_COGNITO_USER_POOL_ARN=$user_pool_arn"
+            echo "CONTACT_EMAIL=$contact_email"
+            echo "OPENAI_SECRET_ARN=$openai_secret"
+          } >> "$GITHUB_ENV"
+      - name: Deploy reviewer query and authentication authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          aws cloudformation deploy \
+            --stack-name sozorock-health-contact \
+            --template-file infrastructure/cloudformation/contact-backend.yml \
+            --capabilities CAPABILITY_NAMED_IAM \
+            --parameter-overrides \
+              AmplifyAppId="$PUBLIC_APP_ID" \
+              AmplifyBranchName="$AMPLIFY_BRANCH" \
+              ContactEmail="$CONTACT_EMAIL" \
+              OpenAISecretArn="$OPENAI_SECRET_ARN" \
+              FoundationAdminUserPoolArn="$FOUNDATION_ADMIN_COGNITO_USER_POOL_ARN" \
+            --no-fail-on-empty-changeset
+
+          contact_table="$(aws cloudformation describe-stacks --stack-name sozorock-health-contact --query "Stacks[0].Outputs[?OutputKey=='ContactTableName'].OutputValue" --output text)"
+          compute_role="$(aws cloudformation describe-stacks --stack-name sozorock-health-contact --query "Stacks[0].Outputs[?OutputKey=='ComputeRoleArn'].OutputValue" --output text)"
+          test -n "$contact_table"
+          test -n "$compute_role"
+
+          index_status=''
+          for _ in $(seq 1 60); do
+            index_status="$(aws dynamodb describe-table --table-name "$contact_table" --query "Table.GlobalSecondaryIndexes[?IndexName=='ContactIntelligence'].IndexStatus | [0]" --output text)"
+            [[ "$index_status" = 'ACTIVE' ]] && break
+            sleep 10
+          done
+          test "$index_status" = 'ACTIVE'
+          {
+            echo "CONTACT_SUBMISSIONS_TABLE=$contact_table"
+            echo "PUBLIC_COMPUTE_ROLE_ARN=$compute_role"
+          } >> "$GITHUB_ENV"
+      - name: Reconcile Amplify runtime and reviewer account
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$PUBLIC_COMPUTE_ROLE_ARN"
+
+          app_env="$(aws amplify get-app --app-id "$PUBLIC_APP_ID" --query 'app.environmentVariables' --output json)"
+          merged_app_env="$(jq -c \
+            --arg pool "$FOUNDATION_ADMIN_COGNITO_USER_POOL_ID" \
+            --arg client "$FOUNDATION_ADMIN_COGNITO_CLIENT_ID" \
+            '. + {FOUNDATION_ADMIN_COGNITO_USER_POOL_ID:$pool,FOUNDATION_ADMIN_COGNITO_CLIENT_ID:$client}' <<<"$app_env")"
+          aws amplify update-app --app-id "$PUBLIC_APP_ID" --compute-role-arn "$PUBLIC_COMPUTE_ROLE_ARN" --environment-variables "$merged_app_env" >/dev/null
+
+          branch_env="$(aws amplify get-branch --app-id "$PUBLIC_APP_ID" --branch-name "$AMPLIFY_BRANCH" --query 'branch.environmentVariables' --output json)"
+          merged_branch_env="$(jq -c \
+            --arg pool "$FOUNDATION_ADMIN_COGNITO_USER_POOL_ID" \
+            --arg client "$FOUNDATION_ADMIN_COGNITO_CLIENT_ID" \
+            '. + {FOUNDATION_ADMIN_COGNITO_USER_POOL_ID:$pool,FOUNDATION_ADMIN_COGNITO_CLIENT_ID:$client}' <<<"$branch_env")"
+          aws amplify update-branch --app-id "$PUBLIC_APP_ID" --branch-name "$AMPLIFY_BRANCH" --environment-variables "$merged_branch_env" >/dev/null
+
+          create_error="$(mktemp)"
+          if aws cognito-idp admin-create-user \
+            --user-pool-id "$FOUNDATION_ADMIN_COGNITO_USER_POOL_ID" \
+            --username "$FOUNDATION_ADMIN_EMAIL" \
+            --desired-delivery-mediums EMAIL \
+            --user-attributes \
+              Name=email,Value="$FOUNDATION_ADMIN_EMAIL" \
+              Name=email_verified,Value=true \
+              Name=name,Value='Foundation Operations' \
+              Name=custom:tenant_id,Value="$FOUNDATION_TENANT_ID" \
+              Name=custom:workspace_role,Value=foundation_reviewer \
+              Name=custom:workspace_access,Value=owner \
+            2>"$create_error"; then
+            echo 'Created the dedicated Foundation reviewer account.' >> "$GITHUB_STEP_SUMMARY"
+          elif grep -q 'UsernameExistsException' "$create_error"; then
+            aws cognito-idp admin-update-user-attributes \
+              --user-pool-id "$FOUNDATION_ADMIN_COGNITO_USER_POOL_ID" \
+              --username "$FOUNDATION_ADMIN_EMAIL" \
+              --user-attributes \
+                Name=custom:workspace_role,Value=foundation_reviewer \
+                Name=custom:workspace_access,Value=owner >/dev/null
+          else
+            cat "$create_error" >&2
+            exit 1
+          fi
+      - name: Release exact main commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$RELEASE_SHA"
+          job_id="$(aws amplify start-job \
+            --app-id "$PUBLIC_APP_ID" \
+            --branch-name "$AMPLIFY_BRANCH" \
+            --job-type RELEASE \
+            --job-reason "Foundation consolidation release $RELEASE_SHA" \
+            --query 'jobSummary.jobId' --output text)"
+          test -n "$job_id"
+          status=''
+          for _ in $(seq 1 180); do
+            status="$(aws amplify get-job --app-id "$PUBLIC_APP_ID" --branch-name "$AMPLIFY_BRANCH" --job-id "$job_id" --query 'job.summary.status' --output text)"
+            case "$status" in
+              SUCCEED) break ;;
+              FAILED|CANCELLED) echo "Amplify release ended with $status" >&2; exit 1 ;;
+              *) sleep 20 ;;
+            esac
+          done
+          test "$status" = 'SUCCEED'
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$RELEASE_SHA"
+          echo "AMPLIFY_JOB_ID=$job_id" >> "$GITHUB_ENV"
+      - name: Prove admin boundary and end-to-end intake
+        shell: bash
+        run: |
+          set -euo pipefail
+          origin="$PUBLIC_SITE_URL"
+          admin_html="$(mktemp)"
+          curl --proto '=https' --tlsv1.2 --fail --silent --show-error "$origin/admin" -o "$admin_html"
+          grep -Eqi 'noindex' "$admin_html"
+
+          session_status="$(curl --proto '=https' --tlsv1.2 --silent --show-error --output /tmp/admin-session.json --write-out '%{http_code}' "$origin/api/admin/session")"
+          test "$session_status" = '401'
+          contact_admin_status="$(curl --proto '=https' --tlsv1.2 --silent --show-error --output /tmp/admin-contacts-anon.json --write-out '%{http_code}' "$origin/api/admin/contacts")"
+          test "$contact_admin_status" = '403'
+
+          contact_status="$(curl --proto '=https' --tlsv1.2 --silent --show-error --output /tmp/contact-smoke.json --write-out '%{http_code}' \
+            --request POST \
+            --header "Origin: $origin" \
+            --header 'Content-Type: application/json' \
+            --data '{"name":"Foundation Release Check","email":"success@simulator.amazonses.com","role":"Foundation or funder","stateOrCounty":"Albany, New York","inquiryType":"Support research and publications","message":"Synthetic production verification for the Foundation contact intake and reviewer index.","website":"","consent":true}' \
+            "$origin/api/contact")"
+          test "$contact_status" = '202'
+          jq -e '.accepted == true' /tmp/contact-smoke.json >/dev/null
+
+          publication_status="$(curl --proto '=https' --tlsv1.2 --silent --show-error --output /tmp/publication-smoke.json --write-out '%{http_code}' \
+            --request POST \
+            --header "Origin: $origin" \
+            --header 'Content-Type: application/json' \
+            --data '{"firstName":"Foundation","lastName":"Release","email":"success@simulator.amazonses.com","organization":"SozoRock Foundation release check","sector":"Foundation or funder","cityOrRegion":"Albany","state":"New York","country":"United States","reason":"Synthetic production verification for controlled publication access delivery.","deliveryConsent":true,"updatesConsent":false,"website":""}' \
+            "$origin/api/publications/access/health-systems-assurance-volume-1")"
+          test "$publication_status" = '202'
+          jq -e '.accepted == true and .verificationSent == true and (has("downloadUrl") | not)' /tmp/publication-smoke.json >/dev/null
+
+          smoke_username="foundation-ops-smoke-${RELEASE_SHA:0:12}@sozorockfoundation.org"
+          smoke_password="$(openssl rand -base64 24)!Aa1"
+          cleanup() {
+            aws cognito-idp admin-delete-user --user-pool-id "$FOUNDATION_ADMIN_COGNITO_USER_POOL_ID" --username "$smoke_username" >/dev/null 2>&1 || true
+          }
+          trap cleanup EXIT
+          aws cognito-idp admin-create-user \
+            --user-pool-id "$FOUNDATION_ADMIN_COGNITO_USER_POOL_ID" \
+            --username "$smoke_username" --message-action SUPPRESS \
+            --user-attributes \
+              Name=email,Value="$smoke_username" Name=email_verified,Value=true \
+              Name=custom:tenant_id,Value="$FOUNDATION_TENANT_ID" \
+              Name=custom:workspace_role,Value=foundation_reviewer \
+              Name=custom:workspace_access,Value=owner >/dev/null
+          aws cognito-idp admin-set-user-password \
+            --user-pool-id "$FOUNDATION_ADMIN_COGNITO_USER_POOL_ID" \
+            --username "$smoke_username" --password "$smoke_password" --permanent
+          access_token="$(aws cognito-idp admin-initiate-auth \
+            --user-pool-id "$FOUNDATION_ADMIN_COGNITO_USER_POOL_ID" \
+            --client-id "$FOUNDATION_ADMIN_COGNITO_CLIENT_ID" \
+            --auth-flow ADMIN_USER_PASSWORD_AUTH \
+            --auth-parameters "USERNAME=$smoke_username,PASSWORD=$smoke_password" \
+            --query 'AuthenticationResult.AccessToken' --output text)"
+          echo "::add-mask::$access_token"
+          test -n "$access_token"
+          scripts/enroll-foundation-smoke-mfa.sh "$access_token"
+
+          curl --proto '=https' --tlsv1.2 --fail --silent --show-error \
+            --header "Authorization: Bearer $access_token" \
+            "$origin/api/admin/contacts" -o /tmp/admin-contacts.json
+          jq -e '.contractVersion == "foundation.contacts.v1" and (.records | type) == "array"' /tmp/admin-contacts.json >/dev/null
+          if jq -e '.records[]? | select(.email == "success@simulator.amazonses.com")' /tmp/admin-contacts.json >/dev/null; then
+            echo 'Synthetic contact records must be excluded from reviewer output.' >&2
+            exit 1
+          fi
+
+          curl --proto '=https' --tlsv1.2 --fail --silent --show-error \
+            --header "Authorization: Bearer $access_token" \
+            "$origin/api/admin/publications/health-systems-assurance-volume-1" -o /tmp/admin-publication.json
+          jq -e '.contractVersion == "foundation.publication-intelligence.v1" and .intelligence.publication.slug == "health-systems-assurance-volume-1"' /tmp/admin-publication.json >/dev/null
+      - name: Create exact temporary trust-repair bridge
+        shell: bash
+        run: |
+          set -euo pipefail
+          scripts/reconcile-foundation-recovery-trust.sh bridge "$RUNNER_TEMP/foundation-recovery-bridge"
+      - name: Assume bounded temporary recovery role
+        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
+        with:
+          role-to-assume: ${{ env.RECOVERY_HELPER_ROLE_ARN }}
+          role-session-name: FoundationTrustRepair-${{ github.run_id }}
+          aws-region: ${{ env.AWS_REGION }}
+          unset-current-credentials: true
+      - name: Reconcile exact AI Lab OIDC trust
+        shell: bash
+        run: |
+          set -euo pipefail
+          scripts/reconcile-foundation-recovery-trust.sh repair
+          touch "$RUNNER_TEMP/foundation-ai-lab-trust-repaired"
+      - name: Re-establish Health production role for bridge cleanup
+        if: always()
+        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          role-session-name: FoundationTrustCleanup-${{ github.run_id }}
+          aws-region: ${{ env.AWS_REGION }}
+          unset-current-credentials: true
+      - name: Restore helper role to its original trust and policy
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -s "$RUNNER_TEMP/foundation-recovery-bridge/helper-trust.json" ]]; then
+            scripts/reconcile-foundation-recovery-trust.sh restore "$RUNNER_TEMP/foundation-recovery-bridge"
+          fi
+      - name: Require successful trust repair after cleanup
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f "$RUNNER_TEMP/foundation-ai-lab-trust-repaired"
+      - name: Record production receipt
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo '## Foundation production consolidation'
+            echo
+            echo "Commit: \`${RELEASE_SHA:-unknown}\`"
+            echo "Amplify job: \`${AMPLIFY_JOB_ID:-not-completed}\`"
+            echo
+            echo '- Private admin route remains unlinked and noindex.'
+            echo '- Reviewer authentication uses the existing Cognito Foundation reviewer role with mandatory software-token MFA.'
+            echo '- Contact and publication intelligence are read-only through authenticated APIs.'
+            echo '- Synthetic contact and publication access checks are excluded from reviewer metrics.'
+            if [[ -f "$RUNNER_TEMP/foundation-ai-lab-trust-repaired" ]]; then
+              echo '- AI Lab trust was reconciled to the reviewed three-subject policy.'
+            else
+              echo '- AI Lab trust reconciliation did not complete.'
+            fi
+            if [[ -s "$RUNNER_TEMP/foundation-recovery-bridge/helper-trust.json" ]]; then
+              echo '- Temporary CB-CAP helper trust and policy were restored from their exact pre-run state.'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
