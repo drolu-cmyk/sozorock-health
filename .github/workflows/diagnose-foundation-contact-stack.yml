@@ -2,6 +2,11 @@ name: Diagnose Foundation contact stack
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/diagnose-foundation-contact-stack.yml
 
 permissions:
   contents: read
