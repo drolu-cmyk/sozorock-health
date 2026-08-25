@@ -1,0 +1,60 @@
+name: Diagnose Foundation contact stack
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: diagnose-foundation-contact-stack
+  cancel-in-progress: false
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: production
+    env:
+      AWS_REGION: ${{ vars.AWS_REGION || 'us-east-1' }}
+      EXPECTED_AWS_ACCOUNT_ID: '791860731989'
+    steps:
+      - name: Assume established Health production role
+        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          unset-current-credentials: true
+
+      - name: Read exact contact stack failure state
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(aws sts get-caller-identity --query Account --output text)" = "$EXPECTED_AWS_ACCOUNT_ID"
+
+          stack='sozorock-health-contact'
+          status="$(aws cloudformation describe-stacks --stack-name "$stack" --query 'Stacks[0].StackStatus' --output text)"
+          echo "Contact stack status: $status"
+
+          echo 'Recent failed or rollback CloudFormation events:'
+          aws cloudformation describe-stack-events \
+            --stack-name "$stack" \
+            --query "StackEvents[?ResourceStatus=='CREATE_FAILED' || ResourceStatus=='UPDATE_FAILED' || ResourceStatus=='UPDATE_ROLLBACK_FAILED' || ResourceStatus=='ROLLBACK_FAILED'].[Timestamp,LogicalResourceId,ResourceType,ResourceStatus,ResourceStatusReason]" \
+            --output table \
+            | sed -E 's/[0-9]{12}/[account]/g'
+
+          contact_table="$(aws cloudformation describe-stacks --stack-name "$stack" --query "Stacks[0].Outputs[?OutputKey=='ContactTableName'].OutputValue" --output text)"
+          test -n "$contact_table"
+          aws dynamodb describe-table \
+            --table-name "$contact_table" \
+            --query '{TableStatus:Table.TableStatus,GlobalSecondaryIndexes:Table.GlobalSecondaryIndexes[*].{IndexName:IndexName,IndexStatus:IndexStatus,KeySchema:KeySchema}}' \
+            --output json
+
+          {
+            echo '## Foundation contact stack diagnostic'
+            echo
+            echo "Stack status: \`$status\`"
+            echo
+            echo 'This workflow is read-only. It does not modify CloudFormation, DynamoDB, IAM, Cognito, DNS, mail routing, or Google Workspace.'
+          } >> "$GITHUB_STEP_SUMMARY"
