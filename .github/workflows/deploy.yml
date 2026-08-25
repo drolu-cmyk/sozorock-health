@@ -6,10 +6,6 @@ on:
     workflows: ["Verify"]
     types: [completed]
 
-concurrency:
-  group: amplify-d307qqji18y8il-production
-  cancel-in-progress: true
-
 permissions:
   contents: read
   id-token: write
@@ -20,6 +16,9 @@ jobs:
       github.event_name == 'workflow_dispatch' ||
       (github.event.workflow_run.conclusion == 'success' &&
        github.event.workflow_run.head_branch == 'main')
+    concurrency:
+      group: amplify-d307qqji18y8il-production
+      cancel-in-progress: true
     runs-on: ubuntu-latest
     environment: production
     env:
