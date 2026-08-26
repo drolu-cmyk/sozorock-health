@@ -87,7 +87,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          scripts/reconcile-foundation-recovery-trust.sh bridge "$RUNNER_TEMP/foundation-recovery-bridge"
+          bash scripts/reconcile-foundation-recovery-trust.sh bridge "$RUNNER_TEMP/foundation-recovery-bridge"
       - name: Assume bounded temporary recovery role
         uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
         with:
@@ -99,7 +99,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          scripts/reconcile-foundation-recovery-trust.sh repair
+          bash scripts/reconcile-foundation-recovery-trust.sh repair
           touch "$RUNNER_TEMP/foundation-ai-lab-trust-repaired"
       - name: Re-establish Health production role for bridge cleanup
         if: always()
@@ -115,7 +115,7 @@ jobs:
         run: |
           set -euo pipefail
           if [[ -s "$RUNNER_TEMP/foundation-recovery-bridge/helper-trust.json" ]]; then
-            scripts/reconcile-foundation-recovery-trust.sh restore "$RUNNER_TEMP/foundation-recovery-bridge"
+            bash scripts/reconcile-foundation-recovery-trust.sh restore "$RUNNER_TEMP/foundation-recovery-bridge"
           fi
       - name: Require successful trust repair after cleanup
         shell: bash
