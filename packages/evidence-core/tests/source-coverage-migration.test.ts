@@ -90,6 +90,7 @@ test("national context loader persists separate HPSA product coverage with verif
     nationalContextLoader,
     /ON CONFLICT \(source_version_id, source_record_id, geography_id\) DO UPDATE SET/,
   );
+  assert.doesNotMatch(nationalContextLoader, /required_for_snapshot/);
   assert.doesNotMatch(nationalContextLoader, /measure_family|definition_version|is_planning_metric/);
   assert.doesNotMatch(nationalContextLoader, /metric_observation[\s\S]*reviewed_by/);
   assert.match(foundationMigration, /UNIQUE \(source_id, release_label, content_hash\)/);
