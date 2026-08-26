@@ -96,6 +96,7 @@ jobs:
           role-session-name: FoundationTrustRepair-${{ github.run_id }}
           aws-region: ${{ env.AWS_REGION }}
           role-chaining: true
+          role-skip-session-tagging: true
       - name: Reconcile exact AI Lab OIDC trust
         shell: bash
         run: |
