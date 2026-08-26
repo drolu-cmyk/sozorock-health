@@ -11,5 +11,5 @@ includes:
   - non-explore-regression-evidence-path-fix
   - bounded-cbcap-agentic-bootstrap-authority-definition
 approval: user-authorized-production-release
-request_generation: 11
-retry_reason: generation 10 identified missing resource-scoped Secrets Manager creation authority; generation 11 includes the bounded IAM reconciliation and rollback transition fix
+request_generation: 12
+retry_reason: generation 11 confirmed the unchanged deploy role lacked resource-scoped secret creation; Foundation run 11 has now applied and verified the reviewed Health role policy in AWS
