@@ -83,6 +83,45 @@ jobs:
           role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
           unset-current-credentials: true
+      - name: Create exact temporary trust-repair bridge
+        shell: bash
+        run: |
+          set -euo pipefail
+          scripts/reconcile-foundation-recovery-trust.sh bridge "$RUNNER_TEMP/foundation-recovery-bridge"
+      - name: Assume bounded temporary recovery role
+        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
+        with:
+          role-to-assume: ${{ env.RECOVERY_HELPER_ROLE_ARN }}
+          role-session-name: FoundationTrustRepair-${{ github.run_id }}
+          aws-region: ${{ env.AWS_REGION }}
+          unset-current-credentials: true
+      - name: Reconcile exact AI Lab OIDC trust
+        shell: bash
+        run: |
+          set -euo pipefail
+          scripts/reconcile-foundation-recovery-trust.sh repair
+          touch "$RUNNER_TEMP/foundation-ai-lab-trust-repaired"
+      - name: Re-establish Health production role for bridge cleanup
+        if: always()
+        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          role-session-name: FoundationTrustCleanup-${{ github.run_id }}
+          aws-region: ${{ env.AWS_REGION }}
+          unset-current-credentials: true
+      - name: Restore helper role to its original trust and policy
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -s "$RUNNER_TEMP/foundation-recovery-bridge/helper-trust.json" ]]; then
+            scripts/reconcile-foundation-recovery-trust.sh restore "$RUNNER_TEMP/foundation-recovery-bridge"
+          fi
+      - name: Require successful trust repair after cleanup
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f "$RUNNER_TEMP/foundation-ai-lab-trust-repaired"
       - name: Resolve exact production identity and contact configuration
         shell: bash
         run: |
@@ -116,6 +155,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          contact_stack_status="$(aws cloudformation describe-stacks --stack-name sozorock-health-contact --query 'Stacks[0].StackStatus' --output text)"
+          if [[ "$contact_stack_status" = 'UPDATE_ROLLBACK_FAILED' ]]; then
+            aws cloudformation continue-update-rollback --stack-name sozorock-health-contact
+            aws cloudformation wait stack-update-rollback-complete --stack-name sozorock-health-contact
+          fi
           aws cloudformation deploy \
             --stack-name sozorock-health-contact \
             --template-file infrastructure/cloudformation/contact-backend.yml \
@@ -287,45 +331,6 @@ jobs:
             --header "Authorization: Bearer $access_token" \
             "$origin/api/admin/publications/health-systems-assurance-volume-1" -o /tmp/admin-publication.json
           jq -e '.contractVersion == "foundation.publication-intelligence.v1" and .intelligence.publication.slug == "health-systems-assurance-volume-1"' /tmp/admin-publication.json >/dev/null
-      - name: Create exact temporary trust-repair bridge
-        shell: bash
-        run: |
-          set -euo pipefail
-          scripts/reconcile-foundation-recovery-trust.sh bridge "$RUNNER_TEMP/foundation-recovery-bridge"
-      - name: Assume bounded temporary recovery role
-        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
-        with:
-          role-to-assume: ${{ env.RECOVERY_HELPER_ROLE_ARN }}
-          role-session-name: FoundationTrustRepair-${{ github.run_id }}
-          aws-region: ${{ env.AWS_REGION }}
-          unset-current-credentials: true
-      - name: Reconcile exact AI Lab OIDC trust
-        shell: bash
-        run: |
-          set -euo pipefail
-          scripts/reconcile-foundation-recovery-trust.sh repair
-          touch "$RUNNER_TEMP/foundation-ai-lab-trust-repaired"
-      - name: Re-establish Health production role for bridge cleanup
-        if: always()
-        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
-        with:
-          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
-          role-session-name: FoundationTrustCleanup-${{ github.run_id }}
-          aws-region: ${{ env.AWS_REGION }}
-          unset-current-credentials: true
-      - name: Restore helper role to its original trust and policy
-        if: always()
-        shell: bash
-        run: |
-          set -euo pipefail
-          if [[ -s "$RUNNER_TEMP/foundation-recovery-bridge/helper-trust.json" ]]; then
-            scripts/reconcile-foundation-recovery-trust.sh restore "$RUNNER_TEMP/foundation-recovery-bridge"
-          fi
-      - name: Require successful trust repair after cleanup
-        shell: bash
-        run: |
-          set -euo pipefail
-          test -f "$RUNNER_TEMP/foundation-ai-lab-trust-repaired"
       - name: Record production receipt
         if: always()
         shell: bash
