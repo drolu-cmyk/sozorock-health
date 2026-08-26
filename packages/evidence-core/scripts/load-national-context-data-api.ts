@@ -80,7 +80,7 @@ type NationalContextArtifact = {
     dataPeriodStart: string | null;
     dataPeriodEnd: string | null;
     retrievedAt: string;
-    staleAfter: string | null;
+    staleAfter: string;
     contentHash: string;
     schemaVersion: string;
     reviewStatus: ReviewStatus;
@@ -209,6 +209,9 @@ if (duplicateCounty) throw new Error(`Duplicate county ${duplicateCounty.fips} i
 const requiredSources = ["census-acs5", "hrsa-workforce", "ahrf-workforce", "ahrq-clh"] as const;
 for (const sourceId of requiredSources) {
   if (!artifact.sources[sourceId]) throw new Error(`National context artifact is missing source ${sourceId}.`);
+  if (new Date(artifact.sources[sourceId].staleAfter).getTime() <= Date.now()) {
+    throw new Error(`National context source ${sourceId} is stale and must be refreshed before production loading.`);
+  }
 }
 
 const snapshot = await execute(
@@ -262,7 +265,7 @@ for (const sourceId of requiredSources) {
        :official_url, :content_hash, :schema_version, 'verified',
        'national-context-loader', CAST(:reviewed_at AS timestamptz)
      )
-     ON CONFLICT (source_id, content_hash) DO UPDATE SET
+     ON CONFLICT (source_id, release_label, content_hash) DO UPDATE SET
        release_label=EXCLUDED.release_label,
        release_date=EXCLUDED.release_date,
        data_period_start=EXCLUDED.data_period_start,
@@ -289,8 +292,12 @@ for (const sourceId of requiredSources) {
   );
   const resolved = await execute(
     `SELECT id::text FROM evidence.source_version
-      WHERE source_id=:source_id AND content_hash=:content_hash LIMIT 1`,
-    [param("source_id", sourceId), param("content_hash", src.contentHash)],
+      WHERE source_id=:source_id AND release_label=:release_label AND content_hash=:content_hash LIMIT 1`,
+    [
+      param("source_id", sourceId),
+      param("release_label", src.releaseLabel),
+      param("content_hash", src.contentHash),
+    ],
   );
   const resolvedId = text(resolved.records?.[0]?.[0]);
   if (!resolvedId) throw new Error(`Unable to resolve persisted source version for ${sourceId}.`);
@@ -340,20 +347,16 @@ for (const measure of measureTemplates.values()) {
   await execute(
     `INSERT INTO evidence.measure_definition (
        id, source_id, source_measure_id, name, description, unit, universe, adjustment,
-       direction, higher_value_meaning, comparison_policy, measure_family,
-       definition_version, release_date, is_planning_metric, review_status, reviewed_by, reviewed_at
+       direction, higher_value_meaning, comparison_policy, review_status
      ) VALUES (
        CAST(:id AS uuid), :source_id, :source_measure_id, :name, :description, :unit, :universe, :adjustment,
-       :direction, :higher_value_meaning, :comparison_policy, :measure_family,
-       'national-context.v1', CAST(:release_date AS date), FALSE, 'verified',
-       'national-context-loader', CAST(:reviewed_at AS timestamptz)
+       :direction, :higher_value_meaning, :comparison_policy, 'verified'
      )
-     ON CONFLICT (source_id, source_measure_id, definition_version) DO UPDATE SET
+     ON CONFLICT (source_id, source_measure_id) DO UPDATE SET
        name=EXCLUDED.name, description=EXCLUDED.description, unit=EXCLUDED.unit,
        universe=EXCLUDED.universe, adjustment=EXCLUDED.adjustment,
        direction=EXCLUDED.direction, higher_value_meaning=EXCLUDED.higher_value_meaning,
-       comparison_policy=EXCLUDED.comparison_policy, release_date=EXCLUDED.release_date,
-       review_status='verified', reviewed_by='national-context-loader', reviewed_at=EXCLUDED.reviewed_at`,
+       comparison_policy=EXCLUDED.comparison_policy, review_status='verified'`,
     [
       param("id", id),
       param("source_id", measure.id.startsWith("measure:hrsa") ? "hrsa-workforce"
@@ -368,15 +371,6 @@ for (const measure of measureTemplates.values()) {
       param("direction", measure.direction),
       param("higher_value_meaning", measure.higherValueMeaning),
       param("comparison_policy", measure.comparisonPolicy),
-      param("measure_family", measure.id.startsWith("measure:hrsa") ? "workforce_designation"
-        : measure.id.startsWith("measure:ahrf") ? "workforce_context"
-          : measure.id.startsWith("measure:ahrq") ? "community_context" : "population_context"),
-      param("release_date", artifact.sources[
-        measure.id.startsWith("measure:hrsa") ? "hrsa-workforce"
-          : measure.id.startsWith("measure:ahrf") ? "ahrf-workforce"
-            : measure.id.startsWith("measure:ahrq") ? "ahrq-clh" : "census-acs5"
-      ].releaseDate),
-      param("reviewed_at", artifact.generatedAt),
     ],
   );
   const sourceId = measure.id.startsWith("measure:hrsa") ? "hrsa-workforce"
@@ -384,7 +378,7 @@ for (const measure of measureTemplates.values()) {
       : measure.id.startsWith("measure:ahrq") ? "ahrq-clh" : "census-acs5";
   const resolved = await execute(
     `SELECT id::text FROM evidence.measure_definition
-      WHERE source_id=:source_id AND source_measure_id=:source_measure_id AND definition_version='national-context.v1'
+      WHERE source_id=:source_id AND source_measure_id=:source_measure_id
       LIMIT 1`,
     [param("source_id", sourceId), param("source_measure_id", measure.sourceMeasureId)],
   );
@@ -412,23 +406,20 @@ async function insertObservation(
     `INSERT INTO evidence.metric_observation (
        id, measure_definition_id, geography_id, source_version_id, source_record_id, source_url,
        geography_level, value_json, numeric_value, confidence_low, confidence_high, margin_of_error,
-       release_date, data_period_start, data_period_end, retrieved_at, review_status, reviewed_by,
-       reviewed_at, source_metadata
+       release_date, data_period_start, data_period_end, retrieved_at, review_status, source_metadata
      ) VALUES (
        CAST(:id AS uuid), CAST(:measure_definition_id AS uuid), CAST(:geography_id AS uuid),
        CAST(:source_version_id AS uuid), :source_record_id, :source_url, :geography_level,
        CAST(:value_json AS jsonb), :numeric_value, :confidence_low, :confidence_high, :margin_of_error,
        CAST(:release_date AS date), CAST(:data_period_start AS date), CAST(:data_period_end AS date),
-       CAST(:retrieved_at AS timestamptz), 'verified', 'national-context-loader',
-       CAST(:reviewed_at AS timestamptz), CAST(:source_metadata AS jsonb)
+       CAST(:retrieved_at AS timestamptz), 'verified', CAST(:source_metadata AS jsonb)
      )
      ON CONFLICT (source_version_id, geography_id, measure_definition_id, source_record_id) DO UPDATE SET
        value_json=EXCLUDED.value_json, numeric_value=EXCLUDED.numeric_value,
        confidence_low=EXCLUDED.confidence_low, confidence_high=EXCLUDED.confidence_high,
        margin_of_error=EXCLUDED.margin_of_error, release_date=EXCLUDED.release_date,
        data_period_start=EXCLUDED.data_period_start, data_period_end=EXCLUDED.data_period_end,
-       retrieved_at=EXCLUDED.retrieved_at, review_status='verified', reviewed_by='national-context-loader',
-       reviewed_at=EXCLUDED.reviewed_at, source_metadata=EXCLUDED.source_metadata`,
+       retrieved_at=EXCLUDED.retrieved_at, review_status='verified', source_metadata=EXCLUDED.source_metadata`,
     [
       param("id", id),
       param("measure_definition_id", measureDefinitionId),
@@ -446,7 +437,6 @@ async function insertObservation(
       param("data_period_start", measure.dataPeriodStart ?? src.dataPeriodStart),
       param("data_period_end", measure.dataPeriodEnd ?? src.dataPeriodEnd),
       param("retrieved_at", src.retrievedAt),
-      param("reviewed_at", artifact.generatedAt),
       param("source_metadata", metadata),
     ],
   );
@@ -456,10 +446,11 @@ async function insertDesignation(
   county: CountyContext,
   family: "hpsa" | "mua_p",
   designation: WorkforceDesignation,
+  index: number,
 ) {
   const geographyId = geographyByFips.get(county.fips)!;
   const sourceVersionId = sourceVersionById.get("hrsa-workforce")!;
-  const sourceRecordId = designation.designationId;
+  const sourceRecordId = `${designation.designationId}:${index}`;
   const id = deterministicUuid(`workforce:${sourceVersionId}:${geographyId}:${family}:${sourceRecordId}`);
   const metadata = JSON.stringify(designation.sourceMetadata ?? {});
   const score = family === "hpsa" ? designation.score ?? null : designation.imuScore ?? null;
@@ -469,27 +460,27 @@ async function insertDesignation(
        id, geography_id, source_version_id, source_record_id, designation_family,
        discipline, designation_name, designation_type, component_type, status, score,
        designation_date, last_update_date, whole_county, source_scope,
-       source_metadata, review_status, reviewed_by, reviewed_at
+       source_metadata, review_status
      ) VALUES (
        CAST(:id AS uuid), CAST(:geography_id AS uuid), CAST(:source_version_id AS uuid), :source_record_id,
        :designation_family, :discipline, :designation_name, :designation_type, :component_type, :status,
        :score, CAST(:designation_date AS date), CAST(:last_update_date AS date), :whole_county, :source_scope,
-       CAST(:source_metadata AS jsonb), 'verified', 'national-context-loader', CAST(:reviewed_at AS timestamptz)
+       CAST(:source_metadata AS jsonb), 'verified'
      )
-     ON CONFLICT (source_version_id, geography_id, designation_family, source_record_id) DO UPDATE SET
+     ON CONFLICT (source_version_id, source_record_id, geography_id) DO UPDATE SET
        discipline=EXCLUDED.discipline, designation_name=EXCLUDED.designation_name,
        designation_type=EXCLUDED.designation_type, component_type=EXCLUDED.component_type,
        status=EXCLUDED.status, score=EXCLUDED.score, designation_date=EXCLUDED.designation_date,
        last_update_date=EXCLUDED.last_update_date, whole_county=EXCLUDED.whole_county,
        source_scope=EXCLUDED.source_scope, source_metadata=EXCLUDED.source_metadata,
-       review_status='verified', reviewed_by='national-context-loader', reviewed_at=EXCLUDED.reviewed_at`,
+       review_status='verified'`,
     [
       param("id", id),
       param("geography_id", geographyId),
       param("source_version_id", sourceVersionId),
       param("source_record_id", sourceRecordId),
       param("designation_family", family),
-      param("discipline", designation.discipline ?? null),
+      param("discipline", designation.discipline ?? "not_applicable"),
       param("designation_name", designation.designationName),
       param("designation_type", designation.designationType),
       param("component_type", designation.componentType),
@@ -498,9 +489,8 @@ async function insertDesignation(
       param("designation_date", designation.designationDate ?? null),
       param("last_update_date", designation.lastUpdateDate ?? null),
       param("whole_county", Boolean(designation.wholeCounty)),
-      param("source_scope", designation.sourceScope ?? "source_designation"),
+      param("source_scope", designation.sourceScope ?? "other"),
       param("source_metadata", metadata),
-      param("reviewed_at", artifact.generatedAt),
     ],
   );
 }
@@ -515,8 +505,12 @@ for (const county of artifact.counties) {
   for (let index = 0; index < county.ahrq.length; index += 1) {
     await insertObservation(county, "ahrq-clh", county.ahrq[index], index);
   }
-  for (const designation of county.hpsa) await insertDesignation(county, "hpsa", designation);
-  for (const designation of county.muaP) await insertDesignation(county, "mua_p", designation);
+  for (let index = 0; index < county.hpsa.length; index += 1) {
+    await insertDesignation(county, "hpsa", county.hpsa[index], index);
+  }
+  for (let index = 0; index < county.muaP.length; index += 1) {
+    await insertDesignation(county, "mua_p", county.muaP[index], index);
+  }
 
   const geographyId = geographyByFips.get(county.fips)!;
   const hpsaByKey = new Map<string, number>([

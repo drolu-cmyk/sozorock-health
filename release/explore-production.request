@@ -11,6 +11,7 @@ includes:
   - non-explore-regression-evidence-path-fix
   - bounded-cbcap-agentic-bootstrap-authority-definition
   - deterministic-national-context-artifact-build
+  - production-schema-aligned-national-context-loader
 approval: user-authorized-production-release
-request_generation: 13
-retry_reason: generation 12 provisioned Evidence Core and loaded the primary 3,144-county snapshot, then exposed that the secondary national-context loader had no deterministic artifact build step; generation 13 composes the governed ACS, HRSA, AHRF, and AHRQ files before loading
+request_generation: 14
+retry_reason: generation 13 built the governed artifact successfully, then exposed loader SQL that targeted columns and conflict keys absent from the deployed migration contract; generation 14 aligns all source, measure, observation, and workforce upserts with the live schema and validates non-null freshness and designation scope values
