@@ -11,5 +11,5 @@ includes:
   - non-explore-regression-evidence-path-fix
   - bounded-cbcap-agentic-bootstrap-authority-definition
 approval: user-authorized-production-release
-request_generation: 8
-retry_reason: generation 7 was superseded before deployment when main advanced to repair the CB-CAP bootstrap authority boundary; generation 8 binds the Explore release to the resulting current main SHA and retains all generation 7 production fixes
+request_generation: 9
+retry_reason: generation 8 remained queued behind the SES-gated general deployment; generation 9 uses the dedicated exact-SHA Explore release path and includes the production recovery and public data-display fixes
