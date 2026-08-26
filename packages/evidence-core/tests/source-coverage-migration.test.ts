@@ -70,6 +70,20 @@ test("national context loader persists separate HPSA product coverage with verif
   assert.match(nationalContextLoader, /BatchExecuteStatementCommand/);
   assert.match(nationalContextLoader, /const BATCH_SIZE = 100/);
   assert.match(nationalContextLoader, /await flushAllBatches\(\)/);
+  assert.match(
+    nationalContextLoader,
+    /ON CONFLICT \(source_id, release_label, content_hash\) DO UPDATE SET/,
+  );
+  assert.match(
+    nationalContextLoader,
+    /ON CONFLICT \(source_id, source_measure_id\) DO UPDATE SET/,
+  );
+  assert.match(
+    nationalContextLoader,
+    /ON CONFLICT \(source_version_id, source_record_id, geography_id\) DO UPDATE SET/,
+  );
+  assert.doesNotMatch(nationalContextLoader, /measure_family|definition_version|is_planning_metric/);
+  assert.doesNotMatch(nationalContextLoader, /metric_observation[\s\S]*reviewed_by/);
 });
 
 test("legacy production bootstrap remains compatible through migration defaults without asserting verified negative HRSA coverage", () => {
