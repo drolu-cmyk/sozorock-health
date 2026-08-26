@@ -21,12 +21,12 @@
   },
   "dependencies": {
     "@react-native/virtualized-lists": "0.86.2",
-    "babel-preset-expo": "57.0.2",
-    "expo": "~57.0.13",
+    "babel-preset-expo": "57.0.7",
+    "expo": "~57.0.15",
     "expo-localization": "~57.0.1",
     "expo-speech": "~57.0.1",
     "expo-speech-recognition": "^56.0.1",
-    "expo-splash-screen": "~57.0.6",
+    "expo-splash-screen": "~57.0.7",
     "react": "19.2.3",
     "react-native": "0.86.2"
   },
