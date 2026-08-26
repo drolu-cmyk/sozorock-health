@@ -98,6 +98,8 @@ test("national context loader persists separate HPSA product coverage with verif
     workforceMigration,
     /UNIQUE \(source_version_id, source_record_id, geography_id\)/,
   );
+  assert.match(nationalContextLoader, /is stale and must be refreshed before production loading/);
+  assert.match(nationalContextLoader, /sourceRecordId = `\$\{designation\.designationId\}:\$\{index\}`/);
 });
 
 test("legacy production bootstrap remains compatible through migration defaults without asserting verified negative HRSA coverage", () => {
