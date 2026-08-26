@@ -89,6 +89,7 @@ test("production workflow proves admin, MFA, intake and trust recovery boundarie
   assert.match(workflow, /reconcile-foundation-recovery-trust\.sh restore/);
   assert.match(workflow, /if: always\(\)/);
   assert.match(trustScript, /RepairOnlyAiLabTrustForFoundationRecovery/);
+  assert.match(trustScript, /repo:drolu-cmyk@271617784\/sozorock-foundation@1337104562:ref:refs\/heads\/main/);
   assert.match(trustScript, /iam:GetRole/);
   assert.match(trustScript, /iam:UpdateAssumeRolePolicy/);
   assert.doesNotMatch(trustScript, /iam:\*/);

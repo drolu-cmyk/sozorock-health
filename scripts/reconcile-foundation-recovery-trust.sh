@@ -8,7 +8,7 @@ helper_role="cbcap-agentic-github-deploy"
 helper_policy="CbcapAgenticRelease"
 ai_lab_role="GitHubActionsSozorockAiLabDeployRole"
 health_agentic_subject="repo:drolu-cmyk/sozorock-health-agentic:environment:production"
-foundation_subject="repo:drolu-cmyk/sozorock-foundation:ref:refs/heads/main"
+foundation_subject="repo:drolu-cmyk@271617784/sozorock-foundation@1337104562:ref:refs/heads/main"
 ai_lab_environment_subject="repo:drolu-cmyk/sozorock-ai-lab:environment:production"
 ai_lab_main_subject="repo:drolu-cmyk/sozorock-ai-lab:ref:refs/heads/main"
 
