@@ -23,6 +23,7 @@
       "Action": [
         "cloudformation:CreateStack",
         "cloudformation:UpdateStack",
+        "cloudformation:ContinueUpdateRollback",
         "cloudformation:DescribeStacks",
         "cloudformation:DescribeStackEvents",
         "cloudformation:DescribeStackResources",

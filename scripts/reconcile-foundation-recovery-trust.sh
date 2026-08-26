@@ -7,6 +7,7 @@ account_id="${EXPECTED_AWS_ACCOUNT_ID:-791860731989}"
 helper_role="cbcap-agentic-github-deploy"
 helper_policy="CbcapAgenticRelease"
 ai_lab_role="GitHubActionsSozorockAiLabDeployRole"
+health_policy_source="infrastructure/iam/github-amplify-bootstrap-policy.json"
 health_agentic_subject="repo:drolu-cmyk/sozorock-health-agentic:environment:production"
 foundation_subject="repo:drolu-cmyk@271617784/sozorock-foundation@1337104562:ref:refs/heads/main"
 ai_lab_environment_subject="repo:drolu-cmyk/sozorock-ai-lab:environment:production"
@@ -38,6 +39,10 @@ bridge() {
     echo 'Temporary Foundation recovery permission already exists; refusing ambiguous bridge state.' >&2
     exit 1
   fi
+  if jq -e '.Statement[]? | select(.Sid == "RepairOnlyHealthDeploymentPolicyForFoundationRecovery")' "$backup_dir/helper-policy.json" >/dev/null; then
+    echo 'Temporary Foundation Health policy-repair permission already exists; refusing ambiguous bridge state.' >&2
+    exit 1
+  fi
 
   jq \
     --arg principal "$health_role_arn" \
@@ -50,12 +55,18 @@ bridge() {
     "$backup_dir/helper-trust.json" > "$backup_dir/helper-trust-temporary.json"
 
   jq \
-    --arg resource "arn:aws:iam::${account_id}:role/${ai_lab_role}" \
+    --arg ai_lab_resource "arn:aws:iam::${account_id}:role/${ai_lab_role}" \
+    --arg health_resource "$health_role_arn" \
     '.Statement += [{
       "Sid":"RepairOnlyAiLabTrustForFoundationRecovery",
       "Effect":"Allow",
       "Action":["iam:GetRole","iam:UpdateAssumeRolePolicy"],
-      "Resource":$resource
+      "Resource":$ai_lab_resource
+    },{
+      "Sid":"RepairOnlyHealthDeploymentPolicyForFoundationRecovery",
+      "Effect":"Allow",
+      "Action":["iam:GetRolePolicy","iam:ListRolePolicies","iam:PutRolePolicy"],
+      "Resource":$health_resource
     }]' \
     "$backup_dir/helper-policy.json" > "$backup_dir/helper-policy-temporary.json"
 
@@ -79,6 +90,69 @@ bridge() {
       (.Action | sort) == (["iam:GetRole","iam:UpdateAssumeRolePolicy"] | sort) and
       .Resource == $resource)
   ' <<<"$current_policy" >/dev/null
+  jq -e --arg resource "$health_role_arn" '
+    any(.Statement[];
+      .Sid == "RepairOnlyHealthDeploymentPolicyForFoundationRecovery" and
+      .Effect == "Allow" and
+      (.Action | sort) == (["iam:GetRolePolicy","iam:ListRolePolicies","iam:PutRolePolicy"] | sort) and
+      .Resource == $resource)
+  ' <<<"$current_policy" >/dev/null
+}
+
+repair_health_policy() {
+  require_account
+  health_role_arn="${FOUNDATION_HEALTH_ROLE_ARN:-}"
+  [[ "$health_role_arn" =~ ^arn:aws:iam::${account_id}:role/[A-Za-z0-9+=,.@_/-]+$ ]]
+  test -f "$health_policy_source"
+  health_role_name="${health_role_arn##*/}"
+  test "$health_role_name" = 'GitHubOIDC_SozoRockHealthV2_DeployRole'
+
+  expected_action='cloudformation:ContinueUpdateRollback'
+  expected_resource="arn:aws:cloudformation:us-east-1:${account_id}:stack/sozorock-health-contact/*"
+  matched_policy=''
+  patched_policy="$(mktemp)"
+
+  while IFS= read -r policy_name; do
+    test -n "$policy_name" || continue
+    current="$(aws iam get-role-policy --role-name "$health_role_name" --policy-name "$policy_name" --query PolicyDocument --output json)"
+    if jq -e --arg resource "$expected_resource" '
+      any(.Statement[]?;
+        .Effect == "Allow" and
+        ((.Resource | if type == "array" then . else [.] end) | index($resource)) != null and
+        ((.Action | if type == "array" then . else [.] end) | index("cloudformation:UpdateStack")) != null)
+    ' <<<"$current" >/dev/null; then
+      test -z "$matched_policy"
+      matched_policy="$policy_name"
+      jq --arg resource "$expected_resource" --arg action "$expected_action" '
+        .Statement |= map(
+          if .Effect == "Allow" and
+             ((.Resource | if type == "array" then . else [.] end) | index($resource)) != null and
+             ((.Action | if type == "array" then . else [.] end) | index("cloudformation:UpdateStack")) != null
+          then .Action = (((.Action | if type == "array" then . else [.] end) + [$action]) | unique)
+          else . end)
+      ' <<<"$current" > "$patched_policy"
+    fi
+  done < <(aws iam list-role-policies --role-name "$health_role_name" --query 'PolicyNames[]' --output text | tr '\t' '\n')
+
+  test -n "$matched_policy"
+  jq -e --arg action "$expected_action" --arg resource "$expected_resource" '
+    any(.Statement[]?;
+      .Effect == "Allow" and
+      ((.Resource | if type == "array" then . else [.] end) | index($resource)) != null and
+      ((.Action | if type == "array" then . else [.] end) | index($action)) != null)
+  ' "$patched_policy" >/dev/null
+  aws iam put-role-policy --role-name "$health_role_name" --policy-name "$matched_policy" --policy-document "file://$patched_policy"
+
+  actual="$(aws iam get-role-policy --role-name "$health_role_name" --policy-name "$matched_policy" --query PolicyDocument --output json)"
+  jq -e --arg action "$expected_action" --arg resource "$expected_resource" '
+    any(.Statement[]?;
+      .Effect == "Allow" and
+      ((.Resource | if type == "array" then . else [.] end) | index($resource)) != null and
+      ((.Action | if type == "array" then . else [.] end) | index($action)) != null)
+  ' <<<"$actual" >/dev/null
+  jq -e --arg action "$expected_action" '
+    any(.Statement[]?; ((.Action | if type == "array" then . else [.] end) | index($action)) != null)
+  ' "$health_policy_source" >/dev/null
 }
 
 repair() {
@@ -125,11 +199,16 @@ restore() {
     echo 'Temporary Foundation recovery permission remained after cleanup.' >&2
     exit 1
   fi
+  if jq -e '.Statement[]? | select(.Sid == "RepairOnlyHealthDeploymentPolicyForFoundationRecovery")' <<<"$restored_policy" >/dev/null; then
+    echo 'Temporary Foundation Health policy-repair permission remained after cleanup.' >&2
+    exit 1
+  fi
 }
 
 case "$mode" in
   bridge) bridge ;;
   repair) repair ;;
+  repair-health-policy) repair_health_policy ;;
   restore) restore ;;
-  *) echo 'Usage: reconcile-foundation-recovery-trust.sh {bridge|repair|restore} [backup-dir]' >&2; exit 64 ;;
+  *) echo 'Usage: reconcile-foundation-recovery-trust.sh {bridge|repair|repair-health-policy|restore} [backup-dir]' >&2; exit 64 ;;
 esac
