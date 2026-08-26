@@ -30,6 +30,10 @@ bridge() {
 
   original_subject="$(jq -r '.Statement[] | select(.Action == "sts:AssumeRoleWithWebIdentity") | .Condition.StringEquals["token.actions.githubusercontent.com:sub"]' "$backup_dir/helper-trust.json")"
   test "$original_subject" = "$health_agentic_subject"
+  if jq -e '.Statement[]? | select(.Sid == "FoundationRecoveryRoleChaining")' "$backup_dir/helper-trust.json" >/dev/null; then
+    echo 'Temporary Foundation recovery trust already exists; refusing ambiguous bridge state.' >&2
+    exit 1
+  fi
   if jq -e '.Statement[]? | select(.Sid == "RepairOnlyAiLabTrustForFoundationRecovery")' "$backup_dir/helper-policy.json" >/dev/null; then
     echo 'Temporary Foundation recovery permission already exists; refusing ambiguous bridge state.' >&2
     exit 1
@@ -112,6 +116,10 @@ restore() {
   restored_trust="$(aws iam get-role --role-name "$helper_role" --query 'Role.AssumeRolePolicyDocument' --output json)"
   restored_subject="$(jq -r '.Statement[] | select(.Action == "sts:AssumeRoleWithWebIdentity") | .Condition.StringEquals["token.actions.githubusercontent.com:sub"]' <<<"$restored_trust")"
   test "$restored_subject" = "$health_agentic_subject"
+  if jq -e '.Statement[]? | select(.Sid == "FoundationRecoveryRoleChaining")' <<<"$restored_trust" >/dev/null; then
+    echo 'Temporary Foundation recovery role-chain trust remained after cleanup.' >&2
+    exit 1
+  fi
   restored_policy="$(aws iam get-role-policy --role-name "$helper_role" --policy-name "$helper_policy" --query 'PolicyDocument' --output json)"
   if jq -e '.Statement[]? | select(.Sid == "RepairOnlyAiLabTrustForFoundationRecovery")' <<<"$restored_policy" >/dev/null; then
     echo 'Temporary Foundation recovery permission remained after cleanup.' >&2
