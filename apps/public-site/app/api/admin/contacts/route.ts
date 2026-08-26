@@ -2,6 +2,7 @@ import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { DynamoDBDocumentClient, QueryCommand } from "@aws-sdk/lib-dynamodb";
 import { NextRequest, NextResponse } from "next/server";
 import { requireFoundationReviewer } from "../../../lib/foundation-admin-auth";
+import { csvCell } from "../../../lib/csv";
 
 export const runtime = "nodejs";
 
@@ -24,10 +25,6 @@ function protectedJson(body: unknown, status = 200) {
 
 function text(value: unknown) {
   return typeof value === "string" ? value : "";
-}
-
-function csvCell(value: unknown) {
-  return `"${String(value ?? "").replace(/"/g, '""')}"`;
 }
 
 function csvExport(records: Array<Record<string, unknown>>) {

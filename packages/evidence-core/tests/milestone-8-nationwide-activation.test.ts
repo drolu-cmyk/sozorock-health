@@ -38,6 +38,15 @@ test("the official-vintage county universe is complete, unique, and searchable b
   }
 });
 
+test("the geography coverage artifact retains a versioned generation timestamp", async () => {
+  const coverage = JSON.parse(
+    await readFile(path.join(nationalDir, "national-geography-coverage.v2025.json"), "utf8"),
+  ) as { schemaVersion?: string; generatedAt?: string };
+  assert.equal(coverage.schemaVersion, "sozorock.national-geography-coverage.v1");
+  assert.ok(coverage.generatedAt);
+  assert.equal(Number.isNaN(Date.parse(coverage.generatedAt)), false);
+});
+
 test("the public search and county-boundary artifacts cover the complete primary release scope", async () => {
   const search = JSON.parse(
     await readFile(path.join(nationalDir, "geography-search-index.v1.json"), "utf8"),
@@ -273,7 +282,7 @@ test("Chester County current CDC rows are present when compatible measures are r
   const fetcher: FetchLike = async () => ({
     status: 200,
     ok: true,
-    headers: { get: () => "application/json" },
+    headers: { get: (name) => name.toLowerCase() === "content-type" ? "application/json" : null },
     async text() { return JSON.stringify(rows); },
     async arrayBuffer() { return new TextEncoder().encode(JSON.stringify(rows)).buffer; },
   });

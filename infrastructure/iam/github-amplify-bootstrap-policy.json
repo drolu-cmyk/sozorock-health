@@ -145,11 +145,23 @@
       "Effect": "Allow",
       "Action": [
         "secretsmanager:CreateSecret",
+        "secretsmanager:DeleteSecret",
         "secretsmanager:DescribeSecret",
         "secretsmanager:GetSecretValue",
+        "secretsmanager:PutSecretValue",
+        "secretsmanager:UpdateSecret",
         "secretsmanager:TagResource"
       ],
-      "Resource": "arn:aws:secretsmanager:us-east-1:791860731989:secret:rds!cluster-*"
+      "Resource": [
+        "arn:aws:secretsmanager:us-east-1:791860731989:secret:rds!cluster-*",
+        "arn:aws:secretsmanager:us-east-1:791860731989:secret:sozorock-evidence-runtime-*"
+      ]
+    },
+    {
+      "Sid": "GenerateEvidenceRuntimePassword",
+      "Effect": "Allow",
+      "Action": "secretsmanager:GetRandomPassword",
+      "Resource": "*"
     },
     {
       "Sid": "ProvisionEvidenceArtifactBucket",

@@ -1,4 +1,6 @@
 {
+  "schemaVersion": "sozorock.national-geography-coverage.v1",
+  "generatedAt": "2026-07-23T18:25:59.651Z",
   "valid": true,
   "authoritativePrimaryCountyCount": 3144,
   "searchablePrimaryCountyCount": 3144,

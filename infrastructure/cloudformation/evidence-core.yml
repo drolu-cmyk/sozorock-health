@@ -115,6 +115,25 @@ Resources:
       Engine: aurora-postgresql
       PubliclyAccessible: false
 
+  EvidenceRuntimeSecret:
+    Type: AWS::SecretsManager::Secret
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      Name: !Sub sozorock-evidence-runtime-${EnvironmentName}
+      Description: Least-privileged Data API login for the public Evidence runtime.
+      GenerateSecretString:
+        SecretStringTemplate: !Sub |
+          {"username":"evidence_runtime_login","engine":"postgres","host":"${EvidenceDatabaseCluster.Endpoint.Address}","port":5432,"dbname":"${DatabaseName}","dbClusterIdentifier":"${EvidenceDatabaseCluster}"}
+        GenerateStringKey: password
+        PasswordLength: 40
+        ExcludeCharacters: '"@/\\'
+      Tags:
+        - Key: sozorock:system
+          Value: evidence-core
+        - Key: sozorock:environment
+          Value: !Ref EnvironmentName
+
   EvidenceRuntimePolicy:
     Type: AWS::IAM::ManagedPolicy
     Properties:
@@ -136,7 +155,7 @@ Resources:
             Effect: Allow
             Action:
               - secretsmanager:GetSecretValue
-            Resource: !GetAtt EvidenceDatabaseCluster.MasterUserSecret.SecretArn
+            Resource: !Ref EvidenceRuntimeSecret
           - Sid: ReadPlaceEvidenceOpenAISecret
             Effect: Allow
             Action:
@@ -192,6 +211,8 @@ Outputs:
   EvidenceDatabaseClusterArn:
     Value: !GetAtt EvidenceDatabaseCluster.DBClusterArn
   EvidenceDatabaseSecretArn:
+    Value: !Ref EvidenceRuntimeSecret
+  EvidenceDatabaseAdminSecretArn:
     Value: !GetAtt EvidenceDatabaseCluster.MasterUserSecret.SecretArn
   EvidenceDatabaseName:
     Value: !Ref DatabaseName

@@ -86,7 +86,7 @@ test("publication intelligence is queryable only through the protected index and
   assert.match(reporting, /@simulator\.amazonses\.com/);
   assert.doesNotMatch(reporting, /networkIdentifier/);
   assert.doesNotMatch(reporting, /visitorIdentifier/);
-  assert.match(intelligenceRoute, /actor\.role !== "foundation_reviewer"/);
+  assert.match(intelligenceRoute, /requireFoundationReviewer\(request\)/);
   assert.ok(intelligenceRoute.includes('request.nextUrl.searchParams.get("format") === "csv"'));
   assert.match(intelligenceRoute, /Cache-Control": "private, no-store"/);
 });

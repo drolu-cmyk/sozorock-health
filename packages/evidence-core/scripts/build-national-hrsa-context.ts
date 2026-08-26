@@ -3,6 +3,7 @@ import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { csvObjects } from "../src/adapters/csv.ts";
+import { readBoundedResponseText } from "../src/ingestion/bounded-response.ts";
 
 const packageRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const nationalDir = path.join(packageRoot, "data", "national");
@@ -42,7 +43,7 @@ for (const artifact of artifacts) {
     signal: AbortSignal.timeout(180_000),
   });
   if (!response.ok) throw new Error(`HRSA ${artifact.product} import failed: ${response.status} ${artifact.url}`);
-  const body = await response.text();
+  const body = await readBoundedResponseText(response, 128 * 1024 * 1024);
   const rows = csvObjects(body);
   manifests.push({
     product: artifact.product,

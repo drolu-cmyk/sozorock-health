@@ -12,6 +12,12 @@ export type FetchLikeResponse = {
   status: number;
   ok: boolean;
   headers: { get(name: string): string | null };
+  body?: {
+    getReader(): {
+      read(): Promise<{ done: boolean; value?: Uint8Array }>;
+      cancel?(reason?: unknown): Promise<void>;
+    };
+  } | null;
   text(): Promise<string>;
   arrayBuffer(): Promise<ArrayBuffer>;
 };

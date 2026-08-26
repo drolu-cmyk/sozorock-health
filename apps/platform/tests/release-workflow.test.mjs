@@ -14,7 +14,8 @@ test("pins protected main and reads deployment inputs from the approved commit",
   assert.match(workflow, /git ls-remote --exit-code "\$EXPECTED_REPOSITORY\.git" refs\/heads\/main/);
   assert.match(workflow, /origin_main_before/);
   assert.match(workflow, /origin_main_after/);
-  assert.match(workflow, /deployed_commit" == "HEAD"/);
+  assert.doesNotMatch(workflow, /deployed_commit" == "HEAD"/);
+  assert.match(workflow, /approved_commit" != "\$deployed_commit"\*/);
   assert.match(workflow, /\^\[0-9a-f\]\{7,40\}\$/);
   assert.match(workflow, /aws sts get-caller-identity/);
   assert.match(workflow, /delete-domain-association/);

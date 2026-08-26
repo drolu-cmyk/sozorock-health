@@ -182,8 +182,10 @@ jobs:
               PlaceEvidenceOpenAISecretArn="$OPENAI_PLACE_EVIDENCE_SECRET_ARN"
           cluster_arn=$(aws cloudformation describe-stacks --stack-name sozorock-health-evidence-production \
             --query "Stacks[0].Outputs[?OutputKey=='EvidenceDatabaseClusterArn'].OutputValue" --output text)
-          secret_arn=$(aws cloudformation describe-stacks --stack-name sozorock-health-evidence-production \
+          runtime_secret_arn=$(aws cloudformation describe-stacks --stack-name sozorock-health-evidence-production \
             --query "Stacks[0].Outputs[?OutputKey=='EvidenceDatabaseSecretArn'].OutputValue" --output text)
+          admin_secret_arn=$(aws cloudformation describe-stacks --stack-name sozorock-health-evidence-production \
+            --query "Stacks[0].Outputs[?OutputKey=='EvidenceDatabaseAdminSecretArn'].OutputValue" --output text)
           database=$(aws cloudformation describe-stacks --stack-name sozorock-health-evidence-production \
             --query "Stacks[0].Outputs[?OutputKey=='EvidenceDatabaseName'].OutputValue" --output text)
           bucket=$(aws cloudformation describe-stacks --stack-name sozorock-health-evidence-production \
@@ -195,7 +197,8 @@ jobs:
           aws rds wait db-cluster-snapshot-available --db-cluster-snapshot-identifier "$backup_id"
           {
             echo "EVIDENCE_DATABASE_CLUSTER_ARN=$cluster_arn"
-            echo "EVIDENCE_DATABASE_SECRET_ARN=$secret_arn"
+            echo "EVIDENCE_DATABASE_SECRET_ARN=$admin_secret_arn"
+            echo "EVIDENCE_DATABASE_RUNTIME_SECRET_ARN=$runtime_secret_arn"
             echo "EVIDENCE_DATABASE_NAME=$database"
             echo "EVIDENCE_ARTIFACT_BUCKET=$bucket"
             echo "EVIDENCE_ROLLBACK_SNAPSHOT_ID=$backup_id"
@@ -223,6 +226,27 @@ jobs:
             --secret-arn "$EVIDENCE_DATABASE_SECRET_ARN" \
             --database "$EVIDENCE_DATABASE_NAME" \
             --sql "INSERT INTO evidence.workspace_tenant (id, legal_name, status, created_at, created_by) VALUES ('10000000-0000-4000-8000-000000000001', 'The SozoRock Foundation, Inc.', 'active', now(), 'explore-production-workflow') ON CONFLICT (id) DO UPDATE SET legal_name=EXCLUDED.legal_name, status='active'" >/dev/null
+          runtime_secret_json=$(aws secretsmanager get-secret-value \
+            --secret-id "$EVIDENCE_DATABASE_RUNTIME_SECRET_ARN" --query SecretString --output text)
+          runtime_password=$(jq -er '.password' <<<"$runtime_secret_json")
+          runtime_parameters=$(jq -nc --arg password "$runtime_password" \
+            '[{name:"runtime_password",value:{stringValue:$password}}]')
+          aws rds-data execute-statement \
+            --resource-arn "$EVIDENCE_DATABASE_CLUSTER_ARN" \
+            --secret-arn "$EVIDENCE_DATABASE_SECRET_ARN" \
+            --database "$EVIDENCE_DATABASE_NAME" \
+            --sql "SELECT evidence.configure_runtime_login(:runtime_password)" \
+            --parameters "$runtime_parameters" >/dev/null
+          unset runtime_password runtime_parameters runtime_secret_json
+          runtime_role=$(aws rds-data execute-statement \
+            --resource-arn "$EVIDENCE_DATABASE_CLUSTER_ARN" \
+            --secret-arn "$EVIDENCE_DATABASE_RUNTIME_SECRET_ARN" \
+            --database "$EVIDENCE_DATABASE_NAME" \
+            --sql "SELECT current_user, rolsuper, rolcreatedb, rolcreaterole, rolbypassrls FROM pg_roles WHERE rolname=current_user" \
+            --output json)
+          jq -e '.records == [[{"stringValue":"evidence_runtime_login"},{"booleanValue":false},{"booleanValue":false},{"booleanValue":false},{"booleanValue":false}]]' \
+            <<<"$runtime_role" >/dev/null
+          echo "EVIDENCE_DATABASE_SECRET_ARN=$EVIDENCE_DATABASE_RUNTIME_SECRET_ARN" >> "$GITHUB_ENV"
       - name: Provision Explore collaboration transport and identity
         run: |
           set -euo pipefail
@@ -275,6 +299,8 @@ jobs:
         run: |
           set -euo pipefail
           current_env=$(aws amplify get-app --app-id "$PUBLIC_APP_ID" --query 'app.environmentVariables' --output json)
+          evidence_rate_table=$(jq -er '.EVIDENCE_RATE_LIMIT_TABLE // .CONTACT_RATE_LIMIT_TABLE // .CONTACT_SUBMISSIONS_TABLE' <<<"$current_env")
+          evidence_rate_salt_arn=$(jq -er '.EVIDENCE_RATE_LIMIT_SALT_SECRET_ARN // .CONTACT_RATE_LIMIT_SALT_SECRET_ARN' <<<"$current_env")
           public_build_spec=$(cat infrastructure/amplify/public-site.yml)
           merged_env=$(jq -c \
             --arg ca "$EVIDENCE_DATABASE_CLUSTER_ARN" \
@@ -287,12 +313,16 @@ jobs:
             --arg websocket "$EXPLORE_WebSocketUrl" \
             --arg management "$EXPLORE_ManagementEndpoint" \
             --arg snapshot_hash "$EVIDENCE_SNAPSHOT_CONTENT_HASH" \
+            --arg rate_table "$evidence_rate_table" \
+            --arg rate_salt "$evidence_rate_salt_arn" \
             '. + {
               EVIDENCE_DATABASE_CLUSTER_ARN:$ca,
               EVIDENCE_DATABASE_SECRET_ARN:$sa,
               EVIDENCE_DATABASE_NAME:$db,
               EVIDENCE_ARTIFACT_BUCKET:$bucket,
               EVIDENCE_ALLOWED_HOSTS:"health.sozorockfoundation.org;www.health.sozorockfoundation.org",
+              EVIDENCE_RATE_LIMIT_TABLE:$rate_table,
+              EVIDENCE_RATE_LIMIT_SALT_SECRET_ARN:$rate_salt,
               OPENAI_PLACE_EVIDENCE_SECRET_ARN:$openai,
               OPENAI_PLACE_EVIDENCE_MODEL:"gpt-5.6-sol",
               PLACE_EVIDENCE_PROVIDER:"openai-responses",
@@ -354,6 +384,12 @@ jobs:
             --job-id "$job_id" --query 'job.summary.commitId' --output text)
           git fetch --no-tags origin main
           test "$(git rev-parse origin/main)" = "$RELEASE_SHA"
+          if [[ ! "$deployed_commit" =~ ^[0-9a-f]{7,40}$ || "$RELEASE_SHA" != "$deployed_commit"* ]]; then
+            echo "Amplify did not report the pinned Explore release SHA."
+            echo "Expected: $RELEASE_SHA"
+            echo "Reported: $deployed_commit"
+            exit 1
+          fi
           echo "AMPLIFY_REPORTED_COMMIT_ID=$deployed_commit" >> "$GITHUB_ENV"
           echo "Amplify built the pinned main branch release $RELEASE_SHA (job reported commit: $deployed_commit)."
       - name: Create scoped production acceptance identities

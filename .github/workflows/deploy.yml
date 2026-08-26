@@ -291,11 +291,7 @@ jobs:
           fi
 
           deployed_commit=$(jq -r '.job.summary.commitId // ""' <<<"$job_json")
-          if [[ "$deployed_commit" == "HEAD" ]]; then
-            : # Amplify reports HEAD for some connected-repository releases.
-          elif [[ "$deployed_commit" =~ ^[0-9a-f]{7,40}$ && "$release_sha" == "$deployed_commit"* ]]; then
-            : # Accept a full or unambiguous abbreviated form of the pinned SHA.
-          else
+          if [[ ! "$deployed_commit" =~ ^[0-9a-f]{7,40}$ || "$release_sha" != "$deployed_commit"* ]]; then
             echo "The completed public-site release reports an unexpected source identity."
             exit 1
           fi

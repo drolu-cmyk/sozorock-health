@@ -15,6 +15,8 @@ import {
   type FetchLike,
   type Geography,
 } from "../src/index.ts";
+import { fetchWithCache } from "../src/ingestion/cache.ts";
+import { assertZipArchiveLimits } from "../src/ingestion/bounded-response.ts";
 
 function geography(kind: Geography["kind"], authorityId: string, name: string, stateFips: string | null): Geography {
   return {
@@ -325,7 +327,11 @@ test("AHRQ CLH XLSX reader validates approved variables against the matching cod
     return {
       status: 200,
       ok: true,
-      headers: { get: () => "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" },
+      headers: {
+        get: (name) => name.toLowerCase() === "content-type"
+          ? "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+          : null,
+      },
       async text() { return ""; },
       async arrayBuffer() { return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength); },
     };
@@ -359,6 +365,82 @@ test("AHRQ CLH XLSX reader validates approved variables against the matching cod
   assert.equal(batch.status, "available");
   assert.equal(batch.observations.length, 1);
   assert.equal(batch.observations[0].numericValue, 7.4);
+
+  const compressedLimitReader = createAhrqXlsxReader({
+    dataWorksheet: "Data",
+    codebookReleaseLabel: "fixture",
+    codebookUrl: "https://www.ahrq.gov/sites/default/files/wysiwyg/sdoh/codebook.xlsx",
+    approvedVariables: [],
+    maxCompressedBytes: 1,
+  });
+  await assert.rejects(
+    compressedLimitReader({ artifactUrl: "https://www.ahrq.gov/data.xlsx", fetcher }),
+    /1-byte limit/i,
+  );
+
+  const worksheetLimitReader = createAhrqXlsxReader({
+    dataWorksheet: "Data",
+    codebookReleaseLabel: "fixture",
+    codebookUrl: "https://www.ahrq.gov/sites/default/files/wysiwyg/sdoh/codebook.xlsx",
+    approvedVariables: [],
+    maxRows: 1,
+  });
+  await assert.rejects(
+    worksheetLimitReader({ artifactUrl: "https://www.ahrq.gov/data.xlsx", fetcher }),
+    /worksheet row limit/i,
+  );
+});
+
+test("cached ingestion rejects oversized official-source responses before persistence", async () => {
+  const cache = new InMemoryHttpCache();
+  await assert.rejects(
+    fetchWithCache({
+      url: "https://data.cdc.gov/resource/fixture.json",
+      fetcher: staticFetcher("123456"),
+      cache,
+      now: "2026-07-20T12:00:00Z",
+      ttlMs: 60_000,
+      maxResponseBytes: 5,
+    }),
+    /5-byte limit/i,
+  );
+  assert.equal(cache.entries.size, 0);
+});
+
+test("archive inspection rejects excessive expansion before extraction", () => {
+  const compressed = zipSync({ "large.txt": strToU8("A".repeat(100_000)) }, { level: 9 });
+  assert.throws(
+    () => assertZipArchiveLimits(compressed, "fixture archive", { maxExpansionRatio: 2 }),
+    /archive expansion/i,
+  );
+  assert.throws(
+    () => assertZipArchiveLimits(compressed, "fixture archive", { maxUncompressedBytes: 10 }),
+    /archive expansion limits/i,
+  );
+
+  const forgedCentralDirectory = new Uint8Array(compressed);
+  for (let index = 0; index <= forgedCentralDirectory.length - 28; index += 1) {
+    if (
+      forgedCentralDirectory[index] === 0x50
+      && forgedCentralDirectory[index + 1] === 0x4b
+      && forgedCentralDirectory[index + 2] === 0x01
+      && forgedCentralDirectory[index + 3] === 0x02
+    ) {
+      new DataView(
+        forgedCentralDirectory.buffer,
+        forgedCentralDirectory.byteOffset,
+        forgedCentralDirectory.byteLength,
+      ).setUint32(index + 24, 1, true);
+      break;
+    }
+  }
+  assert.throws(
+    () => assertZipArchiveLimits(forgedCentralDirectory, "forged archive", {
+      maxUncompressedBytes: 10,
+      maxExpansionRatio: 2,
+    }),
+    /archive expansion|inconsistent archive size/i,
+  );
 });
 
 test("runtime artifact adapters reject unapproved hosts before any network request", async () => {

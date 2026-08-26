@@ -4,6 +4,9 @@ import type {
   FetchLike,
   HttpCache,
 } from "./types.ts";
+import { readBoundedResponseText } from "./bounded-response.ts";
+
+const DEFAULT_MAX_RESPONSE_BYTES = 128 * 1024 * 1024;
 
 function dateMs(value: string) {
   const parsed = Date.parse(value);
@@ -32,6 +35,7 @@ export async function fetchWithCache({
   now,
   ttlMs,
   timeoutMs = 30_000,
+  maxResponseBytes = DEFAULT_MAX_RESPONSE_BYTES,
 }: {
   url: string;
   publicUrl?: string;
@@ -41,6 +45,7 @@ export async function fetchWithCache({
   now: string;
   ttlMs: number;
   timeoutMs?: number;
+  maxResponseBytes?: number;
 }): Promise<CachedFetchResult> {
   const cached = await cache.get(cacheKey);
   if (cached && dateMs(cached.expiresAt) >= dateMs(now)) {
@@ -99,7 +104,7 @@ export async function fetchWithCache({
       };
     }
     if (!response.ok) throw new Error(`Official source returned HTTP ${response.status}.`);
-    const body = await response.text();
+    const body = await readBoundedResponseText(response, maxResponseBytes);
     const payload: CachedPayload = {
       url: publicUrl,
       body,

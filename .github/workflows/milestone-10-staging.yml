@@ -149,7 +149,7 @@ jobs:
               PublicComputeRoleName="$PUBLIC_COMPUTE_ROLE_NAME" \
               PlaceEvidenceOpenAISecretArn="$OPENAI_SECRET_ARN" \
               MinimumCapacity=0.5 MaximumCapacity=1
-          for output in EvidenceDatabaseClusterArn EvidenceDatabaseSecretArn EvidenceDatabaseName EvidenceArtifactBucket; do
+          for output in EvidenceDatabaseClusterArn EvidenceDatabaseSecretArn EvidenceDatabaseAdminSecretArn EvidenceDatabaseName EvidenceArtifactBucket; do
             value=$(aws cloudformation describe-stacks --stack-name sozorock-health-evidence-staging \
               --query "Stacks[0].Outputs[?OutputKey=='$output'].OutputValue" --output text)
             echo "$output=$value" >> "$GITHUB_ENV"
@@ -211,7 +211,7 @@ jobs:
         run: |
           set -euo pipefail
           export EVIDENCE_DATABASE_CLUSTER_ARN="$EvidenceDatabaseClusterArn"
-          export EVIDENCE_DATABASE_SECRET_ARN="$EvidenceDatabaseSecretArn"
+          export EVIDENCE_DATABASE_SECRET_ARN="$EvidenceDatabaseAdminSecretArn"
           export EVIDENCE_DATABASE_NAME="$EvidenceDatabaseName"
           export EVIDENCE_ARTIFACT_BUCKET="$EvidenceArtifactBucket"
           export EVIDENCE_EXPECTED_CLUSTER_ARN="$EvidenceDatabaseClusterArn"
@@ -226,14 +226,26 @@ jobs:
           npm run seed:collaboration-control-plane --workspace @sozorock/evidence-core
           aws rds-data execute-statement \
             --resource-arn "$EvidenceDatabaseClusterArn" \
-            --secret-arn "$EvidenceDatabaseSecretArn" \
+            --secret-arn "$EvidenceDatabaseAdminSecretArn" \
             --database "$EvidenceDatabaseName" \
             --sql "INSERT INTO evidence.workspace_tenant (id, legal_name, status, created_at, created_by) VALUES ('10000000-0000-4000-8000-000000000001', 'The SozoRock Foundation, Inc. staging', 'active', now(), 'milestone-10-staging-workflow') ON CONFLICT (id) DO NOTHING"
           aws rds-data execute-statement \
             --resource-arn "$EvidenceDatabaseClusterArn" \
-            --secret-arn "$EvidenceDatabaseSecretArn" \
+            --secret-arn "$EvidenceDatabaseAdminSecretArn" \
             --database "$EvidenceDatabaseName" \
             --sql "UPDATE evidence.capability_switch SET enabled=true, reason='Milestone 10 isolated staging acceptance', updated_at=now(), updated_by='milestone-10-staging-workflow' WHERE capability_key IN ('narrative_generation','provider:openai_responses','explore:collaboration','explore:scenarios','explore:funder_snapshots','explore:source_maintenance')"
+          runtime_secret_json=$(aws secretsmanager get-secret-value \
+            --secret-id "$EvidenceDatabaseSecretArn" --query SecretString --output text)
+          runtime_password=$(jq -er '.password' <<<"$runtime_secret_json")
+          runtime_parameters=$(jq -nc --arg password "$runtime_password" \
+            '[{name:"runtime_password",value:{stringValue:$password}}]')
+          aws rds-data execute-statement \
+            --resource-arn "$EvidenceDatabaseClusterArn" \
+            --secret-arn "$EvidenceDatabaseAdminSecretArn" \
+            --database "$EvidenceDatabaseName" \
+            --sql "SELECT evidence.configure_runtime_login(:runtime_password)" \
+            --parameters "$runtime_parameters" >/dev/null
+          unset runtime_password runtime_parameters runtime_secret_json
       - name: Create isolated Amplify staging branch
         run: |
           set -euo pipefail
@@ -246,6 +258,9 @@ jobs:
           staging_url="https://${branch_slug}.${default_domain}"
           branch_env=$(aws amplify get-branch --app-id "$PUBLIC_APP_ID" --branch-name "$STAGING_BRANCH" \
             --query 'branch.environmentVariables' --output json)
+          app_env=$(aws amplify get-app --app-id "$PUBLIC_APP_ID" --query 'app.environmentVariables' --output json)
+          evidence_rate_table=$(jq -er '.EVIDENCE_RATE_LIMIT_TABLE // .CONTACT_RATE_LIMIT_TABLE // .CONTACT_SUBMISSIONS_TABLE' <<<"$app_env")
+          evidence_rate_salt_arn=$(jq -er '.EVIDENCE_RATE_LIMIT_SALT_SECRET_ARN // .CONTACT_RATE_LIMIT_SALT_SECRET_ARN' <<<"$app_env")
           merged_env=$(jq -c \
             --arg cluster "$EvidenceDatabaseClusterArn" \
             --arg secret "$EvidenceDatabaseSecretArn" \
@@ -258,12 +273,16 @@ jobs:
             --arg websocket "$WebSocketUrl" \
             --arg management "$ManagementEndpoint" \
             --arg snapshot_hash "$EVIDENCE_SNAPSHOT_CONTENT_HASH" \
+            --arg rate_table "$evidence_rate_table" \
+            --arg rate_salt "$evidence_rate_salt_arn" \
             '. + {
               EVIDENCE_DATABASE_CLUSTER_ARN:$cluster,
               EVIDENCE_DATABASE_SECRET_ARN:$secret,
               EVIDENCE_DATABASE_NAME:$database,
               EVIDENCE_ARTIFACT_BUCKET:$bucket,
               EVIDENCE_ALLOWED_HOSTS:$hosts,
+              EVIDENCE_RATE_LIMIT_TABLE:$rate_table,
+              EVIDENCE_RATE_LIMIT_SALT_SECRET_ARN:$rate_salt,
               OPENAI_PLACE_EVIDENCE_SECRET_ARN:$openai,
               OPENAI_PLACE_EVIDENCE_MODEL:"gpt-5.6-sol",
               PLACE_EVIDENCE_PROVIDER:"openai-responses",
