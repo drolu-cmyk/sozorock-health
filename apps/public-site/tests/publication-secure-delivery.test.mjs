@@ -225,6 +225,18 @@ test("SES production readiness gates publication release because verification is
   );
   assert.ok(statement);
   assert.deepEqual(statement.Action, ["ses:GetAccount", "ses:PutAccountDetails"]);
+  assert.match(deployWorkflow, /PUBLICATION_EMAIL_FROM: contact@sozorockfoundation\.org/);
+  assert.match(publicationInfrastructure, /Default: contact@sozorockfoundation\.org/);
+});
+
+test("the deployment role can recover only the governed contact stack rollback", () => {
+  const statement = deploymentPolicy.Statement.find(
+    ({ Sid }) => Sid === "ManageSozoRockHealthCloudFormation",
+  );
+  assert.ok(statement);
+  assert.ok(statement.Action.includes("cloudformation:ContinueUpdateRollback"));
+  assert.ok(statement.Resource.includes("arn:aws:cloudformation:us-east-1:791860731989:stack/sozorock-health-contact/*"));
+  assert.doesNotMatch(JSON.stringify(statement.Resource), /arn:aws:cloudformation:\*:\*:\*/);
 });
 
 test("publication infrastructure checks the configuration needed at each stage", () => {

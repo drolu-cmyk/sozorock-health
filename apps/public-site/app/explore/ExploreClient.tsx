@@ -331,7 +331,10 @@ function displaySuggestion(result: Omit<Suggestion, "display">) {
   const label = result.kind === "place"
     ? result.label.replace(/\s+(city|town|village|borough|CDP)$/i, "")
     : result.label;
-  return `${label}${state ? `, ${state}` : ""}`;
+  const alreadyIncludesState = state
+    ? new RegExp(`,\\s*${state}$`, "i").test(label)
+    : false;
+  return `${label}${state && !alreadyIncludesState ? `, ${state}` : ""}`;
 }
 
 function LocationSearch({
@@ -1313,7 +1316,7 @@ export function ExploreClient() {
               <div className={styles.placeIdentity}>
                 <span>Selected place</span>
                 <h1>{data.location.label}</h1>
-                <div><ShieldCheck size={19} aria-hidden="true" /><strong>{data.location.geographyLabel}</strong><span>{formatNumber(data.location.population)} people</span></div>
+                <div><ShieldCheck size={19} aria-hidden="true" /><strong>{data.location.geographyLabel}</strong><span>{data.location.population > 0 ? `${formatNumber(data.location.population)} people` : "Population unavailable"}</span></div>
                 {data.location.resolution.original.kind !== "county" && (
                   <p><MapPin size={18} aria-hidden="true" /> Search resolved from {data.location.resolution.original.label} to this county.</p>
                 )}

@@ -68,7 +68,7 @@ jobs:
           OPENAI_GPT_LIVE_MODEL: ${{ vars.OPENAI_GPT_LIVE_MODEL }}
           PUBLICATION_HASH_SALT: ${{ secrets.PUBLICATION_HASH_SALT }}
           SES_IDENTITY_ARN: ${{ vars.SES_IDENTITY_ARN }}
-          PUBLICATION_EMAIL_FROM: ${{ vars.PUBLICATION_EMAIL_FROM || 'publications@sozorockfoundation.org' }}
+          PUBLICATION_EMAIL_FROM: contact@sozorockfoundation.org
           PUBLIC_SITE_URL: ${{ vars.PUBLIC_SITE_URL || 'https://health.sozorockfoundation.org' }}
           ACCESS_ALLOWED_ORIGINS: ${{ vars.ACCESS_ALLOWED_ORIGINS || 'https://health.sozorockfoundation.org;https://www.health.sozorockfoundation.org' }}
         run: |

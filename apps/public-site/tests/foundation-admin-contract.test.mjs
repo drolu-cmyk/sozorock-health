@@ -86,11 +86,16 @@ test("production workflow proves admin, MFA, intake and trust recovery boundarie
   assert.match(workflow, /test "\$contact_admin_status" = '403'/);
   assert.match(workflow, /reconcile-foundation-recovery-trust\.sh bridge/);
   assert.match(workflow, /reconcile-foundation-recovery-trust\.sh repair/);
+  assert.match(workflow, /reconcile-foundation-recovery-trust\.sh repair-health-policy/);
   assert.match(workflow, /reconcile-foundation-recovery-trust\.sh restore/);
   assert.match(workflow, /if: always\(\)/);
   assert.match(trustScript, /RepairOnlyAiLabTrustForFoundationRecovery/);
   assert.match(trustScript, /repo:drolu-cmyk@271617784\/sozorock-foundation@1337104562:ref:refs\/heads\/main/);
   assert.match(trustScript, /iam:GetRole/);
   assert.match(trustScript, /iam:UpdateAssumeRolePolicy/);
+  assert.match(trustScript, /RepairOnlyHealthDeploymentPolicyForFoundationRecovery/);
+  assert.match(trustScript, /cloudformation:ContinueUpdateRollback/);
+  assert.match(trustScript, /GitHubOIDC_SozoRockHealthV2_DeployRole/);
+  assert.match(trustScript, /sozorock-health-contact/);
   assert.doesNotMatch(trustScript, /iam:\*/);
 });

@@ -7,7 +7,7 @@ Parameters:
     Default: AmplifySSRComputeRole-SozoRockHealthPublic
   PublicationEmailFrom:
     Type: String
-    Default: publications@sozorockfoundation.org
+    Default: contact@sozorockfoundation.org
   SesIdentityArn:
     Type: String
     Description: ARN of an existing verified SES domain or email identity.

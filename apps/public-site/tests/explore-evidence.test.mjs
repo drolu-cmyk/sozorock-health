@@ -186,6 +186,8 @@ test("location search loads selections immediately and supports keyboard discove
   assert.match(component, /event\.key === "ArrowRight"/);
   assert.match(component, /event\.key === "ArrowLeft"/);
   assert.match(component, /aria-activedescendant/);
+  assert.match(component, /alreadyIncludesState/);
+  assert.match(component, /Population unavailable/);
   assert.match(route, /geography-search-index\.v1\.json/);
   assert.match(route, /normalizedSearch/);
   assert.match(route, /COUNTY\|PARISH\|BOROUGH\|CENSUS AREA\|MUNICIPALITY/);
