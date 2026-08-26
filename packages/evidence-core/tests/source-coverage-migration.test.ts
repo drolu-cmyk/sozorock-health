@@ -6,6 +6,14 @@ const migration = readFileSync(
   new URL("../migrations/0015_source_coverage_product_scope.sql", import.meta.url),
   "utf8",
 );
+const foundationMigration = readFileSync(
+  new URL("../migrations/0001_national_geography_evidence_foundation.sql", import.meta.url),
+  "utf8",
+);
+const workforceMigration = readFileSync(
+  new URL("../migrations/0007_national_context_store.sql", import.meta.url),
+  "utf8",
+);
 const rollback = readFileSync(
   new URL("../migrations/rollback/0015_source_coverage_product_scope.down.sql", import.meta.url),
   "utf8",
@@ -84,6 +92,12 @@ test("national context loader persists separate HPSA product coverage with verif
   );
   assert.doesNotMatch(nationalContextLoader, /measure_family|definition_version|is_planning_metric/);
   assert.doesNotMatch(nationalContextLoader, /metric_observation[\s\S]*reviewed_by/);
+  assert.match(foundationMigration, /UNIQUE \(source_id, release_label, content_hash\)/);
+  assert.match(foundationMigration, /UNIQUE \(source_id, source_measure_id\)/);
+  assert.match(
+    workforceMigration,
+    /UNIQUE \(source_version_id, source_record_id, geography_id\)/,
+  );
 });
 
 test("legacy production bootstrap remains compatible through migration defaults without asserting verified negative HRSA coverage", () => {
