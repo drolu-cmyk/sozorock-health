@@ -7,12 +7,9 @@ import { agentRateLimitNamespace } from "./agent-rate-limit-policy";
 import { clientNetworkAddress } from "./request-security";
 
 const region = process.env.AWS_REGION ?? "us-east-1";
-const tableName = process.env.EVIDENCE_RATE_LIMIT_TABLE
-  ?? process.env.CONTACT_RATE_LIMIT_TABLE
-  ?? process.env.CONTACT_SUBMISSIONS_TABLE;
-const directSalt = process.env.EVIDENCE_RATE_LIMIT_SALT ?? process.env.CONTACT_RATE_LIMIT_SALT;
-const secretArn = process.env.EVIDENCE_RATE_LIMIT_SALT_SECRET_ARN
-  ?? process.env.CONTACT_RATE_LIMIT_SALT_SECRET_ARN;
+const tableName = process.env.EVIDENCE_RATE_LIMIT_TABLE;
+const directSalt = process.env.EVIDENCE_RATE_LIMIT_SALT;
+const secretArn = process.env.EVIDENCE_RATE_LIMIT_SALT_SECRET_ARN;
 const maximum = 120;
 const dynamo = DynamoDBDocumentClient.from(new DynamoDBClient({ region }), {
   marshallOptions: { removeUndefinedValues: true },

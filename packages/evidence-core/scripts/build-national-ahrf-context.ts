@@ -2,8 +2,12 @@ import { createHash } from "node:crypto";
 import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { unzipSync } from "fflate";
 import { csvObjects } from "../src/adapters/csv.ts";
+import {
+  assertXlsxStructureLimits,
+  extractZipArchiveBounded,
+  readBoundedResponseBytes,
+} from "../src/ingestion/bounded-response.ts";
 
 const packageRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const nationalDir = path.join(packageRoot, "data", "national");
@@ -35,7 +39,7 @@ async function officialArtifact(url: string) {
     signal: AbortSignal.timeout(180_000),
   });
   if (!response.ok) throw new Error(`AHRF artifact failed: ${response.status} ${url}`);
-  const bytes = new Uint8Array(await response.arrayBuffer());
+  const bytes = await readBoundedResponseBytes(response, 256 * 1024 * 1024);
   return {
     bytes,
     sha256: createHash("sha256").update(bytes).digest("hex"),
@@ -46,17 +50,29 @@ const [dataArtifact, documentationArtifact] = await Promise.all([
   officialArtifact(dataUrl),
   officialArtifact(documentationUrl),
 ]);
-const dataZip = unzipSync(dataArtifact.bytes);
+const dataZip = extractZipArchiveBounded(dataArtifact.bytes, "AHRF data archive", {
+  maxUncompressedBytes: 512 * 1024 * 1024,
+});
 const dataEntry = Object.keys(dataZip).find((name) => name.endsWith("/AHRF2025.csv"));
 if (!dataEntry) throw new Error("The approved AHRF archive does not contain AHRF2025.csv.");
 const csvText = new TextDecoder().decode(dataZip[dataEntry]);
 const headers = new Set(csvText.slice(0, csvText.indexOf("\n")).replace(/^\uFEFF/, "").split(","));
 
-const documentationZip = unzipSync(documentationArtifact.bytes);
+const documentationZip = extractZipArchiveBounded(documentationArtifact.bytes, "AHRF documentation archive", {
+  maxUncompressedBytes: 512 * 1024 * 1024,
+});
 const documentationEntry = Object.keys(documentationZip).find((name) =>
   name.endsWith("AHRF 2024-2025 Technical Documentation.xlsx"));
 if (!documentationEntry) throw new Error("The approved AHRF technical-documentation archive is missing its workbook.");
-const workbookZip = unzipSync(documentationZip[documentationEntry]);
+const workbookZip = extractZipArchiveBounded(
+  documentationZip[documentationEntry],
+  "AHRF technical-documentation workbook",
+);
+assertXlsxStructureLimits(workbookZip, "AHRF technical-documentation workbook", {
+  maxRows: 100_000,
+  maxColumns: 10_000,
+  maxCellCharacters: 100_000,
+});
 const sharedStrings = new TextDecoder().decode(workbookZip["xl/sharedStrings.xml"]);
 for (const variable of variableDefinitions) {
   if (!headers.has(variable.id)) throw new Error(`AHRF data file is missing approved variable ${variable.id}.`);

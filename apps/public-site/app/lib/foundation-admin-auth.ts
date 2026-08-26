@@ -22,8 +22,9 @@ const cognito = new CognitoIdentityProviderClient({
 function configuration() {
   const clientId = process.env.FOUNDATION_ADMIN_COGNITO_CLIENT_ID?.trim();
   const userPoolId = process.env.FOUNDATION_ADMIN_COGNITO_USER_POOL_ID?.trim();
-  if (!clientId || !userPoolId) throw new Error("Foundation administration is not configured");
-  return { clientId, userPoolId };
+  const tenantId = process.env.FOUNDATION_ADMIN_TENANT_ID?.trim();
+  if (!clientId || !userPoolId || !tenantId) throw new Error("Foundation administration is not configured");
+  return { clientId, userPoolId, tenantId };
 }
 
 function attributes(values: Array<{ Name?: string; Value?: string }> | undefined) {
@@ -51,6 +52,7 @@ function tokenFromRequest(request: NextRequest) {
 }
 
 async function foundationIdentity(request: NextRequest) {
+  const { tenantId: expectedTenantId } = configuration();
   const accessToken = tokenFromRequest(request);
   if (!accessToken) throw new Error("A valid Foundation administration session is required.");
   const response = await cognito.send(new GetUserCommand({ AccessToken: accessToken }));
@@ -62,7 +64,7 @@ async function foundationIdentity(request: NextRequest) {
   if (
     role !== "foundation_reviewer" ||
     (access !== "owner" && access !== "contributor") ||
-    !tenantId ||
+    tenantId !== expectedTenantId ||
     !username
   ) {
     throw new Error("Foundation reviewer access is required.");

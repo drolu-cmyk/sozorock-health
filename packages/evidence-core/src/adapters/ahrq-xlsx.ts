@@ -1,5 +1,10 @@
 import { readSheet } from "read-excel-file/node";
 import { sha256 } from "../ingestion/hash.ts";
+import {
+  assertXlsxStructureLimits,
+  extractZipArchiveBounded,
+  readBoundedResponseBytes,
+} from "../ingestion/bounded-response.ts";
 import type { AhrqTabularArtifactReader } from "./ahrq-clh.ts";
 
 export type AhrqCodebookVariable = {
@@ -16,7 +21,30 @@ export type AhrqXlsxReaderConfig = {
   codebookWorksheet?: string;
   codebookVariableColumn?: number;
   approvedVariables: AhrqCodebookVariable[];
+  maxCompressedBytes?: number;
+  maxUncompressedBytes?: number;
+  maxArchiveEntries?: number;
+  maxExpansionRatio?: number;
+  maxRows?: number;
+  maxColumns?: number;
+  maxCellCharacters?: number;
 };
+
+const DEFAULT_COMPRESSED_BYTES = 128 * 1024 * 1024;
+const DEFAULT_UNCOMPRESSED_BYTES = 768 * 1024 * 1024;
+
+function assertWorksheetLimits(rows: unknown[][], label: string, config: AhrqXlsxReaderConfig) {
+  const maxRows = config.maxRows ?? 10_000;
+  const maxColumns = config.maxColumns ?? 10_000;
+  const maxCellCharacters = config.maxCellCharacters ?? 100_000;
+  if (rows.length > maxRows) throw new Error(`${label} exceeds the approved worksheet row limit.`);
+  for (const row of rows) {
+    if (row.length > maxColumns) throw new Error(`${label} exceeds the approved worksheet column limit.`);
+    if (row.some((value) => typeof value === "string" && value.length > maxCellCharacters)) {
+      throw new Error(`${label} exceeds the approved worksheet cell limit.`);
+    }
+  }
+}
 
 function cellValue(value: unknown): string | number | null {
   if (value === null || value === undefined) return null;
@@ -45,12 +73,35 @@ export function createAhrqXlsxReader(config: AhrqXlsxReaderConfig): AhrqTabularA
     ]);
     if (!response.ok) throw new Error(`AHRQ CLH workbook request failed (${response.status}).`);
     if (!codebookResponse.ok) throw new Error(`AHRQ CLH codebook request failed (${codebookResponse.status}).`);
-    const buffer = Buffer.from(await response.arrayBuffer());
-    const codebookBuffer = Buffer.from(await codebookResponse.arrayBuffer());
+    const maxCompressedBytes = config.maxCompressedBytes ?? DEFAULT_COMPRESSED_BYTES;
+    const buffer = Buffer.from(await readBoundedResponseBytes(response, maxCompressedBytes));
+    const codebookBuffer = Buffer.from(await readBoundedResponseBytes(codebookResponse, maxCompressedBytes));
+    const archiveLimits = {
+      maxEntries: config.maxArchiveEntries,
+      maxUncompressedBytes: config.maxUncompressedBytes ?? DEFAULT_UNCOMPRESSED_BYTES,
+      maxExpansionRatio: config.maxExpansionRatio,
+    };
+    const worksheetLimits = {
+      maxRows: config.maxRows ?? 10_000,
+      maxColumns: config.maxColumns ?? 10_000,
+      maxCellCharacters: config.maxCellCharacters ?? 100_000,
+    };
+    assertXlsxStructureLimits(
+      extractZipArchiveBounded(buffer, "AHRQ CLH workbook", archiveLimits),
+      "AHRQ CLH workbook",
+      worksheetLimits,
+    );
+    assertXlsxStructureLimits(
+      extractZipArchiveBounded(codebookBuffer, "AHRQ CLH codebook", archiveLimits),
+      "AHRQ CLH codebook",
+      worksheetLimits,
+    );
     const [dataRows, codebookRows] = await Promise.all([
       readSheet(buffer, config.dataWorksheet),
       readSheet(codebookBuffer, config.codebookWorksheet ?? "County"),
     ]);
+    assertWorksheetLimits(dataRows, "AHRQ CLH workbook", config);
+    assertWorksheetLimits(codebookRows, "AHRQ CLH codebook", config);
     const codebookVariableColumn = config.codebookVariableColumn ?? 3;
     const codebookVariables = new Set<string>();
     for (const row of codebookRows.slice(1)) {

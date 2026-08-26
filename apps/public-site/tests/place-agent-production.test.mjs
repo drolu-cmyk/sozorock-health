@@ -15,6 +15,10 @@ const evidenceInfrastructure = await readFile(
   new URL("../../../infrastructure/cloudformation/evidence-core.yml", import.meta.url),
   "utf8",
 );
+const runtimeRoleMigration = await readFile(
+  new URL("../../../packages/evidence-core/migrations/0016_least_privileged_runtime.sql", import.meta.url),
+  "utf8",
+);
 const nextConfig = await readFile(new URL("../next.config.ts", import.meta.url), "utf8");
 const amplifyBuild = await readFile(
   new URL("../../../infrastructure/amplify/public-site.yml", import.meta.url),
@@ -22,6 +26,7 @@ const amplifyBuild = await readFile(
 );
 const runtimeVerifier = await readFile(new URL("../../../scripts/verify-public-runtime-security.mjs", import.meta.url), "utf8");
 const runtimeAuthority = await readFile(new URL("../app/lib/evidence-runtime-authority.ts", import.meta.url), "utf8");
+const evidenceRateLimit = await readFile(new URL("../app/lib/evidence-rate-limit.ts", import.meta.url), "utf8");
 const exploreRoute = await readFile(new URL("../app/api/explore/route.ts", import.meta.url), "utf8");
 const placeBriefRoute = await readFile(new URL("../app/api/evidence/v1/place-brief/route.ts", import.meta.url), "utf8");
 const packageLock = JSON.parse(await readFile(new URL("../../../package-lock.json", import.meta.url), "utf8"));
@@ -118,6 +123,15 @@ test("agent rate-limit namespaces cannot collide across environments", () => {
   assert.equal(agentRateLimitNamespace(""), "production");
 });
 
+test("Evidence rate limits require explicit environment-scoped configuration", () => {
+  assert.match(evidenceRateLimit, /process\.env\.EVIDENCE_RATE_LIMIT_TABLE/);
+  assert.match(evidenceRateLimit, /process\.env\.EVIDENCE_RATE_LIMIT_SALT_SECRET_ARN/);
+  assert.doesNotMatch(evidenceRateLimit, /CONTACT_RATE_LIMIT|CONTACT_SUBMISSIONS/);
+  assert.match(workflow, /EVIDENCE_RATE_LIMIT_TABLE:\$rate_table/);
+  assert.match(workflow, /EVIDENCE_RATE_LIMIT_SALT_SECRET_ARN:\$rate_salt/);
+  assert.match(stagingWorkflow, /EVIDENCE_RATE_LIMIT_TABLE:\$rate_table/);
+});
+
 test("production activates the approved Foundation workspace tenant idempotently", () => {
   assert.match(workflow, /INSERT INTO evidence\.workspace_tenant/);
   assert.match(workflow, /The SozoRock Foundation, Inc\./);
@@ -140,6 +154,23 @@ test("public collaboration runtime has cluster-scoped transactional Data API acc
   assert.match(evidenceInfrastructure, /rds-data:RollbackTransaction/);
   assert.match(evidenceInfrastructure, /Resource:\s*!GetAtt EvidenceDatabaseCluster\.DBClusterArn/);
   assert.doesNotMatch(evidenceInfrastructure, /Resource:\s*["']?\*["']?/);
+});
+
+test("public Evidence runtime uses a dedicated least-privileged database login", () => {
+  assert.match(evidenceInfrastructure, /EvidenceRuntimeSecret:/);
+  assert.match(evidenceInfrastructure, /username.*evidence_runtime_login/);
+  assert.match(evidenceInfrastructure, /Resource:\s*!Ref EvidenceRuntimeSecret/);
+  assert.doesNotMatch(
+    evidenceInfrastructure.match(/EvidenceRuntimePolicy:[\s\S]*?DatabaseEvents:/)?.[0] ?? "",
+    /MasterUserSecret/,
+  );
+  assert.match(runtimeRoleMigration, /CREATE ROLE evidence_runtime NOLOGIN/);
+  assert.match(runtimeRoleMigration, /NOSUPERUSER NOCREATEDB NOCREATEROLE/);
+  assert.match(runtimeRoleMigration, /NOBYPASSRLS/);
+  assert.doesNotMatch(runtimeRoleMigration, /GRANT ALL|SELECT ON ALL TABLES/);
+  assert.match(workflow, /EVIDENCE_DATABASE_ADMIN_SECRET_ARN|admin_secret_arn/);
+  assert.match(workflow, /configure_runtime_login/);
+  assert.match(workflow, /rolsuper, rolcreatedb, rolcreaterole, rolbypassrls/);
 });
 
 test("public runtime removes optional Sharp while preserving upstream lock metadata", () => {

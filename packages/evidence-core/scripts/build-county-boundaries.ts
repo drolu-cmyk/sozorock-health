@@ -4,6 +4,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { gunzipSync } from "node:zlib";
 import type { NationalGeographyCatalog } from "../src/national/geography.ts";
+import { readBoundedResponseBytes } from "../src/ingestion/bounded-response.ts";
 
 const packageRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const nationalDir = path.join(packageRoot, "data", "national");
@@ -38,7 +39,7 @@ for (const state of stateFips) {
     signal: AbortSignal.timeout(120_000),
   });
   if (!response.ok) throw new Error(`County boundary request failed for state ${state}: ${response.status}`);
-  const bytes = new Uint8Array(await response.arrayBuffer());
+  const bytes = await readBoundedResponseBytes(response, 64 * 1024 * 1024);
   const collection = JSON.parse(new TextDecoder().decode(bytes)) as { features?: GeoJsonFeature[] };
   const stateFeatures = collection.features ?? [];
   features.push(...stateFeatures);

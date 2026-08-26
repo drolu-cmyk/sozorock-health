@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireWorkspaceActor } from "../../../../lib/explore-workspace-auth";
+import { requireFoundationReviewer } from "../../../../lib/foundation-admin-auth";
+import { csvCell } from "../../../../lib/csv";
 import { getPublicationIntelligence } from "../../../../lib/publication-reporting";
 import { getPublication } from "../../../../lib/publications";
 
@@ -13,11 +14,6 @@ function protectedJson(body: unknown, status = 200) {
       "Referrer-Policy": "no-referrer",
     },
   });
-}
-
-function csvCell(value: unknown) {
-  const text = Array.isArray(value) ? value.join("|") : String(value ?? "");
-  return `"${text.replace(/"/g, '""')}"`;
 }
 
 function csvExport(requests: Array<Record<string, unknown>>) {
@@ -39,10 +35,7 @@ export async function GET(
   { params }: { params: Promise<{ slug: string }> },
 ) {
   try {
-    const actor = await requireWorkspaceActor(request);
-    if (actor.role !== "foundation_reviewer") {
-      return protectedJson({ error: "Foundation reviewer access is required." }, 403);
-    }
+    await requireFoundationReviewer(request);
     const slug = (await params).slug;
     const publication = getPublication(slug);
     if (!publication) return protectedJson({ error: "Publication not found." }, 404);

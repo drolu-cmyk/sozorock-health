@@ -120,7 +120,15 @@ await mkdir(outputDir, { recursive: true });
 await Promise.all([
   writeFile(path.join(outputDir, "national-geography.v2025.json.gz"), gzipSync(JSON.stringify(catalog), { level: 9 })),
   writeFile(path.join(outputDir, "county-index.v2025.json"), `${JSON.stringify({ schemaVersion: "sozorock.county-index.v1", generatedAt, counties }, null, 2)}\n`),
-  writeFile(path.join(outputDir, "national-geography-coverage.v2025.json"), `${JSON.stringify({ ...validation, jurisdictions: catalog.jurisdictions }, null, 2)}\n`),
+  writeFile(
+    path.join(outputDir, "national-geography-coverage.v2025.json"),
+    `${JSON.stringify({
+      schemaVersion: "sozorock.national-geography-coverage.v1",
+      generatedAt,
+      ...validation,
+      jurisdictions: catalog.jurisdictions,
+    }, null, 2)}\n`,
+  ),
   writeFile(path.join(outputDir, "national-geography-coverage.v2025.md"), humanReport),
   writeFile(path.join(outputDir, "import-manifest.v2025.json"), `${JSON.stringify(sourceManifest, null, 2)}\n`),
 ]);

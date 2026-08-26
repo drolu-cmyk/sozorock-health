@@ -12,8 +12,25 @@ jobs:
   verify:
     runs-on: ubuntu-latest
     timeout-minutes: 25
+    services:
+      postgres:
+        image: postgis/postgis:17-3.5
+        env:
+          POSTGRES_DB: evidence_test
+          POSTGRES_USER: evidence
+          POSTGRES_PASSWORD: evidence_test_only
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U evidence -d evidence_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
     env:
       NEXT_TELEMETRY_DISABLED: "1"
+      EVIDENCE_DATABASE_URL: postgresql://evidence:evidence_test_only@localhost:5432/evidence_test
+      EVIDENCE_DATABASE_SSL: disable
+      EVIDENCE_MIGRATION_TEST_DISPOSABLE: "true"
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
@@ -93,6 +110,7 @@ jobs:
       - run: npm run typecheck
       - run: npm run lint
       - run: npm test
+      - run: npm run test:migrations --workspace @sozorock/evidence-core
       - name: Reject publicly served publication PDFs
         run: |
           if find apps/public-site/public/publications -type f -name '*.pdf' -print -quit | grep -q .; then

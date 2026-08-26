@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireFoundationReviewer } from "../../../../lib/foundation-admin-auth";
+import { csvCell } from "../../../../lib/csv";
 import { getPublicationIntelligence } from "../../../../lib/publication-reporting";
 import { getPublication } from "../../../../lib/publications";
 
@@ -14,11 +15,6 @@ function protectedJson(body: unknown, status = 200) {
       "X-Content-Type-Options": "nosniff",
     },
   });
-}
-
-function csvCell(value: unknown) {
-  const text = Array.isArray(value) ? value.join("|") : String(value ?? "");
-  return `"${text.replace(/"/g, '""')}"`;
 }
 
 function csvExport(requests: Array<Record<string, unknown>>) {

@@ -2,8 +2,13 @@ import { createHash } from "node:crypto";
 import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { strFromU8, unzipSync } from "fflate";
+import { strFromU8 } from "fflate";
 import { readSheet } from "read-excel-file/node";
+import {
+  assertXlsxStructureLimits,
+  extractZipArchiveBounded,
+  readBoundedResponseBytes,
+} from "../src/ingestion/bounded-response.ts";
 
 const packageRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const nationalDir = path.join(packageRoot, "data", "national");
@@ -75,7 +80,7 @@ async function downloadXlsx(url: string) {
   });
   if (!response.ok) throw new Error(`AHRQ download failed for ${url}: HTTP ${response.status}.`);
   const contentType = response.headers.get("content-type") ?? "";
-  const bytes = new Uint8Array(await response.arrayBuffer());
+  const bytes = await readBoundedResponseBytes(response, 128 * 1024 * 1024);
   if (
     !contentType.includes("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
     || bytes[0] !== 0x50 || bytes[1] !== 0x4b
@@ -132,6 +137,11 @@ const [codebookBytes, dataBytes] = await Promise.all([
   downloadXlsx(codebookUrl),
   downloadXlsx(countyDataUrl),
 ]);
+const xlsxLimits = { maxRows: 10_000, maxColumns: 10_000, maxCellCharacters: 100_000 };
+const codebookEntries = extractZipArchiveBounded(codebookBytes, "AHRQ codebook");
+assertXlsxStructureLimits(codebookEntries, "AHRQ codebook", xlsxLimits);
+const dataEntries = extractZipArchiveBounded(dataBytes, "AHRQ county workbook");
+assertXlsxStructureLimits(dataEntries, "AHRQ county workbook", xlsxLimits);
 const codebookRows = await readSheet(Buffer.from(codebookBytes), "County");
 const [codebookHeaders, ...codebookValues] = codebookRows;
 const codebookIndex = new Map(codebookHeaders.map((header, index) => [String(header), index]));
@@ -159,9 +169,8 @@ const approvedVariables = selectedVariables.map((selected) => {
   };
 });
 
-const entries = unzipSync(dataBytes);
-const sharedStrings = sharedStringsFromWorkbook(entries);
-const worksheet = strFromU8(entries["xl/worksheets/sheet2.xml"]);
+const sharedStrings = sharedStringsFromWorkbook(dataEntries);
+const worksheet = strFromU8(dataEntries["xl/worksheets/sheet2.xml"]);
 const rowMatches = worksheet.matchAll(/<row\b[^>]*>([\s\S]*?)<\/row>/g);
 const firstRow = rowMatches.next();
 if (firstRow.done) throw new Error("AHRQ county data worksheet contains no rows.");

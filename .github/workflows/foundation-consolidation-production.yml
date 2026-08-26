@@ -154,14 +154,16 @@ jobs:
           merged_app_env="$(jq -c \
             --arg pool "$FOUNDATION_ADMIN_COGNITO_USER_POOL_ID" \
             --arg client "$FOUNDATION_ADMIN_COGNITO_CLIENT_ID" \
-            '. + {FOUNDATION_ADMIN_COGNITO_USER_POOL_ID:$pool,FOUNDATION_ADMIN_COGNITO_CLIENT_ID:$client}' <<<"$app_env")"
+            --arg tenant "$FOUNDATION_TENANT_ID" \
+            '. + {FOUNDATION_ADMIN_COGNITO_USER_POOL_ID:$pool,FOUNDATION_ADMIN_COGNITO_CLIENT_ID:$client,FOUNDATION_ADMIN_TENANT_ID:$tenant}' <<<"$app_env")"
           aws amplify update-app --app-id "$PUBLIC_APP_ID" --compute-role-arn "$PUBLIC_COMPUTE_ROLE_ARN" --environment-variables "$merged_app_env" >/dev/null
 
           branch_env="$(aws amplify get-branch --app-id "$PUBLIC_APP_ID" --branch-name "$AMPLIFY_BRANCH" --query 'branch.environmentVariables' --output json)"
           merged_branch_env="$(jq -c \
             --arg pool "$FOUNDATION_ADMIN_COGNITO_USER_POOL_ID" \
             --arg client "$FOUNDATION_ADMIN_COGNITO_CLIENT_ID" \
-            '. + {FOUNDATION_ADMIN_COGNITO_USER_POOL_ID:$pool,FOUNDATION_ADMIN_COGNITO_CLIENT_ID:$client}' <<<"$branch_env")"
+            --arg tenant "$FOUNDATION_TENANT_ID" \
+            '. + {FOUNDATION_ADMIN_COGNITO_USER_POOL_ID:$pool,FOUNDATION_ADMIN_COGNITO_CLIENT_ID:$client,FOUNDATION_ADMIN_TENANT_ID:$tenant}' <<<"$branch_env")"
           aws amplify update-branch --app-id "$PUBLIC_APP_ID" --branch-name "$AMPLIFY_BRANCH" --environment-variables "$merged_branch_env" >/dev/null
 
           create_error="$(mktemp)"

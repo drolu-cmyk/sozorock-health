@@ -21,6 +21,8 @@ test("Foundation admin authentication uses secure cookies and mandatory software
   assert.match(auth, /__Host-srh_foundation_admin/);
   assert.match(auth, /role !== "foundation_reviewer"/);
   assert.match(auth, /access !== "owner" && access !== "contributor"/);
+  assert.match(auth, /tenantId !== expectedTenantId/);
+  assert.match(auth, /FOUNDATION_ADMIN_TENANT_ID/);
   assert.match(auth, /Foundation reviewer MFA is required/);
   assert.match(auth, /AssociateSoftwareTokenCommand/);
   assert.match(auth, /VerifySoftwareTokenCommand/);
@@ -39,11 +41,13 @@ test("Foundation admin authentication uses secure cookies and mandatory software
 test("reviewer APIs require MFA-backed Foundation reviewer authorization", async () => {
   const contacts = await read("app/api/admin/contacts/route.ts");
   const publications = await read("app/api/admin/publications/[slug]/route.ts");
-  for (const source of [contacts, publications]) {
+  const legacyPublications = await read("app/api/publications/intelligence/[slug]/route.ts");
+  for (const source of [contacts, publications, legacyPublications]) {
     assert.match(source, /requireFoundationReviewer\(request\)/);
     assert.match(source, /Cache-Control": "private, no-store/);
     assert.match(source, /Referrer-Policy": "no-referrer/);
   }
+  assert.doesNotMatch(legacyPublications, /requireWorkspaceActor/);
   assert.match(contacts, /ContactIntelligence/);
   assert.ok(contacts.includes('endsWith("@simulator.amazonses.com")'));
 });
