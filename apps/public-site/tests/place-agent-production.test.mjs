@@ -93,6 +93,8 @@ test("Explore-only release workflow cannot deploy CB-CAP", () => {
   assert.match(workflow, /aws amplify update-app[\s\S]*--build-spec "\$public_build_spec"/);
   assert.match(workflow, /aws amplify update-branch[\s\S]*--branch-name "\$AMPLIFY_BRANCH"[\s\S]*--build-spec "\$public_build_spec"/);
   assert.match(workflow, /expected_build_spec_hash/);
+  assert.match(workflow, /cloudformation describe-stack-events/);
+  assert.match(workflow, /ResourceStatusReason/);
 });
 
 test("production Explore requests are tied to persisted canonical geography and approved snapshots", () => {

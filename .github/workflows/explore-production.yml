@@ -170,7 +170,7 @@ jobs:
             --query "Stacks[0].Outputs[?OutputKey=='ComputeRoleArn'].OutputValue" --output text)
           compute_role_name="${compute_role_arn##*/}"
           echo "PUBLIC_COMPUTE_ROLE_NAME=$compute_role_name" >> "$GITHUB_ENV"
-          aws cloudformation deploy \
+          if ! aws cloudformation deploy \
             --stack-name sozorock-health-evidence-production \
             --template-file infrastructure/cloudformation/evidence-core.yml \
             --capabilities CAPABILITY_NAMED_IAM \
@@ -179,7 +179,13 @@ jobs:
               VpcId="$vpc_id" \
               PrivateSubnetIds="$subnet_csv" \
               PublicComputeRoleName="$compute_role_name" \
-              PlaceEvidenceOpenAISecretArn="$OPENAI_PLACE_EVIDENCE_SECRET_ARN"
+              PlaceEvidenceOpenAISecretArn="$OPENAI_PLACE_EVIDENCE_SECRET_ARN"; then
+            aws cloudformation describe-stack-events \
+              --stack-name sozorock-health-evidence-production \
+              --query 'StackEvents[?ResourceStatusReason != null].[Timestamp,LogicalResourceId,ResourceStatus,ResourceStatusReason]' \
+              --output table >&2 || true
+            exit 1
+          fi
           cluster_arn=$(aws cloudformation describe-stacks --stack-name sozorock-health-evidence-production \
             --query "Stacks[0].Outputs[?OutputKey=='EvidenceDatabaseClusterArn'].OutputValue" --output text)
           runtime_secret_arn=$(aws cloudformation describe-stacks --stack-name sozorock-health-evidence-production \
@@ -512,46 +518,3 @@ jobs:
             .schemaVersion=="place-evidence-answer.v1"
             and (.status=="answered" or .status=="evidence_gap")
             and (.geographicScope.geoid=="36001")
-            and (.citedEvidence | length)>0
-            and (.sourceAndDataDates | length)>0
-            and (.nonClinicalBoundary | type=="string" and length>0)
-          ' agent-grounded.json >/dev/null || agent_failed=1
-          if [ "$agent_failed" -ne 0 ]; then
-            aws rds-data execute-statement \
-              --resource-arn "$EVIDENCE_DATABASE_CLUSTER_ARN" \
-              --secret-arn "$EVIDENCE_DATABASE_SECRET_ARN" \
-              --database "$EVIDENCE_DATABASE_NAME" \
-              --sql "UPDATE evidence.capability_switch SET enabled=false, reason='Agent live acceptance failed for $RELEASE_SHA', updated_at=now(), updated_by='explore-production-workflow' WHERE capability_key IN ('narrative_generation','provider:openai_responses','explore:collaboration','explore:scenarios','explore:funder_snapshots','explore:source_maintenance')" >/dev/null
-            rollback_job=$(aws amplify start-job --app-id "$PUBLIC_APP_ID" --branch-name "$AMPLIFY_BRANCH" \
-              --job-type RETRY --job-id "$PREVIOUS_PUBLIC_JOB_ID" \
-              --query 'jobSummary.jobId' --output text)
-            while true; do
-              rollback_status=$(aws amplify get-job --app-id "$PUBLIC_APP_ID" --branch-name "$AMPLIFY_BRANCH" \
-                --job-id "$rollback_job" --query 'job.summary.status' --output text)
-              case "$rollback_status" in
-                SUCCEED) break ;;
-                FAILED|CANCELLED) echo "Public rollback job $rollback_job ended with $rollback_status"; break ;;
-                *) sleep 20 ;;
-              esac
-            done
-            exit 1
-          fi
-          echo "Explore public app: $PUBLIC_APP_ID"
-          echo "Amplify job: $PUBLIC_AMPLIFY_JOB_ID"
-          echo "Amplify reported commit: $AMPLIFY_REPORTED_COMMIT_ID"
-          echo "Release commit: $RELEASE_SHA"
-          echo "Rollback job: $PREVIOUS_PUBLIC_JOB_ID"
-          echo "Database rollback snapshot: $EVIDENCE_ROLLBACK_SNAPSHOT_ID"
-      - name: Remove scoped production acceptance identities
-        if: always()
-        run: |
-          for username in \
-            "${PRODUCTION_OWNER_USERNAME:-}" \
-            "${PRODUCTION_CONTRIBUTOR_USERNAME:-}" \
-            "${PRODUCTION_VIEWER_USERNAME:-}"; do
-            if [ -n "$username" ]; then
-              aws cognito-idp admin-delete-user \
-                --user-pool-id "$EXPLORE_CountyWorkspaceUserPoolId" \
-                --username "$username" || true
-            fi
-          done

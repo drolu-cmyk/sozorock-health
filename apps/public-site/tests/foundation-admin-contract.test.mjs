@@ -88,6 +88,9 @@ test("production workflow proves admin, MFA, intake and trust recovery boundarie
   assert.match(workflow, /reconcile-foundation-recovery-trust\.sh repair/);
   assert.match(workflow, /reconcile-foundation-recovery-trust\.sh repair-health-policy/);
   assert.match(workflow, /reconcile-foundation-recovery-trust\.sh restore/);
+  assert.doesNotMatch(workflow, /stack-update-rollback-complete/);
+  assert.match(workflow, /contact_stack_status.*UPDATE_ROLLBACK_COMPLETE/s);
+  assert.match(workflow, /contact_stack_status.*UPDATE_ROLLBACK_FAILED.*exit 1/s);
   assert.match(workflow, /if: always\(\)/);
   assert.match(trustScript, /RepairOnlyAiLabTrustForFoundationRecovery/);
   assert.match(trustScript, /repo:drolu-cmyk@271617784\/sozorock-foundation@1337104562:ref:refs\/heads\/main/);
