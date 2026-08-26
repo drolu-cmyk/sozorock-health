@@ -8,7 +8,6 @@ helper_role="cbcap-agentic-github-deploy"
 helper_policy="CbcapAgenticRelease"
 ai_lab_role="GitHubActionsSozorockAiLabDeployRole"
 health_agentic_subject="repo:drolu-cmyk/sozorock-health-agentic:environment:production"
-health_subject="repo:drolu-cmyk/sozorock-health:environment:production"
 foundation_subject="repo:drolu-cmyk/sozorock-foundation:ref:refs/heads/main"
 ai_lab_environment_subject="repo:drolu-cmyk/sozorock-ai-lab:environment:production"
 ai_lab_main_subject="repo:drolu-cmyk/sozorock-ai-lab:ref:refs/heads/main"
@@ -19,6 +18,8 @@ require_account() {
 
 bridge() {
   test -n "$backup_dir"
+  health_role_arn="${FOUNDATION_HEALTH_ROLE_ARN:-}"
+  [[ "$health_role_arn" =~ ^arn:aws:iam::${account_id}:role/[A-Za-z0-9+=,.@_/-]+$ ]]
   mkdir -p "$backup_dir"
   require_account
 
@@ -29,15 +30,23 @@ bridge() {
 
   original_subject="$(jq -r '.Statement[] | select(.Action == "sts:AssumeRoleWithWebIdentity") | .Condition.StringEquals["token.actions.githubusercontent.com:sub"]' "$backup_dir/helper-trust.json")"
   test "$original_subject" = "$health_agentic_subject"
+  if jq -e '.Statement[]? | select(.Sid == "FoundationRecoveryRoleChaining")' "$backup_dir/helper-trust.json" >/dev/null; then
+    echo 'Temporary Foundation recovery trust already exists; refusing ambiguous bridge state.' >&2
+    exit 1
+  fi
   if jq -e '.Statement[]? | select(.Sid == "RepairOnlyAiLabTrustForFoundationRecovery")' "$backup_dir/helper-policy.json" >/dev/null; then
     echo 'Temporary Foundation recovery permission already exists; refusing ambiguous bridge state.' >&2
     exit 1
   fi
 
   jq \
-    --arg original "$health_agentic_subject" \
-    --arg temporary "$health_subject" \
-    '(.Statement[] | select(.Action == "sts:AssumeRoleWithWebIdentity") | .Condition.StringEquals["token.actions.githubusercontent.com:sub"]) = [$original, $temporary]' \
+    --arg principal "$health_role_arn" \
+    '.Statement += [{
+      "Sid":"FoundationRecoveryRoleChaining",
+      "Effect":"Allow",
+      "Principal":{"AWS":$principal},
+      "Action":"sts:AssumeRole"
+    }]' \
     "$backup_dir/helper-trust.json" > "$backup_dir/helper-trust-temporary.json"
 
   jq \
@@ -54,9 +63,13 @@ bridge() {
   aws iam put-role-policy --role-name "$helper_role" --policy-name "$helper_policy" --policy-document "file://$backup_dir/helper-policy-temporary.json"
 
   current_trust="$(aws iam get-role --role-name "$helper_role" --query 'Role.AssumeRolePolicyDocument' --output json)"
-  jq -e --arg first "$health_agentic_subject" --arg second "$health_subject" '
-    ([.Statement[] | select(.Action == "sts:AssumeRoleWithWebIdentity") | .Condition.StringEquals["token.actions.githubusercontent.com:sub"][]] | sort)
-    == ([$first, $second] | sort)
+  jq -e --arg original "$health_agentic_subject" --arg principal "$health_role_arn" '
+    (.Statement[] | select(.Action == "sts:AssumeRoleWithWebIdentity") | .Condition.StringEquals["token.actions.githubusercontent.com:sub"]) == $original and
+    any(.Statement[];
+      .Sid == "FoundationRecoveryRoleChaining" and
+      .Effect == "Allow" and
+      .Principal.AWS == $principal and
+      .Action == "sts:AssumeRole")
   ' <<<"$current_trust" >/dev/null
   current_policy="$(aws iam get-role-policy --role-name "$helper_role" --policy-name "$helper_policy" --query 'PolicyDocument' --output json)"
   jq -e --arg resource "arn:aws:iam::${account_id}:role/${ai_lab_role}" '
@@ -103,6 +116,10 @@ restore() {
   restored_trust="$(aws iam get-role --role-name "$helper_role" --query 'Role.AssumeRolePolicyDocument' --output json)"
   restored_subject="$(jq -r '.Statement[] | select(.Action == "sts:AssumeRoleWithWebIdentity") | .Condition.StringEquals["token.actions.githubusercontent.com:sub"]' <<<"$restored_trust")"
   test "$restored_subject" = "$health_agentic_subject"
+  if jq -e '.Statement[]? | select(.Sid == "FoundationRecoveryRoleChaining")' <<<"$restored_trust" >/dev/null; then
+    echo 'Temporary Foundation recovery role-chain trust remained after cleanup.' >&2
+    exit 1
+  fi
   restored_policy="$(aws iam get-role-policy --role-name "$helper_role" --policy-name "$helper_policy" --query 'PolicyDocument' --output json)"
   if jq -e '.Statement[]? | select(.Sid == "RepairOnlyAiLabTrustForFoundationRecovery")' <<<"$restored_policy" >/dev/null; then
     echo 'Temporary Foundation recovery permission remained after cleanup.' >&2
