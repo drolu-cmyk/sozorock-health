@@ -60,6 +60,7 @@ jobs:
       PUBLIC_SITE_URL: ${{ vars.PUBLIC_SITE_URL || 'https://health.sozorockfoundation.org' }}
       FOUNDATION_ADMIN_EMAIL: ${{ vars.FOUNDATION_ADMIN_EMAIL || 'contact@sozorockfoundation.org' }}
       FOUNDATION_TENANT_ID: '10000000-0000-4000-8000-000000000001'
+      FOUNDATION_HEALTH_ROLE_ARN: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
       RECOVERY_HELPER_ROLE_ARN: arn:aws:iam::791860731989:role/cbcap-agentic-github-deploy
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -94,7 +95,7 @@ jobs:
           role-to-assume: ${{ env.RECOVERY_HELPER_ROLE_ARN }}
           role-session-name: FoundationTrustRepair-${{ github.run_id }}
           aws-region: ${{ env.AWS_REGION }}
-          unset-current-credentials: true
+          role-chaining: true
       - name: Reconcile exact AI Lab OIDC trust
         shell: bash
         run: |
