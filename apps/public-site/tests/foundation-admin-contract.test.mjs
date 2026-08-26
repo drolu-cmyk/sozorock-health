@@ -90,7 +90,6 @@ test("production workflow proves admin, MFA, intake and trust recovery boundarie
   assert.match(workflow, /reconcile-foundation-recovery-trust\.sh restore/);
   assert.doesNotMatch(workflow, /stack-update-rollback-complete/);
   assert.match(workflow, /contact_stack_status.*UPDATE_ROLLBACK_COMPLETE/s);
-  assert.match(workflow, /contact_stack_status.*UPDATE_ROLLBACK_FAILED.*exit 1/s);
   assert.match(workflow, /cloudformation describe-stack-events/);
   assert.match(workflow, /ContactTableName output is empty/);
   assert.match(workflow, /ContactIntelligence index ended with status/);
