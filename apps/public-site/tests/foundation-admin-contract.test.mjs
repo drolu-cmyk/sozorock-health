@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
@@ -106,4 +107,41 @@ test("production workflow proves admin, MFA, intake and trust recovery boundarie
   assert.match(trustScript, /GitHubOIDC_SozoRockHealthV2_DeployRole/);
   assert.match(trustScript, /sozorock-health-contact/);
   assert.doesNotMatch(trustScript, /iam:\*/);
+});
+
+test("Foundation recovery policy transform is executable and preserves unrelated statements", async () => {
+  const filterPath = new URL("../../scripts/patch-health-production-policy.jq", root);
+  const stackResource = "arn:aws:cloudformation:us-east-1:791860731989:stack/sozorock-health-contact/*";
+  const evidenceSecret = {
+    Sid: "ManageEvidenceDatabaseSecret",
+    Effect: "Allow",
+    Action: ["secretsmanager:CreateSecret", "secretsmanager:DescribeSecret"],
+    Resource: "arn:aws:secretsmanager:us-east-1:791860731989:secret:sozorock-evidence-runtime-*",
+  };
+  const current = {
+    Version: "2012-10-17",
+    Statement: [
+      { Sid: "ContactStack", Effect: "Allow", Action: "cloudformation:UpdateStack", Resource: stackResource },
+      { Sid: "UnrelatedPermission", Effect: "Allow", Action: "s3:GetObject", Resource: "arn:aws:s3:::example/*" },
+      { Sid: "ManageEvidenceDatabaseSecret", Effect: "Deny", Action: "secretsmanager:CreateSecret", Resource: "*" },
+    ],
+  };
+
+  const output = execFileSync("jq", [
+    "--arg", "resource", stackResource,
+    "--arg", "action", "cloudformation:ContinueUpdateRollback",
+    "--argjson", "evidence_secret", JSON.stringify(evidenceSecret),
+    "-f", filterPath.pathname,
+  ], { input: JSON.stringify(current), encoding: "utf8" });
+  const patched = JSON.parse(output);
+
+  assert.ok(patched.Statement.find((statement) => statement.Sid === "UnrelatedPermission"));
+  assert.deepEqual(
+    patched.Statement.find((statement) => statement.Sid === "ContactStack").Action,
+    ["cloudformation:ContinueUpdateRollback", "cloudformation:UpdateStack"],
+  );
+  assert.deepEqual(
+    patched.Statement.filter((statement) => statement.Sid === "ManageEvidenceDatabaseSecret"),
+    [evidenceSecret],
+  );
 });
