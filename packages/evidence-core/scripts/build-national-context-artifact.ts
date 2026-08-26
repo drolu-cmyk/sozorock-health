@@ -34,13 +34,11 @@ function staleAfter(retrievedAt: string, days: number) {
 }
 
 function designationSourceScope(designation: any) {
-  if (designation.wholeCounty) return "whole_county";
   const designationType = String(designation.designationType ?? "").toLowerCase();
   const componentType = String(designation.componentType ?? "").toLowerCase();
-  if (
-    designation.populationType
-    || designationType.includes("population")
-  ) return "population_group";
+  const isGeographicDesignation = designationType.includes("geographic hpsa")
+    || designationType.includes("medically underserved area");
+  if (designation.wholeCounty && isGeographicDesignation) return "whole_county";
   if (
     designationType.includes("facility")
     || designationType.includes("health center")
@@ -48,6 +46,10 @@ function designationSourceScope(designation: any) {
     || designationType.includes("hospital")
     || designationType.includes("indian health service")
   ) return "facility";
+  if (
+    designationType.includes("hpsa population")
+    || designationType.includes("medically underserved population")
+  ) return "population_group";
   if (componentType === "census tract" || componentType === "county subdivision") {
     return "subcounty";
   }
