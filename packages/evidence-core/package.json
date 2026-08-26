@@ -23,6 +23,7 @@
     "build:national-hrsa-context": "node --experimental-strip-types scripts/build-national-hrsa-context.ts",
     "build:national-ahrf-context": "node --experimental-strip-types scripts/build-national-ahrf-context.ts",
     "build:national-ahrq-context": "node --experimental-strip-types scripts/build-national-ahrq-context.ts",
+    "build:national-context-artifact": "node --experimental-strip-types scripts/build-national-context-artifact.ts",
     "build:national-coverage": "node --experimental-strip-types scripts/build-national-coverage.ts",
     "test:migrations": "node --experimental-strip-types scripts/test-migrations.ts",
     "migrate:data-api": "node --experimental-strip-types scripts/migrate-data-api.ts",
