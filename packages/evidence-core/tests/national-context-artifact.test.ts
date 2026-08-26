@@ -21,9 +21,15 @@ test("production national context is deterministic, source-governed, and county 
 
   const designations = first.counties.flatMap((county) => [...county.hpsa, ...county.muaP]);
   assert.ok(designations.every((designation) => designation.discipline));
+  assert.ok(designations.every((designation) =>
+    designation.sourceScope !== "whole_county"
+    || /geographic hpsa|medically underserved area/i.test(designation.designationType)));
+  assert.ok(designations.every((designation) =>
+    !/medically underserved area/i.test(designation.designationType)
+    || designation.sourceScope !== "population_group"));
   assert.deepEqual(
     [...new Set(designations.map((designation) => designation.sourceScope))].sort(),
-    ["facility", "population_group", "subcounty", "whole_county"],
+    ["facility", "other", "population_group", "subcounty", "whole_county"],
   );
 
   const albany = first.counties.find((county) => county.fips === "36001");
