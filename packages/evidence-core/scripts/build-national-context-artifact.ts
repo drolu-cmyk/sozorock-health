@@ -27,6 +27,33 @@ function isoDate(value: unknown) {
   return match ? `${match[3]}-${match[1]}-${match[2]}` : value;
 }
 
+function staleAfter(retrievedAt: string, days: number) {
+  const value = new Date(retrievedAt);
+  value.setUTCDate(value.getUTCDate() + days);
+  return value.toISOString();
+}
+
+function designationSourceScope(designation: any) {
+  if (designation.wholeCounty) return "whole_county";
+  const designationType = String(designation.designationType ?? "").toLowerCase();
+  const componentType = String(designation.componentType ?? "").toLowerCase();
+  if (
+    designation.populationType
+    || designationType.includes("population")
+  ) return "population_group";
+  if (
+    designationType.includes("facility")
+    || designationType.includes("health center")
+    || designationType.includes("clinic")
+    || designationType.includes("hospital")
+    || designationType.includes("indian health service")
+  ) return "facility";
+  if (componentType === "census tract" || componentType === "county subdivision") {
+    return "subcounty";
+  }
+  return "other";
+}
+
 function measure(input: {
   sourceId: string;
   sourceMeasureId: string;
@@ -109,7 +136,7 @@ export async function buildNationalContextArtifact() {
       dataPeriodStart: acs.source.dataPeriod.start,
       dataPeriodEnd: acs.source.dataPeriod.end,
       retrievedAt: acs.source.retrievedAt,
-      staleAfter: null,
+      staleAfter: staleAfter(acs.source.retrievedAt, 430),
       contentHash: acsFile.contentHash,
       schemaVersion: acs.schemaVersion,
       reviewStatus: "verified",
@@ -123,7 +150,7 @@ export async function buildNationalContextArtifact() {
       dataPeriodStart: null,
       dataPeriodEnd: null,
       retrievedAt: hrsa.generatedAt,
-      staleAfter: null,
+      staleAfter: staleAfter(hrsa.generatedAt, 3),
       contentHash: hrsaFile.contentHash,
       schemaVersion: hrsa.schemaVersion,
       reviewStatus: "verified",
@@ -137,7 +164,7 @@ export async function buildNationalContextArtifact() {
       dataPeriodStart: "2023-01-01",
       dataPeriodEnd: "2024-12-31",
       retrievedAt: ahrf.generatedAt,
-      staleAfter: null,
+      staleAfter: staleAfter(ahrf.generatedAt, 430),
       contentHash: ahrfFile.contentHash,
       schemaVersion: ahrf.schemaVersion,
       reviewStatus: "verified",
@@ -151,7 +178,7 @@ export async function buildNationalContextArtifact() {
       dataPeriodStart: "2023-01-01",
       dataPeriodEnd: "2023-12-31",
       retrievedAt: ahrq.generatedAt,
-      staleAfter: null,
+      staleAfter: staleAfter(ahrq.generatedAt, 430),
       contentHash: ahrqFile.contentHash,
       schemaVersion: ahrq.schemaVersion,
       reviewStatus: "verified",
@@ -207,9 +234,10 @@ export async function buildNationalContextArtifact() {
     const workforce = hrsa.counties[fips];
     const normalizeDesignation = (designation: any) => ({
       ...designation,
+      discipline: designation.discipline ?? "not_applicable",
       designationDate: isoDate(designation.designationDate),
       lastUpdateDate: isoDate(designation.lastUpdateDate),
-      sourceScope: designation.wholeCounty ? "whole_county_geographic_designation" : "source_designation",
+      sourceScope: designationSourceScope(designation),
       sourceMetadata: designation.populationType ? { populationType: designation.populationType } : {},
     });
     return {
