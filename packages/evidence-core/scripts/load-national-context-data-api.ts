@@ -209,6 +209,9 @@ if (duplicateCounty) throw new Error(`Duplicate county ${duplicateCounty.fips} i
 const requiredSources = ["census-acs5", "hrsa-workforce", "ahrf-workforce", "ahrq-clh"] as const;
 for (const sourceId of requiredSources) {
   if (!artifact.sources[sourceId]) throw new Error(`National context artifact is missing source ${sourceId}.`);
+  if (new Date(artifact.sources[sourceId].staleAfter).getTime() <= Date.now()) {
+    throw new Error(`National context source ${sourceId} is stale and must be refreshed before production loading.`);
+  }
 }
 
 const snapshot = await execute(
@@ -443,10 +446,11 @@ async function insertDesignation(
   county: CountyContext,
   family: "hpsa" | "mua_p",
   designation: WorkforceDesignation,
+  index: number,
 ) {
   const geographyId = geographyByFips.get(county.fips)!;
   const sourceVersionId = sourceVersionById.get("hrsa-workforce")!;
-  const sourceRecordId = designation.designationId;
+  const sourceRecordId = `${designation.designationId}:${index}`;
   const id = deterministicUuid(`workforce:${sourceVersionId}:${geographyId}:${family}:${sourceRecordId}`);
   const metadata = JSON.stringify(designation.sourceMetadata ?? {});
   const score = family === "hpsa" ? designation.score ?? null : designation.imuScore ?? null;
@@ -501,8 +505,12 @@ for (const county of artifact.counties) {
   for (let index = 0; index < county.ahrq.length; index += 1) {
     await insertObservation(county, "ahrq-clh", county.ahrq[index], index);
   }
-  for (const designation of county.hpsa) await insertDesignation(county, "hpsa", designation);
-  for (const designation of county.muaP) await insertDesignation(county, "mua_p", designation);
+  for (let index = 0; index < county.hpsa.length; index += 1) {
+    await insertDesignation(county, "hpsa", county.hpsa[index], index);
+  }
+  for (let index = 0; index < county.muaP.length; index += 1) {
+    await insertDesignation(county, "mua_p", county.muaP[index], index);
+  }
 
   const geographyId = geographyByFips.get(county.fips)!;
   const hpsaByKey = new Map<string, number>([
