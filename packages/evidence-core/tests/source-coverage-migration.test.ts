@@ -67,6 +67,9 @@ test("national context loader persists separate HPSA product coverage with verif
   );
   assert.match(nationalContextLoader, /reviewStatus: "verified"/);
   assert.match(nationalContextLoader, /complete_no_records/);
+  assert.match(nationalContextLoader, /BatchExecuteStatementCommand/);
+  assert.match(nationalContextLoader, /const BATCH_SIZE = 100/);
+  assert.match(nationalContextLoader, /await flushAllBatches\(\)/);
 });
 
 test("legacy production bootstrap remains compatible through migration defaults without asserting verified negative HRSA coverage", () => {
