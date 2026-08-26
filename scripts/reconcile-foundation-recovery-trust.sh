@@ -8,6 +8,7 @@ helper_role="cbcap-agentic-github-deploy"
 helper_policy="CbcapAgenticRelease"
 ai_lab_role="GitHubActionsSozorockAiLabDeployRole"
 health_policy_source="infrastructure/iam/github-amplify-bootstrap-policy.json"
+health_policy_patch="scripts/patch-health-production-policy.jq"
 health_agentic_subject="repo:drolu-cmyk/sozorock-health-agentic:environment:production"
 foundation_subject="repo:drolu-cmyk@271617784/sozorock-foundation@1337104562:ref:refs/heads/main"
 ai_lab_environment_subject="repo:drolu-cmyk/sozorock-ai-lab:environment:production"
@@ -104,6 +105,7 @@ repair_health_policy() {
   health_role_arn="${FOUNDATION_HEALTH_ROLE_ARN:-}"
   [[ "$health_role_arn" =~ ^arn:aws:iam::${account_id}:role/[A-Za-z0-9+=,.@_/-]+$ ]]
   test -f "$health_policy_source"
+  test -f "$health_policy_patch"
   health_role_name="${health_role_arn##*/}"
   test "$health_role_name" = 'GitHubOIDC_SozoRockHealthV2_DeployRole'
 
@@ -131,16 +133,8 @@ repair_health_policy() {
     ' <<<"$current" >/dev/null; then
       test -z "$matched_policy"
       matched_policy="$policy_name"
-      jq --arg resource "$expected_resource" --arg action "$expected_action" --argjson evidence_secret "$evidence_secret_statement" '
-        .Statement |= map(
-          if .Effect == "Allow" and
-             ((.Resource | if type == "array" then . else [.] end) | index($resource)) != null and
-             ((.Action | if type == "array" then . else [.] end) | index("cloudformation:UpdateStack")) != null
-          then .Action = (((.Action | if type == "array" then . else [.] end) + [$action]) | unique)
-          else . end)
-        ) |
-        .Statement = ((.Statement | map(select(.Sid != $evidence_secret.Sid))) + [$evidence_secret])
-      ' <<<"$current" > "$patched_policy"
+      jq --arg resource "$expected_resource" --arg action "$expected_action" --argjson evidence_secret "$evidence_secret_statement" \
+        -f "$health_policy_patch" <<<"$current" > "$patched_policy"
     fi
   done < <(aws iam list-role-policies --role-name "$health_role_name" --query 'PolicyNames[]' --output text | tr '\t' '\n')
 
