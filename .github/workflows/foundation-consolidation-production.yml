@@ -159,6 +159,7 @@ jobs:
         run: |
           set -euo pipefail
           contact_stack_status="$(aws cloudformation describe-stacks --stack-name sozorock-health-contact --query 'Stacks[0].StackStatus' --output text)"
+          echo "Contact stack status before deployment: $contact_stack_status"
           if [[ "$contact_stack_status" = 'UPDATE_ROLLBACK_FAILED' ]]; then
             aws cloudformation continue-update-rollback --stack-name sozorock-health-contact
             for _ in $(seq 1 120); do
@@ -169,7 +170,7 @@ jobs:
             done
             test "$contact_stack_status" = 'UPDATE_ROLLBACK_COMPLETE'
           fi
-          aws cloudformation deploy \
+          if ! aws cloudformation deploy \
             --stack-name sozorock-health-contact \
             --template-file infrastructure/cloudformation/contact-backend.yml \
             --capabilities CAPABILITY_NAMED_IAM \
@@ -179,12 +180,18 @@ jobs:
               ContactEmail="$CONTACT_EMAIL" \
               OpenAISecretArn="$OPENAI_SECRET_ARN" \
               FoundationAdminUserPoolArn="$FOUNDATION_ADMIN_COGNITO_USER_POOL_ARN" \
-            --no-fail-on-empty-changeset
+            --no-fail-on-empty-changeset; then
+            aws cloudformation describe-stack-events \
+              --stack-name sozorock-health-contact \
+              --query 'StackEvents[?ResourceStatusReason != null].[Timestamp,LogicalResourceId,ResourceStatus,ResourceStatusReason]' \
+              --output table >&2 || true
+            exit 1
+          fi
 
           contact_table="$(aws cloudformation describe-stacks --stack-name sozorock-health-contact --query "Stacks[0].Outputs[?OutputKey=='ContactTableName'].OutputValue" --output text)"
           compute_role="$(aws cloudformation describe-stacks --stack-name sozorock-health-contact --query "Stacks[0].Outputs[?OutputKey=='ComputeRoleArn'].OutputValue" --output text)"
-          test -n "$contact_table"
-          test -n "$compute_role"
+          test -n "$contact_table" || { echo 'ContactTableName output is empty.' >&2; exit 1; }
+          test -n "$compute_role" || { echo 'ComputeRoleArn output is empty.' >&2; exit 1; }
 
           index_status=''
           for _ in $(seq 1 60); do
@@ -192,7 +199,7 @@ jobs:
             [[ "$index_status" = 'ACTIVE' ]] && break
             sleep 10
           done
-          test "$index_status" = 'ACTIVE'
+          test "$index_status" = 'ACTIVE' || { echo "ContactIntelligence index ended with status: $index_status" >&2; exit 1; }
           {
             echo "CONTACT_SUBMISSIONS_TABLE=$contact_table"
             echo "PUBLIC_COMPUTE_ROLE_ARN=$compute_role"

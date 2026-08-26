@@ -11,5 +11,5 @@ includes:
   - non-explore-regression-evidence-path-fix
   - bounded-cbcap-agentic-bootstrap-authority-definition
 approval: user-authorized-production-release
-request_generation: 9
-retry_reason: generation 8 remained queued behind the SES-gated general deployment; generation 9 uses the dedicated exact-SHA Explore release path and includes the production recovery and public data-display fixes
+request_generation: 10
+retry_reason: generation 9 exposed an Evidence Core CloudFormation failure without resource events; generation 10 includes fail-closed stack diagnostics and the Foundation rollback waiter correction
