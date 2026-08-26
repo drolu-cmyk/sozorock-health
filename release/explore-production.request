@@ -11,5 +11,5 @@ includes:
   - non-explore-regression-evidence-path-fix
   - bounded-cbcap-agentic-bootstrap-authority-definition
 approval: user-authorized-production-release
-request_generation: 10
-retry_reason: generation 9 exposed an Evidence Core CloudFormation failure without resource events; generation 10 includes fail-closed stack diagnostics and the Foundation rollback waiter correction
+request_generation: 11
+retry_reason: generation 10 identified missing resource-scoped Secrets Manager creation authority; generation 11 includes the bounded IAM reconciliation and rollback transition fix
