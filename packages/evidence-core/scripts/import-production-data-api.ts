@@ -16,6 +16,7 @@ prepareProductionDataApiEnvironment(process.env, snapshot.snapshotId);
 
 for (const script of [
   "load-production-evidence-data-api.ts",
+  "build-national-context-artifact.ts",
   "load-national-context-data-api.ts",
 ]) {
   const result = spawnSync(

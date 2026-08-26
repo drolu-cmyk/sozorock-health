@@ -12,6 +12,7 @@ apps/media/exports/
 apps/media/public/gpt-live-campaign/
 apps/public-site/review-assets/
 artifacts/
+packages/evidence-core/generated/
 .playwright-cli/
 .playwright-output/
 .playwright-browsers/

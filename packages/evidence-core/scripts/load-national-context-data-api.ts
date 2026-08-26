@@ -7,8 +7,10 @@ import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import {
+  BatchExecuteStatementCommand,
   RDSDataClient,
   ExecuteStatementCommand,
+  type BatchExecuteStatementCommandInput,
   type ExecuteStatementCommandInput,
   type Field,
   type SqlParameter,
@@ -103,6 +105,8 @@ if (!/^sha256:[0-9a-fA-F]{64}$/.test(SNAPSHOT_HASH)) {
 }
 
 const rds = new RDSDataClient({ region: AWS_REGION });
+const BATCH_SIZE = 100;
+const pendingBatches = new Map<string, SqlParameter[][]>();
 
 function sqlValue(value: unknown): Field {
   if (value === null || value === undefined) return { isNull: true };
@@ -132,6 +136,31 @@ async function execute(
   };
   if (transactionId) input.transactionId = transactionId;
   return rds.send(new ExecuteStatementCommand(input));
+}
+
+async function flushBatch(sql: string) {
+  const parameterSets = pendingBatches.get(sql) ?? [];
+  if (!parameterSets.length) return;
+  pendingBatches.set(sql, []);
+  const input: BatchExecuteStatementCommandInput = {
+    resourceArn: RESOURCE_ARN,
+    secretArn: SECRET_ARN,
+    database: DATABASE,
+    sql,
+    parameterSets,
+  };
+  await rds.send(new BatchExecuteStatementCommand(input));
+}
+
+async function enqueue(sql: string, parameters: SqlParameter[]) {
+  const pending = pendingBatches.get(sql) ?? [];
+  pending.push(parameters);
+  pendingBatches.set(sql, pending);
+  if (pending.length >= BATCH_SIZE) await flushBatch(sql);
+}
+
+async function flushAllBatches() {
+  for (const sql of pendingBatches.keys()) await flushBatch(sql);
 }
 
 function text(field: unknown) {
@@ -379,7 +408,7 @@ async function insertObservation(
   const valueJson = JSON.stringify(measure.value);
   const metadata = JSON.stringify(measure.sourceMetadata ?? {});
 
-  await execute(
+  await enqueue(
     `INSERT INTO evidence.metric_observation (
        id, measure_definition_id, geography_id, source_version_id, source_record_id, source_url,
        geography_level, value_json, numeric_value, confidence_low, confidence_high, margin_of_error,
@@ -435,7 +464,7 @@ async function insertDesignation(
   const metadata = JSON.stringify(designation.sourceMetadata ?? {});
   const score = family === "hpsa" ? designation.score ?? null : designation.imuScore ?? null;
 
-  await execute(
+  await enqueue(
     `INSERT INTO evidence.workforce_designation (
        id, geography_id, source_version_id, source_record_id, designation_family,
        discipline, designation_name, designation_type, component_type, status, score,
@@ -591,7 +620,7 @@ for (const county of artifact.counties) {
   ];
 
   for (const coverage of coverageRecords) {
-    await execute(
+    await enqueue(
       `INSERT INTO evidence.source_coverage (
          snapshot_id, geography_id, source_id, coverage_key, status, reason, source_version_id,
          data_period_start, data_period_end, observed_at, observation_count, review_status, metadata
@@ -624,6 +653,8 @@ for (const county of artifact.counties) {
     );
   }
 }
+
+await flushAllBatches();
 
 console.log(JSON.stringify({
   loaded: true,
