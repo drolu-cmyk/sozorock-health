@@ -165,7 +165,6 @@ jobs:
             for _ in $(seq 1 120); do
               contact_stack_status="$(aws cloudformation describe-stacks --stack-name sozorock-health-contact --query 'Stacks[0].StackStatus' --output text)"
               [[ "$contact_stack_status" = 'UPDATE_ROLLBACK_COMPLETE' ]] && break
-              [[ "$contact_stack_status" = 'UPDATE_ROLLBACK_FAILED' ]] && exit 1
               sleep 10
             done
             test "$contact_stack_status" = 'UPDATE_ROLLBACK_COMPLETE'
