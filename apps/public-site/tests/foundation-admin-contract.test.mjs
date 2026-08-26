@@ -100,6 +100,9 @@ test("production workflow proves admin, MFA, intake and trust recovery boundarie
   assert.match(trustScript, /iam:UpdateAssumeRolePolicy/);
   assert.match(trustScript, /RepairOnlyHealthDeploymentPolicyForFoundationRecovery/);
   assert.match(trustScript, /cloudformation:ContinueUpdateRollback/);
+  assert.match(trustScript, /ManageEvidenceDatabaseSecret/);
+  assert.match(trustScript, /secretsmanager:CreateSecret/);
+  assert.match(trustScript, /sozorock-evidence-runtime-\*/);
   assert.match(trustScript, /GitHubOIDC_SozoRockHealthV2_DeployRole/);
   assert.match(trustScript, /sozorock-health-contact/);
   assert.doesNotMatch(trustScript, /iam:\*/);
