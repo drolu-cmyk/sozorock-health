@@ -73,6 +73,7 @@ for (const artifact of artifacts) {
         designationDate: row["HPSA Designation Date"] ?? null,
         lastUpdateDate: row["HPSA Designation Last Update Date"] ?? null,
         wholeCounty: (row["HPSA Component Type Description"] ?? "").toLowerCase() === "single county"
+          && (row["Designation Type"] ?? "").toLowerCase().includes("geographic hpsa")
           && (row["HPSA Geography Identification Number"] ?? "").padStart(5, "0") === countyGeoid,
       });
     } else {
@@ -89,6 +90,7 @@ for (const artifact of artifacts) {
         designationDate: row["MUA/P Designation Date String"] || row["Designation Date"] || null,
         lastUpdateDate: row["MUA/P Update Date String"] || row["MUA/P Update Date"] || null,
         wholeCounty: (row["Medically Underserved Area/Population (MUA/P) Component Geographic Type Description"] ?? "").toLowerCase().includes("county")
+          && (row["Designation Type"] ?? "").toLowerCase().includes("medically underserved area")
           && !row["County Subdivision Name"]
           && !row["Census Tract"],
       });
