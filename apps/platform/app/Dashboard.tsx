@@ -31,6 +31,7 @@ import { ScenarioPlanner } from "./components/ScenarioPlanner";
 import { StateRanking } from "./components/StateRanking";
 import { TrendAnalysis } from "./components/TrendAnalysis";
 import { EvidenceWorkspace } from "./components/EvidenceWorkspace";
+import { AgenticWorkspace } from "./components/AgenticWorkspace";
 import {
   conditionMetrics,
   displayedBenchmarkComparison,
@@ -648,6 +649,7 @@ export default function Dashboard({ initialData: data }: { initialData: Dashboar
         <PlanningWorkspace profile={profile} provenance={profileProvenance} nationalBenchmark={data.nationalBenchmark} />
         <ScenarioPlanner profile={profile} provenance={profileProvenance} />
         <IntelligenceBrief profile={profile} provenance={profileProvenance} nationalBenchmark={data.nationalBenchmark} />
+        <AgenticWorkspace profile={profile} />
         <ReportStudio response={profileResponse} />
         <EvidenceWorkspace />
         <section className="county-browser" id="counties" aria-labelledby="counties-heading">
