@@ -10,11 +10,10 @@ const region = process.env.AWS_REGION ?? "us-east-1";
 const tableName = process.env.EVIDENCE_RATE_LIMIT_TABLE;
 const directSalt = process.env.EVIDENCE_RATE_LIMIT_SALT;
 const secretArn = process.env.EVIDENCE_RATE_LIMIT_SALT_SECRET_ARN;
-// Public evidence is cacheable, non-sensitive, and independently protected at
-// the edge. This bounded allowance accommodates one release proof across every
-// state and D.C. plus responsive/map checks; cost-bearing agent calls retain
-// their separate, much lower transaction limits below.
-const maximum = 300;
+// This shared limiter also protects onboarding and telemetry mutations. Keep
+// its bounded write allowance unchanged; live release acceptance is sampled so
+// it does not need a broader mutation budget.
+const maximum = 120;
 const dynamo = DynamoDBDocumentClient.from(new DynamoDBClient({ region }), {
   marshallOptions: { removeUndefinedValues: true },
 });

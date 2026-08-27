@@ -106,7 +106,7 @@ test("release validators call the versioned place-brief contract with kind", asy
   }
 });
 
-test("live national validation is stratified and stays inside the public evidence limit", async () => {
+test("live national validation is stratified and stays inside the shared evidence limit", async () => {
   const nationalValidator = await source("scripts/validate-national-api.mjs");
   const evidenceRateLimit = await source("app/lib/evidence-rate-limit.ts");
   assert.match(nationalValidator, /randomStateSample/);
@@ -115,7 +115,7 @@ test("live national validation is stratified and stays inside the public evidenc
   assert.match(nationalValidator, /authoritativeCountyCount: counties\.length/);
   assert.match(nationalValidator, /liveStateAndDcSampleCount: validationCounties\.length/);
   assert.doesNotMatch(nationalValidator, /length: 24/);
-  assert.match(evidenceRateLimit, /const maximum = 300/);
+  assert.match(evidenceRateLimit, /const maximum = 120/);
 });
 
 test("production release pins the Amplify job to the approved commit", async () => {

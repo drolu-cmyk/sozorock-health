@@ -16,4 +16,4 @@ includes:
   - explore-public-ui-correctness
 approval: user-authorized-production-release
 request_generation: 20
-retry_reason: generation 19 deployed the exact release and passed the single-county contract probe, but the 3,144-request live validator exceeded the public five-minute evidence allowance and concentrated concurrent writes on one rate-limit key; generation 20 retains repository-wide 3,144-county validation, bounds live acceptance to the approved one-county-per-state-and-D.C. sample with four workers, and uses a 300-request public evidence allowance sufficient for the release sample and visual checks while cost-bearing agent limits remain unchanged
+retry_reason: generation 19 deployed the exact release and passed the single-county contract probe, but the 3,144-request live validator exceeded the shared five-minute evidence allowance and concentrated concurrent writes on one rate-limit key; generation 20 retains repository-wide 3,144-county validation, bounds live acceptance to the approved one-county-per-state-and-D.C. sample with four workers, and keeps the shared onboarding, telemetry, and evidence allowance at 120
