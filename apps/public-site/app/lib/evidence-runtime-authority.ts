@@ -13,7 +13,8 @@ const client = new RDSDataClient({ region: process.env.AWS_REGION ?? "us-east-1"
 
 export type EvidenceAuthorityFailureCode =
   | "authority_configuration"
-  | "authority_access"
+  | "authority_credentials"
+  | "authority_permission"
   | "authority_database"
   | "authority_state"
   | "authority_unavailable";
@@ -23,7 +24,10 @@ export function evidenceAuthorityFailureCode(error: unknown): EvidenceAuthorityF
   const name = typeof item.name === "string" ? item.name : "";
   const message = typeof item.message === "string" ? item.message : "";
   if (message === "Evidence runtime authority is not configured.") return "authority_configuration";
-  if (/AccessDenied|Forbidden|UnrecognizedClient|CredentialsProvider/i.test(name)) return "authority_access";
+  if (/UnrecognizedClient|CredentialsProvider|ExpiredToken|InvalidSignature/i.test(name)) {
+    return "authority_credentials";
+  }
+  if (/AccessDenied|Forbidden/i.test(name)) return "authority_permission";
   if (/DatabaseError|BadRequest|StatementTimeout|ServiceUnavailable/i.test(name)) return "authority_database";
   if (/not approved by the production authority|missing from the production evidence store/i.test(message)) {
     return "authority_state";
