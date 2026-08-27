@@ -17,6 +17,7 @@ includes:
   - runtime-role-membership-reconciliation
   - runtime-authority-query-preflight
   - amplify-compute-role-reconciliation
+  - safe-ssr-authority-failure-diagnostics
 approval: user-authorized-production-release
-request_generation: 22
-retry_reason: generation 21 proved the runtime login has INHERIT and evidence_runtime membership but the deployed application still returned approved-snapshot 503 for Albany and all 51 sampled jurisdictions; generation 22 executes the exact snapshot and Albany geography queries through that runtime credential before deployment, reconciles and verifies Amplify's SSR compute role against the Evidence-authorized role, pins the Data API region, and preserves the full nationwide and visual acceptance gates
+request_generation: 23
+retry_reason: generation 22 proved the exact snapshot and Albany geography SQL succeed through the least-privileged runtime credential and Amplify reports the exact Evidence-authorized SSR compute role, but the deployed SSR route still returned 503; generation 23 emits only a stable non-secret authority failure category, fails fast after the prerequisite contract probe, preserves non-Explore regression proof and rollback, and makes no speculative permission change
