@@ -62,7 +62,7 @@ function statusLabel(status: CbcapRun["status"] | undefined) {
 }
 
 function RunStages({ run }: { run: CbcapRun }) {
-  const stages = [
+  const stages: Array<[string, string]> = [
     ["County resolution", record(run.placeResolution)?.status || "not returned"],
     ["Governed evidence", run.evidence ? "returned" : "not returned"],
     ["Barrier synthesis", run.barriers ? "returned" : "not returned"],
