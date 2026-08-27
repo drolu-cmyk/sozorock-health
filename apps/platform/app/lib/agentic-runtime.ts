@@ -24,9 +24,9 @@ function exactHttpsUrl(value: string | undefined, originOnly = false) {
 }
 
 export function agenticRuntimeConfig(): AgenticRuntimeConfig {
-  const configuredApiOrigin = (process.env.NEXT_PUBLIC_CBCAP_AGENTIC_API_BASE || CBCAP_AGENTIC_API_ORIGIN).replace(/\/$/, "");
+  const configuredApiOrigin = process.env.NEXT_PUBLIC_CBCAP_AGENTIC_API_BASE?.replace(/\/$/, "") || null;
   const cognitoDomain = exactHttpsUrl(process.env.NEXT_PUBLIC_CBCAP_COGNITO_DOMAIN, true);
-  const configuredRedirectUri = exactHttpsUrl(process.env.NEXT_PUBLIC_CBCAP_COGNITO_REDIRECT_URI || CBCAP_COGNITO_CALLBACK_URI);
+  const configuredRedirectUri = exactHttpsUrl(process.env.NEXT_PUBLIC_CBCAP_COGNITO_REDIRECT_URI);
   const candidateClientId = process.env.NEXT_PUBLIC_CBCAP_COGNITO_CLIENT_ID?.trim() || "";
   const clientId = /^[A-Za-z0-9]{1,128}$/.test(candidateClientId) ? candidateClientId : null;
   const apiOrigin = configuredApiOrigin === CBCAP_AGENTIC_API_ORIGIN

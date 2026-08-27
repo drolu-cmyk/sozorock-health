@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { GeographyProfile } from "../lib/types";
 import {
   approveExactCbcapRun,
@@ -25,16 +25,29 @@ function record(value: unknown): Record<string, unknown> | null {
   return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : null;
 }
 
+function citationUrl(value: unknown) {
+  if (typeof value !== "string") return null;
+  try {
+    const url = new URL(value);
+    if (url.protocol !== "https:" || url.username || url.password || !url.hostname) return null;
+    return url;
+  } catch {
+    return null;
+  }
+}
+
 function citationsFrom(value: unknown) {
   const found = new Map<string, Citation>();
   function visit(node: unknown) {
     if (Array.isArray(node)) return node.forEach(visit);
     const item = record(node);
     if (!item) return;
-    const url = [item.url, item.sourceUrl, item.source_url, item.officialUrl, item.official_url].find((candidate) => typeof candidate === "string" && /^https:\/\//.test(candidate)) as string | undefined;
+    const url = [item.url, item.sourceUrl, item.source_url, item.officialUrl, item.official_url]
+      .map(citationUrl)
+      .find((candidate) => candidate !== null);
     if (url) {
       const label = [item.title, item.label, item.source, item.dataset].find((candidate) => typeof candidate === "string" && candidate.trim()) as string | undefined;
-      found.set(url, { url, label: label || new URL(url).hostname });
+      found.set(url.href, { url: url.href, label: label || url.hostname });
     }
     Object.values(item).forEach(visit);
   }
@@ -74,14 +87,24 @@ function RunStages({ run }: { run: CbcapRun }) {
 
 export function AgenticWorkspace({ profile }: { profile: GeographyProfile | null }) {
   const config = useMemo(() => agenticRuntimeConfig(), []);
+  const county = profile?.kind === "county" ? profile : null;
+  const countyGeoid = county?.geoid || null;
+  const contextVersion = useRef(0);
   const [health, setHealth] = useState<AgenticHealth | null>(null);
   const [runtimeState, setRuntimeState] = useState<"disabled" | "checking" | "ready" | "unavailable">(config.enabled ? "checking" : "disabled");
   const [signedIn, setSignedIn] = useState(false);
   const [busy, setBusy] = useState<"auth" | "run" | "review" | "visual" | null>(null);
   const [message, setMessage] = useState("");
   const [run, setRun] = useState<CbcapRun | null>(null);
+  const [runCountyGeoid, setRunCountyGeoid] = useState<string | null>(null);
   const [visualization, setVisualization] = useState<VisualizationSpec | null>(null);
-  const county = profile?.kind === "county" ? profile : null;
+
+  useEffect(() => {
+    contextVersion.current += 1;
+    setRun(null);
+    setRunCountyGeoid(null);
+    setVisualization(null);
+  }, [countyGeoid]);
 
   useEffect(() => {
     if (!config.enabled) return;
@@ -117,6 +140,7 @@ export function AgenticWorkspace({ profile }: { profile: GeographyProfile | null
 
   function signOut() {
     setRun(null);
+    setRunCountyGeoid(null);
     setVisualization(null);
     setSignedIn(false);
     endCognitoSession(config);
@@ -124,35 +148,54 @@ export function AgenticWorkspace({ profile }: { profile: GeographyProfile | null
 
   async function startRun() {
     if (!county) return setMessage("Select a county profile before starting a governed run.");
+    const initiatingGeoid = county.geoid;
+    const initiatingContext = contextVersion.current;
     setBusy("run");
     setMessage("");
+    setRun(null);
+    setRunCountyGeoid(null);
     setVisualization(null);
-    try { setRun(await startCbcapRun(config, county.name)); }
+    try {
+      const nextRun = await startCbcapRun(config, initiatingGeoid);
+      if (contextVersion.current !== initiatingContext) return;
+      setRun(nextRun);
+      setRunCountyGeoid(initiatingGeoid);
+    }
     catch (error) { setMessage(error instanceof Error ? error.message : "The governed run could not start."); }
     finally { setBusy(null); }
   }
 
   async function approveRun(runId: string) {
-    if (run?.runId !== runId || run.status !== "awaiting_human_review") {
+    if (run?.runId !== runId || run.status !== "awaiting_human_review" || !countyGeoid || runCountyGeoid !== countyGeoid) {
       return setMessage("The displayed draft no longer matches the saved run selected for review.");
     }
+    const initiatingContext = contextVersion.current;
     setBusy("review");
     setMessage("");
-    try { setRun(await approveExactCbcapRun(config, runId)); }
+    try {
+      const approvedRun = await approveExactCbcapRun(config, runId);
+      if (contextVersion.current !== initiatingContext) return;
+      setRun(approvedRun);
+    }
     catch (error) { setMessage(error instanceof Error ? error.message : "The exact saved run could not be reviewed."); }
     finally { setBusy(null); }
   }
 
   async function requestVisualization() {
-    if (!run) return setMessage("Start a governed county run before requesting a visualization specification.");
+    if (!run || !countyGeoid || runCountyGeoid !== countyGeoid) return setMessage("Start a governed county run before requesting a visualization specification.");
+    const initiatingContext = contextVersion.current;
     setBusy("visual");
     setMessage("");
-    try { setVisualization(await createVisualizationSpec(config, run)); }
+    try {
+      const nextVisualization = await createVisualizationSpec(config, run);
+      if (contextVersion.current !== initiatingContext) return;
+      setVisualization(nextVisualization);
+    }
     catch (error) { setMessage(error instanceof Error ? error.message : "A governed visualization specification is unavailable."); }
     finally { setBusy(null); }
   }
 
-  const reviewableRunId = run?.status === "awaiting_human_review" && typeof run.runId === "string" ? run.runId : null;
+  const reviewableRunId = runCountyGeoid === countyGeoid && run?.status === "awaiting_human_review" && typeof run.runId === "string" ? run.runId : null;
   const citations = citationsFrom(run);
   const tools = agentToolCalls(run);
   const canOperate = runtimeState === "ready" && signedIn;

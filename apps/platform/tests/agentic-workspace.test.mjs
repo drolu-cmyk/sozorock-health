@@ -28,6 +28,14 @@ test("missing or origin-drifted runtime configuration disables controls", () => 
   delete process.env.NEXT_PUBLIC_CBCAP_COGNITO_CLIENT_ID;
   delete process.env.NEXT_PUBLIC_CBCAP_COGNITO_REDIRECT_URI;
   assert.equal(agenticRuntimeConfig().enabled, false);
+  process.env.NEXT_PUBLIC_CBCAP_COGNITO_DOMAIN = "https://identity.example.com";
+  process.env.NEXT_PUBLIC_CBCAP_COGNITO_CLIENT_ID = "client";
+  process.env.NEXT_PUBLIC_CBCAP_COGNITO_REDIRECT_URI = "https://cbcap.sozorockfoundation.org/auth/callback";
+  delete process.env.NEXT_PUBLIC_CBCAP_AGENTIC_API_BASE;
+  assert.equal(agenticRuntimeConfig().enabled, false);
+  process.env.NEXT_PUBLIC_CBCAP_AGENTIC_API_BASE = CBCAP_AGENTIC_API_ORIGIN;
+  delete process.env.NEXT_PUBLIC_CBCAP_COGNITO_REDIRECT_URI;
+  assert.equal(agenticRuntimeConfig().enabled, false);
   process.env.NEXT_PUBLIC_CBCAP_AGENTIC_API_BASE = "https://example.com";
   process.env.NEXT_PUBLIC_CBCAP_COGNITO_DOMAIN = "https://identity.example.com";
   process.env.NEXT_PUBLIC_CBCAP_COGNITO_CLIENT_ID = "client";
@@ -74,6 +82,8 @@ test("human review is visibly and programmatically bound to the exact returned r
   ]);
   assert.match(component, /run\?\.runId !== runId/);
   assert.match(component, /run\.status !== "awaiting_human_review"/);
+  assert.match(component, /runCountyGeoid !== countyGeoid/);
+  assert.match(component, /contextVersion\.current !== initiatingContext/);
   assert.match(component, /approveRun\(reviewableRunId\)/);
   assert.match(component, /Approve run \$\{reviewableRunId\}/);
   assert.match(api, /`\/api\/cbcap\/runs\/\$\{encodeURIComponent\(runId\)\}\/review`/);
@@ -85,9 +95,18 @@ test("the existing dashboard hands selected county context to the additive works
   const component = await source("app/components/AgenticWorkspace.tsx");
   assert.match(dashboard, /<AgenticWorkspace profile=\{profile\} \/>/);
   assert.match(component, /profile\?\.kind === "county"/);
-  assert.match(component, /startCbcapRun\(config, county\.name\)/);
+  assert.match(component, /startCbcapRun\(config, initiatingGeoid\)/);
+  assert.match(component, /const initiatingGeoid = county\.geoid/);
   assert.match(component, /createVisualizationSpec\(config, run\)/);
   assert.doesNotMatch(component, /funding|monitoring|private upload/i);
+});
+
+test("malformed citation URLs are ignored without throwing during rendering", async () => {
+  const component = await source("app/components/AgenticWorkspace.tsx");
+  assert.match(component, /function citationUrl/);
+  assert.match(component, /try \{/);
+  assert.match(component, /url\.protocol !== "https:"/);
+  assert.doesNotMatch(component, /label \|\| new URL\(url\)\.hostname/);
 });
 
 test("deployment documentation names every fail-closed public runtime input", async () => {
