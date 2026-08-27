@@ -18,6 +18,7 @@ includes:
   - runtime-authority-query-preflight
   - amplify-compute-role-reconciliation
   - safe-ssr-authority-failure-diagnostics
+  - ssr-access-failure-subclassification
 approval: user-authorized-production-release
-request_generation: 23
-retry_reason: generation 22 proved the exact snapshot and Albany geography SQL succeed through the least-privileged runtime credential and Amplify reports the exact Evidence-authorized SSR compute role, but the deployed SSR route still returned 503; generation 23 emits only a stable non-secret authority failure category, fails fast after the prerequisite contract probe, preserves non-Explore regression proof and rollback, and makes no speculative permission change
+request_generation: 24
+retry_reason: generation 23 proved the remaining SSR failure is access-related while exact runtime SQL and Amplify compute-role reconciliation succeed; generation 24 distinguishes missing or invalid temporary compute credentials from an explicit IAM permission denial using only allowlisted AWS SDK error names, preserves fast-fail acceptance and rollback, and changes no IAM permission
