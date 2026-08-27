@@ -15,5 +15,5 @@ includes:
   - amplify-release-commit-pin
   - explore-public-ui-correctness
 approval: user-authorized-production-release
-request_generation: 17
-retry_reason: generation 16 completed the nationwide data migration and Amplify build, but Amplify reported the unpinned RELEASE selector as HEAD; generation 17 passes the exact approved main SHA to Amplify, retains strict post-build SHA verification, and includes the CI-verified Explore UI corrections
+request_generation: 18
+retry_reason: generation 17 reimported the immutable nationwide snapshot and national context successfully, then attempted to alter an already valid least-privileged runtime login; generation 18 first proves and reuses the existing runtime login, invoking password configuration only when the runtime credential or role contract is invalid

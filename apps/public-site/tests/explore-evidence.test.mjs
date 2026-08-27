@@ -114,6 +114,14 @@ test("production release pins the Amplify job to the approved commit", async () 
   assert.doesNotMatch(productionWorkflow, /deployed_commit" == "HEAD"/);
 });
 
+test("production reuses an already valid least-privileged runtime login", async () => {
+  const productionWorkflow = await source("../../.github/workflows/explore-production.yml");
+  assert.match(productionWorkflow, /runtime_role=\$\(read_runtime_role 2>\/dev\/null \|\| true\)/);
+  assert.match(productionWorkflow, /if ! jq -e[\s\S]*evidence_runtime_login/);
+  assert.match(productionWorkflow, /configure_runtime_login\(:runtime_password\)/);
+  assert.match(productionWorkflow, /runtime_role=\$\(read_runtime_role\)/);
+});
+
 test("available measures remain visible when a compatible benchmark is missing", async () => {
   const route = await source("app/api/explore/route.ts");
   const component = await source("app/explore/ExploreClient.tsx");
