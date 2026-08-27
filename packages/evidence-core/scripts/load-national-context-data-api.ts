@@ -304,8 +304,8 @@ for (const sourceId of requiredSources) {
   sourceVersionById.set(sourceId, resolvedId);
 
   await execute(
-    `INSERT INTO evidence.snapshot_source_version (snapshot_id, source_version_id, required_for_snapshot)
-     VALUES (CAST(:snapshot_id AS uuid), CAST(:source_version_id AS uuid), TRUE)
+    `INSERT INTO evidence.snapshot_source_version (snapshot_id, source_version_id)
+     VALUES (CAST(:snapshot_id AS uuid), CAST(:source_version_id AS uuid))
      ON CONFLICT DO NOTHING`,
     [param("snapshot_id", snapshotId), param("source_version_id", resolvedId)],
   );

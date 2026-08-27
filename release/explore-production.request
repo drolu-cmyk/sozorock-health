@@ -13,5 +13,5 @@ includes:
   - deterministic-national-context-artifact-build
   - production-schema-aligned-national-context-loader
 approval: user-authorized-production-release
-request_generation: 14
-retry_reason: generation 13 built the governed artifact successfully, then exposed loader SQL that targeted columns and conflict keys absent from the deployed migration contract; generation 14 aligns all source, measure, observation, and workforce upserts with the live schema and validates non-null freshness and designation scope values
+request_generation: 15
+retry_reason: generation 14 imported the nationwide snapshot successfully, then exposed one remaining obsolete snapshot-source column; generation 15 aligns the snapshot_source_version insert with the deployed two-column migration contract and adds a regression guard against reintroducing required_for_snapshot
