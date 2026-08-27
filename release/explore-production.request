@@ -14,6 +14,7 @@ includes:
   - production-schema-aligned-national-context-loader
   - amplify-release-commit-pin
   - explore-public-ui-correctness
+  - runtime-role-membership-reconciliation
 approval: user-authorized-production-release
-request_generation: 20
-retry_reason: generation 19 deployed the exact release and passed the single-county contract probe, but the 3,144-request live validator exceeded the shared five-minute evidence allowance and concentrated concurrent writes on one rate-limit key; generation 20 retains repository-wide 3,144-county validation, bounds live acceptance to the approved one-county-per-state-and-D.C. sample with four workers, and keeps the shared onboarding, telemetry, and evidence allowance at 120
+request_generation: 21
+retry_reason: generation 20 deployed the exact release but the pre-load Albany probe and every sampled county returned the approved-snapshot 503 because the legacy runtime-login probe did not validate INHERIT or evidence_runtime membership; generation 21 requires both properties, restores the bounded group grant through the existing security-definer function when absent, and keeps transport or authorization probe failures fatal
