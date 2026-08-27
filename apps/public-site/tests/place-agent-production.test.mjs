@@ -98,6 +98,10 @@ test("Explore-only release workflow cannot deploy CB-CAP", () => {
 });
 
 test("production Explore requests are tied to persisted canonical geography and approved snapshots", () => {
+  assert.match(runtimeAuthority, /RDSDataClient\(\{ region: process\.env\.AWS_REGION \?\? "us-east-1" \}\)/);
+  assert.match(runtimeAuthority, /evidenceAuthorityFailureCode/);
+  assert.match(placeBriefRoute, /evidence-authority-failed/);
+  assert.match(placeBriefRoute, /code,\s*name:/);
   assert.match(runtimeAuthority, /requirePublishedEvidenceSnapshot/);
   assert.match(runtimeAuthority, /authority='census'/);
   assert.match(runtimeAuthority, /kind='county'/);

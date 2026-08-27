@@ -138,6 +138,17 @@ test("production reuses an already valid least-privileged runtime login", async 
   assert.match(productionWorkflow, /\{"booleanValue":true\},\{"booleanValue":true\}/);
   assert.match(productionWorkflow, /configure_runtime_login\(:runtime_password\)/);
   assert.match(productionWorkflow, /runtime_role=\$\(read_runtime_role\)/);
+  assert.match(productionWorkflow, /runtime_snapshot=\$\(aws rds-data execute-statement/);
+  assert.match(productionWorkflow, /runtime_geography=\$\(aws rds-data execute-statement/);
+  assert.match(productionWorkflow, /--secret-arn "\$EVIDENCE_DATABASE_RUNTIME_SECRET_ARN"/);
+});
+
+test("production binds Amplify compute to the exact evidence-authorized role", async () => {
+  const productionWorkflow = await source("../../.github/workflows/explore-production.yml");
+  assert.match(productionWorkflow, /PUBLIC_COMPUTE_ROLE_ARN=\$compute_role_arn/);
+  assert.match(productionWorkflow, /update-app[\s\S]*--compute-role-arn "\$PUBLIC_COMPUTE_ROLE_ARN"/);
+  assert.match(productionWorkflow, /app\.computeRoleArn/);
+  assert.match(productionWorkflow, /app_compute_role" = "\$PUBLIC_COMPUTE_ROLE_ARN"/);
 });
 
 test("available measures remain visible when a compatible benchmark is missing", async () => {

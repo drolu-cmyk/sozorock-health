@@ -168,7 +168,10 @@ jobs:
           subnet_csv=$(IFS=,; echo "${subnets[*]}")
           compute_role_arn=$(aws cloudformation describe-stacks --stack-name sozorock-health-contact \
             --query "Stacks[0].Outputs[?OutputKey=='ComputeRoleArn'].OutputValue" --output text)
+          test -n "$compute_role_arn"
+          test "$compute_role_arn" != "None"
           compute_role_name="${compute_role_arn##*/}"
+          echo "PUBLIC_COMPUTE_ROLE_ARN=$compute_role_arn" >> "$GITHUB_ENV"
           echo "PUBLIC_COMPUTE_ROLE_NAME=$compute_role_name" >> "$GITHUB_ENV"
           if ! aws cloudformation deploy \
             --stack-name sozorock-health-evidence-production \
@@ -270,6 +273,31 @@ jobs:
           fi
           jq -e '.records == [[{"stringValue":"evidence_runtime_login"},{"booleanValue":false},{"booleanValue":false},{"booleanValue":false},{"booleanValue":false},{"booleanValue":true},{"booleanValue":true}]]' \
             <<<"$runtime_role" >/dev/null
+          snapshot_parameters=$(jq -nc --arg hash "$EVIDENCE_SNAPSHOT_CONTENT_HASH" \
+            '[{name:"content_hash",value:{stringValue:$hash}}]')
+          runtime_snapshot=$(aws rds-data execute-statement \
+            --resource-arn "$EVIDENCE_DATABASE_CLUSTER_ARN" \
+            --secret-arn "$EVIDENCE_DATABASE_RUNTIME_SECRET_ARN" \
+            --database "$EVIDENCE_DATABASE_NAME" \
+            --sql "SELECT s.id::text, s.content_hash FROM evidence.evidence_snapshot s WHERE s.content_hash=:content_hash AND s.review_status='verified' AND s.published_at IS NOT NULL" \
+            --parameters "$snapshot_parameters" \
+            --output json)
+          jq -e \
+            '(.records | length) == 1 and (.records[0][0].stringValue | test("^[0-9a-f-]{36}$"; "i"))' \
+            <<<"$runtime_snapshot" >/dev/null
+          jq -e --arg hash "$EVIDENCE_SNAPSHOT_CONTENT_HASH" \
+            '.records[0][1].stringValue == $hash' <<<"$runtime_snapshot" >/dev/null
+          geography_parameters=$(jq -nc --arg geoid "36001" --arg hash "$EVIDENCE_SNAPSHOT_CONTENT_HASH" \
+            '[{name:"county_geoid",value:{stringValue:$geoid}},{name:"snapshot_hash",value:{stringValue:$hash}}]')
+          runtime_geography=$(aws rds-data execute-statement \
+            --resource-arn "$EVIDENCE_DATABASE_CLUSTER_ARN" \
+            --secret-arn "$EVIDENCE_DATABASE_RUNTIME_SECRET_ARN" \
+            --database "$EVIDENCE_DATABASE_NAME" \
+            --sql "SELECT g.id::text FROM evidence.geography g JOIN evidence.evidence_snapshot s ON s.content_hash=:snapshot_hash AND s.review_status='verified' AND s.published_at IS NOT NULL JOIN evidence.snapshot_source_version link ON link.snapshot_id=s.id JOIN evidence.source_version census_source ON census_source.id=link.source_version_id AND census_source.source_id='census-geography' WHERE g.authority='census' AND g.authority_id=:county_geoid AND g.kind='county' AND g.review_status='verified' AND g.vintage=to_char(census_source.release_date, 'YYYY') ORDER BY g.vintage DESC LIMIT 1" \
+            --parameters "$geography_parameters" \
+            --output json)
+          jq -e '(.records | length) == 1 and (.records[0][0].stringValue | test("^[0-9a-f-]{36}$"; "i"))' \
+            <<<"$runtime_geography" >/dev/null
           echo "EVIDENCE_DATABASE_SECRET_ARN=$EVIDENCE_DATABASE_RUNTIME_SECRET_ARN" >> "$GITHUB_ENV"
       - name: Provision Explore collaboration transport and identity
         run: |
@@ -362,6 +390,7 @@ jobs:
             }' <<<"$current_env")
           aws amplify update-app \
             --app-id "$PUBLIC_APP_ID" \
+            --compute-role-arn "$PUBLIC_COMPUTE_ROLE_ARN" \
             --build-spec "$public_build_spec" \
             --environment-variables "$merged_env" >/dev/null
           aws amplify update-branch \
@@ -372,12 +401,15 @@ jobs:
           for attempt in $(seq 1 12); do
             app_build_spec=$(aws amplify get-app --app-id "$PUBLIC_APP_ID" \
               --query 'app.buildSpec' --output text)
+            app_compute_role=$(aws amplify get-app --app-id "$PUBLIC_APP_ID" \
+              --query 'app.computeRoleArn' --output text)
             branch_build_spec=$(aws amplify get-branch --app-id "$PUBLIC_APP_ID" \
               --branch-name "$AMPLIFY_BRANCH" --query 'branch.buildSpec' --output text)
             app_hash=$(printf '%s' "$app_build_spec" | sha256sum | cut -d' ' -f1)
             branch_hash=$(printf '%s' "$branch_build_spec" | sha256sum | cut -d' ' -f1)
             if [ "$app_hash" = "$expected_build_spec_hash" ] \
-              && [ "$branch_hash" = "$expected_build_spec_hash" ]; then
+              && [ "$branch_hash" = "$expected_build_spec_hash" ] \
+              && [ "$app_compute_role" = "$PUBLIC_COMPUTE_ROLE_ARN" ]; then
               break
             fi
             if [ "$attempt" -eq 12 ]; then

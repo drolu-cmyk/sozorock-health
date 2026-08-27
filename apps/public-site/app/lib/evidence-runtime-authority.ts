@@ -9,7 +9,27 @@ import {
   type SqlParameter,
 } from "@aws-sdk/client-rds-data";
 
-const client = new RDSDataClient({});
+const client = new RDSDataClient({ region: process.env.AWS_REGION ?? "us-east-1" });
+
+export type EvidenceAuthorityFailureCode =
+  | "authority_configuration"
+  | "authority_access"
+  | "authority_database"
+  | "authority_state"
+  | "authority_unavailable";
+
+export function evidenceAuthorityFailureCode(error: unknown): EvidenceAuthorityFailureCode {
+  const item = error && typeof error === "object" ? error as { name?: unknown; message?: unknown } : {};
+  const name = typeof item.name === "string" ? item.name : "";
+  const message = typeof item.message === "string" ? item.message : "";
+  if (message === "Evidence runtime authority is not configured.") return "authority_configuration";
+  if (/AccessDenied|Forbidden|UnrecognizedClient|CredentialsProvider/i.test(name)) return "authority_access";
+  if (/DatabaseError|BadRequest|StatementTimeout|ServiceUnavailable/i.test(name)) return "authority_database";
+  if (/not approved by the production authority|missing from the production evidence store/i.test(message)) {
+    return "authority_state";
+  }
+  return "authority_unavailable";
+}
 
 export type EvidenceRuntimeEnvironment = "production" | "staging" | "test";
 
