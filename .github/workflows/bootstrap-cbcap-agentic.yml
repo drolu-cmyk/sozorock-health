@@ -95,6 +95,7 @@ jobs:
               GitHubOidcProviderArn="$GITHUB_OIDC_PROVIDER_ARN" \
               GitHubRepository=drolu-cmyk/sozorock-health-agentic \
               GitHubEnvironment=production \
+              GitHubSubject='repo:drolu-cmyk@271617784/sozorock-health-agentic@1313269615:environment:production' \
             --no-fail-on-empty-changeset
 
       - name: Prove exact trust boundary
@@ -107,7 +108,7 @@ jobs:
           test "$cf_role" = "arn:aws:iam::$EXPECTED_AWS_ACCOUNT_ID:role/cbcap-agentic-cloudformation"
 
           trust=$(aws iam get-role --role-name cbcap-agentic-github-deploy --query 'Role.AssumeRolePolicyDocument' --output json)
-          jq -e --arg subject 'repo:drolu-cmyk/sozorock-health-agentic:environment:production' '
+          jq -e --arg subject 'repo:drolu-cmyk@271617784/sozorock-health-agentic@1313269615:environment:production' '
             any(.Statement[];
               .Action == "sts:AssumeRoleWithWebIdentity" and
               .Condition.StringEquals["token.actions.githubusercontent.com:aud"] == "sts.amazonaws.com" and

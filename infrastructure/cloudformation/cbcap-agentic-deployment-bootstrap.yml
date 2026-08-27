@@ -13,6 +13,10 @@ Parameters:
     Type: String
     Default: production
     AllowedPattern: '^[A-Za-z0-9_.-]+$'
+  GitHubSubject:
+    Type: String
+    Default: repo:drolu-cmyk@271617784/sozorock-health-agentic@1313269615:environment:production
+    AllowedPattern: '^repo:[A-Za-z0-9_.-]+@[0-9]+/[A-Za-z0-9_.-]+@[0-9]+:environment:[A-Za-z0-9_.-]+$'
 
 Resources:
   CloudFormationServiceRole:
@@ -182,7 +186,7 @@ Resources:
             Condition:
               StringEquals:
                 token.actions.githubusercontent.com:aud: sts.amazonaws.com
-                token.actions.githubusercontent.com:sub: !Sub repo:${GitHubRepository}:environment:${GitHubEnvironment}
+                token.actions.githubusercontent.com:sub: !Ref GitHubSubject
       Policies:
         - PolicyName: CbcapAgenticRelease
           PolicyDocument:
