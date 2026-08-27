@@ -106,6 +106,14 @@ test("release validators call the versioned place-brief contract with kind", asy
   }
 });
 
+test("production release pins the Amplify job to the approved commit", async () => {
+  const productionWorkflow = await source("../../.github/workflows/explore-production.yml");
+  assert.match(productionWorkflow, /start-job[\s\S]*--commit-id "\$RELEASE_SHA"/);
+  assert.match(productionWorkflow, /git rev-parse origin\/main\)" = "\$RELEASE_SHA"/);
+  assert.match(productionWorkflow, /job\.summary\.commitId/);
+  assert.doesNotMatch(productionWorkflow, /deployed_commit" == "HEAD"/);
+});
+
 test("available measures remain visible when a compatible benchmark is missing", async () => {
   const route = await source("app/api/explore/route.ts");
   const component = await source("app/explore/ExploreClient.tsx");

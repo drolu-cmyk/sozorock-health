@@ -375,6 +375,7 @@ jobs:
           test "$(git rev-parse origin/main)" = "$RELEASE_SHA"
           job_id=$(aws amplify start-job --app-id "$PUBLIC_APP_ID" --branch-name "$AMPLIFY_BRANCH" \
             --job-type RELEASE --job-reason "Explore release $RELEASE_SHA" \
+            --commit-id "$RELEASE_SHA" \
             --query 'jobSummary.jobId' --output text)
           echo "PUBLIC_AMPLIFY_JOB_ID=$job_id" >> "$GITHUB_ENV"
           while true; do
