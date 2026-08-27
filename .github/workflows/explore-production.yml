@@ -237,11 +237,22 @@ jobs:
               --resource-arn "$EVIDENCE_DATABASE_CLUSTER_ARN" \
               --secret-arn "$EVIDENCE_DATABASE_RUNTIME_SECRET_ARN" \
               --database "$EVIDENCE_DATABASE_NAME" \
-              --sql "SELECT current_user, rolsuper, rolcreatedb, rolcreaterole, rolbypassrls FROM pg_roles WHERE rolname=current_user" \
+              --sql "SELECT r.rolname, r.rolsuper, r.rolcreatedb, r.rolcreaterole, r.rolbypassrls, r.rolinherit, pg_has_role(current_user, 'evidence_runtime', 'MEMBER') FROM pg_roles r WHERE r.rolname=current_user" \
               --output json
           }
-          runtime_role=$(read_runtime_role 2>/dev/null || true)
-          if ! jq -e '.records == [[{"stringValue":"evidence_runtime_login"},{"booleanValue":false},{"booleanValue":false},{"booleanValue":false},{"booleanValue":false}]]' \
+          runtime_probe_error=$(mktemp)
+          if runtime_role=$(read_runtime_role 2>"$runtime_probe_error"); then
+            runtime_probe=complete
+          elif grep -Eq 'DatabaseErrorException.*password authentication failed for user "evidence_runtime_login"' "$runtime_probe_error"; then
+            runtime_probe=authentication_failed
+            runtime_role='{}'
+          else
+            echo "Runtime login probe failed before contract validation." >&2
+            rm -f "$runtime_probe_error"
+            exit 1
+          fi
+          rm -f "$runtime_probe_error"
+          if [[ "$runtime_probe" == "authentication_failed" ]] || ! jq -e '.records == [[{"stringValue":"evidence_runtime_login"},{"booleanValue":false},{"booleanValue":false},{"booleanValue":false},{"booleanValue":false},{"booleanValue":true},{"booleanValue":true}]]' \
             <<<"$runtime_role" >/dev/null 2>&1; then
             runtime_secret_json=$(aws secretsmanager get-secret-value \
               --secret-id "$EVIDENCE_DATABASE_RUNTIME_SECRET_ARN" --query SecretString --output text)
@@ -257,7 +268,7 @@ jobs:
             unset runtime_password runtime_parameters runtime_secret_json
             runtime_role=$(read_runtime_role)
           fi
-          jq -e '.records == [[{"stringValue":"evidence_runtime_login"},{"booleanValue":false},{"booleanValue":false},{"booleanValue":false},{"booleanValue":false}]]' \
+          jq -e '.records == [[{"stringValue":"evidence_runtime_login"},{"booleanValue":false},{"booleanValue":false},{"booleanValue":false},{"booleanValue":false},{"booleanValue":true},{"booleanValue":true}]]' \
             <<<"$runtime_role" >/dev/null
           echo "EVIDENCE_DATABASE_SECRET_ARN=$EVIDENCE_DATABASE_RUNTIME_SECRET_ARN" >> "$GITHUB_ENV"
       - name: Provision Explore collaboration transport and identity
