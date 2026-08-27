@@ -92,6 +92,7 @@ test("national context loader persists separate HPSA product coverage with verif
   );
   assert.doesNotMatch(nationalContextLoader, /required_for_snapshot/);
   assert.match(nationalContextLoader, /CAST\(:direction AS evidence\.metric_direction\)/);
+  assert.match(nationalContextLoader, /CAST\(:higher_value_meaning AS evidence\.higher_value_meaning\)/);
   assert.doesNotMatch(nationalContextLoader, /measure_family|definition_version|is_planning_metric/);
   assert.doesNotMatch(nationalContextLoader, /metric_observation[\s\S]*reviewed_by/);
   assert.match(foundationMigration, /UNIQUE \(source_id, release_label, content_hash\)/);

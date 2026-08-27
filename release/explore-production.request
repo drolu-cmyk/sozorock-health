@@ -14,4 +14,4 @@ includes:
   - production-schema-aligned-national-context-loader
 approval: user-authorized-production-release
 request_generation: 16
-retry_reason: generation 15 imported the nationwide public snapshot and reached national-context measure loading, then exposed that the Data API binds the direction parameter as text; generation 16 casts that bind explicitly to the deployed evidence.metric_direction enum and locks the contract in regression coverage
+retry_reason: generation 15 imported the nationwide public snapshot and reached national-context measure loading, then exposed that the Data API binds enum parameters as text; generation 16 casts direction and higher-value meaning explicitly to their deployed enum types and locks both contracts in regression coverage
