@@ -10,6 +10,9 @@ const region = process.env.AWS_REGION ?? "us-east-1";
 const tableName = process.env.EVIDENCE_RATE_LIMIT_TABLE;
 const directSalt = process.env.EVIDENCE_RATE_LIMIT_SALT;
 const secretArn = process.env.EVIDENCE_RATE_LIMIT_SALT_SECRET_ARN;
+// This shared limiter also protects onboarding and telemetry mutations. Keep
+// its bounded write allowance unchanged; live release acceptance is sampled so
+// it does not need a broader mutation budget.
 const maximum = 120;
 const dynamo = DynamoDBDocumentClient.from(new DynamoDBClient({ region }), {
   marshallOptions: { removeUndefinedValues: true },

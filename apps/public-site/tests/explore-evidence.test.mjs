@@ -106,6 +106,18 @@ test("release validators call the versioned place-brief contract with kind", asy
   }
 });
 
+test("live national validation is stratified and stays inside the shared evidence limit", async () => {
+  const nationalValidator = await source("scripts/validate-national-api.mjs");
+  const evidenceRateLimit = await source("app/lib/evidence-rate-limit.ts");
+  assert.match(nationalValidator, /randomStateSample/);
+  assert.match(nationalValidator, /liveSample\.length !== 51/);
+  assert.match(nationalValidator, /Array\.from\(\{ length: 4 \}/);
+  assert.match(nationalValidator, /authoritativeCountyCount: counties\.length/);
+  assert.match(nationalValidator, /liveStateAndDcSampleCount: validationCounties\.length/);
+  assert.doesNotMatch(nationalValidator, /length: 24/);
+  assert.match(evidenceRateLimit, /const maximum = 120/);
+});
+
 test("production release pins the Amplify job to the approved commit", async () => {
   const productionWorkflow = await source("../../.github/workflows/explore-production.yml");
   assert.match(productionWorkflow, /start-job[\s\S]*--commit-id "\$RELEASE_SHA"/);

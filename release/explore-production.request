@@ -15,5 +15,5 @@ includes:
   - amplify-release-commit-pin
   - explore-public-ui-correctness
 approval: user-authorized-production-release
-request_generation: 19
-retry_reason: generation 18 completed the governed authority, immutable snapshot, collaboration transport, and public environment reconciliation, then failed closed before Amplify because protected main advanced during the pinned release; generation 19 pins the now-stable current main and completes public deployment plus live acceptance
+request_generation: 20
+retry_reason: generation 19 deployed the exact release and passed the single-county contract probe, but the 3,144-request live validator exceeded the shared five-minute evidence allowance and concentrated concurrent writes on one rate-limit key; generation 20 retains repository-wide 3,144-county validation, bounds live acceptance to the approved one-county-per-state-and-D.C. sample with four workers, and keeps the shared onboarding, telemetry, and evidence allowance at 120
