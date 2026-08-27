@@ -213,7 +213,8 @@ test("the Explore interface preserves the original search and requires transpare
 test("all compatible measures and source coverage remain available", async () => {
   const component = await source("app/explore/ExploreClient.tsx");
   const route = await source("app/api/explore/route.ts");
-  assert.match(component, /All \{data\.metrics\.length \+ data\.contextMeasures\.length\} compatible measures/);
+  assert.match(component, /All \{data\.dataCoverage\.measureCount\} compatible measures/);
+  assert.match(component, /availableContextMeasures\.map/);
   assert.match(component, /Evidence coverage/);
   for (const key of ["chd", "stroke", "cancer", "casthma", "checkup", "cholscreen", "housinsecu", "shututility"]) {
     assert.match(route, new RegExp(`${key}:`));

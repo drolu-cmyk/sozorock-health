@@ -145,7 +145,11 @@ type PlaceResponse = {
   dataCoverage: {
     measureCount: number;
     currentMeasureCount: number;
+    contextMeasureCount: number;
     previousMeasureCount: number;
+  };
+  capabilities: {
+    funderSnapshot: boolean;
   };
   intelligence: {
     placeBasedResponses: Array<{
@@ -567,6 +571,7 @@ function ContextMeasureDetails({ measure }: { measure: ContextMeasure }) {
 }
 
 function BriefView({ data }: { data: PlaceResponse }) {
+  const availableContextMeasures = data.contextMeasures.filter((measure) => measure.value !== null);
   const attention = data.metrics
     .filter((metric) => metric.interpretation === "adverse_signal")
     .sort((a, b) => b.score - a.score)[0];
@@ -621,7 +626,7 @@ function BriefView({ data }: { data: PlaceResponse }) {
           </div>
           <p className={styles.comparisonNote}><Info size={17} aria-hidden="true" /> Favorable measures are never ranked as problems simply because they are high. Comparisons use the same geographic level and release.</p>
           <details className={styles.allMeasures}>
-            <summary>All {data.metrics.length + data.contextMeasures.length} compatible measures <CaretRight size={17} aria-hidden="true" /></summary>
+            <summary>All {data.dataCoverage.measureCount} compatible measures <CaretRight size={17} aria-hidden="true" /></summary>
             <div className={styles.measureTable} role="table" aria-label={`All compatible county measures for ${data.location.label}`}>
               <div role="row">
                 <span role="columnheader">Measure</span>
@@ -639,7 +644,7 @@ function BriefView({ data }: { data: PlaceResponse }) {
                   <span role="cell">{metric.confidence || "Not supplied"}</span>
                 </div>
               ))}
-              {data.contextMeasures.map((measure) => (
+              {availableContextMeasures.map((measure) => (
                 <div role="row" key={measure.key}>
                   <span role="cell">
                     <strong>{measure.label}</strong>
@@ -729,7 +734,9 @@ function MapCanvas({ geometry, data, metric }: { geometry: GeometryResponse | nu
   useEffect(() => {
     if (!containerRef.current || !geometry || !hasRenderableGeometry(geometry.area)) return;
     let cancelled = false;
+    let mapReady = false;
     let map: import("maplibre-gl").Map | null = null;
+    let readinessTimer: ReturnType<typeof setTimeout> | null = null;
     void import("maplibre-gl").then(({ default: maplibregl }) => {
       if (cancelled || !containerRef.current) return;
       const fill = metric?.interpretation === "adverse_signal" ? "#b9462c" : metric?.interpretation === "favorable_signal" ? "#446342" : "#6e7a74";
@@ -752,6 +759,9 @@ function MapCanvas({ geometry, data, metric }: { geometry: GeometryResponse | nu
           dragRotate: false,
           pitchWithRotate: false,
         });
+        readinessTimer = setTimeout(() => {
+          if (!cancelled && !mapReady) setMapError("The official boundary could not be rendered.");
+        }, 8_000);
       } catch {
         setMapError("The official boundary could not be rendered.");
         return;
@@ -778,14 +788,17 @@ function MapCanvas({ geometry, data, metric }: { geometry: GeometryResponse | nu
         }
         map.once("idle", () => {
           if (!cancelled && containerRef.current) {
+            mapReady = true;
+            if (readinessTimer) clearTimeout(readinessTimer);
             containerRef.current.dataset.mapReady = "true";
           }
         });
       });
-      map.on("error", () => setMapError("The official boundary could not be rendered."));
+      map.on("error", () => console.warn("explore-map-nonfatal-error"));
     }).catch(() => setMapError("The map could not be loaded."));
     return () => {
       cancelled = true;
+      if (readinessTimer) clearTimeout(readinessTimer);
       map?.remove();
     };
   }, [data, geometry, metric]);
@@ -986,7 +999,12 @@ function VisualsView({ data }: { data: PlaceResponse }) {
     <section id="visuals-panel" role="tabpanel" aria-labelledby="visuals-tab" className={`${styles.viewPanel} ${styles.visualsView}`}>
       <header className={styles.visualsHeader}>
         <div><span>Evidence views</span><h2>See the measure. See its limits.</h2></div>
-        <div><p>Visuals use compatible county evidence only. They do not create an overall health ranking or imply neighborhood-level precision.</p><a href={`/api/evidence/v1/funder-snapshot?geoid=${encodeURIComponent(data.location.geoid)}&format=pdf`}><DownloadSimple size={18} aria-hidden="true" /> Download funder snapshot</a></div>
+        <div>
+          <p>Visuals use compatible county evidence only. They do not create an overall health ranking or imply neighborhood-level precision.</p>
+          {data.capabilities.funderSnapshot
+            ? <a href={`/api/evidence/v1/funder-snapshot?geoid=${encodeURIComponent(data.location.geoid)}&format=pdf`}><DownloadSimple size={18} aria-hidden="true" /> Download funder snapshot</a>
+            : <span className={styles.unavailableExport}>Funder snapshot available after reviewed release.</span>}
+        </div>
       </header>
       <div className={styles.visualGrid}>
         <article className={styles.comparisonVisual}>

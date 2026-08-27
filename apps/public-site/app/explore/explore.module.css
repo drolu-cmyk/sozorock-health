@@ -381,6 +381,7 @@
 .visualsHeader h2 { margin: 8px 0 0; font-size: clamp(38px, 6vw, 72px); letter-spacing: -.06em; line-height: .95; }
 .visualsHeader p { color: #536064; line-height: 1.55; }
 .visualsHeader > div:last-child > a { display: inline-flex; min-height: 46px; align-items: center; gap: 8px; margin-top: 10px; padding: 0 14px; background: var(--signal); color: var(--ink); font-size: 13px; font-weight: 850; text-decoration: none; }
+.unavailableExport { display: inline-block; margin-top: 10px; color: #536064; font-size: 13px; font-weight: 750; letter-spacing: 0; text-transform: none; }
 .visualGrid { display: grid; width: min(1320px, 100%); margin: auto; grid-template-columns: repeat(12, 1fr); }
 .visualGrid > article { min-width: 0; padding: clamp(20px, 3vw, 32px); border: 1px solid var(--line); background: #fff; }
 .visualGrid h3 { margin: 9px 0 22px; font-size: clamp(24px, 3vw, 34px); letter-spacing: -.04em; line-height: 1.05; }

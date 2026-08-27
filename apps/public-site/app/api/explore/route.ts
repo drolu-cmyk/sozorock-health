@@ -19,7 +19,9 @@ import { exploreMetrics, safeGeoid, scoreMetric, type ExploreKind } from "../../
 import { enforceEvidenceRateLimit } from "../../lib/evidence-rate-limit";
 import { resolveEvidenceCounty } from "../../lib/county-resolution";
 import { cdcMeasureDefinitionId, indexCdcObservations } from "../../lib/explore-cdc-metadata";
+import { canonicalCountyLabel } from "../../lib/explore-labels";
 import {
+  evidenceCapabilityEnabled,
   evidenceRuntimeEnvironment,
   requireEvidenceGeographyId,
   requirePublishedEvidenceSnapshot,
@@ -242,7 +244,7 @@ export async function GET(request: NextRequest) {
   const location = {
     kind: "county" as const,
     geoid: evidenceGeoid,
-    label: `${record.county}, ${record.stateCode}`,
+    label: canonicalCountyLabel(record.county, record.stateCode),
     state: record.stateCode,
     population: record.population ?? acsContext.population ?? 0,
     coordinates: [record.centroid.lon, record.centroid.lat],
@@ -369,6 +371,10 @@ export async function GET(request: NextRequest) {
       definition: `${observation.domain.replace(/^\d+\.\s*/, "")} · ${observation.topic}. The source workbook does not supply a margin of error for this field.`,
     })),
   ];
+  const availableContextMeasureCount = contextMeasures.filter((measure) => measure.value !== null).length;
+  const funderSnapshotEnabled = useFixtureOnlyForTests
+    ? true
+    : await evidenceCapabilityEnabled("explore:funder_snapshots").catch(() => false);
   return NextResponse.json({
     location,
     summary: priorities[0]
@@ -377,9 +383,13 @@ export async function GET(request: NextRequest) {
     metrics,
     priorities,
     dataCoverage: {
-      measureCount: metrics.length + contextMeasures.filter((measure) => measure.value !== null).length,
+      measureCount: metrics.length + availableContextMeasureCount,
       currentMeasureCount: metrics.length,
+      contextMeasureCount: availableContextMeasureCount,
       previousMeasureCount: 0,
+    },
+    capabilities: {
+      funderSnapshot: funderSnapshotEnabled,
     },
     contextMeasures,
     offerings: [],
