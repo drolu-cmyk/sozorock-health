@@ -524,8 +524,13 @@ jobs:
             jq -c '{error:(.error // "unavailable"),code:(.code // "unclassified")}' \
               authority-error.json >&2 || true
           else
-            jq -e '.contractVersion=="explore.place-brief.v1" and .resolution.selected.authorityId=="36001"' \
-              albany.json >/dev/null || failed=1
+            if ! jq -e '.contractVersion=="explore.place-brief.v1" and .resolution.selected.authorityId=="36001"' \
+              albany.json >/dev/null; then
+              authority_ready=0
+              failed=1
+              jq -c '{error:(.error // "invalid_authority_contract"),code:(.code // "invalid_contract")}' \
+                albany.json >&2 || true
+            fi
           fi
           if retry_curl \
             "$PUBLIC_SITE_URL/api/evidence/v1/place-brief?kind=county&geoid=99999" >/dev/null; then

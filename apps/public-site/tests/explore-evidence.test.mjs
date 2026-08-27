@@ -131,6 +131,7 @@ test("production acceptance reports safe authority failures and skips only depen
   assert.match(productionWorkflow, /authority_ready=1/);
   assert.match(productionWorkflow, /authority-error\.json/);
   assert.match(productionWorkflow, /code:\(\.code \/\/ "unclassified"\)/);
+  assert.match(productionWorkflow, /authority_ready=0[\s\S]*invalid_authority_contract/);
   assert.match(productionWorkflow, /if \[ "\$authority_ready" -eq 1 \]; then[\s\S]*test:national-api[\s\S]*explore\.visual\.spec\.ts/);
   assert.match(productionWorkflow, /Skipping downstream Explore acceptance because the authority contract probe failed/);
 });
