@@ -15,5 +15,5 @@ includes:
   - amplify-release-commit-pin
   - explore-public-ui-correctness
 approval: user-authorized-production-release
-request_generation: 18
-retry_reason: generation 17 reimported the immutable nationwide snapshot and national context successfully, then attempted to alter an already valid least-privileged runtime login; generation 18 first proves and reuses the existing runtime login, invoking password configuration only when the runtime credential or role contract is invalid
+request_generation: 19
+retry_reason: generation 18 completed the governed authority, immutable snapshot, collaboration transport, and public environment reconciliation, then failed closed before Amplify because protected main advanced during the pinned release; generation 19 pins the now-stable current main and completes public deployment plus live acceptance
