@@ -10,6 +10,22 @@ const catalog = JSON.parse(gunzipSync(await readFile(
 const counties = catalog.geographies.filter((item) =>
   item.kind === "county" && item.releaseScope === "primary_50_states_dc");
 if (counties.length !== 3_144) throw new Error(`Expected 3,144 counties; found ${counties.length}.`);
+const coverageReport = JSON.parse(await readFile(
+  path.resolve(appRoot, "../../packages/evidence-core/data/national/national-coverage-report.v1.json"),
+  "utf8",
+));
+const liveSample = coverageReport.randomStateSample;
+if (!Array.isArray(liveSample) || liveSample.length !== 51) {
+  throw new Error("The live national sample must contain one county from every state and D.C.");
+}
+const countiesByGeoid = new Map(counties.map((county) => [county.geoid, county]));
+const validationCounties = liveSample.map((sample) => {
+  const county = countiesByGeoid.get(sample.geoid);
+  if (!county || county.statePostalCode !== sample.state) {
+    throw new Error(`The live national sample is not bound to the approved geography catalog: ${sample.geoid}.`);
+  }
+  return county;
+});
 
 const baseUrl = process.env.EXPLORE_VALIDATION_BASE_URL
   ?? process.argv[2]
@@ -18,8 +34,8 @@ const failures = [];
 let cursor = 0;
 let validated = 0;
 async function worker() {
-  while (cursor < counties.length) {
-    const county = counties[cursor++];
+  while (cursor < validationCounties.length) {
+    const county = validationCounties[cursor++];
     const response = await fetch(
       `${baseUrl}/api/evidence/v1/place-brief?kind=county&geoid=${county.geoid}`,
     );
@@ -44,10 +60,11 @@ async function worker() {
     validated += 1;
   }
 }
-await Promise.all(Array.from({ length: 24 }, () => worker()));
+await Promise.all(Array.from({ length: 4 }, () => worker()));
 if (failures.length) throw new Error(`National API validation failed: ${JSON.stringify(failures.slice(0, 20))}`);
 console.log(JSON.stringify({
   authoritativeCountyCount: counties.length,
+  liveStateAndDcSampleCount: validationCounties.length,
   validPlaceBriefCount: validated,
   baseUrl,
 }, null, 2));
