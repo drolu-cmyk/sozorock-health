@@ -12,6 +12,15 @@ test('CB-CAP deployment role can inspect the cluster before fail-closed shutdown
   assert.match(template, /- ecs:UpdateService/);
 });
 
+test('CB-CAP deployment role can resolve only the governed contact-stack model reference', async () => {
+  const template = await readFile(templateUrl, 'utf8');
+  assert.match(template, /- Sid: ReadGovernedModelSecretReference/);
+  assert.match(template, /Action: cloudformation:DescribeStacks/);
+  assert.match(template, /stack\/sozorock-health-contact\/\*/);
+  assert.match(template, /- secretsmanager:DescribeSecret/);
+  assert.match(template, /- cognito-idp:DescribeUserPoolDomain/);
+});
+
 test('newest approved CB-CAP bootstrap supersedes stale queued bootstrap requests', async () => {
   const workflow = await readFile(workflowUrl, 'utf8');
   const template = await readFile(templateUrl, 'utf8');
