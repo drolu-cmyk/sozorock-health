@@ -41,7 +41,10 @@ test("missing or origin-drifted runtime configuration disables controls", () => 
     NEXT_PUBLIC_CBCAP_COGNITO_DOMAIN: previous.domain,
     NEXT_PUBLIC_CBCAP_COGNITO_CLIENT_ID: previous.client,
     NEXT_PUBLIC_CBCAP_COGNITO_REDIRECT_URI: previous.redirect,
-  })) value === undefined ? delete process.env[key] : process.env[key] = value;
+  })) {
+    if (value === undefined) delete process.env[key];
+    else process.env[key] = value;
+  }
 });
 
 test("PKCE keeps tokens out of URLs and browser storage", async () => {
