@@ -126,6 +126,15 @@ test("production release pins the Amplify job to the approved commit", async () 
   assert.doesNotMatch(productionWorkflow, /deployed_commit" == "HEAD"/);
 });
 
+test("production acceptance reports safe authority failures and skips only dependent checks", async () => {
+  const productionWorkflow = await source("../../.github/workflows/explore-production.yml");
+  assert.match(productionWorkflow, /authority_ready=1/);
+  assert.match(productionWorkflow, /authority-error\.json/);
+  assert.match(productionWorkflow, /code:\(\.code \/\/ "unclassified"\)/);
+  assert.match(productionWorkflow, /if \[ "\$authority_ready" -eq 1 \]; then[\s\S]*test:national-api[\s\S]*explore\.visual\.spec\.ts/);
+  assert.match(productionWorkflow, /Skipping downstream Explore acceptance because the authority contract probe failed/);
+});
+
 test("production reuses an already valid least-privileged runtime login", async () => {
   const productionWorkflow = await source("../../.github/workflows/explore-production.yml");
   assert.match(productionWorkflow, /r\.rolinherit/);

@@ -107,6 +107,9 @@ test("production Explore requests are tied to persisted canonical geography and 
   assert.match(runtimeAuthority, /kind='county'/);
   assert.match(runtimeAuthority, /requireEvidenceGeographyId/);
   assert.match(exploreRoute, /requirePublishedEvidenceSnapshot/);
+  assert.match(exploreRoute, /evidenceAuthorityFailureCode/);
+  assert.match(exploreRoute, /explore-snapshot-authority-failed/);
+  assert.match(exploreRoute, /explore-geography-authority-failed/);
   assert.match(exploreRoute, /requireEvidenceGeographyId\(evidenceGeoid, placeAgentRuntimeVersions\.snapshotContentHash\)/);
   assert.match(placeBriefRoute, /requirePublishedEvidenceSnapshot/);
   assert.match(placeBriefRoute, /requireEvidenceGeographyId\(geoid, placeAgentRuntimeVersions\.snapshotContentHash\)/);

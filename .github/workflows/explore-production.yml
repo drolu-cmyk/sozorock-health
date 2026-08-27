@@ -512,19 +512,34 @@ jobs:
           }
           retry_curl "$PUBLIC_SITE_URL/" -o homepage-after.html || failed=1
           retry_curl "$PUBLIC_SITE_URL/explore" -o explore-after.html || failed=1
-          retry_curl \
+          authority_ready=1
+          if ! retry_curl \
             "$PUBLIC_SITE_URL/api/evidence/v1/place-brief?kind=county&geoid=36001" \
-            -o albany.json || failed=1
-          jq -e '.contractVersion=="explore.place-brief.v1" and .resolution.selected.authorityId=="36001"' albany.json >/dev/null || failed=1
+            -o albany.json; then
+            authority_ready=0
+            failed=1
+            curl --silent --show-error --connect-timeout 15 --max-time 30 \
+              "$PUBLIC_SITE_URL/api/evidence/v1/place-brief?kind=county&geoid=36001" \
+              -o authority-error.json || true
+            jq -c '{error:(.error // "unavailable"),code:(.code // "unclassified")}' \
+              authority-error.json >&2 || true
+          else
+            jq -e '.contractVersion=="explore.place-brief.v1" and .resolution.selected.authorityId=="36001"' \
+              albany.json >/dev/null || failed=1
+          fi
           if retry_curl \
             "$PUBLIC_SITE_URL/api/evidence/v1/place-brief?kind=county&geoid=99999" >/dev/null; then
             failed=1
           fi
-          npm run test:national-api --workspace @sozorock/public-site -- \
-            "$PUBLIC_SITE_URL" || failed=1
-          PLAYWRIGHT_BASE_URL="$PUBLIC_SITE_URL" \
-            npx playwright test apps/public-site/e2e/explore.visual.spec.ts \
-              --config apps/public-site/playwright.config.ts || failed=1
+          if [ "$authority_ready" -eq 1 ]; then
+            npm run test:national-api --workspace @sozorock/public-site -- \
+              "$PUBLIC_SITE_URL" || failed=1
+            PLAYWRIGHT_BASE_URL="$PUBLIC_SITE_URL" \
+              npx playwright test apps/public-site/e2e/explore.visual.spec.ts \
+                --config apps/public-site/playwright.config.ts || failed=1
+          else
+            echo "Skipping downstream Explore acceptance because the authority contract probe failed." >&2
+          fi
           npm run test:non-explore-regression --workspace @sozorock/public-site -- \
             compare "$PUBLIC_SITE_URL" output/non-explore-regression || failed=1
           if [ "$failed" -ne 0 ]; then
