@@ -54,6 +54,8 @@ jobs:
       AWS_REGION: us-east-1
       EXPECTED_AWS_ACCOUNT_ID: '791860731989'
       STACK_NAME: cbcap-agentic-deployment-bootstrap
+      FAILED_FIRST_CREATE_STACK_ARN: arn:aws:cloudformation:us-east-1:791860731989:stack/cbcap-agentic-production/d9c5c3e0-a1c2-11f1-b2b4-0afff03a5535
+      FAILED_FIRST_CREATE_USER_POOL_ARN: arn:aws:cognito-idp:us-east-1:791860731989:userpool/us-east-1_9IAszyWtk
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
@@ -87,6 +89,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          [[ "$FAILED_FIRST_CREATE_STACK_ARN" =~ ^arn:aws:cloudformation:${AWS_REGION}:${EXPECTED_AWS_ACCOUNT_ID}:stack/cbcap-agentic-production/[0-9a-f-]{36}$ ]]
+          [[ "$FAILED_FIRST_CREATE_USER_POOL_ARN" =~ ^arn:aws:cognito-idp:${AWS_REGION}:${EXPECTED_AWS_ACCOUNT_ID}:userpool/[A-Za-z0-9_-]+$ ]]
           aws cloudformation deploy \
             --stack-name "$STACK_NAME" \
             --template-file infrastructure/cloudformation/cbcap-agentic-deployment-bootstrap.yml \
@@ -96,6 +100,8 @@ jobs:
               GitHubRepository=drolu-cmyk/sozorock-health-agentic \
               GitHubEnvironment=production \
               GitHubSubject='repo:drolu-cmyk@271617784/sozorock-health-agentic@1313269615:environment:production' \
+              FailedFirstCreateStackArn="$FAILED_FIRST_CREATE_STACK_ARN" \
+              FailedFirstCreateUserPoolArn="$FAILED_FIRST_CREATE_USER_POOL_ARN" \
             --no-fail-on-empty-changeset
 
       - name: Prove exact trust boundary
@@ -106,6 +112,15 @@ jobs:
           cf_role=$(aws cloudformation describe-stacks --stack-name "$STACK_NAME" --query "Stacks[0].Outputs[?OutputKey=='CloudFormationServiceRoleArn'].OutputValue" --output text)
           test "$deploy_role" = "arn:aws:iam::$EXPECTED_AWS_ACCOUNT_ID:role/cbcap-agentic-github-deploy"
           test "$cf_role" = "arn:aws:iam::$EXPECTED_AWS_ACCOUNT_ID:role/cbcap-agentic-cloudformation"
+
+          release_policy=$(aws iam get-role-policy --role-name cbcap-agentic-github-deploy --policy-name CbcapAgenticRelease --query PolicyDocument --output json)
+          jq -e --arg stack "$FAILED_FIRST_CREATE_STACK_ARN" --arg pool "$FAILED_FIRST_CREATE_USER_POOL_ARN" '
+            any(.Statement[]; .Sid == "DeleteExactFailedFirstCreateStack" and .Action == "cloudformation:DeleteStack" and .Resource == $stack) and
+            any(.Statement[]; .Sid == "UpdateExactFailedFirstCreateUserPool" and .Action == "cognito-idp:UpdateUserPool" and .Resource == $pool) and
+            all(.Statement[]; ((.Action | if type == "array" then . else [.] end) | index("secretsmanager:DeleteSecret")) == null) and
+            all(.Statement[]; ((.Action | if type == "array" then . else [.] end) | index("logs:DeleteLogGroup")) == null) and
+            all(.Statement[]; ((.Action | if type == "array" then . else [.] end) | index("kms:ScheduleKeyDeletion")) == null)
+          ' <<<"$release_policy" >/dev/null
 
           trust=$(aws iam get-role --role-name cbcap-agentic-github-deploy --query 'Role.AssumeRolePolicyDocument' --output json)
           jq -e --arg subject 'repo:drolu-cmyk@271617784/sozorock-health-agentic@1313269615:environment:production' '
