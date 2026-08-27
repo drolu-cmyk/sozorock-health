@@ -2,5 +2,5 @@ bootstrap: cbcap-agentic-production
 repository: drolu-cmyk/sozorock-health-agentic
 environment: production
 approval: user-authorized-production-activation
-request_generation: 8
-reason: refresh protected production bootstrap on current main after bounded bootstrap authority and SES release-gate permissions were attached in AWS
+request_generation: 9
+reason: repair the stale CB-CAP repo-scoped production OIDC trust exposed by agentic activation generation 2; retain the bounded two-role bootstrap authority and prove the exact production environment subject
