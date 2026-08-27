@@ -228,7 +228,9 @@ jobs:
           npm run import:production:data-api --workspace @sozorock/evidence-core
           snapshot_id=$(jq -r '.snapshotId' packages/evidence-core/data/national/county-evidence-snapshot.v1.json)
           test "$snapshot_id" != "null"
-          echo "EVIDENCE_SNAPSHOT_CONTENT_HASH=${snapshot_id/snapshot:/sha256:}" >> "$GITHUB_ENV"
+          EVIDENCE_SNAPSHOT_CONTENT_HASH="${snapshot_id/snapshot:/sha256:}"
+          export EVIDENCE_SNAPSHOT_CONTENT_HASH
+          echo "EVIDENCE_SNAPSHOT_CONTENT_HASH=$EVIDENCE_SNAPSHOT_CONTENT_HASH" >> "$GITHUB_ENV"
           npm run seed:collaboration-control-plane --workspace @sozorock/evidence-core
           aws rds-data execute-statement \
             --resource-arn "$EVIDENCE_DATABASE_CLUSTER_ARN" \

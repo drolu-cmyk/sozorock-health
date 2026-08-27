@@ -141,6 +141,8 @@ test("production reuses an already valid least-privileged runtime login", async 
   assert.match(productionWorkflow, /runtime_snapshot=\$\(aws rds-data execute-statement/);
   assert.match(productionWorkflow, /runtime_geography=\$\(aws rds-data execute-statement/);
   assert.match(productionWorkflow, /--secret-arn "\$EVIDENCE_DATABASE_RUNTIME_SECRET_ARN"/);
+  assert.match(productionWorkflow, /EVIDENCE_SNAPSHOT_CONTENT_HASH="\$\{snapshot_id\/snapshot:\/sha256:\}"/);
+  assert.match(productionWorkflow, /export EVIDENCE_SNAPSHOT_CONTENT_HASH/);
 });
 
 test("production binds Amplify compute to the exact evidence-authorized role", async () => {
