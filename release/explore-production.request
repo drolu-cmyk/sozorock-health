@@ -13,5 +13,5 @@ includes:
   - deterministic-national-context-artifact-build
   - production-schema-aligned-national-context-loader
 approval: user-authorized-production-release
-request_generation: 15
-retry_reason: generation 14 imported the nationwide snapshot successfully, then exposed one remaining obsolete snapshot-source column; generation 15 aligns the snapshot_source_version insert with the deployed two-column migration contract and adds a regression guard against reintroducing required_for_snapshot
+request_generation: 16
+retry_reason: generation 15 imported the nationwide public snapshot and reached national-context measure loading, then exposed that the Data API binds the direction parameter as text; generation 16 casts that bind explicitly to the deployed evidence.metric_direction enum and locks the contract in regression coverage

@@ -350,7 +350,7 @@ for (const measure of measureTemplates.values()) {
        direction, higher_value_meaning, comparison_policy, review_status
      ) VALUES (
        CAST(:id AS uuid), :source_id, :source_measure_id, :name, :description, :unit, :universe, :adjustment,
-       :direction, :higher_value_meaning, :comparison_policy, 'verified'
+       CAST(:direction AS evidence.metric_direction), :higher_value_meaning, :comparison_policy, 'verified'
      )
      ON CONFLICT (source_id, source_measure_id) DO UPDATE SET
        name=EXCLUDED.name, description=EXCLUDED.description, unit=EXCLUDED.unit,
