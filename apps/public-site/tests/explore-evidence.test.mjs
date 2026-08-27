@@ -128,8 +128,14 @@ test("production release pins the Amplify job to the approved commit", async () 
 
 test("production reuses an already valid least-privileged runtime login", async () => {
   const productionWorkflow = await source("../../.github/workflows/explore-production.yml");
-  assert.match(productionWorkflow, /runtime_role=\$\(read_runtime_role 2>\/dev\/null \|\| true\)/);
-  assert.match(productionWorkflow, /if ! jq -e[\s\S]*evidence_runtime_login/);
+  assert.match(productionWorkflow, /r\.rolinherit/);
+  assert.match(productionWorkflow, /pg_has_role\(current_user, 'evidence_runtime', 'MEMBER'\)/);
+  assert.match(productionWorkflow, /runtime_probe_error=\$\(mktemp\)/);
+  assert.match(productionWorkflow, /DatabaseErrorException\.\*password authentication failed/);
+  assert.match(productionWorkflow, /Runtime login probe failed before contract validation/);
+  assert.doesNotMatch(productionWorkflow, /read_runtime_role 2>\/dev\/null \|\| true/);
+  assert.match(productionWorkflow, /\|\| ! jq -e[\s\S]*evidence_runtime_login/);
+  assert.match(productionWorkflow, /\{"booleanValue":true\},\{"booleanValue":true\}/);
   assert.match(productionWorkflow, /configure_runtime_login\(:runtime_password\)/);
   assert.match(productionWorkflow, /runtime_role=\$\(read_runtime_role\)/);
 });
