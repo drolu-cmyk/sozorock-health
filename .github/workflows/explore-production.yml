@@ -232,24 +232,31 @@ jobs:
             --secret-arn "$EVIDENCE_DATABASE_SECRET_ARN" \
             --database "$EVIDENCE_DATABASE_NAME" \
             --sql "INSERT INTO evidence.workspace_tenant (id, legal_name, status, created_at, created_by) VALUES ('10000000-0000-4000-8000-000000000001', 'The SozoRock Foundation, Inc.', 'active', now(), 'explore-production-workflow') ON CONFLICT (id) DO UPDATE SET legal_name=EXCLUDED.legal_name, status='active'" >/dev/null
-          runtime_secret_json=$(aws secretsmanager get-secret-value \
-            --secret-id "$EVIDENCE_DATABASE_RUNTIME_SECRET_ARN" --query SecretString --output text)
-          runtime_password=$(jq -er '.password' <<<"$runtime_secret_json")
-          runtime_parameters=$(jq -nc --arg password "$runtime_password" \
-            '[{name:"runtime_password",value:{stringValue:$password}}]')
-          aws rds-data execute-statement \
-            --resource-arn "$EVIDENCE_DATABASE_CLUSTER_ARN" \
-            --secret-arn "$EVIDENCE_DATABASE_SECRET_ARN" \
-            --database "$EVIDENCE_DATABASE_NAME" \
-            --sql "SELECT evidence.configure_runtime_login(:runtime_password)" \
-            --parameters "$runtime_parameters" >/dev/null
-          unset runtime_password runtime_parameters runtime_secret_json
-          runtime_role=$(aws rds-data execute-statement \
-            --resource-arn "$EVIDENCE_DATABASE_CLUSTER_ARN" \
-            --secret-arn "$EVIDENCE_DATABASE_RUNTIME_SECRET_ARN" \
-            --database "$EVIDENCE_DATABASE_NAME" \
-            --sql "SELECT current_user, rolsuper, rolcreatedb, rolcreaterole, rolbypassrls FROM pg_roles WHERE rolname=current_user" \
-            --output json)
+          read_runtime_role() {
+            aws rds-data execute-statement \
+              --resource-arn "$EVIDENCE_DATABASE_CLUSTER_ARN" \
+              --secret-arn "$EVIDENCE_DATABASE_RUNTIME_SECRET_ARN" \
+              --database "$EVIDENCE_DATABASE_NAME" \
+              --sql "SELECT current_user, rolsuper, rolcreatedb, rolcreaterole, rolbypassrls FROM pg_roles WHERE rolname=current_user" \
+              --output json
+          }
+          runtime_role=$(read_runtime_role 2>/dev/null || true)
+          if ! jq -e '.records == [[{"stringValue":"evidence_runtime_login"},{"booleanValue":false},{"booleanValue":false},{"booleanValue":false},{"booleanValue":false}]]' \
+            <<<"$runtime_role" >/dev/null 2>&1; then
+            runtime_secret_json=$(aws secretsmanager get-secret-value \
+              --secret-id "$EVIDENCE_DATABASE_RUNTIME_SECRET_ARN" --query SecretString --output text)
+            runtime_password=$(jq -er '.password' <<<"$runtime_secret_json")
+            runtime_parameters=$(jq -nc --arg password "$runtime_password" \
+              '[{name:"runtime_password",value:{stringValue:$password}}]')
+            aws rds-data execute-statement \
+              --resource-arn "$EVIDENCE_DATABASE_CLUSTER_ARN" \
+              --secret-arn "$EVIDENCE_DATABASE_SECRET_ARN" \
+              --database "$EVIDENCE_DATABASE_NAME" \
+              --sql "SELECT evidence.configure_runtime_login(:runtime_password)" \
+              --parameters "$runtime_parameters" >/dev/null
+            unset runtime_password runtime_parameters runtime_secret_json
+            runtime_role=$(read_runtime_role)
+          fi
           jq -e '.records == [[{"stringValue":"evidence_runtime_login"},{"booleanValue":false},{"booleanValue":false},{"booleanValue":false},{"booleanValue":false}]]' \
             <<<"$runtime_role" >/dev/null
           echo "EVIDENCE_DATABASE_SECRET_ARN=$EVIDENCE_DATABASE_RUNTIME_SECRET_ARN" >> "$GITHUB_ENV"
