@@ -73,6 +73,7 @@ test("production workflow proves admin, MFA, intake and trust recovery boundarie
   const workflow = await read("../../.github/workflows/foundation-consolidation-production.yml");
   const mfaSmoke = await read("../../scripts/enroll-foundation-smoke-mfa.sh");
   const trustScript = await read("../../scripts/reconcile-foundation-recovery-trust.sh");
+  assert.match(trustScript, /repo:drolu-cmyk@271617784\/sozorock-health-agentic@1313269615:environment:production/);
   assert.match(workflow, /environment: production/);
   assert.match(workflow, /--stack-name sozorock-health-contact/);
   assert.match(workflow, /FoundationAdminUserPoolArn="\$FOUNDATION_ADMIN_COGNITO_USER_POOL_ARN"/);

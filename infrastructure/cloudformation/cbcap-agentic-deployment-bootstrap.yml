@@ -215,6 +215,10 @@ Resources:
                 Condition:
                   StringEquals:
                     iam:PassedToService: cloudformation.amazonaws.com
+              - Sid: ReadGovernedModelSecretReference
+                Effect: Allow
+                Action: cloudformation:DescribeStacks
+                Resource: !Sub arn:${AWS::Partition}:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/sozorock-health-contact/*
               - Sid: EcrLogin
                 Effect: Allow
                 Action: ecr:GetAuthorizationToken
@@ -278,6 +282,7 @@ Resources:
                   - acm:DescribeCertificate
                   - cognito-idp:DescribeUserPool
                   - cognito-idp:DescribeUserPoolClient
+                  - cognito-idp:DescribeUserPoolDomain
                   - cognito-idp:ListUsers
                   - s3:GetBucketVersioning
                   - s3:GetEncryptionConfiguration
