@@ -66,7 +66,7 @@ jobs:
             | tee output/place-evidence-operations/release-gates.json
 
       - name: Upload internal review evidence
-        uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v4
         with:
           name: place-evidence-source-health-${{ github.run_id }}
           path: output/place-evidence-operations
@@ -99,7 +99,7 @@ jobs:
         run: git diff --exit-code
 
       - name: Upload the internal review queue
-        uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v4
         with:
           name: planning-review-queue-${{ github.run_id }}
           path: packages/evidence-core/review/milestone-3-pilot-evidence-review.json
@@ -157,7 +157,7 @@ jobs:
             } > output/place-evidence-operations/candidate-review.md
             gh issue create --title "$title" --body-file output/place-evidence-operations/candidate-review.md
           fi
-      - uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v4
         with:
           name: source-adapter-candidates-${{ github.run_id }}
           path: output/place-evidence-operations
