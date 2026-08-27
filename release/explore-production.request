@@ -15,6 +15,8 @@ includes:
   - amplify-release-commit-pin
   - explore-public-ui-correctness
   - runtime-role-membership-reconciliation
+  - runtime-authority-query-preflight
+  - amplify-compute-role-reconciliation
 approval: user-authorized-production-release
-request_generation: 21
-retry_reason: generation 20 deployed the exact release but the pre-load Albany probe and every sampled county returned the approved-snapshot 503 because the legacy runtime-login probe did not validate INHERIT or evidence_runtime membership; generation 21 requires both properties, restores the bounded group grant through the existing security-definer function when absent, and keeps transport or authorization probe failures fatal
+request_generation: 22
+retry_reason: generation 21 proved the runtime login has INHERIT and evidence_runtime membership but the deployed application still returned approved-snapshot 503 for Albany and all 51 sampled jurisdictions; generation 22 executes the exact snapshot and Albany geography queries through that runtime credential before deployment, reconciles and verifies Amplify's SSR compute role against the Evidence-authorized role, pins the Data API region, and preserves the full nationwide and visual acceptance gates
