@@ -60,6 +60,7 @@ test("the sitemap source declares reciprocal English and Spanish alternatives", 
 
 test("the public metadata identifies SozoRock Health, its leadership, and social profiles", async () => {
   const layout = await readFile(new URL("../app/layout.tsx", import.meta.url), "utf8");
+  const home = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
 
   assert.match(layout, /Care\. For every ZIP Code\./);
   assert.match(layout, /Oluwabiyi Adeyemo/);
@@ -67,7 +68,8 @@ test("the public metadata identifies SozoRock Health, its leadership, and social
   assert.match(layout, /Biyi Adeyemo/);
   assert.match(layout, /"@type": "Person"/);
   assert.match(layout, /"@type": "Project"/);
-  assert.match(layout, /"@type": "WebPage"/);
+  assert.doesNotMatch(layout, /"@type": "WebPage"/);
+  assert.match(home, /"@type": "WebPage"/);
   assert.match(layout, /site: "@srockfoundation"/);
   assert.match(layout, /NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION/);
   assert.match(layout, /sozorock-health-social-2026-07\.jpg/);

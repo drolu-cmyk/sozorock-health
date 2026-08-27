@@ -183,6 +183,14 @@ export async function requireEvidenceCapability(capabilityKey: string) {
   }
 }
 
+export async function evidenceCapabilityEnabled(capabilityKey: string) {
+  const result = await executeEvidenceSql(
+    `SELECT enabled FROM evidence.capability_switch WHERE capability_key=:capability_key`,
+    [{ name: "capability_key", value: { stringValue: capabilityKey } }],
+  );
+  return evidenceFieldValue(result.records?.[0]?.[0]) === true;
+}
+
 /**
  * Resolve the persisted canonical geography identifier used by the Evidence
  * Core.  Public routes receive a Census GEOID, but audit records must point
