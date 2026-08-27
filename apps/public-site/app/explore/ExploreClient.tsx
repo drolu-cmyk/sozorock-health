@@ -1,6 +1,3 @@
-Warning: truncated output (original token count: 17248)
-Total output lines: 1369
-
 "use client";
 
 import "maplibre-gl/dist/maplibre-gl.css";
@@ -624,7 +621,388 @@ function BriefView({ data }: { data: PlaceResponse }) {
           </div>
           <div className={styles.evidenceCards}>
             <EvidenceCard kind={attention ? "attention" : "protective"} metric={attention ?? protective} />
-            <EvidenceCard kind={improving ? "improving" : "context"} …5248 tokens truncated…odeURIComponent(data.location.geoid)}&format=pdf`}><DownloadSimple size={18} aria-hidden="true" /> Download funder snapshot</a>
+            <EvidenceCard kind={improving ? "improving" : "context"} metric={improving ?? contextual} />
+            <EvidenceCard kind="missing" />
+          </div>
+          <p className={styles.comparisonNote}><Info size={17} aria-hidden="true" /> Favorable measures are never ranked as problems simply because they are high. Comparisons use the same geographic level and release.</p>
+          <details className={styles.allMeasures}>
+            <summary>All {data.dataCoverage.measureCount} compatible measures <CaretRight size={17} aria-hidden="true" /></summary>
+            <div className={styles.measureTable} role="table" aria-label={`All compatible county measures for ${data.location.label}`}>
+              <div role="row">
+                <span role="columnheader">Measure</span>
+                <span role="columnheader">County</span>
+                <span role="columnheader">State</span>
+                <span role="columnheader">National</span>
+                <span role="columnheader">Uncertainty</span>
+              </div>
+              {data.metrics.map((metric) => (
+                <div role="row" key={metric.key}>
+                  <span role="cell"><strong>{metric.label}</strong><small>{metric.plainLanguage}</small><MetricDetails metric={metric} /></span>
+                  <span role="cell">{metric.value.toFixed(1)}%</span>
+                  <span role="cell">{metric.state === null ? "Unavailable" : `${metric.state.toFixed(1)}%`}</span>
+                  <span role="cell">{metric.national === null ? "Comparison unavailable" : `${metric.national.toFixed(1)}%`}</span>
+                  <span role="cell">{metric.confidence || "Not supplied"}</span>
+                </div>
+              ))}
+              {availableContextMeasures.map((measure) => (
+                <div role="row" key={measure.key}>
+                  <span role="cell">
+                    <strong>{measure.label}</strong>
+                    <small>{measure.source} · {measure.definition} · {measure.period}</small>
+                    <ContextMeasureDetails measure={measure} />
+                  </span>
+                  <span role="cell">{measure.value === null
+                    ? "Unavailable"
+                    : typeof measure.value === "string"
+                      ? `${measure.value} ${measure.unit}`
+                      : measure.unit === "percent"
+                      ? `${measure.value.toFixed(1)}%`
+                      : `${formatNumber(measure.value)} ${measure.unit}`}</span>
+                  <span role="cell">Not comparable here</span>
+                  <span role="cell">Not comparable here</span>
+                  <span role="cell">{measure.uncertainty ?? "Not supplied by source"}</span>
+                </div>
+              ))}
+            </div>
+          </details>
+          <details className={styles.coverageMatrix}>
+            <summary>Evidence coverage <CaretRight size={17} aria-hidden="true" /></summary>
+            <div>
+              {data.sourceCoverage.map((source) => (
+                <article key={source.sourceId}>
+                  <strong>{source.sourceId.replaceAll("-", " ")}</strong>
+                  <span>{source.status.replaceAll("_", " ")}</span>
+                  <p>{source.reason}</p>
+                </article>
+              ))}
+            </div>
+          </details>
+          <details className={styles.coverageMatrix}>
+            <summary>Workforce and shortage designations <CaretRight size={17} aria-hidden="true" /></summary>
+            <div>
+              {data.workforceContext.hpsa.length === 0
+                && data.workforceContext.medicallyUnderservedAreasAndPopulations.length === 0
+                && data.workforceContext.areaHealthResources.every((observation) => observation.value === null) ? (
+                  <article>
+                    <strong>No associated designation in the approved source</strong>
+                    <p>This does not mean that no shortage or access barrier exists.</p>
+                  </article>
+                ) : (
+                  <>
+                    {data.workforceContext.hpsa.map((designation) => (
+                      <article key={`hpsa-${designation.designationId}-${designation.discipline}`}>
+                        <strong>{designation.designationName || designation.discipline}</strong>
+                        <span>{designation.wholeCounty ? "Whole county" : designation.componentType || "Source-defined area"}</span>
+                        <p>{designation.discipline} · {designation.status}{designation.score === null ? "" : ` · score ${designation.score}`}</p>
+                      </article>
+                    ))}
+                    {data.workforceContext.medicallyUnderservedAreasAndPopulations.map((designation) => (
+                      <article key={`muap-${designation.designationId}`}>
+                        <strong>{designation.designationName || "Medically underserved designation"}</strong>
+                        <span>{designation.wholeCounty ? "Whole county" : designation.componentType || "Source-defined area"}</span>
+                        <p>{designation.designationType} · {designation.status}{designation.imuScore === null ? "" : ` · IMU ${designation.imuScore}`}</p>
+                      </article>
+                    ))}
+                    {data.workforceContext.areaHealthResources.map((observation) => (
+                      <article key={`ahrf-${observation.variableId}`}>
+                        <strong>{observation.label}</strong>
+                        <span>{observation.year}</span>
+                        <p>{observation.value === null
+                          ? "Unavailable from source"
+                          : `${formatNumber(observation.value)} ${observation.unit}`}</p>
+                      </article>
+                    ))}
+                  </>
+                )}
+              <article>
+                <strong>How to read this</strong>
+                <p>{data.workforceContext.limitation}</p>
+              </article>
+            </div>
+          </details>
+        </div>
+      </div>
+      <SourceStrip data={data} />
+    </section>
+  );
+}
+
+function MapCanvas({ geometry, data, metric }: { geometry: GeometryResponse | null; data: PlaceResponse; metric?: Metric }) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [mapError, setMapError] = useState("");
+
+  useEffect(() => {
+    if (!containerRef.current || !geometry || !hasRenderableGeometry(geometry.area)) return;
+    let cancelled = false;
+    let mapReady = false;
+    let map: import("maplibre-gl").Map | null = null;
+    let readinessTimer: ReturnType<typeof setTimeout> | null = null;
+    void import("maplibre-gl").then(({ default: maplibregl }) => {
+      if (cancelled || !containerRef.current) return;
+      const fill = metric?.interpretation === "adverse_signal" ? "#b9462c" : metric?.interpretation === "favorable_signal" ? "#446342" : "#6e7a74";
+      try {
+        const supportsWebgl = (maplibregl as typeof maplibregl & { supported?: () => boolean }).supported;
+        if (typeof supportsWebgl === "function" && !supportsWebgl()) {
+          setMapError("The interactive map is unavailable in this browser.");
+          return;
+        }
+        map = new maplibregl.Map({
+          container: containerRef.current,
+          style: {
+            version: 8,
+            sources: {},
+            layers: [{ id: "background", type: "background", paint: { "background-color": "#e8ede6" } }],
+          },
+          center: data.location.coordinates.length === 2 ? [data.location.coordinates[0], data.location.coordinates[1]] : [-98.5, 39.5],
+          zoom: 7,
+          attributionControl: false,
+          dragRotate: false,
+          pitchWithRotate: false,
+        });
+        readinessTimer = setTimeout(() => {
+          if (!cancelled && !mapReady) setMapError("The official boundary could not be rendered.");
+        }, 8_000);
+      } catch {
+        setMapError("The official boundary could not be rendered.");
+        return;
+      }
+      map.addControl(new maplibregl.NavigationControl({ showCompass: false, visualizePitch: false }), "top-right");
+      map.on("load", () => {
+        if (!map || cancelled) return;
+        map.addSource("official-boundary", { type: "geojson", data: geometry.area as never });
+        map.addLayer({ id: "boundary-fill", type: "fill", source: "official-boundary", paint: { "fill-color": fill, "fill-opacity": metric ? 0.28 : 0.12 } });
+        map.addLayer({ id: "boundary-line", type: "line", source: "official-boundary", paint: { "line-color": "#111a1d", "line-width": 2.4 } });
+        if (hasRenderableGeometry(geometry.contextArea)) {
+          map.addSource("search-context", { type: "geojson", data: geometry.contextArea as never });
+          map.addLayer({ id: "search-context-line", type: "line", source: "search-context", paint: { "line-color": "#f4b71b", "line-width": 2, "line-dasharray": [3, 2] } });
+        }
+        if (geometry.verifiedResources.features.length) {
+          map.addSource("verified-resources", { type: "geojson", data: geometry.verifiedResources as never });
+          map.addLayer({ id: "verified-resources", type: "circle", source: "verified-resources", paint: { "circle-radius": 6, "circle-color": "#f4b71b", "circle-stroke-color": "#111a1d", "circle-stroke-width": 2 } });
+        }
+        if (geometry.bounds?.length === 4) {
+          map.fitBounds(
+            [[geometry.bounds[0], geometry.bounds[1]], [geometry.bounds[2], geometry.bounds[3]]],
+            { padding: 58, maxZoom: 10, animate: false },
+          );
+        }
+        map.once("idle", () => {
+          if (!cancelled && containerRef.current) {
+            mapReady = true;
+            if (readinessTimer) clearTimeout(readinessTimer);
+            containerRef.current.dataset.mapReady = "true";
+          }
+        });
+      });
+      map.on("error", () => console.warn("explore-map-nonfatal-error"));
+    }).catch(() => setMapError("The map could not be loaded."));
+    return () => {
+      cancelled = true;
+      if (readinessTimer) clearTimeout(readinessTimer);
+      map?.remove();
+    };
+  }, [data, geometry, metric]);
+
+  const hasAreaGeometry = hasRenderableGeometry(geometry?.area);
+  if (!hasAreaGeometry || mapError) {
+    return hasAreaGeometry && geometry
+      ? <BoundaryFallback geometry={geometry} data={data} metric={metric} />
+      : <div className={styles.mapEmpty}><MapTrifold size={44} aria-hidden="true" /><p>{mapError || "The official boundary is temporarily unavailable."}</p></div>;
+  }
+  return <div ref={containerRef} className={styles.mapCanvas} data-map-ready="false" role="img" aria-label={`Official ${data.location.evidenceGeography.replace("_", " ")} boundary for ${data.location.label}`} />;
+}
+
+function MapView({
+  data,
+  geometry,
+}: {
+  data: PlaceResponse;
+  geometry: GeometryResponse | null;
+}) {
+  const compatibleMetrics = useMemo(
+    () => data.metrics.filter((metric) => metric.geographyLevel === data.location.evidenceGeography),
+    [data.location.evidenceGeography, data.metrics],
+  );
+  const [metricKey, setMetricKey] = useState(compatibleMetrics[0]?.key ?? "");
+  useEffect(() => setMetricKey(compatibleMetrics[0]?.key ?? ""), [compatibleMetrics]);
+  const metric = compatibleMetrics.find((item) => item.key === metricKey);
+  const contextVisible = hasRenderableGeometry(geometry?.contextArea);
+  return (
+    <section id="map-panel" role="tabpanel" aria-labelledby="map-tab" className={styles.viewPanel}>
+      <div className={styles.mapLayout}>
+        <figure className={styles.mapFigure}>
+          <MapCanvas geometry={geometry} data={data} metric={metric} />
+          <figcaption>{geometry?.vintage ?? "Official Census boundary"}. The shaded value applies to the selected geography as a whole; it does not show neighborhood variation.</figcaption>
+        </figure>
+        <aside className={styles.mapSidebar}>
+          <span>Map evidence</span>
+          <h2>{data.location.label}</h2>
+          <p>{data.location.geographyLabel}</p>
+          <label htmlFor="map-measure">Compatible data layer</label>
+          <select id="map-measure" value={metricKey} onChange={(event) => setMetricKey(event.target.value)}>
+            {compatibleMetrics.map((item) => <option key={item.key} value={item.key}>{item.label}</option>)}
+          </select>
+          {metric ? (
+            <div className={styles.mapMetric}>
+              <strong>{metric.value.toFixed(1)}%</strong>
+              <span>{metric.label}</span>
+              <p>{metric.release} release · {metric.geographyLevel === "zcta" ? "ZCTA" : metric.geographyLevel === "census_place" ? "Census place" : "County"} estimate</p>
+            </div>
+          ) : <p className={styles.mapNotice}>No compatible measure is available for this geography.</p>}
+          <div className={styles.legend}>
+            <span><i className={styles.legendFill} /> Selected geography and compatible measure</span>
+            <span><i className={styles.legendLine} /> Official boundary</span>
+            {contextVisible ? <span><i className={styles.legendContext} /> Original search geography</span> : null}
+            <span><i className={styles.legendMarker} /> Verified resource</span>
+          </div>
+          <div className={styles.resourceStatus}><MapPin size={20} aria-hidden="true" /><p>{geometry?.resourceNote ?? "Verified resource information is loading."}</p></div>
+          {contextVisible && geometry?.contextNote ? <p className={styles.mapNotice}>{geometry.contextNote}</p> : null}
+          {geometry?.sourceUrl && <a href={geometry.sourceUrl} target="_blank" rel="noreferrer">Open boundary source <ArrowSquareOut size={16} aria-hidden="true" /></a>}
+        </aside>
+      </div>
+    </section>
+  );
+}
+
+function ActionView({ data }: { data: PlaceResponse }) {
+  const [question, setQuestion] = useState("");
+  const [answer, setAnswer] = useState<PlaceAgentAnswer | null>(null);
+  const [status, setStatus] = useState<"idle" | "asking" | "error">("idle");
+  const [error, setError] = useState("");
+
+  async function ask(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const nextQuestion = question.trim();
+    if (nextQuestion.length < 3) return;
+    sendExploreTelemetry("action_question_asked", data.location.geoid, { questionLength: nextQuestion.length });
+    setStatus("asking");
+    setError("");
+    setAnswer(null);
+    try {
+      const response = await fetch("/api/evidence/v1/agent", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ geoid: data.location.geoid, question: nextQuestion }),
+      });
+      const payload = (await response.json().catch(() => ({}))) as PlaceAgentAnswer & { error?: string };
+      if (!response.ok) throw new Error(payload.error ?? "Place Intelligence could not answer this question.");
+      setAnswer(payload);
+      setStatus("idle");
+    } catch (nextError) {
+      setError((nextError as Error).message);
+      setStatus("error");
+    }
+  }
+
+  const prompts = [
+    "What evidence is available for this county?",
+    "What evidence is still missing?",
+    "Does the evidence potentially support a Health Access Day for local review?",
+  ];
+  return (
+    <section id="action-panel" role="tabpanel" aria-labelledby="action-tab" className={styles.viewPanel}>
+      <header className={styles.actionHeader}>
+        <div><span>Ask the evidence</span><h2>A planning conversation with sources.</h2></div>
+        <p>Ask about this county’s approved evidence, sources, gaps and possible non-clinical responses. Every substantive answer must cite the stored evidence package.</p>
+      </header>
+      <div className={styles.agentWorkspace}>
+        <form className={styles.agentQuestion} onSubmit={ask}>
+          <label htmlFor="place-question">Question about {data.location.label}</label>
+          <div>
+            <textarea
+              id="place-question"
+              value={question}
+              onChange={(event) => setQuestion(event.target.value)}
+              rows={3}
+              maxLength={1500}
+              placeholder="Ask what current evidence shows, how a measure is defined, or what requires local review."
+            />
+            <button type="submit" disabled={status === "asking" || question.trim().length < 3}>
+              <ChatCircleDots size={20} aria-hidden="true" />
+              {status === "asking" ? "Checking evidence…" : "Ask Place Intelligence"}
+            </button>
+          </div>
+          <div className={styles.promptChips} aria-label="Example evidence questions">
+            {prompts.map((prompt) => (
+              <button key={prompt} type="button" onClick={() => setQuestion(prompt)}>{prompt}</button>
+            ))}
+          </div>
+          {error && <p className={styles.agentError} role="alert">{error}</p>}
+        </form>
+        <aside className={styles.agentBoundary}>
+          <ShieldCheck size={24} aria-hidden="true" />
+          <h3>County evidence only</h3>
+          <p>No live web search. No patient profile. No diagnosis, triage, treatment advice or individual-risk inference.</p>
+        </aside>
+        {answer && (
+          <article className={styles.agentAnswer} aria-live="polite">
+            <header>
+              <span className={styles.actionStatus}>{answer.status.replace("_", " ")}</span>
+              <span>{answer.confidence} confidence</span>
+            </header>
+            <h3>Place Intelligence response</h3>
+            <p>{answer.answer}</p>
+            {answer.citedEvidence.length > 0 && (
+              <div className={styles.agentCitations}>
+                <h4>Cited evidence</h4>
+                {answer.citedEvidence.map((citation) => (
+                  <article key={`${citation.citationId}-${citation.claim}`}>
+                    <p>{citation.claim}</p>
+                    <small>Citation {citation.citationId}</small>
+                  </article>
+                ))}
+              </div>
+            )}
+            {answer.missingEvidence.length > 0 && (
+              <div><h4>Missing evidence</h4><ul>{answer.missingEvidence.map((item) => <li key={item}>{item}</li>)}</ul></div>
+            )}
+            <p className={styles.agentDisclosure}>{answer.nonClinicalBoundary}</p>
+          </article>
+        )}
+        <section className={styles.planReview} aria-labelledby="plan-review-title">
+          <div>
+            <span>Shared county plan</span>
+            <h3 id="plan-review-title">Agent suggestions require acceptance.</h3>
+            <p>Approved collaborators can add a cited result to a named plan section, comment, assign a review question and restore an earlier version. Agent and human changes remain visibly separate.</p>
+            <a className={styles.planReviewCta} href={`/explore/onboarding?geoid=${encodeURIComponent(data.location.geoid)}`}>Request a planning workspace <ArrowRight size={16} aria-hidden="true" /></a>
+          </div>
+          <div>
+            {data.intelligence.placeBasedResponses.map((response) => {
+              const details = responseDetails[response.name];
+              return (
+                <article key={response.name}>
+                  <span>{response.status}</span>
+                  <h4>{response.name}</h4>
+                  <p>{response.reason}</p>
+                  <small>{details?.measure ?? "A locally agreed measure with an owner, baseline and reporting period."}</small>
+                  <button type="button" disabled title="Contributor invitation required">Add for human review</button>
+                </article>
+              );
+            })}
+          </div>
+        </section>
+      </div>
+      <div className={styles.noRecommendation}><ShieldCheck size={22} aria-hidden="true" /><p><strong>“No recommendation yet” is a valid outcome.</strong> If the geography, source, recency or local review is insufficient, the system should stop rather than overstate a case for action.</p></div>
+    </section>
+  );
+}
+
+function VisualsView({ data }: { data: PlaceResponse }) {
+  const [measureKey, setMeasureKey] = useState(data.metrics[0]?.key ?? "");
+  const selected = data.metrics.find((metric) => metric.key === measureKey) ?? data.metrics[0];
+  const chartMax = selected
+    ? Math.max(selected.value, selected.national ?? 0, selected.state ?? 0, 1)
+    : 1;
+  const workforceCount = data.workforceContext.hpsa.length
+    + data.workforceContext.medicallyUnderservedAreasAndPopulations.length;
+  return (
+    <section id="visuals-panel" role="tabpanel" aria-labelledby="visuals-tab" className={`${styles.viewPanel} ${styles.visualsView}`}>
+      <header className={styles.visualsHeader}>
+        <div><span>Evidence views</span><h2>See the measure. See its limits.</h2></div>
+        <div>
+          <p>Visuals use compatible county evidence only. They do not create an overall health ranking or imply neighborhood-level precision.</p>
+          {data.capabilities.funderSnapshot
+            ? <a href={`/api/evidence/v1/funder-snapshot?geoid=${encodeURIComponent(data.location.geoid)}&format=pdf`}><DownloadSimple size={18} aria-hidden="true" /> Download funder snapshot</a>
             : <span className={styles.unavailableExport}>Funder snapshot available after reviewed release.</span>}
         </div>
       </header>
