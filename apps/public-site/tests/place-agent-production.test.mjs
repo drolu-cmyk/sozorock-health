@@ -172,7 +172,8 @@ test("public Evidence runtime uses a dedicated least-privileged database login",
   assert.doesNotMatch(runtimeRoleMigration, /GRANT ALL|SELECT ON ALL TABLES/);
   assert.match(workflow, /EVIDENCE_DATABASE_ADMIN_SECRET_ARN|admin_secret_arn/);
   assert.match(workflow, /configure_runtime_login/);
-  assert.match(workflow, /rolsuper, rolcreatedb, rolcreaterole, rolbypassrls/);
+  assert.match(workflow, /r\.rolsuper, r\.rolcreatedb, r\.rolcreaterole, r\.rolbypassrls, r\.rolinherit/);
+  assert.match(workflow, /pg_has_role\(current_user, 'evidence_runtime', 'MEMBER'\)/);
 });
 
 test("public runtime removes optional Sharp while preserving upstream lock metadata", () => {
