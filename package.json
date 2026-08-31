@@ -26,7 +26,7 @@
     }
   },
   "resolutions": {
-    "postcss": "8.5.23",
+    "postcss": "8.5.26",
     "uuid": "11.1.1"
   },
   "engines": {
@@ -50,13 +50,13 @@
     "test": "npm run test --workspaces --if-present"
   },
   "devDependencies": {
-    "esbuild": "^0.28.1",
-    "eslint": "^9.39.5",
-    "eslint-config-next": "^15.5.21",
+    "esbuild": "^0.28.2",
+    "eslint": "^10.9.1",
+    "eslint-config-next": "^16.3.3",
     "image-size": "file:vendor/image-size",
     "patch-package": "^8.0.1",
     "pixelmatch": "^7.2.0",
     "pngjs": "^7.0.0",
-    "postcss": "8.5.23"
+    "postcss": "8.5.26"
   }
 }
