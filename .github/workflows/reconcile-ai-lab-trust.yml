@@ -44,7 +44,7 @@ jobs:
           test "$actual" = "$expected"
 
       - name: Assume dedicated trust-repair role
-        uses: aws-actions/configure-aws-credentials@7474bc4690e29a8392af63c5b98e7449536d5c3a
+        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c
         with:
           role-to-assume: ${{ vars.AI_LAB_TRUST_REPAIR_ROLE_ARN }}
           role-session-name: ai-lab-trust-reconcile-${{ github.run_id }}
