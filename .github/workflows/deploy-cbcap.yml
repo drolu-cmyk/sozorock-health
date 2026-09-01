@@ -26,7 +26,7 @@ jobs:
       EXPECTED_WAF_ARN: arn:aws:wafv2:us-east-1:791860731989:global/webacl/sozorock-health-cbcap-production/15608475-1d6c-4e58-9888-1cce47be8059
     steps:
       - name: Check out the approved production source
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
         with:
           ref: main
 
