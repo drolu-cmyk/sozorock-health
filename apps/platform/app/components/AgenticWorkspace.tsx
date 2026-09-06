@@ -139,6 +139,9 @@ export function AgenticWorkspace({ profile }: { profile: GeographyProfile | null
   }
 
   function signOut() {
+    contextVersion.current += 1;
+    setBusy(null);
+    setMessage("");
     setRun(null);
     setRunCountyGeoid(null);
     setVisualization(null);

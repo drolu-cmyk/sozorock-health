@@ -29,15 +29,12 @@ export function agenticRuntimeConfig(): AgenticRuntimeConfig {
   const configuredRedirectUri = exactHttpsUrl(process.env.NEXT_PUBLIC_CBCAP_COGNITO_REDIRECT_URI);
   const candidateClientId = process.env.NEXT_PUBLIC_CBCAP_COGNITO_CLIENT_ID?.trim() || "";
   const clientId = /^[A-Za-z0-9]{1,128}$/.test(candidateClientId) ? candidateClientId : null;
-  const apiOrigin = configuredApiOrigin === CBCAP_AGENTIC_API_ORIGIN
-    ? CBCAP_AGENTIC_API_ORIGIN
-    : CBCAP_AGENTIC_API_ORIGIN;
   const enabled = configuredApiOrigin === CBCAP_AGENTIC_API_ORIGIN
     && configuredRedirectUri === CBCAP_COGNITO_CALLBACK_URI
     && Boolean(cognitoDomain && clientId);
   return {
     enabled,
-    apiOrigin,
+    apiOrigin: CBCAP_AGENTIC_API_ORIGIN,
     cognitoDomain,
     clientId,
     redirectUri: CBCAP_COGNITO_CALLBACK_URI,
