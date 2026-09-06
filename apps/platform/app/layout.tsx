@@ -1,9 +1,8 @@
 import type { Metadata, Viewport } from "next";
-import { DM_Sans, Newsreader } from "next/font/google";
+import { DM_Sans } from "next/font/google";
 import "./styles.css";
 const dashboardUrl = "https://cbcap.sozorockfoundation.org";
 const dmSans = DM_Sans({ subsets: ["latin"], variable: "--font-dm-sans", display: "swap" });
-const newsreader = Newsreader({ subsets: ["latin"], variable: "--font-newsreader", display: "swap" });
 export const metadata: Metadata = {
   metadataBase: new URL(dashboardUrl),
   title: "CB-CAP | Nationwide County Systems Intelligence | SozoRock Health",
@@ -90,7 +89,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className={`${dmSans.variable} ${newsreader.variable}`}>
+      <body className={dmSans.variable}>
         {children}
         <script
           type="application/ld+json"
