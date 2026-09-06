@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
-import { mkdir, rename, rm, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
+import { updateCountyRegistry } from "./update-cbcap-registry.mjs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -394,6 +395,9 @@ async function main() {
 
   const countyPath = path.join(DATA_DIR, "county-planning.json");
   const manifestPath = path.join(DATA_DIR, "source-manifest.json");
+  const registryPath = path.join(DATA_DIR, "evidence-registry.json");
+  const registry = updateCountyRegistry(JSON.parse(await readFile(registryPath, "utf8")), manifest);
+  const registryTempPath = `${registryPath}.${process.pid}.tmp`;
   const countyTempPath = `${countyPath}.${process.pid}.tmp`;
   const manifestTempPath = `${manifestPath}.${process.pid}.tmp`;
   try {
@@ -404,11 +408,14 @@ async function main() {
     await writeFile(countyTempPath, dataJson, { encoding: "utf8", flag: "wx" });
     // codeql[js/http-to-file-access]
     await writeFile(manifestTempPath, `${JSON.stringify(manifest, null, 2)}\n`, { encoding: "utf8", flag: "wx" });
+    await writeFile(registryTempPath, `${JSON.stringify(registry, null, 2)}\n`, { encoding: "utf8", flag: "wx" });
     await rename(countyTempPath, countyPath);
     await rename(manifestTempPath, manifestPath);
+    await rename(registryTempPath, registryPath);
   } finally {
     await rm(countyTempPath, { force: true });
     await rm(manifestTempPath, { force: true });
+    await rm(registryTempPath, { force: true });
   }
 
   console.log(
