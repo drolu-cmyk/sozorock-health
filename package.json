@@ -10,7 +10,7 @@
   "overrides": {
     "brace-expansion@<2.0.0": "1.1.18",
     "brace-expansion@>=4.0.0 <6.0.0": "5.0.9",
-    "fast-uri": "3.1.5",
+    "fast-uri": "3.1.7",
     "image-size": "$image-size",
     "js-yaml": "4.3.1",
     "metro": {
@@ -23,7 +23,9 @@
     "postcss": "$postcss",
     "xcode": {
       "uuid": "11.1.1"
-    }
+    },
+    "@xmldom/xmldom@<0.9.0": "0.8.15",
+    "@xmldom/xmldom@>=0.9.0 <0.9.12": "0.9.12"
   },
   "resolutions": {
     "postcss": "8.5.23",
