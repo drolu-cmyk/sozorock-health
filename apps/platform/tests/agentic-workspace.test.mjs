@@ -121,8 +121,8 @@ test("deployment documentation names every fail-closed public runtime input", as
     "NEXT_PUBLIC_CBCAP_COGNITO_REDIRECT_URI",
   ]) assert.match(documentation, new RegExp(key));
   assert.match(documentation, /authorization-code flow, PKCE/);
-  assert.match(documentation, /https:\/\/cbcap\.sozorockfoundation\.org\/auth\/callback/);
-  assert.match(documentation, /https:\/\/cbcap\.sozorockfoundation\.org\//);
+  assert.ok(documentation.includes('https://cbcap.sozorockfoundation.org/auth/callback'));
+  assert.ok(documentation.includes('https://cbcap.sozorockfoundation.org/'));
   assert.match(workflow, /CBCAP_COGNITO_DOMAIN: \$\{\{ vars\.CBCAP_COGNITO_DOMAIN \}\}/);
   assert.match(workflow, /CBCAP_COGNITO_CLIENT_ID: \$\{\{ vars\.CBCAP_COGNITO_CLIENT_ID \}\}/);
   assert.match(workflow, /NEXT_PUBLIC_CBCAP_COGNITO_DOMAIN: \$\{\{ vars\.CBCAP_COGNITO_DOMAIN \}\}/);
