@@ -22,6 +22,14 @@ jobs:
       AWS_PAGER: ""
       CBCAP_APP_ID: d307qqji18y8il
       CBCAP_DOMAIN: cbcap.sozorockfoundation.org
+      CBCAP_AGENTIC_API_BASE: https://api.cbcap.sozorockfoundation.org
+      CBCAP_COGNITO_CALLBACK_URI: https://cbcap.sozorockfoundation.org/auth/callback
+      CBCAP_COGNITO_DOMAIN: ${{ vars.CBCAP_COGNITO_DOMAIN }}
+      CBCAP_COGNITO_CLIENT_ID: ${{ vars.CBCAP_COGNITO_CLIENT_ID }}
+      NEXT_PUBLIC_CBCAP_AGENTIC_API_BASE: https://api.cbcap.sozorockfoundation.org
+      NEXT_PUBLIC_CBCAP_COGNITO_DOMAIN: ${{ vars.CBCAP_COGNITO_DOMAIN }}
+      NEXT_PUBLIC_CBCAP_COGNITO_CLIENT_ID: ${{ vars.CBCAP_COGNITO_CLIENT_ID }}
+      NEXT_PUBLIC_CBCAP_COGNITO_REDIRECT_URI: https://cbcap.sozorockfoundation.org/auth/callback
       EXPECTED_REPOSITORY: https://github.com/drolu-cmyk/sozorock-health
       EXPECTED_WAF_ARN: arn:aws:wafv2:us-east-1:791860731989:global/webacl/sozorock-health-cbcap-production/15608475-1d6c-4e58-9888-1cce47be8059
     steps:
@@ -92,6 +100,19 @@ jobs:
             --output text)
           test "$branch_name" = "$AMPLIFY_BRANCH"
 
+          cognito_origin=$(node -e '
+            const value = process.env.CBCAP_COGNITO_DOMAIN || "";
+            try {
+              const url = new URL(value);
+              if (url.protocol !== "https:" || url.username || url.password || url.pathname !== "/" || url.search || url.hash) process.exit(1);
+              process.stdout.write(url.origin);
+            } catch { process.exit(1); }
+          ')
+          test -n "$cognito_origin"
+          [[ "$CBCAP_COGNITO_CLIENT_ID" =~ ^[A-Za-z0-9]{1,128}$ ]]
+          test "$CBCAP_AGENTIC_API_BASE" = "https://api.cbcap.sozorockfoundation.org"
+          test "$CBCAP_COGNITO_CALLBACK_URI" = "https://cbcap.sozorockfoundation.org/auth/callback"
+
           desired_build_spec=$(git show HEAD:infrastructure/amplify/platform.yml)
           current_build_spec=$(jq -r '.app.buildSpec // ""' <<<"$app_json")
           desired_sha=$(printf '%s' "$desired_build_spec" | sha256sum | cut -d' ' -f1)
@@ -103,6 +124,34 @@ jobs:
               --build-spec "$desired_build_spec" \
               >/dev/null
           fi
+
+          current_env=$(jq -c '.app.environmentVariables // {}' <<<"$app_json")
+          agentic_env=$(jq -c \
+            --arg api "$CBCAP_AGENTIC_API_BASE" \
+            --arg domain "$cognito_origin" \
+            --arg client "$CBCAP_COGNITO_CLIENT_ID" \
+            --arg callback "$CBCAP_COGNITO_CALLBACK_URI" \
+            '. + {
+              NEXT_PUBLIC_CBCAP_AGENTIC_API_BASE:$api,
+              NEXT_PUBLIC_CBCAP_COGNITO_DOMAIN:$domain,
+              NEXT_PUBLIC_CBCAP_COGNITO_CLIENT_ID:$client,
+              NEXT_PUBLIC_CBCAP_COGNITO_REDIRECT_URI:$callback
+            }' <<<"$current_env")
+          aws amplify update-app \
+            --app-id "$CBCAP_APP_ID" \
+            --environment-variables "$agentic_env" \
+            >/dev/null
+
+          reconciled_env=$(aws amplify get-app --app-id "$CBCAP_APP_ID" --query 'app.environmentVariables' --output json)
+          jq -e \
+            --arg api "$CBCAP_AGENTIC_API_BASE" \
+            --arg domain "$cognito_origin" \
+            --arg client "$CBCAP_COGNITO_CLIENT_ID" \
+            --arg callback "$CBCAP_COGNITO_CALLBACK_URI" \
+            '.NEXT_PUBLIC_CBCAP_AGENTIC_API_BASE == $api and
+             .NEXT_PUBLIC_CBCAP_COGNITO_DOMAIN == $domain and
+             .NEXT_PUBLIC_CBCAP_COGNITO_CLIENT_ID == $client and
+             .NEXT_PUBLIC_CBCAP_COGNITO_REDIRECT_URI == $callback' <<<"$reconciled_env" >/dev/null
 
       - name: Release the main branch and wait for a verified build
         run: |
