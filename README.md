@@ -15,6 +15,7 @@ SozoRock Health is an initiative of The SozoRock Foundation, Inc. It helps commu
 - [Place Intelligence](https://health.sozorockfoundation.org/explore)
 - [CB-CAP](https://cbcap.sozorockfoundation.org/)
 - [The SozoRock Foundation](https://www.sozorockfoundation.org/)
+- [SozoRock AI Lab](https://ai-lab.sozorockfoundation.org/)
 
 ## Scope
 
