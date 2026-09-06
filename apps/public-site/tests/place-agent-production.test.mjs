@@ -98,11 +98,20 @@ test("Explore-only release workflow cannot deploy CB-CAP", () => {
 });
 
 test("production Explore requests are tied to persisted canonical geography and approved snapshots", () => {
+  assert.match(runtimeAuthority, /RDSDataClient\(\{ region: process\.env\.AWS_REGION \?\? "us-east-1" \}\)/);
+  assert.match(runtimeAuthority, /evidenceAuthorityFailureCode/);
+  assert.match(runtimeAuthority, /CredentialsProvider[\s\S]*authority_credentials/);
+  assert.match(runtimeAuthority, /AccessDenied[\s\S]*authority_permission/);
+  assert.match(placeBriefRoute, /evidence-authority-failed/);
+  assert.match(placeBriefRoute, /code,\s*name:/);
   assert.match(runtimeAuthority, /requirePublishedEvidenceSnapshot/);
   assert.match(runtimeAuthority, /authority='census'/);
   assert.match(runtimeAuthority, /kind='county'/);
   assert.match(runtimeAuthority, /requireEvidenceGeographyId/);
   assert.match(exploreRoute, /requirePublishedEvidenceSnapshot/);
+  assert.match(exploreRoute, /evidenceAuthorityFailureCode/);
+  assert.match(exploreRoute, /explore-snapshot-authority-failed/);
+  assert.match(exploreRoute, /explore-geography-authority-failed/);
   assert.match(exploreRoute, /requireEvidenceGeographyId\(evidenceGeoid, placeAgentRuntimeVersions\.snapshotContentHash\)/);
   assert.match(placeBriefRoute, /requirePublishedEvidenceSnapshot/);
   assert.match(placeBriefRoute, /requireEvidenceGeographyId\(geoid, placeAgentRuntimeVersions\.snapshotContentHash\)/);
@@ -172,7 +181,8 @@ test("public Evidence runtime uses a dedicated least-privileged database login",
   assert.doesNotMatch(runtimeRoleMigration, /GRANT ALL|SELECT ON ALL TABLES/);
   assert.match(workflow, /EVIDENCE_DATABASE_ADMIN_SECRET_ARN|admin_secret_arn/);
   assert.match(workflow, /configure_runtime_login/);
-  assert.match(workflow, /rolsuper, rolcreatedb, rolcreaterole, rolbypassrls/);
+  assert.match(workflow, /r\.rolsuper, r\.rolcreatedb, r\.rolcreaterole, r\.rolbypassrls, r\.rolinherit/);
+  assert.match(workflow, /pg_has_role\(current_user, 'evidence_runtime', 'MEMBER'\)/);
 });
 
 test("public runtime removes optional Sharp while preserving upstream lock metadata", () => {

@@ -1,23 +1,30 @@
 # SozoRock Health
 
-SozoRock Health is a non-clinical public-interest initiative of The SozoRock Foundation, Inc. It advances practical access, readiness, and public-systems work while leaving clinical decisions and professional responsibilities with licensed providers.
+SozoRock Health is an initiative of The SozoRock Foundation, Inc. It helps communities understand barriers to care and connect people with existing services.
+
+## Programs and products
+
+- **Health Equity Hubs** offer a community setting for access and digital readiness.
+- **Health Access Day** brings partners together around local access needs.
+- **Place Intelligence** presents public evidence with its geography, source, date, and limitations.
+- **County-Based Community Access Platform (CB-CAP)** supports county evidence and planning.
 
 ## Public resources
 
 - [SozoRock Health](https://health.sozorockfoundation.org/)
-- [Health Systems Assurance, Volume 1](https://health.sozorockfoundation.org/publications/health-systems-assurance-volume-1)
-- [SozoRock AI Lab](https://ai-lab.sozorockfoundation.org/)
-- [County-Based Community Access Platform (CB-CAP)](https://cbcap.sozorockfoundation.org/)
+- [Place Intelligence](https://health.sozorockfoundation.org/explore)
+- [CB-CAP](https://cbcap.sozorockfoundation.org/)
 - [The SozoRock Foundation](https://www.sozorockfoundation.org/)
+- [SozoRock AI Lab](https://ai-lab.sozorockfoundation.org/)
 
-## Safety boundary
+## Scope
 
-SozoRock Health is not a clinic, healthcare provider, telehealth service, emergency service, or substitute for professional medical advice. Do not submit private health information through public repository issues.
+SozoRock Health provides non-clinical access and planning support. Licensed providers retain responsibility for clinical care.
 
-## Security
+## Contributing and security
 
-Please report suspected security or privacy issues privately as described in [SECURITY.md](SECURITY.md). Do not disclose vulnerabilities, credentials, personal information, or protected operational details in a public issue.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution guidance and [SECURITY.md](SECURITY.md) to report security concerns privately. Keep personal information, credentials, and operational records out of public issues and pull requests.
 
-## Legal
+## Copyright
 
 Copyright © 2026 The SozoRock Foundation, Inc. All rights reserved.

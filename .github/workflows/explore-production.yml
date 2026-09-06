@@ -168,7 +168,10 @@ jobs:
           subnet_csv=$(IFS=,; echo "${subnets[*]}")
           compute_role_arn=$(aws cloudformation describe-stacks --stack-name sozorock-health-contact \
             --query "Stacks[0].Outputs[?OutputKey=='ComputeRoleArn'].OutputValue" --output text)
+          test -n "$compute_role_arn"
+          test "$compute_role_arn" != "None"
           compute_role_name="${compute_role_arn##*/}"
+          echo "PUBLIC_COMPUTE_ROLE_ARN=$compute_role_arn" >> "$GITHUB_ENV"
           echo "PUBLIC_COMPUTE_ROLE_NAME=$compute_role_name" >> "$GITHUB_ENV"
           if ! aws cloudformation deploy \
             --stack-name sozorock-health-evidence-production \
@@ -225,33 +228,78 @@ jobs:
           npm run import:production:data-api --workspace @sozorock/evidence-core
           snapshot_id=$(jq -r '.snapshotId' packages/evidence-core/data/national/county-evidence-snapshot.v1.json)
           test "$snapshot_id" != "null"
-          echo "EVIDENCE_SNAPSHOT_CONTENT_HASH=${snapshot_id/snapshot:/sha256:}" >> "$GITHUB_ENV"
+          EVIDENCE_SNAPSHOT_CONTENT_HASH="${snapshot_id/snapshot:/sha256:}"
+          export EVIDENCE_SNAPSHOT_CONTENT_HASH
+          echo "EVIDENCE_SNAPSHOT_CONTENT_HASH=$EVIDENCE_SNAPSHOT_CONTENT_HASH" >> "$GITHUB_ENV"
           npm run seed:collaboration-control-plane --workspace @sozorock/evidence-core
           aws rds-data execute-statement \
             --resource-arn "$EVIDENCE_DATABASE_CLUSTER_ARN" \
             --secret-arn "$EVIDENCE_DATABASE_SECRET_ARN" \
             --database "$EVIDENCE_DATABASE_NAME" \
             --sql "INSERT INTO evidence.workspace_tenant (id, legal_name, status, created_at, created_by) VALUES ('10000000-0000-4000-8000-000000000001', 'The SozoRock Foundation, Inc.', 'active', now(), 'explore-production-workflow') ON CONFLICT (id) DO UPDATE SET legal_name=EXCLUDED.legal_name, status='active'" >/dev/null
-          runtime_secret_json=$(aws secretsmanager get-secret-value \
-            --secret-id "$EVIDENCE_DATABASE_RUNTIME_SECRET_ARN" --query SecretString --output text)
-          runtime_password=$(jq -er '.password' <<<"$runtime_secret_json")
-          runtime_parameters=$(jq -nc --arg password "$runtime_password" \
-            '[{name:"runtime_password",value:{stringValue:$password}}]')
-          aws rds-data execute-statement \
-            --resource-arn "$EVIDENCE_DATABASE_CLUSTER_ARN" \
-            --secret-arn "$EVIDENCE_DATABASE_SECRET_ARN" \
-            --database "$EVIDENCE_DATABASE_NAME" \
-            --sql "SELECT evidence.configure_runtime_login(:runtime_password)" \
-            --parameters "$runtime_parameters" >/dev/null
-          unset runtime_password runtime_parameters runtime_secret_json
-          runtime_role=$(aws rds-data execute-statement \
+          read_runtime_role() {
+            aws rds-data execute-statement \
+              --resource-arn "$EVIDENCE_DATABASE_CLUSTER_ARN" \
+              --secret-arn "$EVIDENCE_DATABASE_RUNTIME_SECRET_ARN" \
+              --database "$EVIDENCE_DATABASE_NAME" \
+              --sql "SELECT r.rolname, r.rolsuper, r.rolcreatedb, r.rolcreaterole, r.rolbypassrls, r.rolinherit, pg_has_role(current_user, 'evidence_runtime', 'MEMBER') FROM pg_roles r WHERE r.rolname=current_user" \
+              --output json
+          }
+          runtime_probe_error=$(mktemp)
+          if runtime_role=$(read_runtime_role 2>"$runtime_probe_error"); then
+            runtime_probe=complete
+          elif grep -Eq 'DatabaseErrorException.*password authentication failed for user "evidence_runtime_login"' "$runtime_probe_error"; then
+            runtime_probe=authentication_failed
+            runtime_role='{}'
+          else
+            echo "Runtime login probe failed before contract validation." >&2
+            rm -f "$runtime_probe_error"
+            exit 1
+          fi
+          rm -f "$runtime_probe_error"
+          if [[ "$runtime_probe" == "authentication_failed" ]] || ! jq -e '.records == [[{"stringValue":"evidence_runtime_login"},{"booleanValue":false},{"booleanValue":false},{"booleanValue":false},{"booleanValue":false},{"booleanValue":true},{"booleanValue":true}]]' \
+            <<<"$runtime_role" >/dev/null 2>&1; then
+            runtime_secret_json=$(aws secretsmanager get-secret-value \
+              --secret-id "$EVIDENCE_DATABASE_RUNTIME_SECRET_ARN" --query SecretString --output text)
+            runtime_password=$(jq -er '.password' <<<"$runtime_secret_json")
+            runtime_parameters=$(jq -nc --arg password "$runtime_password" \
+              '[{name:"runtime_password",value:{stringValue:$password}}]')
+            aws rds-data execute-statement \
+              --resource-arn "$EVIDENCE_DATABASE_CLUSTER_ARN" \
+              --secret-arn "$EVIDENCE_DATABASE_SECRET_ARN" \
+              --database "$EVIDENCE_DATABASE_NAME" \
+              --sql "SELECT evidence.configure_runtime_login(:runtime_password)" \
+              --parameters "$runtime_parameters" >/dev/null
+            unset runtime_password runtime_parameters runtime_secret_json
+            runtime_role=$(read_runtime_role)
+          fi
+          jq -e '.records == [[{"stringValue":"evidence_runtime_login"},{"booleanValue":false},{"booleanValue":false},{"booleanValue":false},{"booleanValue":false},{"booleanValue":true},{"booleanValue":true}]]' \
+            <<<"$runtime_role" >/dev/null
+          snapshot_parameters=$(jq -nc --arg hash "$EVIDENCE_SNAPSHOT_CONTENT_HASH" \
+            '[{name:"content_hash",value:{stringValue:$hash}}]')
+          runtime_snapshot=$(aws rds-data execute-statement \
             --resource-arn "$EVIDENCE_DATABASE_CLUSTER_ARN" \
             --secret-arn "$EVIDENCE_DATABASE_RUNTIME_SECRET_ARN" \
             --database "$EVIDENCE_DATABASE_NAME" \
-            --sql "SELECT current_user, rolsuper, rolcreatedb, rolcreaterole, rolbypassrls FROM pg_roles WHERE rolname=current_user" \
+            --sql "SELECT s.id::text, s.content_hash FROM evidence.evidence_snapshot s WHERE s.content_hash=:content_hash AND s.review_status='verified' AND s.published_at IS NOT NULL" \
+            --parameters "$snapshot_parameters" \
             --output json)
-          jq -e '.records == [[{"stringValue":"evidence_runtime_login"},{"booleanValue":false},{"booleanValue":false},{"booleanValue":false},{"booleanValue":false}]]' \
-            <<<"$runtime_role" >/dev/null
+          jq -e \
+            '(.records | length) == 1 and (.records[0][0].stringValue | test("^[0-9a-f-]{36}$"; "i"))' \
+            <<<"$runtime_snapshot" >/dev/null
+          jq -e --arg hash "$EVIDENCE_SNAPSHOT_CONTENT_HASH" \
+            '.records[0][1].stringValue == $hash' <<<"$runtime_snapshot" >/dev/null
+          geography_parameters=$(jq -nc --arg geoid "36001" --arg hash "$EVIDENCE_SNAPSHOT_CONTENT_HASH" \
+            '[{name:"county_geoid",value:{stringValue:$geoid}},{name:"snapshot_hash",value:{stringValue:$hash}}]')
+          runtime_geography=$(aws rds-data execute-statement \
+            --resource-arn "$EVIDENCE_DATABASE_CLUSTER_ARN" \
+            --secret-arn "$EVIDENCE_DATABASE_RUNTIME_SECRET_ARN" \
+            --database "$EVIDENCE_DATABASE_NAME" \
+            --sql "SELECT g.id::text FROM evidence.geography g JOIN evidence.evidence_snapshot s ON s.content_hash=:snapshot_hash AND s.review_status='verified' AND s.published_at IS NOT NULL JOIN evidence.snapshot_source_version link ON link.snapshot_id=s.id JOIN evidence.source_version census_source ON census_source.id=link.source_version_id AND census_source.source_id='census-geography' WHERE g.authority='census' AND g.authority_id=:county_geoid AND g.kind='county' AND g.review_status='verified' AND g.vintage=to_char(census_source.release_date, 'YYYY') ORDER BY g.vintage DESC LIMIT 1" \
+            --parameters "$geography_parameters" \
+            --output json)
+          jq -e '(.records | length) == 1 and (.records[0][0].stringValue | test("^[0-9a-f-]{36}$"; "i"))' \
+            <<<"$runtime_geography" >/dev/null
           echo "EVIDENCE_DATABASE_SECRET_ARN=$EVIDENCE_DATABASE_RUNTIME_SECRET_ARN" >> "$GITHUB_ENV"
       - name: Provision Explore collaboration transport and identity
         run: |
@@ -344,6 +392,7 @@ jobs:
             }' <<<"$current_env")
           aws amplify update-app \
             --app-id "$PUBLIC_APP_ID" \
+            --compute-role-arn "$PUBLIC_COMPUTE_ROLE_ARN" \
             --build-spec "$public_build_spec" \
             --environment-variables "$merged_env" >/dev/null
           aws amplify update-branch \
@@ -354,12 +403,15 @@ jobs:
           for attempt in $(seq 1 12); do
             app_build_spec=$(aws amplify get-app --app-id "$PUBLIC_APP_ID" \
               --query 'app.buildSpec' --output text)
+            app_compute_role=$(aws amplify get-app --app-id "$PUBLIC_APP_ID" \
+              --query 'app.computeRoleArn' --output text)
             branch_build_spec=$(aws amplify get-branch --app-id "$PUBLIC_APP_ID" \
               --branch-name "$AMPLIFY_BRANCH" --query 'branch.buildSpec' --output text)
             app_hash=$(printf '%s' "$app_build_spec" | sha256sum | cut -d' ' -f1)
             branch_hash=$(printf '%s' "$branch_build_spec" | sha256sum | cut -d' ' -f1)
             if [ "$app_hash" = "$expected_build_spec_hash" ] \
-              && [ "$branch_hash" = "$expected_build_spec_hash" ]; then
+              && [ "$branch_hash" = "$expected_build_spec_hash" ] \
+              && [ "$app_compute_role" = "$PUBLIC_COMPUTE_ROLE_ARN" ]; then
               break
             fi
             if [ "$attempt" -eq 12 ]; then
@@ -460,19 +512,39 @@ jobs:
           }
           retry_curl "$PUBLIC_SITE_URL/" -o homepage-after.html || failed=1
           retry_curl "$PUBLIC_SITE_URL/explore" -o explore-after.html || failed=1
-          retry_curl \
+          authority_ready=1
+          if ! retry_curl \
             "$PUBLIC_SITE_URL/api/evidence/v1/place-brief?kind=county&geoid=36001" \
-            -o albany.json || failed=1
-          jq -e '.contractVersion=="explore.place-brief.v1" and .resolution.selected.authorityId=="36001"' albany.json >/dev/null || failed=1
+            -o albany.json; then
+            authority_ready=0
+            failed=1
+            curl --silent --show-error --connect-timeout 15 --max-time 30 \
+              "$PUBLIC_SITE_URL/api/evidence/v1/place-brief?kind=county&geoid=36001" \
+              -o authority-error.json || true
+            jq -c '{error:(.error // "unavailable"),code:(.code // "unclassified")}' \
+              authority-error.json >&2 || true
+          else
+            if ! jq -e '.contractVersion=="explore.place-brief.v1" and .resolution.selected.authorityId=="36001"' \
+              albany.json >/dev/null; then
+              authority_ready=0
+              failed=1
+              jq -c '{error:(.error // "invalid_authority_contract"),code:(.code // "invalid_contract")}' \
+                albany.json >&2 || true
+            fi
+          fi
           if retry_curl \
             "$PUBLIC_SITE_URL/api/evidence/v1/place-brief?kind=county&geoid=99999" >/dev/null; then
             failed=1
           fi
-          npm run test:national-api --workspace @sozorock/public-site -- \
-            "$PUBLIC_SITE_URL" || failed=1
-          PLAYWRIGHT_BASE_URL="$PUBLIC_SITE_URL" \
-            npx playwright test apps/public-site/e2e/explore.visual.spec.ts \
-              --config apps/public-site/playwright.config.ts || failed=1
+          if [ "$authority_ready" -eq 1 ]; then
+            npm run test:national-api --workspace @sozorock/public-site -- \
+              "$PUBLIC_SITE_URL" || failed=1
+            PLAYWRIGHT_BASE_URL="$PUBLIC_SITE_URL" \
+              npx playwright test apps/public-site/e2e/explore.visual.spec.ts \
+                --config apps/public-site/playwright.config.ts || failed=1
+          else
+            echo "Skipping downstream Explore acceptance because the authority contract probe failed." >&2
+          fi
           npm run test:non-explore-regression --workspace @sozorock/public-site -- \
             compare "$PUBLIC_SITE_URL" output/non-explore-regression || failed=1
           if [ "$failed" -ne 0 ]; then

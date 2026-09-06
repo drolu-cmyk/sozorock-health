@@ -12,11 +12,23 @@ test('CB-CAP deployment role can inspect the cluster before fail-closed shutdown
   assert.match(template, /- ecs:UpdateService/);
 });
 
+test('CB-CAP deployment role can resolve only the governed contact-stack model reference', async () => {
+  const template = await readFile(templateUrl, 'utf8');
+  assert.match(template, /- Sid: ReadGovernedModelSecretReference/);
+  assert.match(template, /Action: cloudformation:DescribeStacks/);
+  assert.match(template, /stack\/sozorock-health-contact\/\*/);
+  assert.match(template, /- secretsmanager:DescribeSecret/);
+  assert.match(template, /- cognito-idp:DescribeUserPoolDomain/);
+});
+
 test('newest approved CB-CAP bootstrap supersedes stale queued bootstrap requests', async () => {
   const workflow = await readFile(workflowUrl, 'utf8');
+  const template = await readFile(templateUrl, 'utf8');
   assert.match(workflow, /group: cbcap-agentic-bootstrap-production/);
   assert.match(workflow, /cancel-in-progress: true/);
   assert.match(workflow, /ref: \$\{\{ github\.sha \}\}/);
+  assert.match(workflow, /repo:drolu-cmyk@271617784\/sozorock-health-agentic@1313269615:environment:production/);
+  assert.match(template, /token\.actions\.githubusercontent\.com:sub: !Ref GitHubSubject/);
 });
 
 test('one-time CB-CAP bootstrap authority is restricted to the bootstrap stack and two exact roles', async () => {

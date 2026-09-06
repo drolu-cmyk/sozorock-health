@@ -78,6 +78,7 @@ jobs:
           apps/platform/data/boundary-manifest.json
           apps/platform/data/county-planning.json
           apps/platform/data/dashboard-summary.json
+          apps/platform/data/evidence-registry.json
           apps/platform/data/source-manifest.json
           apps/platform/public/data/cbcap-boundaries-2025.json
           apps/platform/public/data/cbcap-county-map-2025.json
@@ -130,6 +131,7 @@ jobs:
             apps/platform/data/boundary-manifest.json \
             apps/platform/data/county-planning.json \
             apps/platform/data/dashboard-summary.json \
+            apps/platform/data/evidence-registry.json \
             apps/platform/data/source-manifest.json \
             apps/platform/public/data/cbcap-boundaries-2025.json \
             apps/platform/public/data/cbcap-county-map-2025.json

@@ -3,6 +3,7 @@ import { validateExplorePlaceBriefV1 } from "@sozorock/evidence-core";
 import { getPublishedCountyBrief } from "../../../../lib/published-evidence-runtime";
 import { enforceEvidenceRateLimit } from "../../../../lib/evidence-rate-limit";
 import {
+  evidenceAuthorityFailureCode,
   requireEvidenceGeographyId,
   requirePublishedEvidenceSnapshot,
 } from "../../../../lib/evidence-runtime-authority";
@@ -42,9 +43,14 @@ export async function GET(request: NextRequest) {
     try {
       await requirePublishedEvidenceSnapshot(placeAgentRuntimeVersions.snapshotContentHash);
       await requireEvidenceGeographyId(geoid, placeAgentRuntimeVersions.snapshotContentHash);
-    } catch {
+    } catch (error) {
+      const code = evidenceAuthorityFailureCode(error);
+      console.error("evidence-authority-failed", {
+        code,
+        name: error instanceof Error ? error.name : "UnknownError",
+      });
       return NextResponse.json(
-        { error: "The approved evidence snapshot is temporarily unavailable." },
+        { error: "The approved evidence snapshot is temporarily unavailable.", code },
         { status: 503, headers: { "Cache-Control": "no-store" } },
       );
     }

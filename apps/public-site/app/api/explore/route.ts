@@ -22,6 +22,7 @@ import { cdcMeasureDefinitionId, indexCdcObservations } from "../../lib/explore-
 import { canonicalCountyLabel } from "../../lib/explore-labels";
 import {
   evidenceCapabilityEnabled,
+  evidenceAuthorityFailureCode,
   evidenceRuntimeEnvironment,
   requireEvidenceGeographyId,
   requirePublishedEvidenceSnapshot,
@@ -82,9 +83,14 @@ export async function GET(request: NextRequest) {
   if (process.env.NODE_ENV === "production") {
     try {
       await requirePublishedEvidenceSnapshot(placeAgentRuntimeVersions.snapshotContentHash);
-    } catch {
+    } catch (error) {
+      const code = evidenceAuthorityFailureCode(error);
+      console.error("explore-snapshot-authority-failed", {
+        code,
+        name: error instanceof Error ? error.name : "UnknownError",
+      });
       return NextResponse.json(
-        { error: "The approved evidence snapshot is temporarily unavailable." },
+        { error: "The approved evidence snapshot is temporarily unavailable.", code },
         { status: 503, headers: { "Cache-Control": "no-store" } },
       );
     }
@@ -117,9 +123,14 @@ export async function GET(request: NextRequest) {
   if (process.env.NODE_ENV === "production") {
     try {
       await requireEvidenceGeographyId(evidenceGeoid, placeAgentRuntimeVersions.snapshotContentHash);
-    } catch {
+    } catch (error) {
+      const code = evidenceAuthorityFailureCode(error);
+      console.error("explore-geography-authority-failed", {
+        code,
+        name: error instanceof Error ? error.name : "UnknownError",
+      });
       return NextResponse.json(
-        { error: "The selected county is not present in the approved evidence store." },
+        { error: "The selected county is not present in the approved evidence store.", code },
         { status: 503, headers: { "Cache-Control": "no-store" } },
       );
     }

@@ -106,12 +106,61 @@ test("release validators call the versioned place-brief contract with kind", asy
   }
 });
 
+test("live national validation is stratified and stays inside the shared evidence limit", async () => {
+  const nationalValidator = await source("scripts/validate-national-api.mjs");
+  const evidenceRateLimit = await source("app/lib/evidence-rate-limit.ts");
+  assert.match(nationalValidator, /randomStateSample/);
+  assert.match(nationalValidator, /liveSample\.length !== 51/);
+  assert.match(nationalValidator, /Array\.from\(\{ length: 4 \}/);
+  assert.match(nationalValidator, /authoritativeCountyCount: counties\.length/);
+  assert.match(nationalValidator, /liveStateAndDcSampleCount: validationCounties\.length/);
+  assert.doesNotMatch(nationalValidator, /length: 24/);
+  assert.match(evidenceRateLimit, /const maximum = 120/);
+});
+
 test("production release pins the Amplify job to the approved commit", async () => {
   const productionWorkflow = await source("../../.github/workflows/explore-production.yml");
   assert.match(productionWorkflow, /start-job[\s\S]*--commit-id "\$RELEASE_SHA"/);
   assert.match(productionWorkflow, /git rev-parse origin\/main\)" = "\$RELEASE_SHA"/);
   assert.match(productionWorkflow, /job\.summary\.commitId/);
   assert.doesNotMatch(productionWorkflow, /deployed_commit" == "HEAD"/);
+});
+
+test("production acceptance reports safe authority failures and skips only dependent checks", async () => {
+  const productionWorkflow = await source("../../.github/workflows/explore-production.yml");
+  assert.match(productionWorkflow, /authority_ready=1/);
+  assert.match(productionWorkflow, /authority-error\.json/);
+  assert.match(productionWorkflow, /code:\(\.code \/\/ "unclassified"\)/);
+  assert.match(productionWorkflow, /authority_ready=0[\s\S]*invalid_authority_contract/);
+  assert.match(productionWorkflow, /if \[ "\$authority_ready" -eq 1 \]; then[\s\S]*test:national-api[\s\S]*explore\.visual\.spec\.ts/);
+  assert.match(productionWorkflow, /Skipping downstream Explore acceptance because the authority contract probe failed/);
+});
+
+test("production reuses an already valid least-privileged runtime login", async () => {
+  const productionWorkflow = await source("../../.github/workflows/explore-production.yml");
+  assert.match(productionWorkflow, /r\.rolinherit/);
+  assert.match(productionWorkflow, /pg_has_role\(current_user, 'evidence_runtime', 'MEMBER'\)/);
+  assert.match(productionWorkflow, /runtime_probe_error=\$\(mktemp\)/);
+  assert.match(productionWorkflow, /DatabaseErrorException\.\*password authentication failed/);
+  assert.match(productionWorkflow, /Runtime login probe failed before contract validation/);
+  assert.doesNotMatch(productionWorkflow, /read_runtime_role 2>\/dev\/null \|\| true/);
+  assert.match(productionWorkflow, /\|\| ! jq -e[\s\S]*evidence_runtime_login/);
+  assert.match(productionWorkflow, /\{"booleanValue":true\},\{"booleanValue":true\}/);
+  assert.match(productionWorkflow, /configure_runtime_login\(:runtime_password\)/);
+  assert.match(productionWorkflow, /runtime_role=\$\(read_runtime_role\)/);
+  assert.match(productionWorkflow, /runtime_snapshot=\$\(aws rds-data execute-statement/);
+  assert.match(productionWorkflow, /runtime_geography=\$\(aws rds-data execute-statement/);
+  assert.match(productionWorkflow, /--secret-arn "\$EVIDENCE_DATABASE_RUNTIME_SECRET_ARN"/);
+  assert.match(productionWorkflow, /EVIDENCE_SNAPSHOT_CONTENT_HASH="\$\{snapshot_id\/snapshot:\/sha256:\}"/);
+  assert.match(productionWorkflow, /export EVIDENCE_SNAPSHOT_CONTENT_HASH/);
+});
+
+test("production binds Amplify compute to the exact evidence-authorized role", async () => {
+  const productionWorkflow = await source("../../.github/workflows/explore-production.yml");
+  assert.match(productionWorkflow, /PUBLIC_COMPUTE_ROLE_ARN=\$compute_role_arn/);
+  assert.match(productionWorkflow, /update-app[\s\S]*--compute-role-arn "\$PUBLIC_COMPUTE_ROLE_ARN"/);
+  assert.match(productionWorkflow, /app\.computeRoleArn/);
+  assert.match(productionWorkflow, /app_compute_role" = "\$PUBLIC_COMPUTE_ROLE_ARN"/);
 });
 
 test("available measures remain visible when a compatible benchmark is missing", async () => {
