@@ -1,12 +1,14 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { agenticApiUrl, agenticRuntimeConfig, CBCAP_AGENTIC_API_ORIGIN } from "../app/lib/agentic-runtime.ts";
+import { agenticApiUrl, agenticRuntimeConfig, CBCAP_AGENTIC_API_ORIGIN, CBCAP_COGNITO_CALLBACK_URI, CBCAP_COGNITO_LOGOUT_URI } from "../app/lib/agentic-runtime.ts";
 
 const source = (path) => readFile(new URL(`../${path}`, import.meta.url), "utf8");
 
 test("agentic calls are pinned to the exact production API origin", async () => {
   const [api, nextConfig] = await Promise.all([source("app/lib/agentic-api.ts"), source("next.config.ts")]);
+  assert.equal(CBCAP_COGNITO_CALLBACK_URI, "https://cbcap.sozorockfoundation.org/auth/callback");
+  assert.equal(CBCAP_COGNITO_LOGOUT_URI, "https://cbcap.sozorockfoundation.org/");
   assert.equal(CBCAP_AGENTIC_API_ORIGIN, "https://api.cbcap.sozorockfoundation.org");
   assert.equal(agenticApiUrl("/api/cbcap"), "https://api.cbcap.sozorockfoundation.org/api/cbcap");
   assert.throws(() => agenticApiUrl("https://example.com/api/cbcap"));
@@ -121,8 +123,6 @@ test("deployment documentation names every fail-closed public runtime input", as
     "NEXT_PUBLIC_CBCAP_COGNITO_REDIRECT_URI",
   ]) assert.match(documentation, new RegExp(key));
   assert.match(documentation, /authorization-code flow, PKCE/);
-  assert.ok(documentation.includes('https://cbcap.sozorockfoundation.org/auth/callback'));
-  assert.ok(documentation.includes('https://cbcap.sozorockfoundation.org/'));
   assert.match(workflow, /CBCAP_COGNITO_DOMAIN: \$\{\{ vars\.CBCAP_COGNITO_DOMAIN \}\}/);
   assert.match(workflow, /CBCAP_COGNITO_CLIENT_ID: \$\{\{ vars\.CBCAP_COGNITO_CLIENT_ID \}\}/);
   assert.match(workflow, /NEXT_PUBLIC_CBCAP_COGNITO_DOMAIN: \$\{\{ vars\.CBCAP_COGNITO_DOMAIN \}\}/);
