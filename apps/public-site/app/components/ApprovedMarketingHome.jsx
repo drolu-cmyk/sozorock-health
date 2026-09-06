@@ -37,7 +37,7 @@ const voicePrompts = [
     label: "Find a trusted starting point",
     resident: "I know I need help, but I am not sure where to begin.",
     response:
-      "We can start with what is making the next step difficult—travel, technology, language or finding the right local resource.",
+      "We can start with what is making the next step difficult: travel, technology, language or finding the right local resource.",
   },
   {
     label: "Prepare for a provider visit",
@@ -70,7 +70,7 @@ const audienceDetails = {
     title: "See where pathways break before planning the response.",
     text: "Use de-identified, place-based intelligence to support Health Equity Hub planning, CHA and CHIP work.",
     action: "Explore CB-CAP",
-    href: "/contact?interest=CB-CAP%20inquiry",
+    href: "https://cbcap.sozorockfoundation.org/",
   },
   Partners: {
     title: "Back infrastructure that strengthens what already exists.",
@@ -197,7 +197,7 @@ export function ApprovedMarketingHome() {
           <div className="hero-content">
             <h1 id="hero-title">A clearer path to <span>Care</span> that already exists.</h1>
             <p className="hero-copy">
-              SozoRock Health helps people move from uncertainty to a practical next step—while licensed Care stays with licensed providers.
+              SozoRock Health helps people move from uncertainty to a practical next step, while licensed care stays with licensed providers.
             </p>
             <div className="hero-actions">
               <a className="button button--signal" href="#what-we-do" onClick={navigateWithinPage}>See how it works</a>
@@ -214,7 +214,7 @@ export function ApprovedMarketingHome() {
         <section id="problem" className="problem section-pad" aria-labelledby="problem-title">
           <div className="measure-wide">
             <SectionLabel>The everyday problem</SectionLabel>
-            <h2 id="problem-title" className="display-heading">Care can be nearby—and still hard to reach.</h2>
+            <h2 id="problem-title" className="display-heading">Care can be nearby and still hard to reach.</h2>
 
             <div className="barrier-sequence" aria-label="Examples of practical barriers">
               <article className="barrier-item">
@@ -267,7 +267,7 @@ export function ApprovedMarketingHome() {
             </div>
             <div className="layer-copy">
               <p>
-                SozoRock strengthens the health, public, digital and workforce systems a community already has. It helps people begin—and helps institutions see where the pathway keeps breaking.
+                SozoRock strengthens the health, public, digital and workforce systems a community already has. It helps people begin and helps institutions see where the pathway keeps breaking.
               </p>
               <ArrowLink href="#hubs" className="arrow-link--light">See where the layer lives</ArrowLink>
             </div>
@@ -430,13 +430,13 @@ export function ApprovedMarketingHome() {
               <SectionLabel light>County-Based Community Access Platform</SectionLabel>
               <h2 id="cbcap-title">See where the system loses people.</h2>
               <p>
-                CB-CAP separates individual-facing support from county-level systems intelligence. It turns de-identified pathway patterns into useful planning questions for Health Equity Hubs, Health Access Day, CHA and CHIP work.
+                CB-CAP separates individual-facing support from county-level systems intelligence. It turns public place evidence into useful planning questions for Health Equity Hubs, Health Access Day, CHA and CHIP work.
               </p>
-              <ArrowLink href="/contact?interest=CB-CAP%20inquiry" className="arrow-link--light">See the CB-CAP story</ArrowLink>
+              <ArrowLink href="https://cbcap.sozorockfoundation.org/" className="arrow-link--light">Open CB-CAP</ArrowLink>
             </div>
             <div className="cbcap-view" aria-label="Illustrative CB-CAP planning view">
               <div className="cbcap-view__top">
-                <span>Place lens</span><span>Planning view</span><span>De-identified</span>
+                <span>Place lens</span><span>Planning view</span><span>Public evidence</span>
               </div>
               <div className="cbcap-questions">
                 <article><span>Where</span><p>Which places face the greatest practical barriers?</p></article>

@@ -498,7 +498,7 @@ export default function Dashboard({ initialData: data }: { initialData: Dashboar
         <section className="decision-room" id="overview" aria-labelledby="overview-heading">
           <div className="decision-room__intro">
             <span>Nationwide county systems intelligence</span>
-            <h1 id="overview-heading">See the pattern. Test a response. Build a fundable plan.</h1>
+            <h1 id="overview-heading">Build a local planning brief.</h1>
             <p>Move from public evidence to local questions, accountable owners, transparent planning scenarios, and stakeholder-ready briefs.</p>
           </div>
           <div className="decision-room__actions" role="group" aria-label="Dashboard actions">
