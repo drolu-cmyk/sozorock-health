@@ -12,7 +12,7 @@ test("agentic calls are pinned to the exact production API origin", async () => 
   assert.throws(() => agenticApiUrl("https://example.com/api/cbcap"));
   assert.match(api, /agenticApiUrl\("\/api\/health"\)/);
   assert.match(api, /agenticApiUrl\(path\)/);
-  assert.match(nextConfig, /https:\/\/api\.cbcap\.sozorockfoundation\.org/);
+  assert.ok(nextConfig.includes(JSON.stringify(CBCAP_AGENTIC_API_ORIGIN)));
   assert.match(nextConfig, /connect-src \$\{connectSources\.join/);
   assert.doesNotMatch(api, /\/api\/cbcap\/(funding|monitoring|private-evidence)/);
 });
@@ -126,6 +126,6 @@ test("deployment documentation names every fail-closed public runtime input", as
   assert.match(workflow, /CBCAP_COGNITO_DOMAIN: \$\{\{ vars\.CBCAP_COGNITO_DOMAIN \}\}/);
   assert.match(workflow, /CBCAP_COGNITO_CLIENT_ID: \$\{\{ vars\.CBCAP_COGNITO_CLIENT_ID \}\}/);
   assert.match(workflow, /NEXT_PUBLIC_CBCAP_COGNITO_DOMAIN: \$\{\{ vars\.CBCAP_COGNITO_DOMAIN \}\}/);
-  assert.match(workflow, /NEXT_PUBLIC_CBCAP_COGNITO_REDIRECT_URI: https:\/\/cbcap\.sozorockfoundation\.org\/auth\/callback/);
+  assert.ok(workflow.split("\n").some((line) => line.trim() === 'NEXT_PUBLIC_CBCAP_COGNITO_REDIRECT_URI: https://cbcap.sozorockfoundation.org/auth/callback'));
   assert.match(workflow, /NEXT_PUBLIC_CBCAP_COGNITO_REDIRECT_URI:\$callback/);
 });
