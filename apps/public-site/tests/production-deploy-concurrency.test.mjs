@@ -20,7 +20,7 @@ test("non-production Verify completions cannot cancel the active production depl
   );
   assert.match(
     deployScope,
-    /\n  deploy:\n[\s\S]*?\n    concurrency:\n      group: amplify-d307qqji18y8il-production\n      cancel-in-progress: true\n/,
+    /\n  deploy:\n[\s\S]*?\n    concurrency:\n      group: sozorock-health-public-production\n      cancel-in-progress: true\n/,
     "production concurrency must be owned by the deploy job after its main-branch condition passes",
   );
 });
