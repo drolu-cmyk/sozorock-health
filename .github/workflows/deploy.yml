@@ -17,7 +17,7 @@ jobs:
       (github.event.workflow_run.conclusion == 'success' &&
        github.event.workflow_run.head_branch == 'main')
     concurrency:
-      group: amplify-d307qqji18y8il-production
+      group: sozorock-health-public-production
       cancel-in-progress: true
     runs-on: ubuntu-latest
     environment: production
@@ -73,6 +73,12 @@ jobs:
           ACCESS_ALLOWED_ORIGINS: ${{ vars.ACCESS_ALLOWED_ORIGINS || 'https://health.sozorockfoundation.org;https://www.health.sozorockfoundation.org' }}
         run: |
           set -euo pipefail
+          test -n "$PUBLIC_APP_ID"
+          if [[ "$PUBLIC_APP_ID" == "d307qqji18y8il" ]]; then
+            echo "Refusing to publish the Health public site into the CB-CAP application."
+            exit 1
+          fi
+
           test -n "$PUBLIC_APP_ID"
           test -n "$OPENAI_SECRET_ARN"
           test -n "$PUBLICATION_HASH_SALT"
