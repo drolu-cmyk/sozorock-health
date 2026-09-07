@@ -1,7 +1,7 @@
-import Dashboard from "./Dashboard";
-import dashboardData from "../data/dashboard-summary.json";
-import type { DashboardResponse } from "./lib/types";
+import { PublicProduct } from "./PublicProduct";
+import { counties } from "./lib/server-data";
 
 export default function PlatformPage() {
-  return <Dashboard initialData={dashboardData as DashboardResponse} />;
+  const choices = counties.map(({ fips, county, state, stateFips }) => ({ geoid: fips, name: county, state, stateFips }));
+  return <PublicProduct counties={choices} />;
 }

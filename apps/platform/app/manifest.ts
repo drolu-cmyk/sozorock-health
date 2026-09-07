@@ -2,14 +2,14 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "CB-CAP — Nationwide County Systems Intelligence",
+    name: "CB-CAP | County Planning for Health Access",
     short_name: "CB-CAP",
     description:
-      "Nationwide public-data intelligence for health priorities, pathway barriers, transparent scenarios, and accountable county planning questions.",
+      "From evidence to a plan you can defend.",
     start_url: "/",
     display: "standalone",
-    background_color: "#f3f0e8",
-    theme_color: "#0e2821",
+    background_color: "#fbfcfd",
+    theme_color: "#172b42",
     icons: [
       {
         src: "/icon.png",
