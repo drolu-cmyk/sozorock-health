@@ -6,6 +6,7 @@ applications:
       phases:
         preBuild:
           commands:
+            - 'echo "Verified build checkout: $(git rev-parse HEAD)"'
             - nvm install 24
             - nvm use 24
             - export NODE_OPTIONS=--max-old-space-size=6144
