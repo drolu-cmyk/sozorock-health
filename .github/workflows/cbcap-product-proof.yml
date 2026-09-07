@@ -1,0 +1,68 @@
+name: CB-CAP product proof
+on:
+  pull_request:
+    paths:
+      - 'apps/platform/**'
+      - 'apps/media/src/cbcap/**'
+      - 'apps/media/public/cbcap-planning/**'
+      - 'tools/product-qa/**'
+      - '.github/workflows/cbcap-product-proof.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  campaign:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck --workspace @sozorock/media
+      - run: node apps/media/scripts/create-ambient-bed.mjs
+      - name: Render social campaign
+        working-directory: apps/media
+        run: |
+          mkdir -p out/cbcap-planning
+          npx remotion render src/index.ts CBCAPPlanningVertical out/cbcap-planning/CB-CAP-vertical.mp4 --codec=h264 --crf=23 --concurrency=2
+          npx remotion render src/index.ts CBCAPPlanningFeed out/cbcap-planning/CB-CAP-feed.mp4 --codec=h264 --crf=23 --concurrency=2
+          npx remotion still src/index.ts CBCAPPlanningPoster out/cbcap-planning/CB-CAP-poster.png
+          cp public/cbcap-planning/poster.jpg out/cbcap-planning/CB-CAP-poster.jpg
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: cbcap-social-campaign
+          path: apps/media/out/cbcap-planning
+          retention-days: 30
+  responsive:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run build:platform
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096
+      - run: npm ci --prefix tools/product-qa
+      - run: npx --prefix tools/product-qa playwright install --with-deps chromium
+      - name: Exercise responsive planning preview
+        run: |
+          npm exec --workspace @sozorock/platform -- next start --hostname 127.0.0.1 --port 3100 > /tmp/cbcap-next.log 2>&1 &
+          for attempt in $(seq 1 40); do
+            if curl --fail --silent http://127.0.0.1:3100/api/dashboard >/dev/null; then break; fi
+            sleep 2
+          done
+          cd tools/product-qa
+          npm test
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: cbcap-responsive-proof
+          path: tools/product-qa/out
+          retention-days: 30
