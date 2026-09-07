@@ -5,9 +5,9 @@ const dashboardUrl = "https://cbcap.sozorockfoundation.org";
 const dmSans = DM_Sans({ subsets: ["latin"], variable: "--font-dm-sans", display: "swap" });
 export const metadata: Metadata = {
   metadataBase: new URL(dashboardUrl),
-  title: "CB-CAP | Nationwide County Systems Intelligence | SozoRock Health",
+  title: "CB-CAP | County Planning for Health Access | SozoRock Foundation",
   description:
-    "Explore public estimates and coverage gaps across all 3,144 U.S. county equivalents, with transparent planning scenarios, Health Equity Hub questions, and CHA/CHIP evidence support.",
+    "CB-CAP brings county health evidence, access barriers, local context, funding and workforce considerations into one accountable planning workspace.",
   applicationName: "CB-CAP",
   authors: [
     {
@@ -17,7 +17,7 @@ export const metadata: Metadata = {
   ],
   creator: "The SozoRock Foundation, Inc.",
   publisher: "The SozoRock Foundation, Inc.",
-  category: "public health planning and county systems intelligence",
+  category: "county health planning",
   alternates: { canonical: "/" },
   icons: {
     icon: [{ url: "/icon.png", type: "image/png", sizes: "192x192" }],
@@ -34,9 +34,9 @@ export const metadata: Metadata = {
     },
   },
   openGraph: {
-    title: "CB-CAP | Nationwide County Systems Intelligence",
+    title: "CB-CAP | County Planning for Health Access",
     description:
-      "Explore public health estimates, coverage gaps, planning scenarios, and CHA/CHIP evidence questions across all 3,144 U.S. county equivalents.",
+      "From evidence to a plan you can defend. Explore a real county in the Public Evidence Preview.",
     url: dashboardUrl,
     siteName: "CB-CAP",
     type: "website",
@@ -51,9 +51,9 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary",
-    title: "CB-CAP | Nationwide County Systems Intelligence",
+    title: "CB-CAP | County Planning for Health Access",
     description:
-      "Nationwide public-data intelligence for health priorities, pathway barriers, transparent scenarios, and accountable planning questions.",
+      "County planning for health access. Sources stay visible. Assumptions stay labeled. People decide.",
     images: ["/icon-512.png"],
   },
 };
@@ -71,7 +71,7 @@ const schema = {
   operatingSystem: "Any",
   url: dashboardUrl,
   description:
-    "Nationwide public-data county systems intelligence supporting health-priority analysis, Health Equity Hub and Health Access Day planning questions, CHA and CHIP evidence support, workforce planning questions, and accountable systems learning.",
+    "CB-CAP connects county evidence with accountable planning. Public evidence is available in the preview; institutional workflows require authorized access and active capabilities.",
   provider: {
     "@type": "NGO",
     name: "The SozoRock Foundation, Inc.",

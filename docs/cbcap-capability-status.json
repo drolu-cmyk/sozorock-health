@@ -1,0 +1,166 @@
+{
+  "verifiedAt": "2026-09-07",
+  "verification": {
+    "publicDashboard": "HTTP 200; current public county dashboard inspected in browser",
+    "institutionalHealth": "HTTP 502; no active institutional capability confirmed",
+    "productionConclusion": "Merged implementations are not proof of LIVE. Reverify after protected deployment."
+  },
+  "capabilities": [
+    {
+      "id": "county",
+      "label": "County evidence",
+      "publicPreviewStatus": "LIVE",
+      "institutionalUiStatus": "IMPLEMENTED_ACTIVATION_GATED",
+      "backendStatus": "LIVE",
+      "evidenceDependency": "Census geography and CDC PLACES county snapshot",
+      "authenticationDependency": "None for public county snapshot",
+      "productionDependency": "Public API and deployed county snapshot",
+      "ownerSourceOfTruth": "apps/platform/app/api",
+      "healthFlag": null
+    },
+    {
+      "id": "planning",
+      "label": "Planning review",
+      "publicPreviewStatus": "PLANNED",
+      "institutionalUiStatus": "IMPLEMENTED_ACTIVATION_GATED",
+      "backendStatus": "IMPLEMENTED_ACTIVATION_GATED",
+      "evidenceDependency": "Compatible county evidence",
+      "authenticationDependency": "Authenticated actor, tenant and action authorization",
+      "productionDependency": "Protected production activation and evidence providers",
+      "ownerSourceOfTruth": "sozorock-health-agentic/server/app.js",
+      "healthFlag": "institutionalAccessEnabled"
+    },
+    {
+      "id": "review",
+      "label": "Exact-run human review",
+      "publicPreviewStatus": "PLANNED",
+      "institutionalUiStatus": "IMPLEMENTED_ACTIVATION_GATED",
+      "backendStatus": "IMPLEMENTED_ACTIVATION_GATED",
+      "evidenceDependency": "Saved run awaiting review",
+      "authenticationDependency": "Authenticated actor, tenant and action authorization",
+      "productionDependency": "Protected production activation and evidence providers",
+      "ownerSourceOfTruth": "sozorock-health-agentic/server/app.js",
+      "healthFlag": "reviewContinuationEnabled"
+    },
+    {
+      "id": "funding",
+      "label": "Funding Fit",
+      "publicPreviewStatus": "PLANNED",
+      "institutionalUiStatus": "PLANNED",
+      "backendStatus": "IMPLEMENTED_ACTIVATION_GATED",
+      "evidenceDependency": "Reviewed opportunities and authorized applicant evidence",
+      "authenticationDependency": "Authenticated actor, tenant and action authorization",
+      "productionDependency": "Protected production activation and evidence providers",
+      "ownerSourceOfTruth": "sozorock-health-agentic/server/app.js",
+      "healthFlag": "fundingIntelligenceRouteEnabled"
+    },
+    {
+      "id": "visualization",
+      "label": "Evidence comparisons",
+      "publicPreviewStatus": "PLANNED",
+      "institutionalUiStatus": "IMPLEMENTED_ACTIVATION_GATED",
+      "backendStatus": "IMPLEMENTED_ACTIVATION_GATED",
+      "evidenceDependency": "Compatible estimates with sources",
+      "authenticationDependency": "Authenticated actor, tenant and action authorization",
+      "productionDependency": "Protected production activation and evidence providers",
+      "ownerSourceOfTruth": "sozorock-health-agentic/server/app.js",
+      "healthFlag": "visualizationIntelligenceRouteEnabled"
+    },
+    {
+      "id": "visualizationWorkspace",
+      "label": "Comparison workspace",
+      "publicPreviewStatus": "PLANNED",
+      "institutionalUiStatus": "PLANNED",
+      "backendStatus": "IMPLEMENTED_ACTIVATION_GATED",
+      "evidenceDependency": "Authorized workspace and compatible evidence",
+      "authenticationDependency": "Authenticated actor, tenant and action authorization",
+      "productionDependency": "Protected production activation and evidence providers",
+      "ownerSourceOfTruth": "sozorock-health-agentic/server/app.js",
+      "healthFlag": "visualizationWorkspaceRouteEnabled"
+    },
+    {
+      "id": "workforce",
+      "label": "Workforce & Capacity",
+      "publicPreviewStatus": "PLANNED",
+      "institutionalUiStatus": "PLANNED",
+      "backendStatus": "IMPLEMENTED_ACTIVATION_GATED",
+      "evidenceDependency": "Reviewed workforce evidence",
+      "authenticationDependency": "Authenticated actor, tenant and action authorization",
+      "productionDependency": "Protected production activation and evidence providers",
+      "ownerSourceOfTruth": "sozorock-health-agentic/server/app.js",
+      "healthFlag": "workforceCapacityRouteEnabled"
+    },
+    {
+      "id": "monitoring",
+      "label": "What Changed",
+      "publicPreviewStatus": "PLANNED",
+      "institutionalUiStatus": "PLANNED",
+      "backendStatus": "IMPLEMENTED_ACTIVATION_GATED",
+      "evidenceDependency": "Reviewed plans, events and dates",
+      "authenticationDependency": "Authenticated actor, tenant and action authorization",
+      "productionDependency": "Protected production activation and evidence providers",
+      "ownerSourceOfTruth": "sozorock-health-agentic/server/app.js",
+      "healthFlag": "monitoringIntelligenceRouteEnabled"
+    },
+    {
+      "id": "local",
+      "label": "Local Evidence",
+      "publicPreviewStatus": "PLANNED",
+      "institutionalUiStatus": "PLANNED",
+      "backendStatus": "IMPLEMENTED_ACTIVATION_GATED",
+      "evidenceDependency": "Authorized reviewed documents and exact claim locators",
+      "authenticationDependency": "Authenticated actor, tenant and action authorization",
+      "productionDependency": "Protected production activation and evidence providers",
+      "ownerSourceOfTruth": "sozorock-health-agentic/server/app.js",
+      "healthFlag": "privateEvidenceRouteEnabled"
+    },
+    {
+      "id": "workspaceMemory",
+      "label": "Workspace state",
+      "publicPreviewStatus": "PLANNED",
+      "institutionalUiStatus": "PLANNED",
+      "backendStatus": "IMPLEMENTED_ACTIVATION_GATED",
+      "evidenceDependency": "Tenant-scoped durable store",
+      "authenticationDependency": "Authenticated actor, tenant and action authorization",
+      "productionDependency": "Protected production activation and evidence providers",
+      "ownerSourceOfTruth": "sozorock-health-agentic/server/app.js",
+      "healthFlag": "workspaceMemoryRouteEnabled"
+    },
+    {
+      "id": "memory",
+      "label": "Decision Record",
+      "publicPreviewStatus": "PLANNED",
+      "institutionalUiStatus": "PLANNED",
+      "backendStatus": "IMPLEMENTED_ACTIVATION_GATED",
+      "evidenceDependency": "Reviewed source-bound decision and supersession",
+      "authenticationDependency": "Authenticated actor, tenant and action authorization",
+      "productionDependency": "Protected production activation and evidence providers",
+      "ownerSourceOfTruth": "sozorock-health-agentic/server/app.js",
+      "healthFlag": "institutionalMemoryRouteEnabled"
+    },
+    {
+      "id": "fiscal",
+      "label": "Budget & Funding",
+      "publicPreviewStatus": "PLANNED",
+      "institutionalUiStatus": "PLANNED",
+      "backendStatus": "PLANNED",
+      "evidenceDependency": "Reviewed fiscal records and authorized institutional evidence",
+      "authenticationDependency": "Authenticated actor, tenant and action authorization",
+      "productionDependency": "Protected production activation and evidence providers",
+      "ownerSourceOfTruth": "sozorock-health-agentic/server/app.js",
+      "healthFlag": null
+    },
+    {
+      "id": "metrics",
+      "label": "Metric Registry",
+      "publicPreviewStatus": "PLANNED",
+      "institutionalUiStatus": "PLANNED",
+      "backendStatus": "PLANNED",
+      "evidenceDependency": "Reviewed definitions, sources, denominator and owner",
+      "authenticationDependency": "Authenticated actor, tenant and action authorization",
+      "productionDependency": "Protected production activation and evidence providers",
+      "ownerSourceOfTruth": "sozorock-health-agentic/server/app.js",
+      "healthFlag": null
+    }
+  ]
+}

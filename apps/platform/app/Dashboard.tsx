@@ -60,14 +60,14 @@ const navigation = [
   { label: "Place profile", target: "geography", Icon: MapTrifold },
   { label: "Barriers & priorities", target: "health-priorities", Icon: ChartBar },
   { label: "CHA / CHIP workspace", target: "cha-chip", Icon: Notebook },
-  { label: "Planning scenarios", target: "scenarios", Icon: SlidersHorizontal },
-  { label: "AI & governed workflow", target: "intelligence", Icon: ShieldCheck },
+  { label: "Test Options", target: "scenarios", Icon: SlidersHorizontal },
+  { label: "Planning review", target: "intelligence", Icon: ShieldCheck },
   { label: "Briefs & exports", target: "reports", Icon: FileText },
-  { label: "Evidence registry", target: "evidence", Icon: Database },
+  { label: "Data & Sources", target: "evidence", Icon: Database },
 ] as const;
 
 const mapLayers: { value: LayerKey; label: string; description: string }[] = [
-  { value: "planningPressure", label: "Planning attention", description: "CB-CAP demonstration index" },
+  { value: "planningPressure", label: "Planning View", description: "Optional composite Planning View" },
   { value: "chronicPercentile", label: "Chronic-condition pressure", description: "County percentile" },
   { value: "barrierPercentile", label: "Barrier pressure", description: "County percentile" },
   { value: "preventionOpportunityPercentile", label: "Prevention opportunity", description: "County percentile" },
@@ -128,7 +128,7 @@ export default function Dashboard({ initialData: data }: { initialData: Dashboar
   const [profileStatus, setProfileStatus] = useState<"idle" | "loading" | "error">("idle");
   const [selectedState, setSelectedState] = useState("");
   const [selectedFips, setSelectedFips] = useState<string | null>(null);
-  const [layer, setLayer] = useState<LayerKey>("planningPressure");
+  const [layer, setLayer] = useState<LayerKey>("dataCoverage");
   const [barrierFilter, setBarrierFilter] = useState<BarrierFilter>("");
   const [pressureBand, setPressureBand] = useState<PressureBand>("");
   const [countyQuery, setCountyQuery] = useState("");
@@ -391,7 +391,7 @@ export default function Dashboard({ initialData: data }: { initialData: Dashboar
     setSelectedFips(null);
     setProfileResponse(null);
     setProfileStatus("idle");
-    setLayer("planningPressure");
+    setLayer("dataCoverage");
     setBarrierFilter("");
     setPressureBand("");
     setCountyQuery("");
@@ -447,7 +447,7 @@ export default function Dashboard({ initialData: data }: { initialData: Dashboar
 
   return (
     <div className="cbcap-app">
-      <a className="skip-link" href="#main-content">Skip to national systems intelligence</a>
+      <a className="skip-link" href="#main-content">Skip to county planning</a>
       <aside className={`app-sidebar${navOpen ? " is-open" : ""}`}>
         <header className="institutional-header">
           <BrandLockup priority />
@@ -486,7 +486,7 @@ export default function Dashboard({ initialData: data }: { initialData: Dashboar
             ))}
           </div>
           <div className="sidebar-foot">
-            <div className="header-status"><i aria-hidden="true" /><span>Public-data demonstration</span></div>
+            <div className="header-status"><i aria-hidden="true" /><span>Public Evidence Preview</span></div>
             <p>Aggregate public estimates and transparent planning calculations. No individual records.</p>
             <a className="partnership-link" href="https://health.sozorockfoundation.org/#get-involved">Discuss a county partnership</a>
             <a className="foundation-link" href="https://www.sozorockfoundation.org" target="_blank" rel="noreferrer">The SozoRock Foundation, Inc.</a>
@@ -497,8 +497,8 @@ export default function Dashboard({ initialData: data }: { initialData: Dashboar
         <main id="main-content">
         <section className="decision-room" id="overview" aria-labelledby="overview-heading">
           <div className="decision-room__intro">
-            <span>Nationwide county systems intelligence</span>
-            <h1 id="overview-heading">Build a local planning brief.</h1>
+            <span>County planning for health access</span>
+            <h1 id="overview-heading">From evidence to a plan you can defend.</h1>
             <p>Move from public evidence to local questions, accountable owners, transparent planning scenarios, and stakeholder-ready briefs.</p>
           </div>
           <div className="decision-room__actions" role="group" aria-label="Dashboard actions">
@@ -612,11 +612,11 @@ export default function Dashboard({ initialData: data }: { initialData: Dashboar
             <strong>{countyStatus === "ready" ? `${number.format(filteredCounties.length)} counties in view` : "Preparing counties in view"}</strong>
             <div>
               {selectedStateSummary && <button type="button" onClick={() => selectState("")} aria-label={`${selectedStateSummary.name} — remove filter`}>{selectedStateSummary.name}<span aria-hidden="true">×</span></button>}
-              {layer !== "planningPressure" && <button type="button" onClick={() => setLayer("planningPressure")} aria-label={`${mapLayers.find((option) => option.value === layer)?.label} — reset map layer`}>{mapLayers.find((option) => option.value === layer)?.label}<span aria-hidden="true">×</span></button>}
+              {layer !== "dataCoverage" && <button type="button" onClick={() => setLayer("dataCoverage")} aria-label={`${mapLayers.find((option) => option.value === layer)?.label} — reset map layer`}>{mapLayers.find((option) => option.value === layer)?.label}<span aria-hidden="true">×</span></button>}
               {barrierFilter && <button type="button" onClick={() => setBarrierFilter("")} aria-label={`${barrierFilter === "transportation" ? "Transportation above benchmark" : "Uninsured above benchmark"} — remove filter`}>{barrierFilter === "transportation" ? "Transportation above benchmark" : "Uninsured above benchmark"}<span aria-hidden="true">×</span></button>}
               {pressureBand && <button type="button" onClick={() => setPressureBand("")} aria-label={`${pressureBands.find((band) => band.value === pressureBand)?.label} — remove filter`}>{pressureBands.find((band) => band.value === pressureBand)?.label}<span aria-hidden="true">×</span></button>}
               {countyQuery && <button type="button" onClick={() => setCountyQuery("")} aria-label={`County search: ${countyQuery} — remove filter`}>County search: {countyQuery}<span aria-hidden="true">×</span></button>}
-              {!selectedStateSummary && layer === "planningPressure" && !barrierFilter && !pressureBand && !countyQuery && <span>Nationwide · no filters applied</span>}
+              {!selectedStateSummary && layer === "dataCoverage" && !barrierFilter && !pressureBand && !countyQuery && <span>Nationwide · no filters applied</span>}
             </div>
           </div>
         </section>
@@ -702,7 +702,7 @@ export default function Dashboard({ initialData: data }: { initialData: Dashboar
         </section>
       </main>
       <footer className="institutional-footer">
-        <div><BrandLockup compact /><p>County systems intelligence for health access, planning, workforce readiness, digital assurance, and accountable public action.</p></div>
+        <div><BrandLockup compact /><p>County planning for health access. Sources stay visible. Assumptions stay labeled. People decide.</p></div>
         <div><strong>Decision boundary</strong><p>CB-CAP is non-clinical and privacy-preserving. Public views use aggregate public estimates and demonstration calculations.</p></div>
         <div><strong>The SozoRock Foundation, Inc.</strong><p>A New York-based 501(c)(3) nonprofit. EIN 39-4736725.</p><a href="https://www.sozorockfoundation.org">sozorockfoundation.org</a></div>
         <small>© 2026 The SozoRock Foundation, Inc. SozoRock® is a registered trademark. All rights reserved.</small>
