@@ -190,10 +190,23 @@ jobs:
           test -n "$publication_table"
           test -n "$publication_bucket"
           test -n "$publication_salt_arn"
-          publication_intelligence_index_status=$(aws dynamodb describe-table \
-            --table-name "$publication_table" \
-            --query "Table.GlobalSecondaryIndexes[?IndexName=='PublicationIntelligence'].IndexStatus | [0]" \
-            --output text)
+          # CloudFormation can complete before a new DynamoDB index is active.
+          for attempt in $(seq 1 120); do
+            publication_intelligence_index_status=$(aws dynamodb describe-table \
+              --table-name "$publication_table" \
+              --query "Table.GlobalSecondaryIndexes[?IndexName=='PublicationIntelligence'].IndexStatus | [0]" \
+              --output text)
+            case "$publication_intelligence_index_status" in
+              ACTIVE) break ;;
+              CREATING|UPDATING) ;;
+              *) echo "PublicationIntelligence index is unavailable: $publication_intelligence_index_status"; exit 1 ;;
+            esac
+            if [[ "$attempt" -eq 120 ]]; then
+              echo "PublicationIntelligence index did not become ACTIVE within 20 minutes."
+              exit 1
+            fi
+            sleep 10
+          done
           test "$publication_intelligence_index_status" = "ACTIVE"
 
           # Verify the policy that the Amplify SSR compute role will actually
@@ -294,7 +307,7 @@ jobs:
           test -n "$origin_main_before"
           test "$origin_main_before" = "$release_sha"
 
-          job_id=$(aws amplify start-job --app-id "$PUBLIC_APP_ID" --branch-name "$AMPLIFY_BRANCH" --job-type RELEASE --job-reason "Public-site release $release_sha" --query 'jobSummary.jobId' --output text)
+          job_id=$(aws amplify start-job --app-id "$PUBLIC_APP_ID" --branch-name "$AMPLIFY_BRANCH" --job-type RELEASE --commit-id "$release_sha" --job-reason "Public-site release $release_sha" --query 'jobSummary.jobId' --output text)
           for attempt in $(seq 1 180); do
             job_json=$(aws amplify get-job --app-id "$PUBLIC_APP_ID" --branch-name "$AMPLIFY_BRANCH" --job-id "$job_id" --output json)
             status=$(jq -r '.job.summary.status' <<<"$job_json")
