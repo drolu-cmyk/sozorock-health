@@ -17,7 +17,7 @@ import {
   endCognitoSession,
   hasInMemorySession,
 } from "../lib/agentic-auth";
-import { agenticRuntimeConfig, CBCAP_AGENTIC_API_ORIGIN } from "../lib/agentic-runtime";
+import { agenticRuntimeConfig } from "../lib/agentic-runtime";
 
 type Citation = { label: string; url: string };
 
@@ -64,22 +64,22 @@ function agentToolCalls(run: CbcapRun | null) {
 
 function statusLabel(status: CbcapRun["status"] | undefined) {
   const labels: Record<string, string> = {
-    awaiting_human_review: "Awaiting human review",
-    approved_output: "Approved output",
+    awaiting_human_review: "Review Required",
+    approved_output: "Reviewed Brief",
     needs_place_selection: "County selection required",
     evidence_unavailable: "Evidence unavailable",
-    blocked: "Blocked by governance",
-    error: "Run error",
+    blocked: "Review conditions not met",
+    error: "Planning review unavailable",
   };
-  return status ? labels[status] || status : "No run started";
+  return status ? labels[status] || status : "Ready to begin";
 }
 
 function RunStages({ run }: { run: CbcapRun }) {
   const stages: Array<[string, string]> = [
-    ["County resolution", String(record(run.placeResolution)?.status || "not returned")],
-    ["Governed evidence", run.evidence ? "returned" : "not returned"],
-    ["Barrier synthesis", run.barriers ? "returned" : "not returned"],
-    ["Planning draft", run.draft ? "returned" : "not returned"],
+    ["County selected", String(record(run.placeResolution)?.status || "not returned")],
+    ["Evidence reviewed", run.evidence ? "returned" : "not returned"],
+    ["Access barriers", run.barriers ? "returned" : "not returned"],
+    ["Draft brief", run.draft ? "returned" : "not returned"],
     ["Human review", run.status === "approved_output" ? "approved" : run.status === "awaiting_human_review" ? "required" : "not available"],
   ];
   return <ol className="agentic-stages">{stages.map(([label, state]) => <li key={label}><strong>{label}</strong><span>{String(state).replaceAll("_", " ")}</span></li>)}</ol>;
@@ -117,13 +117,13 @@ export function AgenticWorkspace({ profile }: { profile: GeographyProfile | null
       try {
         const completed = await completeCognitoCallback(config);
         if (!cancelled) setSignedIn(completed || hasInMemorySession());
-      } catch (error) {
-        if (!cancelled) setMessage(error instanceof Error ? error.message : "Institutional sign-in could not be completed.");
+      } catch {
+        if (!cancelled) setMessage("Sign-in could not be completed. Please try again.");
       }
-    }).catch((error: unknown) => {
+    }).catch(() => {
       if (cancelled) return;
       setRuntimeState("unavailable");
-      setMessage(error instanceof Error ? error.message : "The governed workspace is unavailable.");
+      setMessage("The Planning Workspace is temporarily unavailable.");
     }).finally(() => { if (!cancelled) setBusy(null); });
     return () => { cancelled = true; };
   }, [config]);
@@ -132,9 +132,9 @@ export function AgenticWorkspace({ profile }: { profile: GeographyProfile | null
     setMessage("");
     setBusy("auth");
     try { await beginCognitoSignIn(config); }
-    catch (error) {
+    catch {
       setBusy(null);
-      setMessage(error instanceof Error ? error.message : "Institutional sign-in could not start.");
+      setMessage("Sign-in could not start. Please try again.");
     }
   }
 
@@ -150,7 +150,7 @@ export function AgenticWorkspace({ profile }: { profile: GeographyProfile | null
   }
 
   async function startRun() {
-    if (!county) return setMessage("Select a county profile before starting a governed run.");
+    if (!county) return setMessage("Select a county before starting a planning review.");
     const initiatingGeoid = county.geoid;
     const initiatingContext = contextVersion.current;
     setBusy("run");
@@ -164,8 +164,8 @@ export function AgenticWorkspace({ profile }: { profile: GeographyProfile | null
       setRun(nextRun);
       setRunCountyGeoid(initiatingGeoid);
     }
-    catch (error) { setMessage(error instanceof Error ? error.message : "The governed run could not start."); }
-    finally { setBusy(null); }
+    catch { if (contextVersion.current !== initiatingContext) return; setMessage("The planning review could not start. Check your access and try again."); }
+    finally { if (contextVersion.current === initiatingContext) setBusy(null); }
   }
 
   async function approveRun(runId: string) {
@@ -180,12 +180,12 @@ export function AgenticWorkspace({ profile }: { profile: GeographyProfile | null
       if (contextVersion.current !== initiatingContext) return;
       setRun(approvedRun);
     }
-    catch (error) { setMessage(error instanceof Error ? error.message : "The exact saved run could not be reviewed."); }
-    finally { setBusy(null); }
+    catch { if (contextVersion.current !== initiatingContext) return; setMessage("This saved brief could not be reviewed. Your access or its review state may have changed."); }
+    finally { if (contextVersion.current === initiatingContext) setBusy(null); }
   }
 
   async function requestVisualization() {
-    if (!run || !countyGeoid || runCountyGeoid !== countyGeoid) return setMessage("Start a governed county run before requesting a visualization specification.");
+    if (!run || !countyGeoid || runCountyGeoid !== countyGeoid) return setMessage("Start a planning review before comparing evidence.");
     const initiatingContext = contextVersion.current;
     setBusy("visual");
     setMessage("");
@@ -194,8 +194,8 @@ export function AgenticWorkspace({ profile }: { profile: GeographyProfile | null
       if (contextVersion.current !== initiatingContext) return;
       setVisualization(nextVisualization);
     }
-    catch (error) { setMessage(error instanceof Error ? error.message : "A governed visualization specification is unavailable."); }
-    finally { setBusy(null); }
+    catch { if (contextVersion.current !== initiatingContext) return; setMessage("The evidence comparison is unavailable."); }
+    finally { if (contextVersion.current === initiatingContext) setBusy(null); }
   }
 
   const reviewableRunId = runCountyGeoid === countyGeoid && run?.status === "awaiting_human_review" && typeof run.runId === "string" ? run.runId : null;
@@ -204,44 +204,36 @@ export function AgenticWorkspace({ profile }: { profile: GeographyProfile | null
   const canOperate = runtimeState === "ready" && signedIn;
 
   return (
-    <section className="agentic-workspace" id="agentic-workspace" aria-labelledby="agentic-workspace-heading">
-      <header className="workspace-heading">
-        <div><span>Institutional agentic workspace</span><h2 id="agentic-workspace-heading">Run a governed county planning draft.</h2></div>
-        <p>Authenticated runs use the governed graph at <code>{CBCAP_AGENTIC_API_ORIGIN}</code>. Drafts remain bound to their evidence and require exact-run human approval.</p>
-      </header>
-
-      {runtimeState === "disabled" && <div className="agentic-notice" role="status"><strong>Agentic controls are disabled.</strong><p>Cognito and runtime configuration are not present or the API origin is not the approved production origin. The public dashboard remains available.</p></div>}
-      {runtimeState === "checking" && <div className="agentic-notice" role="status">Checking the governed runtime and sign-in callback…</div>}
-      {runtimeState === "unavailable" && <div className="agentic-notice agentic-notice--error" role="alert"><strong>Institutional runtime unavailable.</strong><p>{message || "The service did not confirm institutional access."}</p></div>}
-
-      {runtimeState === "ready" && (
-        <div className="agentic-shell">
-          <aside className="agentic-context">
-            <span>County handoff</span>
-            <h3>{county?.name || "Select a county"}</h3>
-            <p>{county ? `${county.context} · GEOID ${county.geoid}` : "State, place, ZIP-linked, and community profiles are not silently converted into a county run."}</p>
-            {!signedIn
-              ? <button type="button" onClick={() => void signIn()} disabled={busy === "auth"}>{busy === "auth" ? "Preparing sign-in…" : "Sign in with Cognito"}</button>
-              : <><button type="button" onClick={() => void startRun()} disabled={!county || Boolean(busy)}>{busy === "run" ? "Starting governed run…" : "Start county planning run"}</button><button className="agentic-secondary" type="button" onClick={signOut}>Sign out</button></>}
-            <small>OAuth authorization code with PKCE. Access and refresh tokens remain in memory and are never stored in localStorage or placed in the page URL.</small>
-          </aside>
-
-          <div className="agentic-run" aria-live="polite">
-            <div className="agentic-run__status"><span>Run status</span><strong>{statusLabel(run?.status)}</strong>{run?.runId && <code>{run.runId}</code>}</div>
-            {message && <div className="agentic-message" role="alert">{message}</div>}
-            {!run && <p className="agentic-empty">Sign in, select an exact county, and start a run. No output is implied until the runtime returns it.</p>}
-            {run && <>
-              <RunStages run={run} />
-              {tools.length > 0 && <div className="agentic-tools"><h3>Returned agent tool stages</h3><ul>{tools.map((tool) => <li key={tool}><code>{tool}</code></li>)}</ul></div>}
-              {run.draft && <details open className="agentic-artifact"><summary>Reviewable draft returned by the run</summary><pre>{JSON.stringify(run.draft, null, 2)}</pre></details>}
-              {run.output && <details open className="agentic-artifact"><summary>Approved output returned by the run</summary><pre>{JSON.stringify(run.output, null, 2)}</pre></details>}
-              {citations.length > 0 && <div className="agentic-citations"><h3>Returned citations</h3><ul>{citations.map((citation) => <li key={citation.url}><a href={citation.url} target="_blank" rel="noreferrer">{citation.label}</a><small>{citation.url}</small></li>)}</ul></div>}
-              {reviewableRunId && health?.reviewContinuationEnabled && <div className="agentic-review"><strong>Human review applies only to saved run <code>{reviewableRunId}</code>.</strong><p>Approval continues that exact checkpoint to the backend’s approved output. It does not publish externally.</p><button type="button" onClick={() => void approveRun(reviewableRunId)} disabled={Boolean(busy)}>{busy === "review" ? "Approving exact run…" : `Approve run ${reviewableRunId}`}</button></div>}
-              {health?.visualizationIntelligenceRouteEnabled && <div className="agentic-visual"><button type="button" onClick={() => void requestVisualization()} disabled={!canOperate || Boolean(busy)}>{busy === "visual" ? "Requesting specification…" : "Request governed barrier visualization"}</button>{visualization && <><strong>{visualization.insightTitle || "Visualization specification"}</strong><p>Status: {visualization.status || "not returned"} · Renderer: {visualization.renderer || "not returned"}</p><pre>{JSON.stringify(visualization, null, 2)}</pre></>}</div>}
-            </>}
-          </div>
+    <section className="agentic-workspace planning-room" id="agentic-workspace" aria-labelledby="agentic-workspace-heading">
+      <header className="workspace-heading"><div><span>Planning Workspace</span><h2 id="agentic-workspace-heading">Bring the evidence into your plan.</h2></div><p>Start with a county. Review the evidence, draft planning questions and keep the brief tied to its sources. AI drafts. People decide.</p></header>
+      {runtimeState === "disabled" && <div className="agentic-notice" role="status"><strong>Institutional access is not available in this release.</strong><p>You can still use the <a href="/#county">Public Evidence Preview</a>.</p></div>}
+      {runtimeState === "checking" && <div className="agentic-notice" role="status">Checking workspace availability…</div>}
+      {runtimeState === "unavailable" && <div className="agentic-notice" role="status"><strong>Planning Workspace is temporarily unavailable.</strong><p>The <a href="/#county">Public Evidence Preview</a> remains open.</p></div>}
+      {runtimeState === "ready" && <div className="agentic-shell">
+        <aside className="agentic-context"><span>County</span><h3>{county?.name || "Select a county"}</h3><p>{county?.context || "Choose a county above to begin. City and ZIP-linked evidence are not silently assigned to a county."}</p>
+          {!signedIn ? <button type="button" onClick={() => void signIn()} disabled={busy === "auth"}>{busy === "auth" ? "Preparing sign-in…" : "Sign in"}</button> : <><button type="button" onClick={() => void startRun()} disabled={!county || Boolean(busy)}>{busy === "run" ? "Preparing your review…" : "Start planning review"}</button><button type="button" className="agentic-secondary" onClick={signOut}>Sign out</button></>}
+        </aside>
+        <div className="agentic-run" aria-live="polite"><div className="agentic-run__status"><span>Review state</span><strong>{statusLabel(run?.status)}</strong></div>
+          {message && <p role="alert">{message}</p>}
+          {!run && <p className="agentic-empty">What evidence belongs in your plan? Sign in and start a planning review for the selected county.</p>}
+          {signedIn && run && <><RunStages run={run} />
+            <PlanningBrief value={run.status === "approved_output" ? run.output : run.draft} />
+            {citations.length > 0 && <div className="agentic-citations" id="workspace-sources"><h3>Sources</h3><ul>{citations.map(citation => <li key={citation.url}><a href={citation.url} target="_blank" rel="noreferrer">{citation.label}</a></li>)}</ul></div>}
+            {reviewableRunId && health?.reviewContinuationEnabled && <div className="agentic-review"><strong>Review Required</strong><p>Confirm that you have reviewed this brief, its evidence and assumptions. Your review applies only to this saved version and does not publish externally.</p><button type="button" onClick={() => void approveRun(reviewableRunId)} disabled={Boolean(busy)}>{busy === "review" ? "Recording review…" : "Mark this brief reviewed"}</button></div>}
+            {health?.visualizationIntelligenceRouteEnabled && <div className="agentic-visual"><button type="button" onClick={() => void requestVisualization()} disabled={!canOperate || Boolean(busy)}>{busy === "visual" ? "Preparing comparison…" : "Compare the evidence"}</button>{visualization && <p>{visualization.status === "renderable" ? "Comparison requirements are available in the technical details. Source estimates remain above." : "A compatible comparison is not available for this evidence."}</p>}</div>}
+            <details className="agentic-artifact"><summary>Audit details</summary><dl><dt>Saved review reference</dt><dd><code>{run.runId}</code></dd><dt>County reference</dt><dd>{runCountyGeoid}</dd></dl>{tools.length > 0 && <details><summary>Technical details</summary><ul>{tools.map(tool => <li key={tool}><code>{tool}</code></li>)}</ul></details>}<details><summary>Source and review record</summary><pre>{JSON.stringify({ status: run.status, draft: run.draft, output: run.output, comparison: visualization }, null, 2)}</pre></details></details>
+          </>}
         </div>
-      )}
+      </div>}
     </section>
   );
+}
+
+function PlanningBrief({ value }: { value: unknown }) {
+  const brief = record(value);
+  if (!brief) return <p>No brief has been returned for this review.</p>;
+  const observed = Array.isArray(brief.observedPathwayEvidence) ? brief.observedPathwayEvidence.map(record).filter(Boolean) : [];
+  const missing = Array.isArray(brief.unavailablePathwayEvidence) ? brief.unavailablePathwayEvidence.map(record).filter(Boolean) : [];
+  const questions = Array.isArray(brief.planningQuestions) ? brief.planningQuestions.filter((item): item is string => typeof item === "string") : [];
+  return <article className="planning-brief"><h3>Access barriers</h3>{observed.length ? <dl>{observed.map((item, index) => <div key={String(item?.key || index)}><dt>{String(item?.label || "Source estimate")}</dt><dd>{typeof item?.value === "number" ? `${item.value} ${String(item.unit || "")}` : "Not available"}</dd><dd>{String(item?.universe || "Population not specified")}</dd></div>)}</dl> : <p>No compatible source estimates were returned.</p>}{missing.length > 0 && <><h3>Evidence gaps</h3><ul>{missing.map((item, index) => <li key={index}>{String(item?.label || "Evidence")}: Not found in reviewed evidence.</li>)}</ul></>}{questions.length > 0 && <><h3>Planning questions</h3><ul>{questions.map(question => <li key={question}>{question}</li>)}</ul></>}<p>Review sources and local context before choosing a response.</p></article>;
 }

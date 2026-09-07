@@ -73,7 +73,7 @@ test("PKCE keeps tokens out of URLs and browser storage", async () => {
   assert.doesNotMatch(auth, /localStorage/);
   assert.doesNotMatch(auth, /access_token.*searchParams|searchParams.*access_token/);
   assert.match(callback, /completeCognitoCallback\(config\)/);
-  assert.match(callback, /router\.replace\("\/#agentic-workspace"\)/);
+  assert.match(callback, /router\.replace\("\/workspace#agentic-workspace"\)/);
   assert.doesNotMatch(callback, /window\.location|localStorage/);
 });
 
@@ -87,7 +87,7 @@ test("human review is visibly and programmatically bound to the exact returned r
   assert.match(component, /runCountyGeoid !== countyGeoid/);
   assert.match(component, /contextVersion\.current !== initiatingContext/);
   assert.match(component, /approveRun\(reviewableRunId\)/);
-  assert.match(component, /Approve run \$\{reviewableRunId\}/);
+  assert.match(component, /Mark this brief reviewed/);
   assert.match(api, /`\/api\/cbcap\/runs\/\$\{encodeURIComponent\(runId\)\}\/review`/);
   assert.match(api, /\{ decision: "approve" \}/);
 });
