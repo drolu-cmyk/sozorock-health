@@ -19,7 +19,13 @@ function protectResponse(response: NextResponse) {
   return response;
 }
 
-export async function POST(request: NextRequest, { params }: { params: Promise<{ slug: string }> }) {
+export async function POST(request: NextRequest, context: { params: Promise<{ slug: string }> }) {
+  // Validation, throttling and delivery failures need the same browser-cache
+  // protection as accepted requests.
+  return protectResponse(await handleAccessRequest(request, context));
+}
+
+async function handleAccessRequest(request: NextRequest, { params }: { params: Promise<{ slug: string }> }) {
   const slug = (await params).slug;
   const publication = getPublication(slug);
   if (!publication?.assetKey) return NextResponse.json({ error: "This publication is not available for access." }, { status: 404 });
