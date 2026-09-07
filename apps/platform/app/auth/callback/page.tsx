@@ -24,9 +24,9 @@ export default function CognitoCallbackPage() {
       }
       // App Router navigation preserves the module-scoped in-memory token set.
       // A document redirect would discard it before the workspace can use it.
-      router.replace("/#agentic-workspace");
-    }).catch((reason: unknown) => {
-      if (!cancelled) setError(reason instanceof Error ? reason.message : "Institutional sign-in could not be completed.");
+      router.replace("/workspace#agentic-workspace");
+    }).catch(() => {
+      if (!cancelled) setError("Sign-in could not be completed. Please try again.");
     });
     return () => { cancelled = true; };
   }, [config, router]);
@@ -36,8 +36,8 @@ export default function CognitoCallbackPage() {
       <section>
         <span>CB-CAP institutional access</span>
         <h1 id="auth-callback-heading">{error ? "Sign-in was not completed" : "Completing secure sign-in…"}</h1>
-        <p role={error ? "alert" : "status"}>{error || "Verifying the authorization code and returning to the governed workspace."}</p>
-        {error && <a href="/#agentic-workspace">Return to the public dashboard</a>}
+        <p role={error ? "alert" : "status"}>{error || "Returning to your Planning Workspace."}</p>
+        {error && <a href="/">Return to the Public Evidence Preview</a>}
       </section>
     </main>
   );
