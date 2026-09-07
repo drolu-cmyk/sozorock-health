@@ -29,7 +29,7 @@ test("publishes the custom-domain sitemap and robots policy", () => {
 test("links the approved icon from the install manifest", () => {
   const value = manifest();
   assert.equal(value.start_url, "/");
-  assert.equal(value.theme_color, "#0e2821");
+  assert.equal(value.theme_color, "#172b42");
   assert.deepEqual(value.icons, [
     { src: "/icon.png", sizes: "192x192", type: "image/png", purpose: "any" },
     { src: "/icon-512.png", sizes: "512x512", type: "image/png", purpose: "any" },
