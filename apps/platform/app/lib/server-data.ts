@@ -1,3 +1,4 @@
+import { sourceNumber } from "./source-number";
 import "server-only";
 
 import countyData from "../../data/county-planning.json";
@@ -120,8 +121,7 @@ export const stateBenchmarks = new Map(
 export { cdcProfileFieldsByKind };
 
 function numeric(value: unknown) {
-  const parsed = Number(value);
-  return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
+  return sourceNumber(value);
 }
 
 function interval(value: unknown): [number, number] | null {
