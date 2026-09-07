@@ -89,3 +89,15 @@ export function createVisualizationSpec(config: AgenticRuntimeConfig, run: Cbcap
     hasMissingValues: JSON.stringify(run.barriers || {}).includes("no_verified_data"),
   }, [200]);
 }
+
+export type WorkspaceCapabilities = {
+  contract: "cbcap.workspace-capabilities.v1";
+  countyFips: string;
+  evidenceReady: boolean;
+  capabilities: Record<string, boolean>;
+};
+export async function getWorkspaceCapabilities(config: AgenticRuntimeConfig, countyFips: string) {
+  const response = await post<WorkspaceCapabilities>(config, "/api/cbcap/capabilities", { countyFips }, [200]);
+  if (response.contract !== "cbcap.workspace-capabilities.v1" || response.countyFips !== countyFips || !response.capabilities || typeof response.capabilities !== "object") throw new Error("Workspace availability could not be verified.");
+  return response;
+}
