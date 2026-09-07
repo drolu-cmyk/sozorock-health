@@ -154,6 +154,10 @@ Resources:
             Condition:
               StringEquals:
                 ses:FromAddress: !Ref PublicationEmailFrom
+          - Sid: ReadGooglePublicationMail
+            Effect: Allow
+            Action: ssm:GetParameter
+            Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/sozorock-foundation/publication-google-mail
           - Sid: ReadHashSalt
             Effect: Allow
             Action: secretsmanager:GetSecretValue
@@ -172,4 +176,4 @@ Outputs:
     Value: PublicationIntelligence
   RequiredRuntimeEnvironment:
     Description: Server-only variables required by the public-site compute runtime.
-    Value: PUBLICATION_ACCESS_TABLE, PUBLICATION_ASSET_BUCKET, PUBLICATION_EMAIL_FROM, PUBLICATION_HASH_SALT_SECRET_ARN, PUBLIC_SITE_URL, PUBLICATION_ALLOWED_HOSTS
+    Value: PUBLICATION_ACCESS_TABLE, PUBLICATION_ASSET_BUCKET, PUBLICATION_EMAIL_FROM, PUBLICATION_EMAIL_PROVIDER, PUBLICATION_GOOGLE_MAIL_PARAMETER, PUBLICATION_HASH_SALT_SECRET_ARN, PUBLIC_SITE_URL, PUBLICATION_ALLOWED_HOSTS

@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const root = new URL('../app/', import.meta.url);
 const contract = JSON.parse(readFileSync(new URL('product-contract.json', root), 'utf8'));
@@ -14,7 +15,7 @@ function publicFiles(path) {
 }
 test('public content rejects unsupported claims and generic promotional language', () => {
   const prohibited = /HIPAA safe|real.time access pattern|service demand forecasting|grant.ready|all hub types flow|AI.powered|actionable insights|\bunlock\b|\breimagine\b|\bseamless\b|\bholistic\b|future.ready|custom metric tracking/i;
-  for (const file of publicFiles(root.pathname)) {
+  for (const file of publicFiles(fileURLToPath(root))) {
     assert.doesNotMatch(readFileSync(file, 'utf8'), prohibited, file);
   }
 });
