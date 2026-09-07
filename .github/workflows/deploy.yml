@@ -190,10 +190,23 @@ jobs:
           test -n "$publication_table"
           test -n "$publication_bucket"
           test -n "$publication_salt_arn"
-          publication_intelligence_index_status=$(aws dynamodb describe-table \
-            --table-name "$publication_table" \
-            --query "Table.GlobalSecondaryIndexes[?IndexName=='PublicationIntelligence'].IndexStatus | [0]" \
-            --output text)
+          # CloudFormation can complete before a new DynamoDB index is active.
+          for attempt in $(seq 1 120); do
+            publication_intelligence_index_status=$(aws dynamodb describe-table \
+              --table-name "$publication_table" \
+              --query "Table.GlobalSecondaryIndexes[?IndexName=='PublicationIntelligence'].IndexStatus | [0]" \
+              --output text)
+            case "$publication_intelligence_index_status" in
+              ACTIVE) break ;;
+              CREATING|UPDATING) ;;
+              *) echo "PublicationIntelligence index is unavailable: $publication_intelligence_index_status"; exit 1 ;;
+            esac
+            if [[ "$attempt" -eq 120 ]]; then
+              echo "PublicationIntelligence index did not become ACTIVE within 20 minutes."
+              exit 1
+            fi
+            sleep 10
+          done
           test "$publication_intelligence_index_status" = "ACTIVE"
 
           # Verify the policy that the Amplify SSR compute role will actually
