@@ -1,3 +1,5 @@
+import {CBCAPCampaign} from "./cbcap/Campaign";
+import {ClosingScene} from "./cbcap/ClosingScene";
 import {Composition, Still} from "remotion";
 import {LiveCampaign, LiveCampaignPoster, type Locale, type SocialFormat} from "./Video";
 
@@ -17,6 +19,9 @@ const locales: Array<{id: string; locale: Locale}> = [
 ];
 
 export const RemotionRoot = () => <>
+  <Composition id="CBCAPPlanningVertical" component={CBCAPCampaign} durationInFrames={780} fps={30} width={1080} height={1920} />
+  <Composition id="CBCAPPlanningFeed" component={CBCAPCampaign} durationInFrames={780} fps={30} width={1080} height={1350} />
+  <Still id="CBCAPPlanningPoster" component={ClosingScene} width={1080} height={1350} />
   {locales.flatMap(({id: localeId, locale}) => formats.map(({id, format, width, height}) => (
     <Composition key={`${localeId}${id}`} id={`SozoRockLive${localeId}${id}`} component={LiveCampaign} durationInFrames={DURATION} fps={FPS} width={width} height={height} defaultProps={{format, locale}} />
   )))}

@@ -34,8 +34,8 @@ export function CountyPreview({ counties, onCounty }: { counties: CountyChoice[]
   ] : [];
   return <div className="county-preview">
     <div className="county-picker">
-      <label>State<select value={state} onChange={event => { const next = event.target.value; setState(next); setCounty(counties.find(item => item.stateFips === next)!.geoid); }}>{states.map(([fips, name]) => <option key={fips} value={fips}>{name}</option>)}</select></label>
-      <label>County<select value={county} onChange={event => setCounty(event.target.value)}>{choices.map(item => <option key={item.geoid} value={item.geoid}>{item.name}</option>)}</select></label>
+      <label>State<select aria-label="State" value={state} onChange={event => { const next = event.target.value; setState(next); setCounty(counties.find(item => item.stateFips === next)!.geoid); }}>{states.map(([fips, name]) => <option key={fips} value={fips}>{name}</option>)}</select></label>
+      <label>County<select aria-label="County" value={county} onChange={event => setCounty(event.target.value)}>{choices.map(item => <option key={item.geoid} value={item.geoid}>{item.name}</option>)}</select></label>
     </div>
     <div className="county-result" aria-live="polite" aria-busy={status === "loading"}>
       {status === "loading" && <p role="status">Loading county evidence…</p>}

@@ -143,11 +143,11 @@
       "label": "Budget & Funding",
       "publicPreviewStatus": "PLANNED",
       "institutionalUiStatus": "PLANNED",
-      "backendStatus": "PLANNED",
+      "backendStatus": "IMPLEMENTED_ACTIVATION_GATED",
       "evidenceDependency": "Reviewed fiscal records and authorized institutional evidence",
       "authenticationDependency": "Authenticated actor, tenant and action authorization",
-      "productionDependency": "Protected production activation and evidence providers",
-      "ownerSourceOfTruth": "sozorock-health-agentic/server/app.js",
+      "productionDependency": "Protected production activation, reviewed fiscal provider and authenticated acceptance",
+      "ownerSourceOfTruth": "sozorock-health-agentic/server/cbcap-fiscal-api.js",
       "healthFlag": null
     },
     {
@@ -155,11 +155,11 @@
       "label": "Metric Registry",
       "publicPreviewStatus": "PLANNED",
       "institutionalUiStatus": "PLANNED",
-      "backendStatus": "PLANNED",
+      "backendStatus": "IMPLEMENTED_ACTIVATION_GATED",
       "evidenceDependency": "Reviewed definitions, sources, denominator and owner",
       "authenticationDependency": "Authenticated actor, tenant and action authorization",
-      "productionDependency": "Protected production activation and evidence providers",
-      "ownerSourceOfTruth": "sozorock-health-agentic/server/app.js",
+      "productionDependency": "Protected production activation, migration 006, tenant database roles and authenticated acceptance",
+      "ownerSourceOfTruth": "sozorock-health-agentic/server/cbcap-metric-api.js",
       "healthFlag": null
     }
   ]
