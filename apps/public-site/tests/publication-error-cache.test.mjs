@@ -6,9 +6,9 @@ import { transformSync } from "esbuild";
 
 const source = readFileSync(new URL("../app/api/publications/access/[slug]/route.ts", import.meta.url), "utf8");
 const compiled = transformSync(source, { loader: "ts", format: "cjs" }).code;
-const module = { exports: {} };
+const routeModule = { exports: {} };
 vm.runInNewContext(compiled, {
-  module, exports: module.exports, console,
+  module: routeModule, exports: routeModule.exports, console,
   require(name) {
     if (name === "next/server") return { NextResponse: { json: (body, init) => Response.json(body, init) } };
     if (name.includes("client-dynamodb")) return { ConditionalCheckFailedException: class extends Error {} };
@@ -29,7 +29,7 @@ test("all early publication access failures prohibit browser storage and referre
     const request = new Request("https://health.sozorockfoundation.org/api/publications/access/" + scenario.slug, {
       method: "POST", headers: { origin: scenario.origin || "https://health.sozorockfoundation.org", "content-type": scenario.type || "application/json" }, body: scenario.body || "{}",
     });
-    const response = await module.exports.POST(request, { params: Promise.resolve({ slug: scenario.slug }) });
+    const response = await routeModule.exports.POST(request, { params: Promise.resolve({ slug: scenario.slug }) });
     assert.equal(response.status, scenario.status);
     assert.equal(response.headers.get("cache-control"), "private, no-store");
     assert.equal(response.headers.get("referrer-policy"), "no-referrer");
