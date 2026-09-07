@@ -29,6 +29,10 @@ test('capability records have explicit dependency and production-proof boundarie
   for (const item of status.capabilities) {
     for (const key of ['publicPreviewStatus', 'institutionalUiStatus', 'backendStatus']) assert.ok(contract.capabilityStates.includes(item[key]), `${item.id}: ${key}`);
     for (const key of ['evidenceDependency', 'authenticationDependency', 'productionDependency', 'ownerSourceOfTruth']) assert.ok(item[key], `${item.id}: ${key}`);
-    assert.notEqual(item.institutionalUiStatus, 'LIVE', 'No institutional production proof has been established');
+    if (item.institutionalUiStatus === 'LIVE') {
+      assert.match(item.productionProof?.commitSha ?? '', /^[a-f0-9]{40}$/);
+      assert.ok(item.productionProof?.verifiedAt, 'LIVE requires dated production acceptance');
+      assert.ok(item.productionProof?.authenticatedChecks?.length, 'LIVE requires authenticated capability checks');
+    }
   }
 });
