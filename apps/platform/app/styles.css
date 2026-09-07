@@ -1671,3 +1671,6 @@ main section[id] { scroll-margin-top: 18px; }
 .planning-brief li { margin-bottom:16px; line-height:1.65; }
 .agentic-artifact pre { overflow:auto; max-height:400px; font-size:12px; }
 @media(max-width:760px) { .planning-room .agentic-shell,.planning-room .workspace-heading { display:block; } .agentic-context { margin-bottom:24px; } }
+.planning-navigation { display:flex; flex-wrap:wrap; gap:8px; border-bottom:1px solid #c6d2de; padding-bottom:16px; margin-bottom:24px; }
+.planning-navigation button { background:none; color:#172b42; border:0; padding:12px; min-height:44px; font:inherit; cursor:pointer; }
+.planning-navigation button[aria-pressed="true"] { background:#e9eff8; box-shadow:inset 0 -2px #245aca; }
