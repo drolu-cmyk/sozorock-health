@@ -6,8 +6,8 @@ import { csvObjects } from "../src/adapters/csv.ts";
 import {
   assertXlsxStructureLimits,
   extractZipArchiveBounded,
-  readBoundedResponseBytes,
 } from "../src/ingestion/bounded-response.ts";
+import { downloadOfficialZip } from "../src/ingestion/official-zip.ts";
 
 const packageRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const nationalDir = path.join(packageRoot, "data", "national");
@@ -29,38 +29,42 @@ const variableDefinitions = [
   { id: "nhsc_fte_prim_care_provdrs_24", label: "National Health Service Corps primary care provider FTEs", unit: "full-time equivalents", year: "2024", direction: "context-dependent" },
 ] as const;
 
-async function officialArtifact(url: string) {
-  const response = await fetch(`${url}?download=1`, {
+async function officialArtifact(url: string, label: string, requiredEntrySuffix: string) {
+  const artifact = await downloadOfficialZip({
+    url: `${url}?download=1`,
+    label,
+    fetcher: fetch,
     headers: {
       Accept: "application/zip,application/octet-stream,*/*",
       "User-Agent": "Mozilla/5.0 SozoRock-Evidence-Core/1.0",
       Referer: officialUrl,
     },
-    signal: AbortSignal.timeout(180_000),
+    timeoutMs: 180_000,
+    maxResponseBytes: 256 * 1024 * 1024,
+    archiveLimits: { maxUncompressedBytes: 512 * 1024 * 1024 },
+    requiredEntrySuffix,
   });
-  if (!response.ok) throw new Error(`AHRF artifact failed: ${response.status} ${url}`);
-  const bytes = await readBoundedResponseBytes(response, 256 * 1024 * 1024);
   return {
-    bytes,
-    sha256: createHash("sha256").update(bytes).digest("hex"),
+    ...artifact,
+    sha256: createHash("sha256").update(artifact.bytes).digest("hex"),
   };
 }
 
 const [dataArtifact, documentationArtifact] = await Promise.all([
-  officialArtifact(dataUrl),
-  officialArtifact(documentationUrl),
+  officialArtifact(dataUrl, "AHRF data archive", "AHRF2025.csv"),
+  officialArtifact(
+    documentationUrl,
+    "AHRF documentation archive",
+    "AHRF 2024-2025 Technical Documentation.xlsx",
+  ),
 ]);
-const dataZip = extractZipArchiveBounded(dataArtifact.bytes, "AHRF data archive", {
-  maxUncompressedBytes: 512 * 1024 * 1024,
-});
+const dataZip = dataArtifact.archive;
 const dataEntry = Object.keys(dataZip).find((name) => name.endsWith("/AHRF2025.csv"));
 if (!dataEntry) throw new Error("The approved AHRF archive does not contain AHRF2025.csv.");
 const csvText = new TextDecoder().decode(dataZip[dataEntry]);
 const headers = new Set(csvText.slice(0, csvText.indexOf("\n")).replace(/^\uFEFF/, "").split(","));
 
-const documentationZip = extractZipArchiveBounded(documentationArtifact.bytes, "AHRF documentation archive", {
-  maxUncompressedBytes: 512 * 1024 * 1024,
-});
+const documentationZip = documentationArtifact.archive;
 const documentationEntry = Object.keys(documentationZip).find((name) =>
   name.endsWith("AHRF 2024-2025 Technical Documentation.xlsx"));
 if (!documentationEntry) throw new Error("The approved AHRF technical-documentation archive is missing its workbook.");
