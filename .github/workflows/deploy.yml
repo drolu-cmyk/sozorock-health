@@ -79,7 +79,6 @@ jobs:
             exit 1
           fi
 
-          test -n "$PUBLIC_APP_ID"
           test -n "$OPENAI_SECRET_ARN"
           test -n "$PUBLICATION_HASH_SALT"
           test -n "$SES_IDENTITY_ARN"
@@ -90,6 +89,12 @@ jobs:
           ses_account=$(aws sesv2 get-account --region "${AWS_REGION:-us-east-1}" --output json)
           ses_production_access=$(jq -r '.ProductionAccessEnabled // false' <<<"$ses_account")
           if [[ "$ses_production_access" != "true" ]]; then
+            ses_review_action=$(node scripts/ses-production-review.mjs <<<"$ses_account")
+            if [[ "$ses_review_action" != "REQUEST" ]]; then
+              echo "Amazon SES production access is unavailable; account review state: $ses_review_action."
+              echo "Review the existing SES production-access request in us-east-1. No duplicate request was submitted."
+              exit 1
+            fi
             echo "Amazon SES production access is not enabled in ${AWS_REGION:-us-east-1}; submitting a transactional production-access request."
             aws sesv2 put-account-details \
               --region "${AWS_REGION:-us-east-1}" \

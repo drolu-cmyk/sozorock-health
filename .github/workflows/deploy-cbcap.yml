@@ -151,16 +151,19 @@ jobs:
             --environment-variables "$agentic_env" \
             >/dev/null
 
-          reconciled_env=$(aws amplify get-app --app-id "$CBCAP_APP_ID" --query 'app.environmentVariables' --output json)
-          jq -e \
-            --arg api "$CBCAP_AGENTIC_API_BASE" \
-            --arg domain "$cognito_origin" \
-            --arg client "$CBCAP_COGNITO_CLIENT_ID" \
-            --arg callback "$CBCAP_COGNITO_CALLBACK_URI" \
-            '.NEXT_PUBLIC_CBCAP_AGENTIC_API_BASE == $api and
-             .NEXT_PUBLIC_CBCAP_COGNITO_DOMAIN == $domain and
-             .NEXT_PUBLIC_CBCAP_COGNITO_CLIENT_ID == $client and
-             .NEXT_PUBLIC_CBCAP_COGNITO_REDIRECT_URI == $callback' <<<"$reconciled_env" >/dev/null
+          environment_verified=false
+          for attempt in $(seq 1 6); do
+            reconciled_env=$(aws amplify get-app --app-id "$CBCAP_APP_ID" --query 'app.environmentVariables' --output json)
+            if CBCAP_COGNITO_DOMAIN="$cognito_origin" node scripts/verify-cbcap-environment.mjs <<<"$reconciled_env"; then
+              environment_verified=true
+              break
+            fi
+            if [[ "$attempt" -lt 6 ]]; then sleep 3; fi
+          done
+          if [[ "$environment_verified" != "true" ]]; then
+            echo "CB-CAP environment did not match the requested configuration after bounded readback."
+            exit 1
+          fi
 
       - name: Release the main branch and wait for a verified build
         run: |
