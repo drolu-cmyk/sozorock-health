@@ -111,6 +111,15 @@ test("sensitive publication responses override the site-wide referrer policy", a
   }
 });
 
+test("token-free confirmation preserves native form Origin without cross-site referrers", async () => {
+  const rules = await nextConfig.headers?.();
+  const confirmation = rules.find(({ source }) => source === "/publications/verify");
+  assert.deepEqual(confirmation?.headers, [{ key: "Referrer-Policy", value: "same-origin" }]);
+  assert.match(verifyPage, /referrer: "same-origin"/);
+  assert.match(verifyRoute, /if \(!sameOrigin\(request\)\)/);
+  assert.match(verifyRoute, /Referrer-Policy", "no-referrer"/);
+});
+
 test("verification bearer is moved to an HttpOnly cookie before rendering", () => {
   assert.match(verifyRoute, /__Host-srh_publication_verify/);
   assert.match(verifyRoute, /httpOnly: true/);

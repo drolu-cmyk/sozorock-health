@@ -8,7 +8,9 @@ import styles from "../publications.module.css";
 export const metadata: Metadata = {
   title: "Confirm publication access",
   robots: { index: false, follow: false },
-  referrer: "no-referrer",
+  // The bearer is already in an HttpOnly cookie. Keep cross-site referrers
+  // suppressed while allowing native form POSTs to carry their real Origin.
+  referrer: "same-origin",
 };
 
 export default async function ConfirmPublicationAccess({

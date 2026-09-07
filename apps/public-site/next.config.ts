@@ -58,6 +58,10 @@ const nextConfig: NextConfig = {
         { key: "X-Frame-Options", value: "DENY" },
       ] },
       {
+        source: "/publications/verify",
+        headers: [{ key: "Referrer-Policy", value: "same-origin" }],
+      },
+      {
         source: "/api/publications/:path*",
         headers: [{ key: "Referrer-Policy", value: "no-referrer" }],
       },
