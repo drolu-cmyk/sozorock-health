@@ -430,7 +430,7 @@ export function ApprovedMarketingHome() {
               <SectionLabel light>County-Based Community Access Platform</SectionLabel>
               <h2 id="cbcap-title">See where the system loses people.</h2>
               <p>
-                CB-CAP separates individual-facing support from county-level systems intelligence. It turns public place evidence into useful planning questions for Health Equity Hubs, Health Access Day, CHA and CHIP work.
+                CB-CAP brings county evidence into accountable planning. See a real county in the Public Evidence Preview, then learn how organizations can bring local evidence, resources and human review into the plan.
               </p>
               <ArrowLink href="https://cbcap.sozorockfoundation.org/" className="arrow-link--light">Open CB-CAP</ArrowLink>
             </div>

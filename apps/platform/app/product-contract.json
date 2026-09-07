@@ -1,0 +1,49 @@
+{
+  "version": "cbcap.product.v1",
+  "brand": "CB-CAP",
+  "expansion": "County-Based Community Access Platform",
+  "descriptor": "County planning for health access",
+  "promise": "From evidence to a plan you can defend.",
+  "operatingLine": "See the evidence. Test the options. Build the plan.",
+  "trustPromise": "Sources stay visible. Assumptions stay labeled. People decide.",
+  "heroBody": "Bring health signals, access barriers, local evidence, funding and workforce context into one planning workspace. Compare conditions, test options and keep the plan tied to its sources.",
+  "trustLine": "Public evidence. Local context. Human review.",
+  "publicNavigation": [
+    "Product",
+    "For Organizations",
+    "Methods",
+    "Sign in"
+  ],
+  "workspaceNavigation": [
+    "Overview",
+    "Evidence",
+    "Plan",
+    "Resources",
+    "Monitor",
+    "Governance"
+  ],
+  "terms": {
+    "preview": "Public Evidence Preview",
+    "funding": "Funding Fit",
+    "fiscal": "Budget & Funding",
+    "workforce": "Workforce & Capacity",
+    "scenarios": "Test Options",
+    "monitoring": "What Changed",
+    "memory": "Decision Record",
+    "local": "Local Evidence",
+    "registry": "Data & Sources",
+    "review": "Review Required",
+    "output": "Reviewed Brief"
+  },
+  "products": {
+    "placeIntelligence": "Open public evidence exploration.",
+    "publicPreview": "A concise demonstration of evidence discipline and county-planning value.",
+    "institutionalWorkspace": "Authenticated planning and decision workspace for authorized organizations."
+  },
+  "capabilityStates": [
+    "LIVE",
+    "IMPLEMENTED_ACTIVATION_GATED",
+    "PLANNED",
+    "RETIRED"
+  ]
+}
