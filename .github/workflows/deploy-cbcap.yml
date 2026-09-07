@@ -178,6 +178,8 @@ jobs:
             --app-id "$CBCAP_APP_ID" \
             --branch-name "$AMPLIFY_BRANCH" \
             --job-type RELEASE \
+            --job-reason "CB-CAP release $approved_commit" \
+            --commit-id "$approved_commit" \
             --query 'jobSummary.jobId' \
             --output text)
 
