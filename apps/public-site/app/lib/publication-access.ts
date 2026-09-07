@@ -5,6 +5,9 @@ import { S3Client, GetObjectCommand, HeadObjectCommand } from "@aws-sdk/client-s
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { SESv2Client, SendEmailCommand } from "@aws-sdk/client-sesv2";
 import { GetSecretValueCommand, SecretsManagerClient } from "@aws-sdk/client-secrets-manager";
+import nodemailer from "nodemailer";
+import { SSMClient, GetParameterCommand } from "@aws-sdk/client-ssm";
+import { createGooglePublicationMailer } from "./publication-mail.mjs";
 import type { NextRequest } from "next/server";
 import {
   assessPublicationAccessQuality,
@@ -32,6 +35,16 @@ const dynamo = DynamoDBDocumentClient.from(new DynamoDBClient({ region }), { mar
 const ses = new SESv2Client({ region });
 const s3 = new S3Client({ region });
 const secrets = new SecretsManagerClient({ region });
+const parameters = new SSMClient({ region });
+const googleMail = createGooglePublicationMailer({
+  secretId: process.env.PUBLICATION_GOOGLE_MAIL_PARAMETER,
+  getSecret: async (secretId: string) => {
+    const result = await parameters.send(new GetParameterCommand({ Name: secretId, WithDecryption: true }));
+    if (!result.Parameter?.Value) throw new Error("Publication mail credential is empty");
+    return result.Parameter.Value;
+  },
+  createTransport: nodemailer.createTransport,
+});
 let resolvedSalt: Promise<string> | undefined;
 
 const REQUEST_RETENTION_SECONDS = 180 * 24 * 60 * 60;
@@ -260,7 +273,7 @@ export async function createAccessRequest(
 
   const verifyUrl = publicSiteUrl(`/api/publications/verify?token=${encodeURIComponent(verifyToken)}`).toString();
   try {
-    await ses.send(new SendEmailCommand({
+    const email = {
       FromEmailAddress: emailFrom,
       Destination: { ToAddresses: [input.email] },
       Content: {
@@ -268,17 +281,29 @@ export async function createAccessRequest(
           Subject: { Data: `Confirm access to ${publication.shortTitle}`, Charset: "UTF-8" },
           Body: {
             Text: {
-              Data: `Hello ${input.firstName},\n\nConfirm your email to access ${publication.title}:\n${verifyUrl}\n\nThis link expires in 30 minutes. You did not subscribe to updates unless you selected that separate option.\n\nSozoRock Health\nAn initiative of The SozoRock Foundation, Inc.`,
+              Data: `Hello ${input.firstName},\n\nConfirm your email to access ${publication.title}:\n${verifyUrl}\n\nThis link expires in 30 minutes. You did not subscribe to updates unless you selected that separate option.\n\nThe SozoRock Foundation, Inc.`,
               Charset: "UTF-8",
             },
             Html: {
-              Data: `<p>Hello ${escapeHtml(input.firstName)},</p><p>Confirm your email to access <strong>${escapeHtml(publication.title)}</strong>.</p><p><a href="${escapeHtml(verifyUrl)}">Confirm email and access publication</a></p><p>This link expires in 30 minutes. You did not subscribe to updates unless you selected that separate option.</p><p>SozoRock Health<br>An initiative of The SozoRock Foundation, Inc.</p>`,
+              Data: `<p>Hello ${escapeHtml(input.firstName)},</p><p>Confirm your email to access <strong>${escapeHtml(publication.title)}</strong>.</p><p><a href="${escapeHtml(verifyUrl)}">Confirm email and access publication</a></p><p>This link expires in 30 minutes. You did not subscribe to updates unless you selected that separate option.</p><p>The SozoRock Foundation, Inc.</p>`,
               Charset: "UTF-8",
             },
           },
         },
       },
-    }));
+    };
+    const provider = process.env.PUBLICATION_EMAIL_PROVIDER || "ses";
+    if (provider === "google") {
+      await googleMail({ from: emailFrom, to: input.email,
+        subject: email.Content.Simple.Subject.Data,
+        text: email.Content.Simple.Body.Text.Data,
+        html: email.Content.Simple.Body.Html.Data,
+      });
+    } else if (provider === "ses") {
+      await ses.send(new SendEmailCommand(email));
+    } else {
+      throw new Error("Unsupported publication email provider");
+    }
   } catch (error) {
     const reason = (error as { name?: string }).name ?? "UnknownError";
     console.error("publication-verification-email-failed", { name: reason, slug: canonicalSlug, fromConfigured: true });

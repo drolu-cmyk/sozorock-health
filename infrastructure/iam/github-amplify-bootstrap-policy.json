@@ -375,6 +375,12 @@
         "ses:PutAccountDetails"
       ],
       "Resource": "*"
+    },
+    {
+      "Sid": "VerifyGooglePublicationMail",
+      "Effect": "Allow",
+      "Action": "ssm:GetParameter",
+      "Resource": "arn:aws:ssm:us-east-1:791860731989:parameter/sozorock-foundation/publication-google-mail"
     }
   ]
 }

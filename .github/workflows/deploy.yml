@@ -68,6 +68,8 @@ jobs:
           OPENAI_GPT_LIVE_MODEL: ${{ vars.OPENAI_GPT_LIVE_MODEL }}
           PUBLICATION_HASH_SALT: ${{ secrets.PUBLICATION_HASH_SALT }}
           SES_IDENTITY_ARN: ${{ vars.SES_IDENTITY_ARN }}
+          PUBLICATION_EMAIL_PROVIDER: ${{ vars.PUBLICATION_EMAIL_PROVIDER || 'ses' }}
+          PUBLICATION_GOOGLE_MAIL_PARAMETER: ${{ vars.PUBLICATION_GOOGLE_MAIL_PARAMETER || '/sozorock-foundation/publication-google-mail' }}
           PUBLICATION_EMAIL_FROM: contact@sozorockfoundation.org
           PUBLIC_SITE_URL: ${{ vars.PUBLIC_SITE_URL || 'https://health.sozorockfoundation.org' }}
           ACCESS_ALLOWED_ORIGINS: ${{ vars.ACCESS_ALLOWED_ORIGINS || 'https://health.sozorockfoundation.org;https://www.health.sozorockfoundation.org' }}
@@ -84,40 +86,50 @@ jobs:
           test -n "$SES_IDENTITY_ARN"
 
           # Email verification is the authorization gate for publication access.
-          # A production release must therefore prove that SES is allowed to send
-          # to ordinary public mailboxes before the request flow is published.
-          ses_account=$(aws sesv2 get-account --region "${AWS_REGION:-us-east-1}" --output json)
-          ses_production_access=$(jq -r '.ProductionAccessEnabled // false' <<<"$ses_account")
-          if [[ "$ses_production_access" != "true" ]]; then
-            ses_review_action=$(node scripts/ses-production-review.mjs <<<"$ses_account")
-            if [[ "$ses_review_action" != "REQUEST" ]]; then
-              echo "Amazon SES production access is unavailable; account review state: $ses_review_action."
-              echo "Review the existing SES production-access request in us-east-1. No duplicate request was submitted."
-              exit 1
-            fi
-            echo "Amazon SES production access is not enabled in ${AWS_REGION:-us-east-1}; submitting a transactional production-access request."
-            aws sesv2 put-account-details \
-              --region "${AWS_REGION:-us-east-1}" \
-              --mail-type TRANSACTIONAL \
-              --website-url "$PUBLIC_SITE_URL" \
-              --contact-language EN \
-              --additional-contact-email-addresses "$CONTACT_EMAIL" \
-              --use-case-description "SozoRock Health sends low-volume transactional verification emails only after a visitor requests a Foundation publication. Verification is required before a secure publication access session is created. Each verification link is single use and expires after 30 minutes. Marketing updates are separate and optional." \
-              --production-access-enabled || true
+          if [[ "$PUBLICATION_EMAIL_PROVIDER" == "google" ]]; then
+            node scripts/verify-google-publication-mail.mjs
+            mail_delivery_ready=true
+            publication_smoke_email="$PUBLICATION_EMAIL_FROM"
+          elif [[ "$PUBLICATION_EMAIL_PROVIDER" == "ses" ]]; then
+            # Email verification is the authorization gate for publication access.
             ses_account=$(aws sesv2 get-account --region "${AWS_REGION:-us-east-1}" --output json)
             ses_production_access=$(jq -r '.ProductionAccessEnabled // false' <<<"$ses_account")
-          fi
-          if [[ "$ses_production_access" != "true" ]]; then
-            echo "Amazon SES production access remains unavailable; refusing to release a publication flow that requires email verification."
+            if [[ "$ses_production_access" != "true" ]]; then
+              ses_review_action=$(node scripts/ses-production-review.mjs <<<"$ses_account")
+              if [[ "$ses_review_action" != "REQUEST" ]]; then
+                echo "Amazon SES production access is unavailable; account review state: $ses_review_action."
+                echo "Review the existing SES production-access request in us-east-1. No duplicate request was submitted."
+                exit 1
+              fi
+              echo "Amazon SES production access is not enabled in ${AWS_REGION:-us-east-1}; submitting a transactional production-access request."
+              aws sesv2 put-account-details \
+                --region "${AWS_REGION:-us-east-1}" \
+                --mail-type TRANSACTIONAL \
+                --website-url "$PUBLIC_SITE_URL" \
+                --contact-language EN \
+                --additional-contact-email-addresses "$CONTACT_EMAIL" \
+                --use-case-description "SozoRock Health sends low-volume transactional verification emails only after a visitor requests a Foundation publication. Verification is required before a secure publication access session is created. Each verification link is single use and expires after 30 minutes. Marketing updates are separate and optional." \
+                --production-access-enabled || true
+              ses_account=$(aws sesv2 get-account --region "${AWS_REGION:-us-east-1}" --output json)
+              ses_production_access=$(jq -r '.ProductionAccessEnabled // false' <<<"$ses_account")
+            fi
+            if [[ "$ses_production_access" != "true" ]]; then
+              echo "Amazon SES production access remains unavailable; refusing to release a publication flow that requires email verification."
+              exit 1
+            fi
+            ses_sending_enabled=$(jq -r '.SendingEnabled // false' <<<"$ses_account")
+            if [[ "$ses_sending_enabled" != "true" ]]; then
+              echo "Amazon SES sending is disabled; refusing to release a publication flow that requires email verification."
+              exit 1
+            fi
+            ses_delivery_ready=true
+            echo "SES_DELIVERY_READY=true" >> "$GITHUB_ENV"
+            mail_delivery_ready="$ses_delivery_ready"
+            publication_smoke_email='success@simulator.amazonses.com'
+          else
+            echo "Unsupported publication email provider."
             exit 1
           fi
-          ses_sending_enabled=$(jq -r '.SendingEnabled // false' <<<"$ses_account")
-          if [[ "$ses_sending_enabled" != "true" ]]; then
-            echo "Amazon SES sending is disabled; refusing to release a publication flow that requires email verification."
-            exit 1
-          fi
-          ses_delivery_ready=true
-          echo "SES_DELIVERY_READY=true" >> "$GITHUB_ENV"
 
           if find apps/public-site/public/publications -type f -name '*.pdf' -print -quit | grep -q .; then
             echo "Publication PDFs must never be stored beneath the public web root."
@@ -205,6 +217,10 @@ jobs:
             and ([.Statement[] | select(.Sid == "VerificationEmail") | actions[]] | index("ses:SendRawEmail")) != null
           ' <<<"$runtime_policy" >/dev/null
 
+          if [[ "$PUBLICATION_EMAIL_PROVIDER" == "google" ]]; then
+            jq -e '[.Statement[] | select(.Sid == "ReadGooglePublicationMail" and .Effect == "Allow" and .Action == "ssm:GetParameter" and .Resource == "arn:aws:ssm:us-east-1:791860731989:parameter/sozorock-foundation/publication-google-mail")] | length == 1' <<<"$runtime_policy" >/dev/null
+          fi
+
           aws s3 sync infrastructure/assets/publications "s3://$publication_bucket/" --exclude '*' --include '*.pdf' --sse AES256 --only-show-errors
 
           current_env=$(aws amplify get-app --app-id "$PUBLIC_APP_ID" --query 'app.environmentVariables' --output json)
@@ -213,9 +229,9 @@ jobs:
             --arg ct "$contact_table" --arg cn "$contact_topic" --arg cs "$contact_salt_arn" \
             --arg at "$access_table" --arg as "$access_salt_arn" \
             --arg oa "$OPENAI_SECRET_ARN" --arg pt "$publication_table" --arg pb "$publication_bucket" \
-            --arg pe "$PUBLICATION_EMAIL_FROM" --arg ps "$publication_salt_arn" --arg pu "$PUBLIC_SITE_URL" --arg au "$ACCESS_ALLOWED_ORIGINS" \
+            --arg mp "$PUBLICATION_EMAIL_PROVIDER" --arg gp "$PUBLICATION_GOOGLE_MAIL_PARAMETER" --arg pe "$PUBLICATION_EMAIL_FROM" --arg ps "$publication_salt_arn" --arg pu "$PUBLIC_SITE_URL" --arg au "$ACCESS_ALLOWED_ORIGINS" \
             --arg va "$VOICE_PROVIDER_ALIAS" --arg rm "$OPENAI_REALTIME_MODEL" --arg re "$OPENAI_REALTIME_ENABLED" --arg lm "$OPENAI_GPT_LIVE_MODEL" \
-            '. + {CONTACT_SUBMISSIONS_TABLE:$ct,CONTACT_NOTIFICATION_TOPIC_ARN:$cn,CONTACT_RATE_LIMIT_SALT_SECRET_ARN:$cs,ACCESS_REQUESTS_TABLE:$at,ACCESS_NOTIFICATION_TOPIC_ARN:$cn,ACCESS_RATE_LIMIT_SALT_SECRET_ARN:$as,ACCESS_ALLOWED_ORIGINS:$au,CONTACT_ALLOWED_HOSTS:$au,EVIDENCE_ALLOWED_HOSTS:$au,PUBLICATION_ALLOWED_HOSTS:$au,OPENAI_SECRET_ARN:$oa,PUBLICATION_ACCESS_TABLE:$pt,PUBLICATION_ASSET_BUCKET:$pb,PUBLICATION_EMAIL_FROM:$pe,PUBLICATION_HASH_SALT_SECRET_ARN:$ps,PUBLIC_SITE_URL:$pu,VOICE_PROVIDER_ALIAS:$va,OPENAI_REALTIME_MODEL:$rm,OPENAI_REALTIME_ENABLED:$re,OPENAI_GPT_LIVE_MODEL:$lm}' <<<"$current_env")
+            '. + {CONTACT_SUBMISSIONS_TABLE:$ct,CONTACT_NOTIFICATION_TOPIC_ARN:$cn,CONTACT_RATE_LIMIT_SALT_SECRET_ARN:$cs,ACCESS_REQUESTS_TABLE:$at,ACCESS_NOTIFICATION_TOPIC_ARN:$cn,ACCESS_RATE_LIMIT_SALT_SECRET_ARN:$as,ACCESS_ALLOWED_ORIGINS:$au,CONTACT_ALLOWED_HOSTS:$au,EVIDENCE_ALLOWED_HOSTS:$au,PUBLICATION_ALLOWED_HOSTS:$au,OPENAI_SECRET_ARN:$oa,PUBLICATION_ACCESS_TABLE:$pt,PUBLICATION_ASSET_BUCKET:$pb,PUBLICATION_EMAIL_PROVIDER:$mp,PUBLICATION_GOOGLE_MAIL_PARAMETER:$gp,PUBLICATION_EMAIL_FROM:$pe,PUBLICATION_HASH_SALT_SECRET_ARN:$ps,PUBLIC_SITE_URL:$pu,VOICE_PROVIDER_ALIAS:$va,OPENAI_REALTIME_MODEL:$rm,OPENAI_REALTIME_ENABLED:$re,OPENAI_GPT_LIVE_MODEL:$lm}' <<<"$current_env")
           aws amplify update-app \
             --app-id "$PUBLIC_APP_ID" \
             --compute-role-arn "$public_compute_role" \
@@ -232,9 +248,9 @@ jobs:
             --output json)
           publication_branch_env=$(jq -c \
             --arg pt "$publication_table" --arg pb "$publication_bucket" \
-            --arg pe "$PUBLICATION_EMAIL_FROM" --arg ps "$publication_salt_arn" \
+            --arg mp "$PUBLICATION_EMAIL_PROVIDER" --arg gp "$PUBLICATION_GOOGLE_MAIL_PARAMETER" --arg pe "$PUBLICATION_EMAIL_FROM" --arg ps "$publication_salt_arn" \
             --arg pu "$PUBLIC_SITE_URL" --arg au "$ACCESS_ALLOWED_ORIGINS" \
-            '. + {PUBLICATION_ACCESS_TABLE:$pt,PUBLICATION_ASSET_BUCKET:$pb,PUBLICATION_EMAIL_FROM:$pe,PUBLICATION_HASH_SALT_SECRET_ARN:$ps,PUBLICATION_ALLOWED_HOSTS:$au,PUBLIC_SITE_URL:$pu}' \
+            '. + {PUBLICATION_ACCESS_TABLE:$pt,PUBLICATION_ASSET_BUCKET:$pb,PUBLICATION_EMAIL_PROVIDER:$mp,PUBLICATION_GOOGLE_MAIL_PARAMETER:$gp,PUBLICATION_EMAIL_FROM:$pe,PUBLICATION_HASH_SALT_SECRET_ARN:$ps,PUBLICATION_ALLOWED_HOSTS:$au,PUBLIC_SITE_URL:$pu}' \
             <<<"$branch_env")
           aws amplify update-branch \
             --app-id "$PUBLIC_APP_ID" \
@@ -265,9 +281,9 @@ jobs:
             --output json)
           jq -e \
             --arg pt "$publication_table" --arg pb "$publication_bucket" \
-            --arg pe "$PUBLICATION_EMAIL_FROM" --arg ps "$publication_salt_arn" \
+            --arg mp "$PUBLICATION_EMAIL_PROVIDER" --arg gp "$PUBLICATION_GOOGLE_MAIL_PARAMETER" --arg pe "$PUBLICATION_EMAIL_FROM" --arg ps "$publication_salt_arn" \
             --arg pu "$PUBLIC_SITE_URL" --arg au "$ACCESS_ALLOWED_ORIGINS" \
-            '.PUBLICATION_ACCESS_TABLE == $pt and .PUBLICATION_ASSET_BUCKET == $pb and .PUBLICATION_EMAIL_FROM == $pe and .PUBLICATION_HASH_SALT_SECRET_ARN == $ps and .PUBLICATION_ALLOWED_HOSTS == $au and .PUBLIC_SITE_URL == $pu' \
+            '.PUBLICATION_ACCESS_TABLE == $pt and .PUBLICATION_ASSET_BUCKET == $pb and .PUBLICATION_EMAIL_PROVIDER == $mp and .PUBLICATION_GOOGLE_MAIL_PARAMETER == $gp and .PUBLICATION_EMAIL_FROM == $pe and .PUBLICATION_HASH_SALT_SECRET_ARN == $ps and .PUBLICATION_ALLOWED_HOSTS == $au and .PUBLIC_SITE_URL == $pu' \
             <<<"$branch_env_after" >/dev/null
 
           # CB-CAP is intentionally released by deploy-cbcap.yml with its
@@ -367,13 +383,16 @@ jobs:
               ;;
           esac
 
+          jq --arg email "$publication_smoke_email" '.email = $email' <<'JSON' > "$RUNNER_TEMP/publication-smoke.json"
+          {"firstName":"Release","lastName":"Smoke","email":"success@simulator.amazonses.com","organization":"SozoRock Health release check","sector":"Community organization","cityOrRegion":"Albany","state":"New York","country":"United States","reason":"Synthetic production verification for publication access delivery.","deliveryConsent":true,"updatesConsent":false,"website":""}
+          JSON
           access_headers=$(mktemp)
           access_body=$(mktemp)
           access_status=$(curl --proto '=https' --tlsv1.2 --silent --show-error --dump-header "$access_headers" --output "$access_body" --write-out '%{http_code}' \
             --request POST \
             --header "Origin: $origin" \
             --header 'Content-Type: application/json' \
-            --data '{"firstName":"Release","lastName":"Smoke","email":"success@simulator.amazonses.com","organization":"SozoRock Health release check","sector":"Community organization","cityOrRegion":"Albany","state":"New York","country":"United States","reason":"Synthetic production verification for publication access delivery.","deliveryConsent":true,"updatesConsent":false,"website":""}' \
+            --data-binary "@$RUNNER_TEMP/publication-smoke.json" \
             "$origin/api/publications/access/$publication_slug")
           test "$access_status" = "202"
           jq -e 'type == "object" and .accepted == true and .verificationSent == true and (has("accessGranted") | not) and (has("downloadUrl") | not)' "$access_body" >/dev/null
@@ -449,7 +468,7 @@ jobs:
             echo "- Publication intelligence index: $publication_intelligence_index_status"
             echo "- Synthetic publication access request: 202 with required verification email and no access session"
             echo "- Pre-verification publication download: 303 rejected"
-            echo "- SES verification delivery ready: $ses_delivery_ready"
+            echo "- Publication verification delivery ready ($PUBLICATION_EMAIL_PROVIDER): $mail_delivery_ready"
             echo "- Verification redirect: 303, no-store, no-referrer, verifier in HttpOnly Secure SameSite=Lax cookie"
             echo "- Unauthorized download: 303, no-store, no-referrer"
             echo "- Workspace query capability rejected: 404"
