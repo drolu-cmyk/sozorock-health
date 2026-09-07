@@ -101,7 +101,8 @@ test("the existing dashboard hands selected county context to the additive works
   assert.match(component, /const initiatingGeoid = county\.geoid/);
   assert.match(component, /createVisualizationSpec\(config, run\)/);
   assert.match(component, /getWorkspaceCapabilities\(config, countyGeoid\)/);
-  assert.match(component, /capabilities\?\.capabilities\.planning !== true/);
+  assert.match(component, /currentCapabilities\?\.planning !== true/);
+  assert.match(component, /capabilities\?\.countyFips === countyGeoid/);
 });
 
 test("malformed citation URLs are ignored without throwing during rendering", async () => {
