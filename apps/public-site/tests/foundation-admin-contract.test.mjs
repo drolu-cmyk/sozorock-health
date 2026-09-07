@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
+import { fileURLToPath } from "node:url";
 
 const root = new URL("../", import.meta.url);
 const read = (path) => readFile(new URL(path, root), "utf8");
@@ -132,7 +133,7 @@ test("Foundation recovery policy transform is executable and preserves unrelated
     "--arg", "resource", stackResource,
     "--arg", "action", "cloudformation:ContinueUpdateRollback",
     "--argjson", "evidence_secret", JSON.stringify(evidenceSecret),
-    "-f", filterPath.pathname,
+    "-f", fileURLToPath(filterPath),
   ], { input: JSON.stringify(current), encoding: "utf8" });
   const patched = JSON.parse(output);
 

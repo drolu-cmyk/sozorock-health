@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 async function rootSource(path) {
-  return readFile(new URL(`../../../${path}`, import.meta.url), "utf8");
+  return (await readFile(new URL(`../../../${path}`, import.meta.url), "utf8")).replace(/\r\n/g, "\n");
 }
 
 test("Evidence Gateway production activation dispatches the governed Explore release for the exact deployed SHA", async () => {
