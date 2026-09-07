@@ -16,7 +16,10 @@ import {
   type Geography,
 } from "../src/index.ts";
 import { fetchWithCache } from "../src/ingestion/cache.ts";
-import { assertZipArchiveLimits } from "../src/ingestion/bounded-response.ts";
+import {
+  assertZipArchiveLimits,
+  readBoundedResponseBytes,
+} from "../src/ingestion/bounded-response.ts";
 
 function geography(kind: Geography["kind"], authorityId: string, name: string, stateFips: string | null): Geography {
   return {
@@ -440,6 +443,14 @@ test("archive inspection rejects excessive expansion before extraction", () => {
       maxExpansionRatio: 2,
     }),
     /archive expansion|inconsistent archive size/i,
+  );
+});
+
+test("bounded official downloads reject truncated content", async () => {
+  const source = response("short", 200, { "content-length": "10" });
+  await assert.rejects(
+    readBoundedResponseBytes(source, 100),
+    /truncated or has inconsistent length metadata/i,
   );
 });
 
