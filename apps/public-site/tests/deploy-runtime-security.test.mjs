@@ -21,3 +21,16 @@ test("production deploy installs the same optional-dependency boundary verified 
   assert.ok(installIndex >= 0 && buildIndex > installIndex);
   assert.ok(securityIndex > buildIndex);
 });
+
+test("scheduled source health builds the public runtime before inspecting it", async () => {
+  const operationsWorkflow = await rootSource(
+    ".github/workflows/place-evidence-operations.yml",
+  );
+  const buildIndex = operationsWorkflow.indexOf("npm run build:public");
+  const securityIndex = operationsWorkflow.indexOf(
+    "npm run verify:public-runtime-security",
+  );
+
+  assert.ok(buildIndex >= 0);
+  assert.ok(securityIndex > buildIndex);
+});
