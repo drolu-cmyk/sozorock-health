@@ -2,6 +2,9 @@ name: Deploy CB-CAP
 
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ["release/cbcap-production.request"]
 
 concurrency:
   group: amplify-d307qqji18y8il-production
@@ -13,6 +16,7 @@ permissions:
 
 jobs:
   deploy:
+    if: github.ref == 'refs/heads/main'
     name: Verify, release, and prove the live domain
     runs-on: ubuntu-latest
     timeout-minutes: 90
@@ -36,7 +40,7 @@ jobs:
       - name: Check out the approved production source
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
-          ref: main
+          ref: ${{ github.sha }}
 
       - name: Use the supported Node.js release
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
@@ -100,18 +104,23 @@ jobs:
             --output text)
           test "$branch_name" = "$AMPLIFY_BRANCH"
 
-          cognito_origin=$(node -e '
-            const value = process.env.CBCAP_COGNITO_DOMAIN || "";
-            try {
-              const url = new URL(value);
-              if (url.protocol !== "https:" || url.username || url.password || url.pathname !== "/" || url.search || url.hash) process.exit(1);
-              process.stdout.write(url.origin);
-            } catch { process.exit(1); }
-          ')
-          test -n "$cognito_origin"
-          [[ "$CBCAP_COGNITO_CLIENT_ID" =~ ^[A-Za-z0-9]{1,128}$ ]]
-          test "$CBCAP_AGENTIC_API_BASE" = "https://api.cbcap.sozorockfoundation.org"
-          test "$CBCAP_COGNITO_CALLBACK_URI" = "https://cbcap.sozorockfoundation.org/auth/callback"
+          cognito_origin=""
+          if [[ -n "$CBCAP_COGNITO_DOMAIN" || -n "$CBCAP_COGNITO_CLIENT_ID" ]]; then
+            cognito_origin=$(node -e '
+              const value = process.env.CBCAP_COGNITO_DOMAIN || "";
+              try {
+                const url = new URL(value);
+                if (url.protocol !== "https:" || url.username || url.password || url.pathname !== "/" || url.search || url.hash) process.exit(1);
+                process.stdout.write(url.origin);
+              } catch { process.exit(1); }
+            ')
+            test -n "$cognito_origin"
+            [[ "$CBCAP_COGNITO_CLIENT_ID" =~ ^[A-Za-z0-9]{1,128}$ ]]
+            test "$CBCAP_AGENTIC_API_BASE" = "https://api.cbcap.sozorockfoundation.org"
+            test "$CBCAP_COGNITO_CALLBACK_URI" = "https://cbcap.sozorockfoundation.org/auth/callback"
+          else
+            echo "Publishing the public preview with institutional sign-in unavailable."
+          fi
 
           desired_build_spec=$(git show HEAD:infrastructure/amplify/platform.yml)
           current_build_spec=$(jq -r '.app.buildSpec // ""' <<<"$app_json")
