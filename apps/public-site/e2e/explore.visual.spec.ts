@@ -71,6 +71,29 @@ test("map failure preserves an accessible county measure", async ({ page }) => {
   await expect(page.getByRole("heading", {name:"What is known about this place"})).toBeVisible();
 });
 
+test("enabled evidence and download actions meet text contrast requirements", async ({ page }) => {
+  await page.goto("/explore?kind=county&geoid=36001&view=brief");
+  await page.getByRole("button", { name: "Download", exact: true }).click();
+  const contrast = async (name: string) => page.getByRole("button", { name, exact: true }).evaluate(element => {
+    const style = getComputedStyle(element);
+    const luminance = (color: string) => {
+      const channels = color.match(/[\d.]+/g)!.slice(0, 3).map(Number).map(value => {
+        const channel = value / 255;
+        return channel <= .04045 ? channel / 12.92 : ((channel + .055) / 1.055) ** 2.4;
+      });
+      return channels[0] * .2126 + channels[1] * .7152 + channels[2] * .0722;
+    };
+    const foreground = luminance(style.color), background = luminance(style.backgroundColor);
+    return (Math.max(foreground, background) + .05) / (Math.min(foreground, background) + .05);
+  });
+  expect(await contrast("Download place brief")).toBeGreaterThanOrEqual(4.5);
+  await page.keyboard.press("Escape");
+  await page.getByRole("tab", { name: "Action", exact: true }).click();
+  await page.getByLabel("Question about Albany County, NY").fill("What do these county measures mean?");
+  await expect(page.getByRole("button", { name: "Ask Place Intelligence", exact: true })).toBeEnabled();
+  expect(await contrast("Ask Place Intelligence")).toBeGreaterThanOrEqual(4.5);
+});
+
 for (const place of places) {
   test(`${place.name} renders Brief, Map, Action and Visuals without viewport overflow`, async ({ page }, testInfo) => {
     await page.goto(`/explore?kind=county&geoid=${place.geoid}&view=brief`, { waitUntil: "domcontentloaded" });

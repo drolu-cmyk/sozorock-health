@@ -116,7 +116,7 @@
 .tabs button[aria-selected="true"] { border-bottom-color:var(--green); color:var(--ink); font-weight:650; }
 .workspaceActions { display: flex; align-items: center; gap: 8px; }
 .workspaceActions button, .workspaceActions a { display:inline-flex; min-height:44px; gap:8px; align-items:center; padding:8px 16px; border:0; background:transparent; color:var(--green); font-size:15px; font-weight:600; cursor:pointer; }
-.workspaceActions a { border-color: var(--signal); background: var(--signal); }
+.workspaceActions a { border-color: var(--signal); background: var(--signal); color:#fff; }
 
 .viewPanel { min-height: 600px; }
 .briefGrid { display:grid; grid-template-columns:minmax(0,2.1fr) minmax(270px,1fr); grid-template-areas:"main rail" "plan rail"; gap:32px 40px; width:100%; margin:0; padding:32px 40px 48px; }
@@ -300,7 +300,7 @@
 .agentQuestion > label { display: block; margin-bottom: 12px; color: #c4d5c2; font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
 .agentQuestion > div:first-of-type { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: stretch; }
 .agentQuestion textarea { min-height: 112px; resize: vertical; padding: 16px; border: 1px solid #617074; border-radius: 0; background: #fff; color: var(--ink); line-height: 1.5; }
-.agentQuestion > div:first-of-type > button { display: inline-flex; min-width: 220px; align-items: center; justify-content: center; gap: 9px; border: 0; background: var(--signal); color: var(--ink); font-weight: 700; cursor: pointer; }
+.agentQuestion > div:first-of-type > button { display: inline-flex; min-width: 220px; align-items: center; justify-content: center; gap: 9px; border: 0; background: var(--signal); color: #fff; font-weight: 700; cursor: pointer; }
 .agentQuestion > div:first-of-type > button:disabled { cursor: not-allowed; opacity: .62; }
 .promptChips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
 .promptChips button { min-height: 42px; padding: 0 12px; border: 1px solid #687579; background: transparent; color: #e0e7e1; cursor: pointer; }
@@ -338,7 +338,7 @@
 .visualsHeader span, .visualGrid > article > span, .comparisonVisual header span { color: var(--green-dark); font-size: 11px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase; }
 .visualsHeader h2 { margin: 8px 0 0; font-size:clamp(28px,3vw,40px);letter-spacing:-.035em;line-height:1.1; }
 .visualsHeader p { color: #536064; line-height: 1.55; }
-.visualsHeader > div:last-child > a { display: inline-flex; min-height: 46px; align-items: center; gap: 8px; margin-top: 10px; padding: 0 14px; background: var(--signal); color: var(--ink); font-size: 13px; font-weight: 700; text-decoration: none; }
+.visualsHeader > div:last-child > a { display: inline-flex; min-height: 46px; align-items: center; gap: 8px; margin-top: 10px; padding: 0 14px; background: var(--signal); color: #fff; font-size: 13px; font-weight: 700; text-decoration: none; }
 .unavailableExport { display: inline-block; margin-top: 10px; color: #536064; font-size: 13px; font-weight: 700; letter-spacing: 0; text-transform: none; }
 .visualGrid { display: grid; width: min(1320px, 100%); margin: auto; grid-template-columns: repeat(12, 1fr); }
 .visualGrid > article { min-width: 0; padding: clamp(20px, 3vw, 32px); border: 1px solid var(--line); background: #fff; }
@@ -407,7 +407,7 @@
 .downloadForm textarea { resize: vertical; }
 .downloadForm .consent { grid-template-columns: auto 1fr; align-items: start; font-weight: 500; line-height: 1.45; }
 .downloadForm .consent input { width: 18px; min-height: 18px; margin-top: 3px; }
-.downloadForm > button { min-height: 52px; border: 0; background: var(--signal); color: var(--ink); font-weight: 700; cursor: pointer; }
+.downloadForm > button { min-height: 52px; border: 0; background: var(--signal); color: #fff; font-weight: 700; cursor: pointer; }
 .honeypot { position: absolute !important; left: -10000px !important; }
 .success { min-height: 20px; margin: 0; color: var(--green); font-weight: 700; }
 .error { min-height: 20px; margin: 0; color: #9b2f20; font-weight: 700; }
@@ -603,3 +603,4 @@
  .mapCanvas,.mapFallback,.mapEmpty {min-height:350px;height:350px;}
 }
 @media (prefers-reduced-motion:reduce) { .page *, .page *::before, .page *::after {animation:none!important;transition:none!important;scroll-behavior:auto!important;} }
+
