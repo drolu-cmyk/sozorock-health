@@ -15,3 +15,9 @@ test('release date takes precedence over a later retrieval of an older release',
   const sources=[{id:'old-retrieved-later',sourceId:'ahrq-clh',releaseDate:'2023-01-01',retrievedAt:'2026-09-08'},{id:'current-release',sourceId:'ahrq-clh',releaseDate:'2024-01-01',retrievedAt:'2026-08-26'}];
   assert.equal(currentContextSources(sources)[0].id,'current-release');
 });
+
+test('a reviewed provenance correction wins over a legacy copy with the same release and retrieval',()=>{
+  const common={sourceId:'census-acs5',releaseDate:'2026-01-29',retrievedAt:'2026-07-26 16:08:38.509+00'};
+  const sources=[{...common,id:'6bd-legacy',reviewedAt:'2026-07-30 05:56:50+00'},{...common,id:'b47-corrected',reviewedAt:'2026-09-08 03:43:27+00'}];
+  assert.equal(currentContextSources(sources)[0].id,'b47-corrected');
+});

@@ -314,7 +314,7 @@ async function loadPublishedBriefFromEvidenceCore(geoid: string, expectedHash: s
   const sourceVersionResult = await executeEvidenceSql(
     `SELECT sv.id::text, sv.source_id, sv.release_date::text,
             sv.data_period_start::text, sv.data_period_end::text,
-            sv.retrieved_at::text, sv.official_url, sv.review_status::text
+            sv.retrieved_at::text, sv.official_url, sv.review_status::text, sv.reviewed_at::text
        FROM evidence.snapshot_source_version link
        JOIN evidence.source_version sv ON sv.id=link.source_version_id
       WHERE link.snapshot_id=CAST(:snapshot_id AS uuid)`,
@@ -329,6 +329,7 @@ async function loadPublishedBriefFromEvidenceCore(geoid: string, expectedHash: s
     retrievedAt: text(field(row, 5), generatedAt),
     officialUrl: text(field(row, 6)),
     reviewStatus: text(field(row, 7), "verified"),
+    reviewedAt: text(field(row, 8)),
   }));
   // A published snapshot is usable only when every linked source version is
   // reviewed and at least one source version is present.  This prevents a
@@ -691,7 +692,7 @@ export async function getPublishedWorkforceContext(geoid: string, expectedHash?:
              AND current_version.source_id='hrsa-workforce'
              AND current_version.review_status='verified'
            ORDER BY current_version.release_date DESC NULLS LAST,
-                    current_version.retrieved_at DESC, current_version.id
+                    current_version.retrieved_at DESC, current_version.reviewed_at DESC NULLS LAST, current_version.id
            LIMIT 1
         )
         AND link.snapshot_id=snapshot.id
