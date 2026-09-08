@@ -1,55 +1,28 @@
 import type { Metadata } from "next";
 import { ExploreClient } from "./ExploreClient";
-
-const siteUrl = "https://health.sozorockfoundation.org";
-const exploreStructuredData = {
-  "@context": "https://schema.org",
-  "@graph": [
-    {
-      "@type": "WebPage",
-      "@id": `${siteUrl}/explore#webpage`,
-      url: `${siteUrl}/explore`,
-      name: "SozoRock Place Intelligence | SozoRock Health",
-      description: "Current public data organized by place to support health equity, community health planning and practical action.",
-      isPartOf: { "@id": `${siteUrl}/#website` },
-      about: { "@id": `${siteUrl}/#sozorock-health` },
-      inLanguage: "en-US",
-    },
-    {
-      "@type": "SoftwareApplication",
-      "@id": `${siteUrl}/explore#application`,
-      name: "SozoRock Place Intelligence",
-      url: `${siteUrl}/explore`,
-      applicationCategory: "Public health planning",
-      operatingSystem: "Web",
-      isAccessibleForFree: true,
-      provider: { "@id": `${siteUrl}/#organization` },
-    },
+import { readExploreState } from "../lib/explore-view-state";
+import { foundationEntity, healthMetadata, healthOrigin } from "../lib/health-metadata";
+const description = "Explore county evidence on health access, community conditions and workforce capacity. Compare measures and inspect original sources, dates and limitations.";
+const social = { url: "/social/place-intelligence-2026.png", width: 1200, height: 630, alt: "SozoRock Place Intelligence — County evidence, in context." };
+export async function generateMetadata({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }): Promise<Metadata> {
+  const query = await searchParams;
+  const metadata = healthMetadata("SozoRock Place Intelligence", description, "/explore", { noindex: Object.keys(query).length > 0 });
+  return { ...metadata, openGraph: { ...metadata.openGraph, images: [social] }, twitter: { ...metadata.twitter, images: [social.url] } };
+}
+const schema = {
+  "@context": "https://schema.org", "@graph": [
+    { "@type": "WebPage", "@id": `${healthOrigin}/explore#webpage`, url: `${healthOrigin}/explore`, name: "SozoRock Place Intelligence", description,
+      isPartOf: { "@id": `${healthOrigin}/#website` }, about: { "@id": `${healthOrigin}/explore#application` }, inLanguage: "en-US" },
+    { "@type": "WebApplication", "@id": `${healthOrigin}/explore#application`, name: "SozoRock Place Intelligence", url: `${healthOrigin}/explore`,
+      applicationCategory: "ReferenceApplication", operatingSystem: "Web browser", isAccessibleForFree: true, provider: { "@id": foundationEntity } },
+    { "@type": "BreadcrumbList", itemListElement: [
+      { "@type": "ListItem", position: 1, name: "SozoRock Health", item: healthOrigin },
+      { "@type": "ListItem", position: 2, name: "Place Intelligence", item: `${healthOrigin}/explore` },
+    ] },
   ],
 };
-
-export const metadata: Metadata = {
-  title: "SozoRock Place Intelligence",
-  description:
-    "Search any U.S. ZIP Code, city or county to compare current public-health measures, review evidence strength, map local patterns and see place-based opportunities for community health improvement.",
-  alternates: { canonical: "/explore" },
-  openGraph: {
-    title: "SozoRock Place Intelligence | SozoRock Health",
-    description:
-      "Current public data organized by place to support health equity, community health planning and practical action.",
-    url: "/explore",
-    images: ["/social/sozorock-health-social-2026-07.jpg"],
-  },
-  twitter: {
-    card: "summary_large_image",
-    site: "@srockfoundation",
-    creator: "@srockfoundation",
-    title: "SozoRock Place Intelligence | SozoRock Health",
-    description: "Current public data organized by place to support health equity, community health planning and practical action.",
-    images: ["/social/sozorock-health-social-2026-07.jpg"],
-  },
-};
-
-export default function ExplorePage() {
-  return <><ExploreClient /><script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(exploreStructuredData) }} /></>;
+export default async function ExplorePage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+  const query = await searchParams;
+  const params = new URLSearchParams(Object.entries(query).flatMap(([key, value]) => typeof value === "string" ? [[key, value]] : []));
+  return <><ExploreClient initialState={readExploreState(params)}/><script type="application/ld+json" dangerouslySetInnerHTML={{__html:JSON.stringify(schema)}}/></>;
 }

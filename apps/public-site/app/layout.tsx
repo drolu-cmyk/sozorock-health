@@ -11,12 +11,14 @@ const siteUrl = "https://health.sozorockfoundation.org";
 const dmSans = DM_Sans({
   subsets: ["latin"],
   variable: "--font-dm-sans",
+  preload: false,
   display: "swap",
 });
 
 const newsreader = Newsreader({
   subsets: ["latin"],
   variable: "--font-newsreader",
+  preload: false,
   display: "swap",
 });
 
@@ -33,7 +35,7 @@ export const metadata: Metadata = {
     template: "%s | SozoRock Health",
   },
   description:
-    "Community access models, place-based intelligence, digital readiness and workforce development to address the practical barriers around care.",
+    "Community access models, place-based intelligence, digital assurance and workforce capacity for more accountable health systems.",
   applicationName: "SozoRock Health",
   authors: [
     {

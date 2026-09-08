@@ -15,22 +15,19 @@ import {
   ArrowRight,
   ArrowSquareOut,
   CaretRight,
-  ChartBar,
-  ChartLineUp,
   ChatCircleDots,
-  Clock,
   DownloadSimple,
   FileText,
   Info,
   MapPin,
   MapTrifold,
   MagnifyingGlass,
+  ShareNetwork,
   ShieldCheck,
-  UsersThree,
-  WarningCircle,
   X,
 } from "@phosphor-icons/react";
 import styles from "./explore.module.css";
+import { readExploreState, exploreStateUrl, csvCell, type ExploreState } from "../lib/explore-view-state";
 import {
   collectionPolygons,
   compoundPathForPolygons,
@@ -131,7 +128,7 @@ type PlaceResponse = {
     geoid: string;
     label: string;
     state: string;
-    population: number;
+    population: number | null;
     coordinates: number[];
     geographyLabel: string;
     geographyAuthority: string;
@@ -182,6 +179,9 @@ type PlaceResponse = {
     geography?: string;
     retrievedAt?: string;
   }>;
+  comparisonBasis?: string;
+  provenanceNotice?: string | null;
+  snapshotContentHash?: string;
   sourceCoverage: Array<{
     sourceId: string;
     status: string;
@@ -313,7 +313,7 @@ const responseDetails: Record<string, { partner: string; measure: string }> = {
 function BrandLockup() {
   return (
     <span className={styles.brand} role="img" aria-label="SozoRock Health">
-      <span className={styles.brandWord}>SozoRock<sup>®</sup></span>
+      <span className={styles.brandWord}>SozoRock</span>
       <span className={styles.brandHealth}>Health</span>
     </span>
   );
@@ -369,7 +369,9 @@ function LocationSearch({
         const response = await fetch(`/api/locations?q=${encodeURIComponent(term)}`, { signal: controller.signal });
         const payload = (await response.json().catch(() => ({}))) as { results?: Array<Omit<Suggestion, "display">>; error?: string };
         if (!response.ok) throw new Error(payload.error ?? "Search unavailable");
-        setResults((payload.results ?? []).map((result) => ({ ...result, display: displaySuggestion(result) })));
+        const found = (payload.results ?? []).map((result) => ({ ...result, display: displaySuggestion(result) }));
+        setResults(found);
+        setMessage(found.length ? `${found.length} results. Use the arrow keys to choose a place.` : "No matching places. Try a county name and state, or a five-digit ZIP Code.");
       } catch (error) {
         if ((error as Error).name !== "AbortError") setMessage("Place search is temporarily unavailable.");
       } finally {
@@ -430,11 +432,12 @@ function LocationSearch({
               setMessage("");
             }}
             onKeyDown={onKeyDown}
-            placeholder={compact ? "Change ZIP Code, city or county" : "Try 12207 or Albany County, NY"}
+            placeholder={compact ? "County, city or ZIP" : "Try 12207 or Albany County, NY"}
             aria-label={compact ? "Change ZIP Code, city or county" : undefined}
             autoComplete="off"
             role="combobox"
             aria-autocomplete="list"
+            aria-describedby={compact ? "change-location-status" : "explore-location-status"}
             aria-expanded={results.length > 0}
             aria-controls={compact ? "change-location-suggestions" : "explore-suggestions"}
             aria-activedescendant={activeIndex >= 0 ? results[activeIndex]?.id : undefined}
@@ -459,76 +462,26 @@ function LocationSearch({
             </div>
           )}
         </div>
-        <button type="submit">{compact ? "Change" : "Explore the place"}<ArrowRight size={18} aria-hidden="true" /></button>
+        <button type="submit">{compact ? "Search" : "Explore the place"}<ArrowRight size={18} aria-hidden="true" /></button>
       </div>
-      <p className={styles.searchStatus} aria-live="polite">{loading ? "Searching U.S. communities…" : message}</p>
+      <p id={compact ? "change-location-status" : "explore-location-status"} className={styles.searchStatus} aria-live="polite">{loading ? "Searching U.S. communities…" : message}</p>
     </form>
   );
 }
 
-function EvidenceCard({
-  kind,
-  metric,
-}: {
-  kind: "attention" | "improving" | "protective" | "context" | "missing";
-  metric?: Metric;
-}) {
-  const title = kind === "attention"
-    ? "Needs attention"
-    : kind === "improving"
-      ? "Improving"
-      : kind === "protective"
-        ? "Protective signal"
-        : kind === "context"
-          ? "Local context"
-          : "Evidence missing";
-  const Icon = kind === "attention" ? WarningCircle : kind === "improving" || kind === "protective" ? ChartLineUp : Info;
-  const benchmark = metric?.state ?? metric?.national ?? null;
-  const max = metric ? Math.max(metric.value, benchmark ?? 0, 1) * 1.15 : 1;
-  return (
-    <article className={`${styles.evidenceCard} ${styles[`evidenceCard_${kind}`]}`}>
-      <header><Icon size={24} aria-hidden="true" /><span>{title}</span></header>
-      {metric ? (
-        <>
-          <h3>{metric.label}</h3>
-          <p>{metric.plainLanguage}</p>
-          <div className={styles.metricValue}><strong>{metric.value.toFixed(1)}%</strong><span>{metric.geographyLevel === "zcta" ? "ZCTA estimate" : "Selected place"}</span></div>
-          <div className={styles.miniBar} role="img" aria-label={`${metric.label}: ${metric.value.toFixed(1)} percent here and ${benchmark === null ? "comparison unavailable" : `${benchmark.toFixed(1)} percent comparison`}`}>
-            <i style={{ width: `${(metric.value / max) * 100}%` }} />
-            {benchmark !== null && <b style={{ left: `${(benchmark / max) * 100}%` }} />}
-          </div>
-          <small>
-            {kind === "improving" && metric.previousValue !== null
-              ? `${Math.abs(metric.trendDifference ?? 0).toFixed(1)} points better than the prior release.`
-              : metric.difference === null
-                ? "Comparison unavailable for this release."
-                : `${Math.abs(metric.difference).toFixed(1)} points ${metric.difference >= 0 ? "above" : "below"} the ${metric.state !== null ? "state" : "national"} comparison.`}
-          </small>
-        </>
-      ) : (
-        <>
-          <h3>{kind === "improving" ? "No comparable trend yet" : kind === "context" ? "No context measure available" : "Local service capacity"}</h3>
-          <p>{kind === "improving" ? "No measure has a compatible prior release showing a favorable change." : kind === "context" ? "No compatible contextual measure is published for this county." : "Current provider capacity, wait time and community-input evidence is not available in this view."}</p>
-          <span className={styles.noValue}>—</span>
-        </>
-      )}
-    </article>
-  );
-}
-
-function BoundaryFallback({ geometry, data, metric }: { geometry: GeometryResponse; data: PlaceResponse; metric?: Metric }) {
+function BoundaryFallback({ geometry, data }: { geometry: GeometryResponse; data: PlaceResponse }) {
   const areaPolygons = collectionPolygons(geometry.area);
   const contextPolygons = collectionPolygons(geometry.contextArea);
   const layout = fitFallbackGeometry([geometry.area, geometry.contextArea]);
-  const fill = metric?.interpretation === "adverse_signal" ? "#b9462c" : metric?.interpretation === "favorable_signal" ? "#446342" : "#6e7a74";
+  const fill = "#0644AD";
   const areaPath = layout ? compoundPathForPolygons(areaPolygons, layout) : "";
   const contextPath = layout ? compoundPathForPolygons(contextPolygons, layout) : "";
   return (
     <div className={styles.mapFallback} data-map-fallback="true">
       <svg viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet" role="img" aria-label={`Cached official boundary for ${data.location.label}`}>
-        <rect width="100" height="100" fill="#e8ede6" />
-        {areaPath ? <path d={areaPath} fill={fill} fillOpacity="0.28" fillRule="evenodd" clipRule="evenodd" stroke="#111a1d" strokeWidth="0.55" vectorEffect="non-scaling-stroke" /> : null}
-        {contextPath ? <path d={contextPath} fill="none" stroke="#f4b71b" strokeWidth="0.75" strokeDasharray="2.2 1.6" vectorEffect="non-scaling-stroke" /> : null}
+        <rect width="100" height="100" fill="#EFF5FF" />
+        {areaPath ? <path d={areaPath} fill={fill} fillOpacity="0.28" fillRule="evenodd" clipRule="evenodd" stroke="#071D3B" strokeWidth="0.55" vectorEffect="non-scaling-stroke" /> : null}
+        {contextPath ? <path d={contextPath} fill="none" stroke="#B84500" strokeWidth="0.75" strokeDasharray="2.2 1.6" vectorEffect="non-scaling-stroke" /> : null}
       </svg>
       <p>Interactive map unavailable. Showing the cached official boundary for this geography.{contextPath ? " The original search geography is outlined for context; evidence remains county-level." : ""}</p>
     </div>
@@ -538,7 +491,7 @@ function BoundaryFallback({ geometry, data, metric }: { geometry: GeometryRespon
 function MetricDetails({ metric }: { metric: Metric }) {
   return (
     <details className={styles.measureDetails}>
-      <summary><Info size={14} aria-hidden="true" /> Details</summary>
+      <summary><Info size={14} aria-hidden="true" /> Source & definition</summary>
       <dl>
         <div><dt>Definition</dt><dd>{metric.plainLanguage}</dd></div>
         <div><dt>Universe</dt><dd>{metric.universe}</dd></div>
@@ -547,7 +500,7 @@ function MetricDetails({ metric }: { metric: Metric }) {
         <div><dt>Release</dt><dd>{metric.release}</dd></div>
         <div><dt>Data period</dt><dd>{metric.dataPeriod}</dd></div>
         <div><dt>Geography</dt><dd>{metric.geographyLevel === "county" ? "County" : metric.geographyLevel}</dd></div>
-        <div><dt>Direction</dt><dd>{metric.direction}</dd></div>
+        <div><dt>Retrieved</dt><dd>{formatDate(metric.retrievedAt ?? undefined)}</dd></div><div><dt>Adjustment</dt><dd>{metric.adjustment}</dd></div><div><dt>Interpretation</dt><dd>Population context; no individual or causal inference.</dd></div>
       </dl>
     </details>
   );
@@ -556,7 +509,7 @@ function MetricDetails({ metric }: { metric: Metric }) {
 function ContextMeasureDetails({ measure }: { measure: ContextMeasure }) {
   return (
     <details className={styles.measureDetails}>
-      <summary><Info size={14} aria-hidden="true" /> Details</summary>
+      <summary><Info size={14} aria-hidden="true" /> Source & definition</summary>
       <dl>
         <div><dt>Definition</dt><dd>{measure.definition}</dd></div>
         <div><dt>Uncertainty</dt><dd>{measure.uncertainty ?? "Not supplied by source"}</dd></div>
@@ -571,99 +524,40 @@ function ContextMeasureDetails({ measure }: { measure: ContextMeasure }) {
 }
 
 function BriefView({ data }: { data: PlaceResponse }) {
-  const availableContextMeasures = data.contextMeasures.filter((measure) => measure.value !== null);
-  const attention = data.metrics
-    .filter((metric) => metric.interpretation === "adverse_signal")
-    .sort((a, b) => b.score - a.score)[0];
-  const improving = data.metrics
-    .filter((metric) => metric.trend === "improving")
-    .sort((a, b) => Math.abs(b.trendDifference ?? 0) - Math.abs(a.trendDifference ?? 0))[0];
-  const protective = data.metrics
-    .filter((metric) => metric.direction === "protective")
-    .sort((a, b) => Math.abs(b.difference ?? 0) - Math.abs(a.difference ?? 0))[0];
-  const contextual = data.metrics
-    .filter((metric) => metric.direction === "contextual")
-    .sort((a, b) => Math.abs(b.difference ?? 0) - Math.abs(a.difference ?? 0))[0];
   const plan = data.localPlan.documents[0];
   return (
     <section id="brief-panel" role="tabpanel" aria-labelledby="brief-tab" className={styles.viewPanel}>
       <div className={styles.briefGrid}>
-        <article className={styles.planCard}>
-          <div className={styles.cardHeading}>
-            <div><span>Latest local planning evidence</span><h2>What the local plan says</h2></div>
-            <span className={styles.reviewBadge}>{data.localPlan.status === "verified" ? "Verified" : "Not yet verified"}</span>
-          </div>
-          {plan ? (
-            <>
-              <h3>{plan.title}</h3>
-              <p>{data.localPlan.note}</p>
-              <dl>
-                <div><dt>Publisher</dt><dd>{plan.publisher}</dd></div>
-                <div><dt>Published</dt><dd>{formatDate(plan.publishedAt)}</dd></div>
-                <div><dt>Coverage</dt><dd>{plan.coverage}</dd></div>
-                <div><dt>Public claims</dt><dd>{data.localPlan.claims.length ? `${data.localPlan.claims.length} verified` : "Withheld pending review"}</dd></div>
-              </dl>
-              <a href={plan.officialUrl} target="_blank" rel="noreferrer">Open source document <ArrowSquareOut size={17} aria-hidden="true" /></a>
-            </>
-          ) : (
-            <div className={styles.emptyPlan}>
-              <FileText size={34} aria-hidden="true" />
-              <h3>No current local plan is verified here.</h3>
-              <p>We will not infer a local priority from national-model estimates. A current official local plan and local review are still needed.</p>
-            </div>
-          )}
-        </article>
-
         <div className={styles.contextPanel}>
           <div className={styles.cardHeading}>
-            <div><span>Current public-data context</span><h2>What the comparable data shows</h2></div>
-            <p>{data.dataCoverage.measureCount} compatible measures</p>
+            <div><h2>What is known about this place</h2><p>County estimates describe populations, not individuals. Review each measure’s source and limits.</p></div>
           </div>
-          <div className={styles.evidenceCards}>
-            <EvidenceCard kind={attention ? "attention" : "protective"} metric={attention ?? protective} />
-            <EvidenceCard kind={improving ? "improving" : "context"} metric={improving ?? contextual} />
-            <EvidenceCard kind="missing" />
-          </div>
-          <p className={styles.comparisonNote}><Info size={17} aria-hidden="true" /> Favorable measures are never ranked as problems simply because they are high. Comparisons use the same geographic level and release.</p>
-          <details className={styles.allMeasures}>
-            <summary>All {data.dataCoverage.measureCount} compatible measures <CaretRight size={17} aria-hidden="true" /></summary>
-            <div className={styles.measureTable} role="table" aria-label={`All compatible county measures for ${data.location.label}`}>
-              <div role="row">
-                <span role="columnheader">Measure</span>
-                <span role="columnheader">County</span>
-                <span role="columnheader">State</span>
-                <span role="columnheader">National</span>
-                <span role="columnheader">Uncertainty</span>
-              </div>
-              {data.metrics.map((metric) => (
-                <div role="row" key={metric.key}>
-                  <span role="cell"><strong>{metric.label}</strong><small>{metric.plainLanguage}</small><MetricDetails metric={metric} /></span>
-                  <span role="cell">{metric.value.toFixed(1)}%</span>
-                  <span role="cell">{metric.state === null ? "Unavailable" : `${metric.state.toFixed(1)}%`}</span>
-                  <span role="cell">{metric.national === null ? "Comparison unavailable" : `${metric.national.toFixed(1)}%`}</span>
-                  <span role="cell">{metric.confidence || "Not supplied"}</span>
-                </div>
-              ))}
-              {availableContextMeasures.map((measure) => (
-                <div role="row" key={measure.key}>
-                  <span role="cell">
-                    <strong>{measure.label}</strong>
-                    <small>{measure.source} · {measure.definition} · {measure.period}</small>
-                    <ContextMeasureDetails measure={measure} />
-                  </span>
-                  <span role="cell">{measure.value === null
-                    ? "Unavailable"
-                    : typeof measure.value === "string"
-                      ? `${measure.value} ${measure.unit}`
-                      : measure.unit === "percent"
-                      ? `${measure.value.toFixed(1)}%`
-                      : `${formatNumber(measure.value)} ${measure.unit}`}</span>
-                  <span role="cell">Not comparable here</span>
-                  <span role="cell">Not comparable here</span>
-                  <span role="cell">{measure.uncertainty ?? "Not supplied by source"}</span>
-                </div>
-              ))}
-            </div>
+          {(["Access barriers", "Chronic conditions", "Prevention"] as const).map((category) => {
+            const measures = data.metrics.filter((metric) => metric.category === category);
+            return <details className={styles.topicGroup} key={category} open={category === "Access barriers"}>
+              <summary>{category}<CaretRight size={18} aria-hidden="true" /></summary>
+              {measures.length ? <div className={styles.tableScroll}>
+                <table className={styles.evidenceTable}>
+                  <caption>{category} · {data.location.label} · estimates in percent</caption>
+                  <thead><tr><th scope="col">Measure</th><th scope="col">County</th><th scope="col">State*</th><th scope="col">U.S.*</th></tr></thead>
+                  <tbody>{measures.map((metric) => <tr key={metric.key}>
+                    <th scope="row"><strong>{metric.label}</strong><span>{metric.dataPeriod}</span><MetricDetails metric={metric} /></th>
+                    <td>{metric.value.toFixed(1)}%<small>{metric.confidence ? `95% interval ${metric.confidence}` : "Interval not supplied"}</small></td>
+                    <td>{metric.state === null ? "Unavailable" : `${metric.state.toFixed(1)}%`}</td>
+                    <td>{metric.national === null ? "Unavailable" : `${metric.national.toFixed(1)}%`}</td>
+                  </tr>)}</tbody>
+                </table>
+              </div> : <p>No compatible measures are available in this category.</p>}
+            </details>;
+          })}
+          <p className={styles.comparisonNote}>* {data.comparisonBasis ?? "Population-weighted means of available county estimates, using adult population where available and total population otherwise. These are contextual comparisons, not official state or U.S. prevalence estimates. Measure-specific eligible populations can differ from these weights."}</p>
+          <details className={styles.topicGroup}>
+            <summary>Community context<CaretRight size={18} aria-hidden="true" /></summary>
+            {data.provenanceNotice && <p className={styles.comparisonNote}>{data.provenanceNotice}</p>}
+            <div className={styles.contextRows}>{data.contextMeasures.map((measure) => <article key={measure.key}>
+              <div><h3>{measure.label}</h3><ContextMeasureDetails measure={measure}/></div>
+              <p>{measure.value === null ? "Unavailable" : typeof measure.value === "number" ? `${formatNumber(measure.value)} ${measure.unit}` : `${measure.value} ${measure.unit}`}</p>
+            </article>)}</div>
           </details>
           <details className={styles.coverageMatrix}>
             <summary>Evidence coverage <CaretRight size={17} aria-hidden="true" /></summary>
@@ -721,8 +615,45 @@ function BriefView({ data }: { data: PlaceResponse }) {
             </div>
           </details>
         </div>
+        <aside className={styles.evidenceRail} aria-label="Evidence and limits">
+          <h2>Evidence and limits</h2>
+          <dl><div><dt>Geography</dt><dd>County · {data.location.geoid}</dd></div>
+          <div><dt>Local plan</dt><dd>{data.localPlan.status === "verified" ? "Verified" : "Not yet verified"}</dd></div>
+          <div><dt>Measures</dt><dd>{data.metrics.length} health measures, with community context shown separately</dd></div></dl>
+          <p>Modeled estimates provide context. They do not establish causation, individual risk or a local planning priority.</p>
+          {data.provenanceNotice && <p>{data.provenanceNotice}</p>}
+          {data.sources.filter((source, index, all) => all.findIndex((item) => item.name === source.name && item.release === source.release) === index).map((source) => <details key={`${source.name}-${source.release}`}>
+            <summary>{source.name}<CaretRight size={16} aria-hidden="true"/></summary>
+            <dl><div><dt>Release</dt><dd>{source.release || "Unavailable"}</dd></div><div><dt>Period</dt><dd>{source.period || "Not supplied"}</dd></div><div><dt>Retrieved</dt><dd>{formatDate(source.retrievedAt)}</dd></div></dl>
+            <p>{source.note}</p><a href={source.url} target="_blank" rel="noreferrer">Open original source <ArrowSquareOut size={16} aria-hidden="true"/></a>
+          </details>)}
+        </aside>
+        <article className={styles.planCard}>
+          <div className={styles.cardHeading}>
+            <div><span>Latest local planning evidence</span><h2>What the local plan says</h2></div>
+            <span className={styles.reviewBadge}>{data.localPlan.status === "verified" ? "Verified" : "Not yet verified"}</span>
+          </div>
+          {plan ? (
+            <>
+              <h3>{plan.title}</h3>
+              <p>{data.localPlan.note}</p>
+              <dl>
+                <div><dt>Publisher</dt><dd>{plan.publisher}</dd></div>
+                <div><dt>Published</dt><dd>{formatDate(plan.publishedAt)}</dd></div>
+                <div><dt>Coverage</dt><dd>{plan.coverage}</dd></div>
+                <div><dt>Public claims</dt><dd>{data.localPlan.claims.length ? `${data.localPlan.claims.length} verified` : "Withheld pending review"}</dd></div>
+              </dl>
+              <a href={plan.officialUrl} target="_blank" rel="noreferrer">Open source document <ArrowSquareOut size={17} aria-hidden="true" /></a>
+            </>
+          ) : (
+            <div className={styles.emptyPlan}>
+              <FileText size={34} aria-hidden="true" />
+              <h3>No current local plan is verified here.</h3>
+              <p>We will not infer a local priority from national-model estimates. A current official local plan and local review are still needed.</p>
+            </div>
+          )}
+        </article>
       </div>
-      <SourceStrip data={data} />
     </section>
   );
 }
@@ -739,7 +670,7 @@ function MapCanvas({ geometry, data, metric }: { geometry: GeometryResponse | nu
     let readinessTimer: ReturnType<typeof setTimeout> | null = null;
     void import("maplibre-gl").then(({ default: maplibregl }) => {
       if (cancelled || !containerRef.current) return;
-      const fill = metric?.interpretation === "adverse_signal" ? "#b9462c" : metric?.interpretation === "favorable_signal" ? "#446342" : "#6e7a74";
+      const fill = "#0644AD";
       try {
         const supportsWebgl = (maplibregl as typeof maplibregl & { supported?: () => boolean }).supported;
         if (typeof supportsWebgl === "function" && !supportsWebgl()) {
@@ -751,7 +682,7 @@ function MapCanvas({ geometry, data, metric }: { geometry: GeometryResponse | nu
           style: {
             version: 8,
             sources: {},
-            layers: [{ id: "background", type: "background", paint: { "background-color": "#e8ede6" } }],
+            layers: [{ id: "background", type: "background", paint: { "background-color": "#EFF5FF" } }],
           },
           center: data.location.coordinates.length === 2 ? [data.location.coordinates[0], data.location.coordinates[1]] : [-98.5, 39.5],
           zoom: 7,
@@ -771,14 +702,14 @@ function MapCanvas({ geometry, data, metric }: { geometry: GeometryResponse | nu
         if (!map || cancelled) return;
         map.addSource("official-boundary", { type: "geojson", data: geometry.area as never });
         map.addLayer({ id: "boundary-fill", type: "fill", source: "official-boundary", paint: { "fill-color": fill, "fill-opacity": metric ? 0.28 : 0.12 } });
-        map.addLayer({ id: "boundary-line", type: "line", source: "official-boundary", paint: { "line-color": "#111a1d", "line-width": 2.4 } });
+        map.addLayer({ id: "boundary-line", type: "line", source: "official-boundary", paint: { "line-color": "#071D3B", "line-width": 2.4 } });
         if (hasRenderableGeometry(geometry.contextArea)) {
           map.addSource("search-context", { type: "geojson", data: geometry.contextArea as never });
-          map.addLayer({ id: "search-context-line", type: "line", source: "search-context", paint: { "line-color": "#f4b71b", "line-width": 2, "line-dasharray": [3, 2] } });
+          map.addLayer({ id: "search-context-line", type: "line", source: "search-context", paint: { "line-color": "#B84500", "line-width": 2, "line-dasharray": [3, 2] } });
         }
         if (geometry.verifiedResources.features.length) {
           map.addSource("verified-resources", { type: "geojson", data: geometry.verifiedResources as never });
-          map.addLayer({ id: "verified-resources", type: "circle", source: "verified-resources", paint: { "circle-radius": 6, "circle-color": "#f4b71b", "circle-stroke-color": "#111a1d", "circle-stroke-width": 2 } });
+          map.addLayer({ id: "verified-resources", type: "circle", source: "verified-resources", paint: { "circle-radius": 6, "circle-color": "#B84500", "circle-stroke-color": "#071D3B", "circle-stroke-width": 2 } });
         }
         if (geometry.bounds?.length === 4) {
           map.fitBounds(
@@ -806,32 +737,48 @@ function MapCanvas({ geometry, data, metric }: { geometry: GeometryResponse | nu
   const hasAreaGeometry = hasRenderableGeometry(geometry?.area);
   if (!hasAreaGeometry || mapError) {
     return hasAreaGeometry && geometry
-      ? <BoundaryFallback geometry={geometry} data={data} metric={metric} />
+      ? <BoundaryFallback geometry={geometry} data={data} />
       : <div className={styles.mapEmpty}><MapTrifold size={44} aria-hidden="true" /><p>{mapError || "The official boundary is temporarily unavailable."}</p></div>;
   }
-  return <div ref={containerRef} className={styles.mapCanvas} data-map-ready="false" role="img" aria-label={`Official ${data.location.evidenceGeography.replace("_", " ")} boundary for ${data.location.label}`} />;
+  return <div ref={containerRef} className={styles.mapCanvas} data-map-ready="false" role="region" aria-label={`Interactive official county boundary for ${data.location.label}`} />;
+}
+
+function useEvidenceMeasure(metrics: Metric[]) {
+  const [key, setKey] = useState(metrics[0]?.key ?? "");
+  useEffect(() => {
+    const requested = readExploreState(new URLSearchParams(window.location.search))?.measure;
+    setKey(metrics.find(metric => metric.key === requested)?.key ?? metrics[0]?.key ?? "");
+  }, [metrics]);
+  function select(value: string) {
+    if (!metrics.some(metric => metric.key === value)) return;
+    setKey(value);
+    const state = readExploreState(new URLSearchParams(window.location.search));
+    if (state) window.history.replaceState({}, "", exploreStateUrl({ ...state, measure: value }));
+  }
+  return [key, select] as const;
 }
 
 function MapView({
   data,
   geometry,
+  mapStatus,
 }: {
   data: PlaceResponse;
   geometry: GeometryResponse | null;
+  mapStatus: "idle" | "loading" | "error";
 }) {
   const compatibleMetrics = useMemo(
     () => data.metrics.filter((metric) => metric.geographyLevel === data.location.evidenceGeography),
     [data.location.evidenceGeography, data.metrics],
   );
-  const [metricKey, setMetricKey] = useState(compatibleMetrics[0]?.key ?? "");
-  useEffect(() => setMetricKey(compatibleMetrics[0]?.key ?? ""), [compatibleMetrics]);
+  const [metricKey, setMetricKey] = useEvidenceMeasure(compatibleMetrics);
   const metric = compatibleMetrics.find((item) => item.key === metricKey);
   const contextVisible = hasRenderableGeometry(geometry?.contextArea);
   return (
     <section id="map-panel" role="tabpanel" aria-labelledby="map-tab" className={styles.viewPanel}>
       <div className={styles.mapLayout}>
         <figure className={styles.mapFigure}>
-          <MapCanvas geometry={geometry} data={data} metric={metric} />
+          {mapStatus === "loading" ? <p role="status">Loading the county boundary…</p> : <MapCanvas geometry={geometry} data={data} metric={metric} />}
           <figcaption>{geometry?.vintage ?? "Official Census boundary"}. The shaded value applies to the selected geography as a whole; it does not show neighborhood variation.</figcaption>
         </figure>
         <aside className={styles.mapSidebar}>
@@ -855,7 +802,7 @@ function MapView({
             {contextVisible ? <span><i className={styles.legendContext} /> Original search geography</span> : null}
             <span><i className={styles.legendMarker} /> Verified resource</span>
           </div>
-          <div className={styles.resourceStatus}><MapPin size={20} aria-hidden="true" /><p>{geometry?.resourceNote ?? "Verified resource information is loading."}</p></div>
+          <div className={styles.resourceStatus}><MapPin size={20} aria-hidden="true" /><p>{geometry?.resourceNote ?? (mapStatus === "loading" ? "Loading boundary and resource context…" : "Map context is unavailable. County measures remain accessible here and in Brief.")}</p></div>
           {contextVisible && geometry?.contextNote ? <p className={styles.mapNotice}>{geometry.contextNote}</p> : null}
           {geometry?.sourceUrl && <a href={geometry.sourceUrl} target="_blank" rel="noreferrer">Open boundary source <ArrowSquareOut size={16} aria-hidden="true" /></a>}
         </aside>
@@ -903,7 +850,7 @@ function ActionView({ data }: { data: PlaceResponse }) {
     <section id="action-panel" role="tabpanel" aria-labelledby="action-tab" className={styles.viewPanel}>
       <header className={styles.actionHeader}>
         <div><span>Ask the evidence</span><h2>A planning conversation with sources.</h2></div>
-        <p>Ask about this county’s approved evidence, sources, gaps and possible non-clinical responses. Every substantive answer must cite the stored evidence package.</p>
+        <p>Ask about this county’s evidence, sources, gaps and possible non-clinical responses. Follow the citations to examine the basis of an answer.</p>
       </header>
       <div className={styles.agentWorkspace}>
         <form className={styles.agentQuestion} onSubmit={ask}>
@@ -988,7 +935,7 @@ function ActionView({ data }: { data: PlaceResponse }) {
 }
 
 function VisualsView({ data }: { data: PlaceResponse }) {
-  const [measureKey, setMeasureKey] = useState(data.metrics[0]?.key ?? "");
+  const [measureKey, setMeasureKey] = useEvidenceMeasure(data.metrics);
   const selected = data.metrics.find((metric) => metric.key === measureKey) ?? data.metrics[0];
   const chartMax = selected
     ? Math.max(selected.value, selected.national ?? 0, selected.state ?? 0, 1)
@@ -1003,7 +950,7 @@ function VisualsView({ data }: { data: PlaceResponse }) {
           <p>Visuals use compatible county evidence only. They do not create an overall health ranking or imply neighborhood-level precision.</p>
           {data.capabilities.funderSnapshot
             ? <a href={`/api/evidence/v1/funder-snapshot?geoid=${encodeURIComponent(data.location.geoid)}&format=pdf`}><DownloadSimple size={18} aria-hidden="true" /> Download funder snapshot</a>
-            : <span className={styles.unavailableExport}>Funder snapshot available after reviewed release.</span>}
+            : null}
         </div>
       </header>
       <div className={styles.visualGrid}>
@@ -1013,11 +960,11 @@ function VisualsView({ data }: { data: PlaceResponse }) {
           </header>
           {selected ? (
             <>
-              <div className={styles.comparisonBars} role="img" aria-label={`${selected.label}: ${data.location.label} ${selected.value} percent, state ${selected.state ?? "unavailable"} percent, national ${selected.national} percent.`}>
+              <div className={styles.comparisonBars} role="img" aria-label={`${selected.label}: ${data.location.label} ${selected.value} percent; state mean ${selected.state == null ? "unavailable" : `${selected.state} percent`}; U.S. mean ${selected.national == null ? "unavailable" : `${selected.national} percent`}.`}>
                 {[
                   [data.location.label, selected.value],
-                  ["State", selected.state],
-                  ["National", selected.national],
+                  ["State mean*", selected.state],
+                  ["U.S. mean*", selected.national],
                 ].map(([label, value]) => (
                   <div key={String(label)}>
                     <span>{label}</span>
@@ -1026,6 +973,7 @@ function VisualsView({ data }: { data: PlaceResponse }) {
                   </div>
                 ))}
               </div>
+              <p className={styles.comparisonNote}>* {data.comparisonBasis ?? "Population-weighted means of available county estimates. These are contextual comparisons, not official state or U.S. prevalence estimates."}</p>
               <dl className={styles.measureDefinition}>
                 <div><dt>Meaning</dt><dd>{selected.plainLanguage}</dd></div>
                 <div><dt>Universe</dt><dd>{selected.universe}</dd></div>
@@ -1078,46 +1026,31 @@ function VisualsView({ data }: { data: PlaceResponse }) {
   );
 }
 
-function SourceStrip({ data }: { data: PlaceResponse }) {
-  const verifiedSources = data.sources.filter((source) => source.status !== "provisional");
-  const first = verifiedSources[0] ?? data.sources[0];
-  return (
-    <div className={styles.sourceStrip}>
-      <div><Clock size={20} aria-hidden="true" /><span><small>Retrieved</small>{formatDate(first?.retrievedAt)}</span></div>
-      <div><span><small>Release</small>{first?.release ?? "Unavailable"}</span></div>
-      <div><span><small>Data period</small>{first?.period ?? "Unavailable"}</span></div>
-      <div><span><small>Geography</small>{first?.geography ?? data.location.geographyLabel}</span></div>
-      <details>
-        <summary>Sources &amp; citations <CaretRight size={17} aria-hidden="true" /></summary>
-        <div className={styles.sourceList}>
-          {data.sources.map((source) => (
-            <article key={`${source.name}-${source.release}`}>
-              <div><strong>{source.name}</strong><span className={source.status === "provisional" ? styles.provisional : styles.verified}>{source.status === "provisional" ? "Under review" : "Verified source"}</span></div>
-              <p>{source.release} · {source.period} · {source.geography ?? "Source geography"}</p>
-              <p>{source.note}</p>
-              <a href={source.url} target="_blank" rel="noreferrer">Open source <ArrowSquareOut size={15} aria-hidden="true" /></a>
-            </article>
-          ))}
-        </div>
-      </details>
-    </div>
-  );
-}
-
 function DownloadDialog({ data, onClose }: { data: PlaceResponse; onClose: () => void }) {
   const [state, setState] = useState<"idle" | "sending" | "sent" | "error">("idle");
   const [message, setMessage] = useState("");
   const closeRef = useRef<HTMLButtonElement>(null);
+  const dialogRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
     const previousOverflow = document.body.style.overflow;
+    const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     document.body.style.overflow = "hidden";
     closeRef.current?.focus();
-    const onKeyDown = (event: KeyboardEvent) => { if (event.key === "Escape") onClose(); };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+      if (event.key !== "Tab") return;
+      const controls = Array.from(dialogRef.current?.querySelectorAll<HTMLElement>('a[href], button:not([disabled]), input:not([disabled]):not([tabindex="-1"]), select:not([disabled]), textarea:not([disabled])') ?? []);
+      const first = controls[0];
+      const last = controls.at(-1);
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+    };
     document.addEventListener("keydown", onKeyDown);
     return () => {
       document.body.style.overflow = previousOverflow;
       document.removeEventListener("keydown", onKeyDown);
+      previousFocus?.focus();
     };
   }, [onClose]);
 
@@ -1144,18 +1077,24 @@ function DownloadDialog({ data, onClose }: { data: PlaceResponse; onClose: () =>
         ["Evidence geography", data.location.geographyLabel],
         ["Geographic caveat", ...data.location.caveats],
         ["Local planning evidence", data.localPlan.status, data.localPlan.note],
-        ["Measure", "Local estimate", "National comparison", "Direction", "Interpretation", "Release", "Geography"],
-        ...data.metrics.map((metric) => [metric.label, metric.value, metric.national, metric.higherValueMeaning, metric.interpretation, metric.release, metric.geographyLevel]),
+        ["Comparison basis", data.comparisonBasis],
+        ["Snapshot", data.snapshotContentHash],
+        ["Source limitations", data.provenanceNotice],
+        ["Measure", "County estimate (%)", "State comparison (%)", "U.S. comparison (%)", "95% interval", "Universe", "Adjustment", "Data period", "Release", "Geography", "Source", "Source URL", "Retrieved"],
+        ...data.metrics.map((metric) => [metric.label, metric.value, metric.state, metric.national, metric.confidence, metric.universe, metric.adjustment, metric.dataPeriod, metric.release, metric.geographyLevel, metric.source, metric.sourceUrl, metric.retrievedAt]),
+        ["Community context"],
+        ["Measure", "Value", "Unit", "Definition", "Release", "Source", "Source URL"],
+        ...data.contextMeasures.map((measure) => [measure.label, measure.value, measure.unit, measure.definition, measure.release, measure.source, measure.sourceUrl]),
         ["Sources"],
         ...data.sources.map((source) => [source.name, source.release, source.period, source.geography ?? "", source.url]),
       ];
-      const csv = rows.map((row) => row.map((cell) => `"${String(cell).replaceAll('"', '""')}"`).join(",")).join("\n");
+      const csv = rows.map((row) => row.map(csvCell).join(",")).join("\n");
       const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
       const anchor = document.createElement("a");
       anchor.href = url;
       anchor.download = `sozorock-health-${data.location.geoid}-place-brief.csv`;
       anchor.click();
-      URL.revokeObjectURL(url);
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
       setState("sent");
       setMessage("Your place brief is ready.");
     } catch (error) {
@@ -1166,10 +1105,10 @@ function DownloadDialog({ data, onClose }: { data: PlaceResponse; onClose: () =>
 
   return (
     <div className={styles.dialogBackdrop} role="presentation" onMouseDown={(event) => { if (event.currentTarget === event.target) onClose(); }}>
-      <section className={styles.dialog} role="dialog" aria-modal="true" aria-labelledby="download-title">
+      <section ref={dialogRef} className={styles.dialog} role="dialog" aria-modal="true" aria-labelledby="download-title">
         <button ref={closeRef} className={styles.dialogClose} type="button" onClick={onClose} aria-label="Close"><X size={22} /></button>
-        <span>Place brief</span><h2 id="download-title">Tell us how the evidence will be used.</h2>
-        <p>Do not include medical information. Your contact details help us understand public use of the brief.</p>
+        <span>Place brief</span><h2 id="download-title">Download the county evidence.</h2>
+        <p>The CSV includes estimates, comparisons, sources and dates. Tell us how you will use it; do not include medical information.</p>
         <form onSubmit={submit} className={styles.downloadForm}>
           <div><label>Full name<input required name="name" autoComplete="name" /></label><label>Email<input required type="email" name="email" autoComplete="email" /></label></div>
           <div><label>Organization<input required name="organization" autoComplete="organization" /></label><label>Role or sector<select required name="role" defaultValue=""><option value="" disabled>Select one</option><option>Community organization</option><option>County, state or public agency</option><option>Licensed provider or health organization</option><option>University or researcher</option><option>Foundation or funder</option><option>Individual or family</option><option>Other</option></select></label></div>
@@ -1184,126 +1123,131 @@ function DownloadDialog({ data, onClose }: { data: PlaceResponse; onClose: () =>
   );
 }
 
-export function ExploreClient() {
+export function ExploreClient({ initialState = null }: { initialState?: ExploreState | null }) {
   const [data, setData] = useState<PlaceResponse | null>(null);
   const [geometry, setGeometry] = useState<GeometryResponse | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [mapStatus, setMapStatus] = useState<"idle" | "loading" | "error">("idle");
+  const [loading, setLoading] = useState(Boolean(initialState));
   const [error, setError] = useState("");
   const [activeView, setActiveView] = useState<WorkspaceView>("brief");
   const [downloadOpen, setDownloadOpen] = useState(false);
   const [pendingResolution, setPendingResolution] = useState<CountyResolution | null>(null);
   const [pendingPlace, setPendingPlace] = useState<Suggestion | null>(null);
+  const [shareMessage, setShareMessage] = useState("");
+  const [shareFallback, setShareFallback] = useState("");
+  const [requestState, setRequestState] = useState<ExploreState | null>(null);
+  const activeRequest = useRef<AbortController | null>(null);
+  const closeDownload = useCallback(() => setDownloadOpen(false), []);
 
   const loadPlace = useCallback(async (
     place: Pick<Suggestion, "kind" | "geoid"> & Partial<Pick<Suggestion, "display" | "label">>,
     countyGeoid?: string,
+    requestedView: WorkspaceView = "brief",
+    history: "push" | "replace" | "none" = "push",
   ) => {
-    setLoading(true);
-    setError("");
-    setData(null);
-    setGeometry(null);
-    setPendingResolution(null);
-    setPendingPlace(null);
-    setActiveView("brief");
-    const queryLabel = place.display ?? place.label ?? place.geoid;
-    const params = new URLSearchParams({ kind: place.kind, geoid: place.geoid, query: queryLabel, view: "brief" });
-    if (countyGeoid) params.set("county", countyGeoid);
+    activeRequest.current?.abort();
+    const controller = new AbortController();
+    activeRequest.current = controller;
+    const timeout = window.setTimeout(() => controller.abort("timeout"), 25_000);
+    const state: ExploreState = { kind: place.kind, geoid: place.geoid, view: requestedView, ...(countyGeoid ? {county:countyGeoid} : {}) };
+    setMapStatus("idle"); setRequestState(state); setLoading(true); setError(""); setData(null); setGeometry(null);
+    setPendingResolution(null); setPendingPlace(null); setActiveView(requestedView); setShareMessage(""); setShareFallback("");
+    if (history !== "none") window.history[history === "push" ? "pushState" : "replaceState"]({}, "", exploreStateUrl(state));
     try {
-      const dataResponse = await fetch(`/api/explore?${params.toString()}`);
-      const payload = (await dataResponse.json().catch(() => ({}))) as PlaceResponse & { error?: string; resolution?: CountyResolution };
-      if (dataResponse.status === 409 && payload.resolution?.status === "selection_required") {
+      const params = new URLSearchParams({ kind: place.kind, geoid: place.geoid });
+      if (countyGeoid) params.set("county", countyGeoid);
+      const response = await fetch(`/api/explore?${params}`, {signal:controller.signal});
+      const payload = await response.json() as PlaceResponse & {error?: string; resolution?: CountyResolution};
+      if (controller.signal.aborted) return;
+      if (response.status === 409 && payload.resolution?.status === "selection_required") {
         setPendingResolution(payload.resolution);
-        setPendingPlace({
-          id: `${place.kind}-${place.geoid}`,
-          kind: place.kind,
-          geoid: place.geoid,
-          label: place.label ?? queryLabel,
-          display: queryLabel,
-          stateFips: "",
-        });
-        window.history.replaceState({}, "", `/explore?${params.toString()}`);
+        setPendingPlace({id:`${place.kind}-${place.geoid}`,kind:place.kind,geoid:place.geoid,label:place.label ?? place.geoid,display:place.display ?? place.geoid,stateFips:""});
         return;
       }
-      if (!dataResponse.ok) throw new Error(payload.error ?? "Current public data could not be loaded.");
-      const geometryResponse = await fetch(
-        `/api/explore/geometry?kind=county&geoid=${encodeURIComponent(payload.location.geoid)}&contextKind=${encodeURIComponent(place.kind)}&contextGeoid=${encodeURIComponent(place.geoid)}`,
-      );
-      const map = (await geometryResponse.json().catch(() => null)) as GeometryResponse | null;
+      if (!response.ok) throw new Error(response.status === 429 ? "Too many requests. Please wait a few minutes before trying again." : payload.error ?? "Evidence could not be loaded. Please try again.");
+      if (!payload.location || !Array.isArray(payload.metrics)) throw new Error("The evidence response was incomplete. Please try again.");
       setData(payload);
-      setGeometry(map);
-      window.history.replaceState({}, "", `/explore?${params.toString()}`);
-    } catch (nextError) {
-      setError((nextError as Error).message);
+      document.title = `${payload.location.label} | Place Intelligence | SozoRock Health`;
+    } catch (failure) {
+      if (activeRequest.current !== controller) return;
+      setError(controller.signal.aborted ? "The evidence service is taking longer than expected. Please try again." : (failure as Error).message);
     } finally {
-      setLoading(false);
+      window.clearTimeout(timeout);
+      if (activeRequest.current === controller) setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const kind = params.get("kind");
-    const geoid = params.get("geoid");
-    const view = params.get("view");
-    const query = params.get("query") ?? geoid ?? "";
-    const county = params.get("county") ?? undefined;
-    if (view === "brief" || view === "map" || view === "action" || view === "visuals") setActiveView(view);
-    if ((kind === "county" || kind === "place" || kind === "zip") && geoid) {
-      void loadPlace({ kind, geoid, label: query, display: query }, county);
-    }
+    const restore = () => {
+      const state = readExploreState(new URLSearchParams(window.location.search));
+      if (state) void loadPlace(state, state.county, state.view, "none");
+      else {
+        activeRequest.current?.abort(); activeRequest.current=null;
+        setData(null); setGeometry(null); setLoading(false); setError(""); setPendingResolution(null); setRequestState(null);
+        document.title="SozoRock Place Intelligence | SozoRock Health";
+      }
+    };
+    restore(); window.addEventListener("popstate", restore);
+    return () => { activeRequest.current?.abort(); window.removeEventListener("popstate", restore); };
   }, [loadPlace]);
 
+  // Brief delivery never waits for geometry. Download and initialize the map only when requested.
+  useEffect(() => {
+    if (!data || activeView !== "map" || geometry) return;
+    const controller=new AbortController();
+    const timeout=window.setTimeout(()=>controller.abort(new DOMException("Map timed out", "TimeoutError")),15_000);
+    setMapStatus("loading");
+    const original=data.location.resolution.original;
+    void fetch(`/api/explore/geometry?kind=county&geoid=${encodeURIComponent(data.location.geoid)}&contextKind=${encodeURIComponent(original.kind)}&contextGeoid=${encodeURIComponent(original.geoid)}`,{signal:controller.signal})
+      .then(async response => {if(!response.ok) throw new Error("Map unavailable"); return response.json();})
+      .then((result: GeometryResponse) => {if(!controller.signal.aborted) { if(result.area?.type !== "FeatureCollection") throw new Error("Map unavailable"); setGeometry(result); setMapStatus("idle"); }})
+      .catch(() => { if (!controller.signal.aborted || controller.signal.reason?.name === "TimeoutError") setMapStatus("error"); })
+      .finally(()=>window.clearTimeout(timeout));
+    return ()=>{window.clearTimeout(timeout);controller.abort();};
+  },[activeView,data,geometry]);
+
   function changeView(view: WorkspaceView) {
-    setActiveView(view);
-    sendExploreTelemetry(view === "brief" ? "brief_viewed" : view === "map" ? "map_viewed" : view === "action" ? "action_question_asked" : "visuals_viewed", data?.location.geoid ?? "", { source: "view_tab" });
-    const params = new URLSearchParams(window.location.search);
-    params.set("view", view);
-    window.history.replaceState({}, "", `/explore?${params.toString()}`);
+    setActiveView(view); setShareMessage(""); setShareFallback("");
+    const state=readExploreState(new URLSearchParams(window.location.search));
+    if(state) window.history.pushState({},"",exploreStateUrl({...state,view}));
+    if(view !== "action") sendExploreTelemetry(view === "brief" ? "brief_viewed" : view === "map" ? "map_viewed" : "visuals_viewed", data?.location.geoid ?? "", {source:"view_tab"});
   }
-
   function moveViewFocus(event: ReactKeyboardEvent<HTMLButtonElement>, view: WorkspaceView) {
-    const views: WorkspaceView[] = ["brief", "map", "action", "visuals"];
-    const current = views.indexOf(view);
-    const next = event.key === "ArrowRight"
-      ? views[(current + 1) % views.length]
-      : event.key === "ArrowLeft"
-        ? views[(current - 1 + views.length) % views.length]
-        : event.key === "Home"
-          ? views[0]
-          : event.key === "End"
-            ? views[views.length - 1]
-            : null;
-    if (!next) return;
-    event.preventDefault();
-    changeView(next);
-    window.requestAnimationFrame(() => document.getElementById(`${next}-tab`)?.focus());
+    const views: WorkspaceView[]=["brief","map","action","visuals"];
+    const index=views.indexOf(view);
+    const next=event.key === "ArrowRight" ? views[(index+1)%4] : event.key === "ArrowLeft" ? views[(index+3)%4] : event.key === "Home" ? views[0] : event.key === "End" ? views[3] : null;
+    if(!next) return;
+    event.preventDefault(); changeView(next); document.getElementById(`${next}-tab`)?.focus();
   }
-
-  const partnershipHref = `/contact?interest=${encodeURIComponent("Partner with us")}${data ? `&location=${encodeURIComponent(data.location.label)}` : ""}`;
-
-  return (
-    <div className={styles.page}>
-      <a className={styles.skip} href="#explore-main">Skip to main content</a>
-      <header className={styles.header}>
-        <a href="/" aria-label="SozoRock Health home"><BrandLockup /></a>
-        <nav aria-label="Explore navigation"><a href="/"><ArrowLeft size={18} /> Back to SozoRock Health</a><a href={partnershipHref}>Partner with us</a></nav>
-      </header>
-
-      <main id="explore-main">
-        {!data && !loading && !pendingResolution && (
-          <>
-            <section className={styles.hero}>
-              <div className={styles.heroCopy}><span>SozoRock Place Intelligence</span><h1>Start with a place.</h1><p>Explore public evidence about the conditions that shape access to care. See the geography, source, date, comparison, and limits before drawing a conclusion.</p></div>
-              <LocationSearch onSelect={loadPlace} />
-              <div className={styles.coverage}><span><strong>Nationwide</strong> geography</span><span><strong>Source-traceable</strong> evidence</span><span><strong>Strictly non-clinical</strong> place analysis</span></div>
-            </section>
-            <section className={styles.intro}>
-              <div><span>One place. Four useful views.</span><h2>A brief to understand. A map with a reason. An action path with limits. Visuals that show their evidence.</h2></div>
-              <div><article><FileText size={26} /><strong>Brief</strong><p>Local-plan status, public-data context, gaps and citations.</p></article><article><MapTrifold size={26} /><strong>Map</strong><p>Official geography and only compatible evidence layers.</p></article><article><ChatCircleDots size={26} /><strong>Action</strong><p>Ask grounded questions and review possible responses.</p></article><article><ChartBar size={26} /><strong>Visuals</strong><p>Comparisons, uncertainty, coverage and source freshness.</p></article></div>
-            </section>
-          </>
-        )}
-
-        {loading && <section className={styles.loading} aria-live="polite"><span /><p>Resolving the geography and checking current sources…</p></section>}
+  async function shareView() {
+    const state=readExploreState(new URLSearchParams(window.location.search));
+    if(!state) return;
+    const url=`https://health.sozorockfoundation.org${exploreStateUrl(state)}`;
+    try {await navigator.clipboard.writeText(url);setShareMessage("Link copied. It opens this county and view.");}
+    catch {setShareFallback(url);setShareMessage("Copy the link below to share this view.");}
+  }
+  const partnershipHref=`/contact?interest=${encodeURIComponent("Partner with us")}${data ? `&location=${encodeURIComponent(data.location.label)}` : ""}`;
+  return <div className={styles.page}>
+    <a className={styles.skip} href="#explore-main">Skip to main content</a>
+    <header className={styles.header}>
+      <div className={styles.productIdentity}><a href="/" aria-label="SozoRock Health home"><BrandLockup/></a><span>Place Intelligence</span></div>
+      <nav aria-label="Explore navigation"><a href="/"><ArrowLeft size={18} aria-hidden="true"/>Back to SozoRock Health</a></nav>
+    </header>
+    <main id="explore-main" tabIndex={-1}>
+      <div className={styles.commandBar}>
+        <LocationSearch compact onSelect={loadPlace}/>
+        {data && <div className={styles.workspaceActions}><button onClick={shareView} type="button"><ShareNetwork size={20} aria-hidden="true"/>Share</button><button type="button" onClick={()=>setDownloadOpen(true)}><DownloadSimple size={20} aria-hidden="true"/>Download</button></div>}
+      </div>
+      {shareMessage && <p className={styles.shareStatus} role="status">{shareMessage}</p>}
+      {shareFallback && <label className={styles.shareStatus}>Share link<input readOnly value={shareFallback} onFocus={event=>event.currentTarget.select()}/></label>}
+      {!data && !loading && !pendingResolution && !error && <section className={styles.entryWorkspace}>
+        <div><p className={styles.eyebrow}>County evidence, in context</p><h1>Understand a place.<br/>Examine the evidence.</h1><p>Find public evidence on health access, community conditions and workforce capacity. Start with a county, city or ZIP Code.</p>
+        <p className={styles.searchHint}>City and ZIP searches resolve to a county. Where boundaries overlap, you choose the evidence geography.</p></div>
+        <aside><h2>A place to start</h2><p>Open a county, then explore its measures and original sources.</p>
+        {[{geoid:"36001",label:"Albany County, NY"},{geoid:"06037",label:"Los Angeles County, CA"},{geoid:"17031",label:"Cook County, IL"}].map(place=><button type="button" key={place.geoid} onClick={()=>void loadPlace({kind:"county",...place})}>{place.label}<ArrowRight size={20} aria-hidden="true"/></button>)}</aside>
+        <p className={styles.entryBoundary}>Evidence for community and institutional decisions. No diagnosis, treatment or individual risk assessment.</p>
+      </section>}
+      {loading && <section className={styles.loading} role="status"><h1>Loading county evidence</h1><p>Checking the published sources and geography…</p></section>}
         {pendingResolution && pendingPlace && !loading && (
           <section className={styles.countyChoice} aria-labelledby="county-choice-title">
             <span>County evidence selection</span>
@@ -1326,44 +1270,24 @@ export function ExploreClient() {
             {pendingResolution.caveats.map((caveat) => <p className={styles.resolutionCaveat} key={caveat}><Info size={17} aria-hidden="true" />{caveat}</p>)}
           </section>
         )}
-        {error && <section className={styles.errorPanel} role="alert"><h1>We could not load this place.</h1><p>{error}</p><button type="button" onClick={() => window.location.assign("/explore")}>Start another search</button></section>}
 
-        {data && (
-          <div className={styles.workspace}>
-            <section className={styles.placeBand}>
-              <div className={styles.placeIdentity}>
-                <span>Selected place</span>
-                <h1>{data.location.label}</h1>
-                <div><ShieldCheck size={19} aria-hidden="true" /><strong>{data.location.geographyLabel}</strong><span>{data.location.population > 0 ? `${formatNumber(data.location.population)} people` : "Population unavailable"}</span></div>
-                {data.location.resolution.original.kind !== "county" && (
-                  <p><MapPin size={18} aria-hidden="true" /> Search resolved from {data.location.resolution.original.label} to this county.</p>
-                )}
-                <p><Info size={18} aria-hidden="true" /> {data.location.caveats[0]}</p>
-              </div>
-              <LocationSearch compact onSelect={loadPlace} />
-            </section>
-
-            <div className={styles.workspaceToolbar}>
-              <div className={styles.tabs} role="tablist" aria-label="Explore views">
-                {(["brief", "map", "action", "visuals"] as const).map((view) => {
-                  const label = view[0].toUpperCase() + view.slice(1);
-                  const Icon = view === "brief" ? FileText : view === "map" ? MapTrifold : view === "action" ? ChatCircleDots : ChartBar;
-                  return <button key={view} id={`${view}-tab`} role="tab" aria-selected={activeView === view} aria-controls={`${view}-panel`} tabIndex={activeView === view ? 0 : -1} onClick={() => changeView(view)} onKeyDown={(event) => moveViewFocus(event, view)}><Icon size={20} aria-hidden="true" />{label}</button>;
-                })}
-              </div>
-              <div className={styles.workspaceActions}><button type="button" onClick={() => setDownloadOpen(true)}><DownloadSimple size={18} aria-hidden="true" /> Download brief</button><a href={partnershipHref}><UsersThree size={18} aria-hidden="true" /> Discuss this place</a></div>
-            </div>
-
-            {activeView === "brief" && <BriefView data={data} />}
-            {activeView === "map" && <MapView data={data} geometry={geometry} />}
-            {activeView === "action" && <ActionView data={data} />}
-            {activeView === "visuals" && <VisualsView data={data} />}
-          </div>
-        )}
-      </main>
-
-      <footer className={styles.footer}><BrandLockup /><p>Public place evidence for community planning. No patient profile, diagnosis or medical advice.</p><a href="/privacy">Privacy</a><a href="/accessibility">Accessibility</a><a href="/contact">Contact</a></footer>
-      {downloadOpen && data && <DownloadDialog data={data} onClose={() => setDownloadOpen(false)} />}
-    </div>
-  );
+      {error && <section className={styles.errorPanel} role="alert"><h1>County evidence is unavailable</h1><p>{error}</p>{requestState && <button type="button" onClick={()=>void loadPlace(requestState,requestState.county,requestState.view,"replace")}>Try again</button>}<p>Use the search above to choose another place.</p></section>}
+      {data && <div className={styles.workspace}>
+        <section className={styles.placeBand}>
+          <div className={styles.placeIdentity}><h1>{data.location.label}</h1><div><span>Census county · {data.location.geoid}</span><span>{data.location.population !== null && data.location.population > 0 ? `${formatNumber(data.location.population)} people` : "Population unavailable"}</span></div>
+          {data.location.resolution.original.kind !== "county" && <p>Search: {data.location.resolution.original.label}. Evidence describes this county.</p>}</div>
+        </section>
+        <div className={styles.workspaceToolbar}><div className={styles.tabs} role="tablist" aria-label="Explore views">
+          {(["brief","map","action","visuals"] as const).map(view=><button key={view} id={`${view}-tab`} role="tab" aria-selected={activeView===view} aria-controls={`${view}-panel`} tabIndex={activeView===view ? 0 : -1} onClick={()=>changeView(view)} onKeyDown={event=>moveViewFocus(event,view)}>{view[0].toUpperCase()+view.slice(1)}</button>)}
+        </div></div>
+        {activeView==="brief" && <BriefView data={data}/>}
+        {activeView==="map" && <MapView data={data} geometry={geometry} mapStatus={mapStatus}/>}
+        {activeView==="action" && <ActionView data={data}/>}
+        {activeView==="visuals" && <VisualsView data={data}/>}
+        <div className={styles.productContact}><a href={partnershipHref}>Discuss this place<ArrowRight size={18} aria-hidden="true"/></a><span>Interpret the evidence with local knowledge and licensed expertise.</span></div>
+      </div>}
+    </main>
+    <footer className={styles.footer}><a href="https://www.sozorockfoundation.org/">The SozoRock Foundation</a><p>© {new Date().getFullYear()} The SozoRock Foundation, Inc.</p><a href="/privacy">Privacy</a><a href="/terms">Terms</a><a href="/accessibility">Accessibility</a><a href="/contact">Contact</a></footer>
+    {downloadOpen && data && <DownloadDialog data={data} onClose={closeDownload}/>}
+  </div>;
 }

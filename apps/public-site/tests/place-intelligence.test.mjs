@@ -27,15 +27,16 @@ function metric(overrides = {}) {
   };
 }
 
-test("supports a Health Access Day only when strong signals and a practical barrier are present", () => {
+test("strong signals support local review rather than validate an intervention", () => {
   const metrics = [
     metric(),
     metric({ key: "bphigh", label: "High blood pressure", value: 41, national: 34, difference: 7 }),
     metric({ key: "lacktrpt", label: "Lack of reliable transportation", category: "Access barriers", value: 13, national: 8, difference: 5 }),
   ];
   const result = buildPlaceIntelligence({ location, metrics, priorities: metrics, localPlan: null });
-  assert.equal(result.healthAccessDay.status, "Supported");
-  assert.match(result.healthAccessDay.statement, /supports considering a Health Access Day/);
+  assert.equal(result.healthAccessDay.status, "Potentially supported");
+  assert.match(result.healthAccessDay.statement, /supports further local review/);
+  assert.ok(result.placeBasedResponses.every((response) => response.status !== "Supported"));
   assert.equal(result.practicalBarriers[0].status, "Supported");
 });
 

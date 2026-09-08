@@ -79,7 +79,7 @@ test("the public explorer exposes the approved Brief, Map, Action and Visuals wo
   for (const heading of [
     "SozoRock Place Intelligence",
     "What the local plan says",
-    "What the comparable data shows",
+    "What is known about this place",
     "A planning conversation with sources.",
     "No recommendation yet",
   ])
@@ -105,7 +105,7 @@ test("the explore route is discoverable", async () => {
   const sitemap = await source("app/sitemap.ts");
   const page = await source("app/explore/page.tsx");
   assert.match(sitemap, /\/explore/);
-  assert.match(page, /canonical: "\/explore"/);
+  assert.match(page, /healthMetadata\("SozoRock Place Intelligence", description, "\/explore"/);
 });
 
 test("the public map uses MapLibre with official boundaries and no decorative roads", async () => {
@@ -269,7 +269,7 @@ test("available measures remain visible when a compatible benchmark is missing",
   const component = await source("app/explore/ExploreClient.tsx");
   assert.doesNotMatch(route, /metric\.value === null \|\| national === null/);
   assert.match(route, /comparison_unavailable/);
-  assert.match(component, /Comparison unavailable/);
+  assert.match(component, /metric\.national === null \? "Unavailable"/);
   assert.match(component, /MetricDetails/);
   assert.match(component, /Universe/);
   assert.match(component, /Source/);
@@ -380,9 +380,9 @@ test("all compatible measures and source coverage remain available", async () =>
   const route = await source("app/api/explore/route.ts");
   assert.match(
     component,
-    /All \{data\.dataCoverage\.measureCount\} compatible measures/,
+    /All available measures/,
   );
-  assert.match(component, /availableContextMeasures\.map/);
+  assert.match(component, /data\.contextMeasures\.map/);
   assert.match(component, /Evidence coverage/);
   for (const key of [
     "chd",

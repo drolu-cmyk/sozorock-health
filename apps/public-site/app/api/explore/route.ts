@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { buildPlaceIntelligence } from "../../lib/place-intelligence";
 import {
   acsCountySource,
+  approvedCountyEvidenceSnapshot,
   ahrfCountySource,
   ahrqCountySource,
   getAcsCountyContext,
@@ -68,6 +69,16 @@ function interpretation(
 }
 
 export async function GET(request: NextRequest) {
+  const kindValue = request.nextUrl.searchParams.get("kind");
+  const kind = kindValue === "county" || kindValue === "place" || kindValue === "zip"
+    ? kindValue as ExploreKind : null;
+  if (!kind) return NextResponse.json({ error: "Choose a ZIP Code, city or county." }, { status: 400, headers: { "Cache-Control": "no-store" } });
+  const geoid = safeGeoid(kind, request.nextUrl.searchParams.get("geoid") ?? "");
+  if (!geoid) return NextResponse.json({ error: "Choose a valid U.S. place." }, { status: 400, headers: { "Cache-Control": "no-store" } });
+  const requestedCounty = request.nextUrl.searchParams.get("county");
+  if (requestedCounty !== null && !/^\d{5}$/.test(requestedCounty)) {
+    return NextResponse.json({ error: "Use a valid five-digit county identifier." }, { status: 400, headers: { "Cache-Control": "no-store" } });
+  }
   try {
     const rate = await enforceEvidenceRateLimit(request);
     if (!rate.allowed) {
@@ -95,15 +106,7 @@ export async function GET(request: NextRequest) {
       );
     }
   }
-  const kindValue = request.nextUrl.searchParams.get("kind");
-  const kind = kindValue === "county" || kindValue === "place" || kindValue === "zip"
-    ? kindValue as ExploreKind
-    : null;
-  if (!kind) return NextResponse.json({ error: "Choose a ZIP Code, city or county." }, { status: 400 });
-  const geoid = safeGeoid(kind, request.nextUrl.searchParams.get("geoid") ?? "");
-  if (!geoid) return NextResponse.json({ error: "Choose a valid U.S. place." }, { status: 400 });
   const originalLabel = (request.nextUrl.searchParams.get("query") ?? geoid).trim().slice(0, 160);
-  const requestedCounty = request.nextUrl.searchParams.get("county");
   const resolution = await resolveEvidenceCounty({
     kind,
     geoid,
@@ -138,6 +141,8 @@ export async function GET(request: NextRequest) {
   const evidence = await getPublishedCountyEvidence(evidenceGeoid);
   if (!evidence) return NextResponse.json({ error: "The approved evidence snapshot is temporarily unavailable." }, { status: 503 });
   const { brief, record } = evidence;
+  const comparisonSnapshotMatches = evidenceRuntimeEnvironment() === "test"
+    || approvedCountyEvidenceSnapshot.snapshotId.replace(/^snapshot:/, "sha256:") === placeAgentRuntimeVersions.snapshotContentHash;
   const stateBenchmark = stateCountyBenchmark(record.stateCode);
   const useFixtureOnlyForTests = evidenceRuntimeEnvironment() === "test";
   const persistentWorkforce = useFixtureOnlyForTests
@@ -162,16 +167,16 @@ export async function GET(request: NextRequest) {
     .map((field) => contextBySourceField.get(`census-acs5:${field}`))
     .find(Boolean)?.confidence.marginOfError ?? null;
   const acsContext = useFixtureOnlyForTests ? getAcsCountyContext(evidenceGeoid) : {
-    population: contextNumber("population", "B01001_001E"),
-    populationMoe: contextMoe("population", "B01001_001E"),
-    medianAge: contextNumber("medianAge", "B01002_001E"),
-    medianAgeMoe: contextMoe("medianAge", "B01002_001E"),
-    povertyPercent: contextNumber("povertyPercent", "B17001_002E / B17001_001E"),
-    povertyPercentMoe: contextMoe("povertyPercent", "B17001_002E / B17001_001E"),
-    noVehiclePercent: contextNumber("noVehiclePercent", "B08201_002E / B08201_001E"),
-    noVehiclePercentMoe: contextMoe("noVehiclePercent", "B08201_002E / B08201_001E"),
-    internetSubscriptionPercent: contextNumber("internetSubscriptionPercent", "B28002_002E / B28002_001E"),
-    internetSubscriptionPercentMoe: contextMoe("internetSubscriptionPercent", "B28002_002E / B28002_001E"),
+    population: contextNumber("population", "B01001_001E", "B01001_E001"),
+    populationMoe: contextMoe("population", "B01001_001E", "B01001_E001"),
+    medianAge: contextNumber("medianAge", "B01002_001E", "B01002_E001"),
+    medianAgeMoe: contextMoe("medianAge", "B01002_001E", "B01002_E001"),
+    povertyPercent: contextNumber("povertyPercent", "B17001_002E / B17001_001E", "B17001_E002 / B17001_E001"),
+    povertyPercentMoe: contextMoe("povertyPercent", "B17001_002E / B17001_001E", "B17001_E002 / B17001_E001"),
+    noVehiclePercent: contextNumber("noVehiclePercent", "B08201_002E / B08201_001E", "B08201_E002 / B08201_E001"),
+    noVehiclePercentMoe: contextMoe("noVehiclePercent", "B08201_002E / B08201_001E", "B08201_E002 / B08201_E001"),
+    internetSubscriptionPercent: contextNumber("internetSubscriptionPercent", "B28002_002E / B28002_001E", "B28002_E002 / B28002_E001"),
+    internetSubscriptionPercentMoe: contextMoe("internetSubscriptionPercent", "B28002_002E / B28002_001E", "B28002_E002 / B28002_E001"),
   };
   const workforceContext = useFixtureOnlyForTests ? getHrsaCountyContext(evidenceGeoid) : persistentWorkforce ?? { hpsa: [], muaP: [] };
   const ahrfContext = useFixtureOnlyForTests ? getAhrfCountyContext(evidenceGeoid) : {
@@ -212,8 +217,8 @@ export async function GET(request: NextRequest) {
     const path = paths[definition.key];
     if (!path) return [];
     const metric = record[path.group][path.field];
-    const national = nationalCountyBenchmark[path.group][path.field] ?? null;
-    const state = stateBenchmark[path.group][path.field] ?? null;
+    const national = comparisonSnapshotMatches ? nationalCountyBenchmark[path.group][path.field] ?? null : null;
+    const state = comparisonSnapshotMatches ? stateBenchmark[path.group][path.field] ?? null : null;
     if (!metric || metric.value === null) return [];
     const difference = national === null ? null : Number((metric.value - national).toFixed(1));
     const observation = cdcObservations.get(cdcMeasureDefinitionId(path.sourceMeasureId));
@@ -257,7 +262,7 @@ export async function GET(request: NextRequest) {
     geoid: evidenceGeoid,
     label: canonicalCountyLabel(record.county, record.stateCode),
     state: record.stateCode,
-    population: record.population ?? acsContext.population ?? 0,
+    population: record.population ?? acsContext.population ?? null,
     coordinates: [record.centroid.lon, record.centroid.lat],
     geographyLabel: "Official county or county-equivalent geography",
     geographyAuthority: "U.S. Census Bureau",
@@ -393,6 +398,8 @@ export async function GET(request: NextRequest) {
       : `Compatible modeled county evidence is available for ${location.label}; local priorities still require verified planning evidence and partner review.`,
     metrics,
     priorities,
+    snapshotContentHash: placeAgentRuntimeVersions.snapshotContentHash,
+    comparisonBasis: "Population-weighted means of available county estimates, using adult population where available and total population otherwise. These are contextual comparisons, not official state or U.S. prevalence estimates. Measure-specific eligible populations can differ from these weights.",
     dataCoverage: {
       measureCount: metrics.length + availableContextMeasureCount,
       currentMeasureCount: metrics.length,
@@ -403,6 +410,9 @@ export async function GET(request: NextRequest) {
       funderSnapshot: funderSnapshotEnabled,
     },
     contextMeasures,
+    provenanceNotice: brief.citations.some((citation) => citation.provenanceStatus === "incomplete")
+      ? "Some community estimates are withheld because their source variables are not fully documented in this release. Unavailable does not mean zero."
+      : null,
     offerings: [],
     intelligence,
     localPlan: {

@@ -21,6 +21,46 @@ const places = [
   { name: "Bexar County, TX", geoid: "48029" },
 ] as const;
 
+test("deep links preserve the selected view and measure and the download dialog returns focus", async ({ page }) => {
+  await page.goto("/explore?kind=county&geoid=36001&view=map&measure=diabetes");
+  await expect(page.getByRole("tab", { name: "Map", exact: true })).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByLabel("Compatible data layer")).toHaveValue("diabetes");
+  await page.getByLabel("Compatible data layer").selectOption("obesity");
+  await expect(page).toHaveURL(/measure=obesity/);
+  await page.reload();
+  await expect(page.getByLabel("Compatible data layer")).toHaveValue("obesity");
+  const download = page.getByRole("button", { name: "Download", exact: true });
+  await download.click();
+  await expect(page.getByRole("dialog")).toBeVisible();
+  await page.keyboard.press("Shift+Tab");
+  await expect(page.getByRole("button", { name: "Download place brief", exact: true })).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(download).toBeFocused();
+});
+
+test("evidence failure has an actionable retry without invented county data", async ({ page }) => {
+  await page.route("**/api/explore?*", (route) => route.fulfill({
+    status: 503, contentType: "application/json", body: JSON.stringify({ error: "The evidence source is temporarily unavailable." }),
+  }));
+  await page.goto("/explore?kind=county&geoid=36001&view=brief");
+  await expect(page.getByRole("heading", { name: "County evidence is unavailable" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Try again" })).toBeVisible();
+  await expect(page.getByRole("tablist")).toHaveCount(0);
+  await page.unroute("**/api/explore?*");
+  await page.getByRole("button", { name: "Try again" }).click();
+  await expect(page.getByRole("heading", { level: 1, name: "Albany County, NY" })).toBeVisible();
+});
+
+test("map failure preserves an accessible county measure", async ({ page }) => {
+  await page.route("**/api/explore/geometry?*", (route) => route.fulfill({status:503,body:"{}",contentType:"application/json"}));
+  await page.goto("/explore?kind=county&geoid=36001&view=map&measure=diabetes");
+  await expect(page.getByText("The official boundary is temporarily unavailable.")).toBeVisible();
+  await expect(page.getByLabel("Compatible data layer")).toHaveValue("diabetes");
+  await page.getByRole("tab", {name:"Brief",exact:true}).click();
+  await expect(page.getByRole("heading", {name:"What is known about this place"})).toBeVisible();
+});
+
 for (const place of places) {
   test(`${place.name} renders Brief, Map, Action and Visuals without viewport overflow`, async ({ page }, testInfo) => {
     await page.goto(`/explore?kind=county&geoid=${place.geoid}&view=brief`, { waitUntil: "domcontentloaded" });
