@@ -186,7 +186,7 @@ export async function GET(request: NextRequest) {
   };
   const workforceContext = useFixtureOnlyForTests ? getHrsaCountyContext(evidenceGeoid) : persistentWorkforce ?? { hpsa: [], muaP: [] };
   const ahrfContext = useFixtureOnlyForTests ? getAhrfCountyContext(evidenceGeoid) : {
-    observations: persistentContextObservations
+    observations: distinctRows(persistentContextObservations
       .filter((observation) => brief.publicData.sources.find((source) => source.sourceVersionId === observation.sourceVersionId)?.sourceId === "ahrf-workforce")
       .map((observation) => ({
         variableId: observation.measureDefinitionId,
@@ -195,10 +195,10 @@ export async function GET(request: NextRequest) {
         unit: observation.unit,
         year: observation.dataPeriod.end?.slice(0, 4) ?? observation.releaseDate.slice(0, 4),
         direction: observation.direction,
-      })),
+      }))),
   };
   const ahrqContext = useFixtureOnlyForTests ? getAhrqCountyContext(evidenceGeoid) : {
-    observations: persistentContextObservations
+    observations: distinctRows(persistentContextObservations
       .filter((observation) => brief.publicData.sources.find((source) => source.sourceVersionId === observation.sourceVersionId)?.sourceId === "ahrq-clh")
       .map((observation) => ({
         variableId: observation.measureDefinitionId,
@@ -211,11 +211,9 @@ export async function GET(request: NextRequest) {
         domain: "Approved county context",
         topic: observation.label,
         uncertainty: observation.confidence.marginOfError,
-      })),
+      }))),
   };
   const cdcSource = brief.publicData.sources.find((source) => source.sourceId === "cdc-places");
-  ahrfContext.observations = distinctRows(ahrfContext.observations);
-  ahrqContext.observations = distinctRows(ahrqContext.observations);
   const cdcObservations = indexCdcObservations(
     brief.publicData.observations,
     cdcSource?.sourceVersionId,
