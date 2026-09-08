@@ -79,7 +79,7 @@ jobs:
           test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$release_sha"
           echo "RELEASE_SHA=$release_sha" >> "$GITHUB_ENV"
       - name: Assume established Health production role
-        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
+        uses: aws-actions/configure-aws-credentials@cbe3b392738ccf3f987d68400dafcf4b0624a56c # v6.2.4
         with:
           role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
@@ -90,7 +90,7 @@ jobs:
           set -euo pipefail
           bash scripts/reconcile-foundation-recovery-trust.sh bridge "$RUNNER_TEMP/foundation-recovery-bridge"
       - name: Assume bounded temporary recovery role
-        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
+        uses: aws-actions/configure-aws-credentials@cbe3b392738ccf3f987d68400dafcf4b0624a56c # v6.2.4
         with:
           role-to-assume: ${{ env.RECOVERY_HELPER_ROLE_ARN }}
           role-session-name: FoundationTrustRepair-${{ github.run_id }}
@@ -106,7 +106,7 @@ jobs:
           touch "$RUNNER_TEMP/foundation-ai-lab-trust-repaired"
       - name: Re-establish Health production role for bridge cleanup
         if: always()
-        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
+        uses: aws-actions/configure-aws-credentials@cbe3b392738ccf3f987d68400dafcf4b0624a56c # v6.2.4
         with:
           role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
           role-session-name: FoundationTrustCleanup-${{ github.run_id }}
