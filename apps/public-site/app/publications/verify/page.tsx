@@ -42,8 +42,7 @@ export default async function ConfirmPublicationAccess({
             {hasVerification ? (
               <>
                 <p>
-                  Select continue to verify this email address and open a
-                  secure, time-limited publication download session.
+                  Confirm your email to open the publication download.
                 </p>
                 <form action="/api/publications/verify" method="post">
                   <button className={styles.primary} type="submit">

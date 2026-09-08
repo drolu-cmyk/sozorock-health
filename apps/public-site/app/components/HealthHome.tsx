@@ -16,8 +16,8 @@ const capabilities = [
     "evidence-intelligence",
   ],
   [
-    "Digital and provider readiness",
-    "Digital access, practical preparation and provider-led pathways that respect clinical roles and existing systems.",
+    "Digital readiness and assurance",
+    "Practical readiness, cybersecurity and evidence-based assurance for digital health systems.",
     "byop",
     "digital-readiness",
   ],
@@ -42,8 +42,8 @@ const spanishCapabilities = [
     "evidence-intelligence",
   ],
   [
-    "Preparación digital y de proveedores",
-    "Acceso digital, preparación práctica y vías dirigidas por proveedores que respetan sus funciones clínicas.",
+    "Preparación y aseguramiento digital",
+    "Preparación práctica, ciberseguridad y aseguramiento basado en evidencia para los sistemas de salud digitales.",
     "byop",
     "digital-readiness",
   ],
@@ -67,8 +67,8 @@ export function HealthHome({ spanish = false }: { spanish?: boolean }) {
             <h1 id="health-title">{title}</h1>
             <p className="hs-lead">
               {spanish
-                ? "SozoRock Health integra modelos de acceso comunitario, inteligencia territorial, preparación digital y desarrollo de la fuerza laboral para abordar las barreras prácticas que rodean la atención."
-                : "SozoRock Health brings together community access models, place-based intelligence, digital readiness and workforce development to address the practical barriers around care."}
+                ? "SozoRock Health desarrolla modelos de acceso comunitario, inteligencia territorial, aseguramiento digital y capacidad laboral para fortalecer los sistemas de salud y su rendición de cuentas."
+                : "SozoRock Health develops community access models, place-based intelligence, digital assurance and workforce capacity to help institutions build more accountable health systems."}
             </p>
             <div className="hs-actions">
               <a className="hs-primary" href="/work">

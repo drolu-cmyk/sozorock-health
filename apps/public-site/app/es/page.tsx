@@ -3,7 +3,7 @@ import { healthMetadata } from "../lib/health-metadata";
 export const metadata = {
   ...healthMetadata(
     "Sistemas para el acceso a la salud",
-    "Modelos de acceso comunitario, inteligencia territorial, preparación digital y desarrollo de la fuerza laboral. Conozca SozoRock Health.",
+    "Modelos de acceso comunitario, inteligencia territorial, aseguramiento digital y capacidad de la fuerza laboral. Conozca SozoRock Health.",
     "/es",
     { spanish: true },
   ),

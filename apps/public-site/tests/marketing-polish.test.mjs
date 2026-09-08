@@ -62,7 +62,7 @@ test("Health exposes its systems capabilities and preserves inquiry and evidence
   for (const label of [
     "Community access",
     "Evidence and intelligence",
-    "Digital and provider readiness",
+    "Digital readiness and assurance",
     "Workforce capacity",
   ])
     assert.ok(home.includes(label));

@@ -43,8 +43,8 @@ export default async function VerifiedPage({
             <p className={styles.status}>Email verified</p>
             <h1>{publication.shortTitle} is ready.</h1>
             <p>
-              Your verified access session is ready. Select the button below to
-              create a download link. The link expires after five minutes.
+              Download your copy below. If access expires, request a new link
+              from the publication page.
             </p>
             <a
               className={styles.primary}

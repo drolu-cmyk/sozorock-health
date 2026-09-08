@@ -5,7 +5,7 @@ import { healthMetadata } from "./lib/health-metadata";
 export const metadata: Metadata = {
   ...healthMetadata(
     "Systems for health access",
-    "Community access models, place-based intelligence, digital readiness and workforce development. Explore SozoRock Health's work and partnership opportunities.",
+    "Community access, place-based intelligence, digital assurance and workforce capacity. Explore SozoRock Health's systems, research and partnership opportunities.",
     "/",
   ),
   alternates: {
