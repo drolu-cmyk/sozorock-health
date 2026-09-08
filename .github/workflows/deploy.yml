@@ -246,6 +246,12 @@ jobs:
             '{app:$app,branch:$branch,outputs:$outputs}' | node scripts/evidence-deployment-environment.mjs)
           current_env=$(jq -c '.app' <<<"$reconciled_evidence_env")
           evidence_branch_env=$(jq -c '.branch' <<<"$reconciled_evidence_env")
+          identity_outputs=$(aws cloudformation describe-stacks --stack-name sozorock-explore-collaboration-production --query 'Stacks[0].Outputs' --output json)
+          workspace_pool=$(jq -er '.[] | select(.OutputKey=="CountyWorkspaceUserPoolId") | .OutputValue' <<<"$identity_outputs")
+          workspace_client=$(jq -er '.[] | select(.OutputKey=="CountyWorkspaceAppClientId") | .OutputValue' <<<"$identity_outputs")
+          identity_env=$(jq -n --arg pool "$workspace_pool" --arg client "$workspace_client" '{EXPLORE_COGNITO_USER_POOL_ID:$pool,EXPLORE_COGNITO_CLIENT_ID:$client}')
+          current_env=$(jq -c --argjson identity "$identity_env" '. + $identity' <<<"$current_env")
+          evidence_branch_env=$(jq -c --argjson identity "$identity_env" '. + $identity' <<<"$evidence_branch_env")
           public_build_spec=$(cat infrastructure/amplify/public-site.yml)
           merged_env=$(jq -c \
             --arg ct "$contact_table" --arg cn "$contact_topic" --arg cs "$contact_salt_arn" \

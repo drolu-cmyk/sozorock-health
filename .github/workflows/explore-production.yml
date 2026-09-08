@@ -366,11 +366,15 @@ jobs:
             --arg connections "$EXPLORE_ConnectionTable" \
             --arg websocket "$EXPLORE_WebSocketUrl" \
             --arg management "$EXPLORE_ManagementEndpoint" \
+            --arg pool "$EXPLORE_CountyWorkspaceUserPoolId" \
+            --arg client "$EXPLORE_CountyWorkspaceAppClientId" \
             --arg snapshot_hash "$EVIDENCE_SNAPSHOT_CONTENT_HASH" \
             --arg rate_table "$evidence_rate_table" \
             --arg rate_salt "$evidence_rate_salt_arn" \
             '. + {
               EVIDENCE_DATABASE_CLUSTER_ARN:$ca,
+              EXPLORE_COGNITO_USER_POOL_ID:$pool,
+              EXPLORE_COGNITO_CLIENT_ID:$client,
               EVIDENCE_DATABASE_SECRET_ARN:$sa,
               EVIDENCE_DATABASE_NAME:$db,
               EVIDENCE_ARTIFACT_BUCKET:$bucket,
@@ -395,9 +399,12 @@ jobs:
             --compute-role-arn "$PUBLIC_COMPUTE_ROLE_ARN" \
             --build-spec "$public_build_spec" \
             --environment-variables "$merged_env" >/dev/null
+          branch_env=$(aws amplify get-branch --app-id "$PUBLIC_APP_ID" --branch-name "$AMPLIFY_BRANCH" --query 'branch.environmentVariables' --output json)
+          branch_runtime_env=$(jq -c --argjson runtime "$merged_env" '. + ($runtime | with_entries(select(.key | startswith("EVIDENCE_") or startswith("EXPLORE_") or startswith("PLACE_AGENT_"))))' <<<"$branch_env")
           aws amplify update-branch \
             --app-id "$PUBLIC_APP_ID" \
             --branch-name "$AMPLIFY_BRANCH" \
+            --environment-variables "$branch_runtime_env" \
             --build-spec "$public_build_spec" >/dev/null
           expected_build_spec_hash=$(printf '%s' "$public_build_spec" | sha256sum | cut -d' ' -f1)
           for attempt in $(seq 1 12); do

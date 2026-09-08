@@ -272,11 +272,15 @@ jobs:
             --arg connections "$ConnectionTable" \
             --arg websocket "$WebSocketUrl" \
             --arg management "$ManagementEndpoint" \
+            --arg pool "$CountyWorkspaceUserPoolId" \
+            --arg client "$CountyWorkspaceAppClientId" \
             --arg snapshot_hash "$EVIDENCE_SNAPSHOT_CONTENT_HASH" \
             --arg rate_table "$evidence_rate_table" \
             --arg rate_salt "$evidence_rate_salt_arn" \
             '. + {
               EVIDENCE_DATABASE_CLUSTER_ARN:$cluster,
+              EXPLORE_COGNITO_USER_POOL_ID:$pool,
+              EXPLORE_COGNITO_CLIENT_ID:$client,
               EVIDENCE_DATABASE_SECRET_ARN:$secret,
               EVIDENCE_DATABASE_NAME:$database,
               EVIDENCE_ARTIFACT_BUCKET:$bucket,

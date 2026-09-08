@@ -9,6 +9,7 @@ import {
   VerifySoftwareTokenCommand,
 } from "@aws-sdk/client-cognito-identity-provider";
 import type { NextRequest } from "next/server";
+import { authenticateCognitoAuthority } from "./cognito-authority";
 
 export const FOUNDATION_ADMIN_COOKIE = "__Host-srh_foundation_admin";
 export const FOUNDATION_ADMIN_CHALLENGE_COOKIE = "__Host-srh_foundation_admin_challenge";
@@ -52,10 +53,11 @@ function tokenFromRequest(request: NextRequest) {
 }
 
 async function foundationIdentity(request: NextRequest) {
-  const { tenantId: expectedTenantId } = configuration();
+  const { tenantId: expectedTenantId, userPoolId, clientId } = configuration();
   const accessToken = tokenFromRequest(request);
   if (!accessToken) throw new Error("A valid Foundation administration session is required.");
-  const response = await cognito.send(new GetUserCommand({ AccessToken: accessToken }));
+  const response = await authenticateCognitoAuthority(accessToken, { userPoolId, clientId },
+    unchangedToken => cognito.send(new GetUserCommand({ AccessToken: unchangedToken })));
   const values = attributes(response.UserAttributes);
   const role = values.get("custom:workspace_role")?.trim();
   const access = values.get("custom:workspace_access")?.trim();

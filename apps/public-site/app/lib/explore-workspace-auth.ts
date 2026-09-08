@@ -8,6 +8,7 @@ import type {
   WorkspaceRole,
 } from "@sozorock/evidence-core";
 import type { NextRequest } from "next/server";
+import { authenticateCognitoAuthority } from "./cognito-authority";
 
 const cognito = new CognitoIdentityProviderClient({});
 const ROLES = new Set<WorkspaceRole>([
@@ -28,7 +29,10 @@ function bearer(request: NextRequest) {
 export async function requireWorkspaceActor(request: NextRequest): Promise<WorkspaceActor & {
   tenantId: string;
 }> {
-  const response = await cognito.send(new GetUserCommand({ AccessToken: bearer(request) }));
+  const response = await authenticateCognitoAuthority(bearer(request), {
+    userPoolId: process.env.EXPLORE_COGNITO_USER_POOL_ID,
+    clientId: process.env.EXPLORE_COGNITO_CLIENT_ID,
+  }, accessToken => cognito.send(new GetUserCommand({ AccessToken: accessToken })));
   const attributes = new Map(
     (response.UserAttributes ?? []).map((attribute) => [attribute.Name ?? "", attribute.Value ?? ""]),
   );
