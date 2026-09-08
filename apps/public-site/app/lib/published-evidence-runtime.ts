@@ -319,7 +319,7 @@ async function loadPublishedBriefFromEvidenceCore(geoid: string, expectedHash: s
       WHERE link.snapshot_id=CAST(:snapshot_id AS uuid)`,
     [{ name: "snapshot_id", value: { stringValue: snapshotUuid } }],
   );
-  const sourceVersions = (sourceVersionResult.records ?? []).map((row) => ({
+  const linkedSourceVersions = (sourceVersionResult.records ?? []).map((row) => ({
     id: text(field(row, 0)),
     sourceId: text(field(row, 1)),
     releaseDate: text(field(row, 2)),
@@ -332,7 +332,13 @@ async function loadPublishedBriefFromEvidenceCore(geoid: string, expectedHash: s
   // A published snapshot is usable only when every linked source version is
   // reviewed and at least one source version is present.  This prevents a
   // partially published or rollback-incomplete snapshot from being served.
-  if (!sourceVersions.length || sourceVersions.some((source) => source.reviewStatus !== "verified")) return null;
+  if (!linkedSourceVersions.length || linkedSourceVersions.some((source) => source.reviewStatus !== "verified")) return null;
+  // HRSA is a current designation register. Keep historical releases stored,
+  // but do not present superseded designations as current after a refresh.
+  const currentHrsa = linkedSourceVersions.filter(source => source.sourceId === "hrsa-workforce")
+    .sort((a, b) => b.releaseDate.localeCompare(a.releaseDate)
+      || b.retrievedAt.localeCompare(a.retrievedAt) || a.id.localeCompare(b.id))[0];
+  const sourceVersions = linkedSourceVersions.filter(source => source.sourceId !== "hrsa-workforce" || source.id === currentHrsa?.id);
   const selectedCdcSource = sourceVersions.find((source) => source.id === cdcSourceVersionId && source.sourceId === "cdc-places");
   if (!selectedCdcSource) return null;
   const censusGeographySource = sourceVersions.find((source) => source.sourceId === "census-geography");
@@ -678,6 +684,17 @@ export async function getPublishedWorkforceContext(geoid: string, expectedHash?:
       WHERE snapshot.content_hash=:snapshot_hash
         AND snapshot.review_status='verified' AND snapshot.published_at IS NOT NULL
         AND sv.review_status='verified' AND sv.source_id='hrsa-workforce'
+        AND sv.id=(
+          SELECT current_version.id
+            FROM evidence.snapshot_source_version current_link
+            JOIN evidence.source_version current_version ON current_version.id=current_link.source_version_id
+           WHERE current_link.snapshot_id=snapshot.id
+             AND current_version.source_id='hrsa-workforce'
+             AND current_version.review_status='verified'
+           ORDER BY current_version.release_date DESC NULLS LAST,
+                    current_version.retrieved_at DESC, current_version.id
+           LIMIT 1
+        )
         AND link.snapshot_id=snapshot.id
         AND g.authority='census' AND g.kind='county' AND g.authority_id=:geoid
         AND d.review_status='verified'
