@@ -18,7 +18,7 @@ import {
 } from "../../lib/published-evidence-runtime";
 import { exploreMetrics, safeGeoid, scoreMetric, type ExploreKind } from "../../lib/explore-health";
 import { enforceEvidenceRateLimit } from "../../lib/evidence-rate-limit";
-import { resolveEvidenceCounty } from "../../lib/county-resolution";
+import { resolveEvidenceCounty, isKnownCountyGeoid } from "../../lib/county-resolution";
 import { cdcMeasureDefinitionId, indexCdcObservations } from "../../lib/explore-cdc-metadata";
 import { canonicalCountyLabel } from "../../lib/explore-labels";
 import {
@@ -85,17 +85,23 @@ export async function GET(request: NextRequest) {
   if (requestedCounty !== null && !/^\d{5}$/.test(requestedCounty)) {
     return NextResponse.json({ error: "Use a valid five-digit county identifier." }, { status: 400, headers: { "Cache-Control": "no-store" } });
   }
+  if ((kind === "county" && !isKnownCountyGeoid(geoid))
+    || (requestedCounty && !isKnownCountyGeoid(requestedCounty))) {
+    return NextResponse.json({ error: "No county evidence is available for this identifier in the current geographic coverage." }, {
+      status: 404, headers: { "Cache-Control": "no-store" },
+    });
+  }
   try {
     const rate = await enforceEvidenceRateLimit(request);
     if (!rate.allowed) {
       return NextResponse.json(
-        { error: rate.retryAfter ? "Please wait before requesting more evidence." : "Evidence service configuration is incomplete." },
-        { status: rate.retryAfter ? 429 : 503, headers: rate.retryAfter ? { "Retry-After": String(rate.retryAfter) } : undefined },
+        { error: rate.retryAfter ? "Please wait before requesting more evidence." : "Evidence service is temporarily unavailable." },
+        { status: rate.retryAfter ? 429 : 503, headers: { "Cache-Control": "no-store", ...(rate.retryAfter ? { "Retry-After": String(rate.retryAfter) } : {}) } },
       );
     }
   } catch (error) {
     console.error("evidence-rate-limit-failed", { name: (error as { name?: string }).name ?? "UnknownError" });
-    return NextResponse.json({ error: "Evidence service is temporarily unavailable." }, { status: 503 });
+    return NextResponse.json({ error: "Evidence service is temporarily unavailable." }, { status: 503, headers: { "Cache-Control": "no-store" } });
   }
   if (process.env.NODE_ENV === "production") {
     try {
@@ -126,7 +132,7 @@ export async function GET(request: NextRequest) {
         : "No current county or county equivalent could be resolved for this search.",
       resolution,
       sourceCoverageStatus: resolution.status === "selection_required" ? "selection_required" : "incompatible_geography",
-    }, { status: resolution.status === "selection_required" ? 409 : 404 });
+    }, { status: resolution.status === "selection_required" ? 409 : 404, headers: { "Cache-Control": "no-store" } });
   }
   const evidenceGeoid = resolution.selectedCountyGeoid;
   if (process.env.NODE_ENV === "production") {
@@ -145,7 +151,7 @@ export async function GET(request: NextRequest) {
     }
   }
   const evidence = await getPublishedCountyEvidence(evidenceGeoid);
-  if (!evidence) return NextResponse.json({ error: "The approved evidence snapshot is temporarily unavailable." }, { status: 503 });
+  if (!evidence) return NextResponse.json({ error: "The approved evidence snapshot is temporarily unavailable." }, { status: 503, headers: { "Cache-Control": "no-store" } });
   const { brief, record } = evidence;
   const comparisonSnapshotMatches = evidenceRuntimeEnvironment() === "test"
     || approvedCountyEvidenceSnapshot.snapshotId.replace(/^snapshot:/, "sha256:") === placeAgentRuntimeVersions.snapshotContentHash;
@@ -460,7 +466,7 @@ export async function GET(request: NextRequest) {
     },
   }, {
     headers: {
-      "Cache-Control": "public, s-maxage=86400, stale-while-revalidate=604800",
+      "Cache-Control": "public, s-maxage=300, stale-while-revalidate=60",
       "X-Evidence-Snapshot": brief.evidenceSnapshotId,
       "X-Evidence-Contract": brief.contractVersion,
     },

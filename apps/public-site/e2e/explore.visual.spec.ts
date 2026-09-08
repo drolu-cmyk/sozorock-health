@@ -21,6 +21,14 @@ const places = [
   { name: "Bexar County, TX", geoid: "48029" },
 ] as const;
 
+test("invalid geography is rejected without masquerading as a service outage", async ({ request }) => {
+  for (const [query, status] of [["kind=county&geoid=invalid", 400], ["kind=invalid&geoid=36001", 400], ["kind=county&geoid=99999", 404]] as const) {
+    const response = await request.get(`/api/explore?${query}`);
+    expect(response.status()).toBe(status);
+    expect(response.headers()["cache-control"]).toBe("no-store");
+  }
+});
+
 test("deep links preserve the selected view and measure and the download dialog returns focus", async ({ page }) => {
   await page.goto("/explore?kind=county&geoid=36001&view=map&measure=diabetes");
   await expect(page.getByRole("tab", { name: "Map", exact: true })).toHaveAttribute("aria-selected", "true");

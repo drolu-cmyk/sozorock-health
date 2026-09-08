@@ -389,7 +389,7 @@ function LocationSearch({
     setQuery(result.display);
     setResults([]);
     setActiveIndex(-1);
-    setMessage(`Loading ${result.display}…`);
+    setMessage(`${result.display} selected.`);
     onSelect(result);
   }
 
