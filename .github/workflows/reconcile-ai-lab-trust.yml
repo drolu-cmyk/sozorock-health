@@ -1,4 +1,5 @@
 name: Reconcile AI Lab AWS trust
+# Reconcile the live role to the already-reviewed trust document, including Foundation main.
 
 on:
   push:
