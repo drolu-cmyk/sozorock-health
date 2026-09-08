@@ -22,10 +22,12 @@ const places = [
 ] as const;
 
 test("invalid geography is rejected without masquerading as a service outage", async ({ request }) => {
+  for (const endpoint of ["/api/explore", "/api/evidence/v1/place-brief"]) {
   for (const [query, status] of [["kind=county&geoid=invalid", 400], ["kind=invalid&geoid=36001", 400], ["kind=county&geoid=99999", 404]] as const) {
-    const response = await request.get(`/api/explore?${query}`);
+    const response = await request.get(`${endpoint}?${query}`);
     expect(response.status()).toBe(status);
     expect(response.headers()["cache-control"]).toBe("no-store");
+  }
   }
 });
 
