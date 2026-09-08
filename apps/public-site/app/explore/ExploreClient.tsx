@@ -1237,7 +1237,7 @@ export function ExploreClient({ initialState = null }: { initialState?: ExploreS
     <main id="explore-main" tabIndex={-1}>
       <div className={styles.commandBar}>
         <LocationSearch compact onSelect={loadPlace}/>
-        {data && <div className={styles.workspaceActions}><button onClick={shareView} type="button"><ShareNetwork size={20} aria-hidden="true"/>Share</button><button type="button" onClick={()=>setDownloadOpen(true)}><DownloadSimple size={20} aria-hidden="true"/>Download</button></div>}
+        {data && <div className={styles.workspaceActions}><button onClick={shareView} type="button"><ShareNetwork size={20} aria-hidden="true"/>Share</button><button type="button" onClick={(event)=>{ event.currentTarget.focus(); setDownloadOpen(true); }}><DownloadSimple size={20} aria-hidden="true"/>Download</button></div>}
       </div>
       {shareMessage && <p className={styles.shareStatus} role="status">{shareMessage}</p>}
       {shareFallback && <label className={styles.shareStatus}>Share link<input readOnly value={shareFallback} onFocus={event=>event.currentTarget.select()}/></label>}
