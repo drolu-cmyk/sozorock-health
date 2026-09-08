@@ -6,7 +6,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
   const publicationRoutes: MetadataRoute.Sitemap = publications.map(
     (publication) => ({
       url: `${base}/publications/${publication.slug}`,
-      lastModified: new Date("2026-07-11"),
+      lastModified: new Date("2026-09-07"),
       changeFrequency:
         publication.status === "Available" ? "monthly" : "weekly",
       priority: publication.status === "Available" ? 0.7 : 0.6,
@@ -42,7 +42,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     },
     {
       url: `${base}/publications`,
-      lastModified: new Date("2026-07-11"),
+      lastModified: new Date("2026-09-07"),
       changeFrequency: "weekly",
       priority: 0.8,
     },
@@ -61,25 +61,25 @@ export default function sitemap(): MetadataRoute.Sitemap {
     },
     {
       url: `${base}/privacy`,
-      lastModified: new Date("2026-07-11"),
+      lastModified: new Date("2026-09-07"),
       changeFrequency: "yearly",
       priority: 0.3,
     },
     {
       url: `${base}/terms`,
-      lastModified: new Date("2026-07-11"),
+      lastModified: new Date("2026-09-07"),
       changeFrequency: "yearly",
       priority: 0.3,
     },
     {
       url: `${base}/accessibility`,
-      lastModified: new Date("2026-07-11"),
+      lastModified: new Date("2026-09-07"),
       changeFrequency: "yearly",
       priority: 0.4,
     },
     {
       url: `${base}/nondiscrimination`,
-      lastModified: new Date("2026-07-11"),
+      lastModified: new Date("2026-09-07"),
       changeFrequency: "yearly",
       priority: 0.4,
     },
