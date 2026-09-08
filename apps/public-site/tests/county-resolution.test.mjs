@@ -1,6 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { resolveEvidenceCounty } from "../app/lib/county-resolution.ts";
+import { resolveEvidenceCounty, isKnownCountyGeoid } from "../app/lib/county-resolution.ts";
+
+test("county existence comes from the geographic catalog, independently of health-measure availability", () => {
+  assert.equal(isKnownCountyGeoid("36001"), true);
+  assert.equal(isKnownCountyGeoid("99999"), false);
+  assert.equal(isKnownCountyGeoid("invalid"), false);
+});
 
 test("a cross-county ZCTA returns every county and does not silently select one", async () => {
   const resolution = await resolveEvidenceCounty({ kind: "zip", geoid: "12010", label: "12010" });

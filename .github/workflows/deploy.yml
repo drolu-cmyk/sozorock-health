@@ -237,6 +237,21 @@ jobs:
           aws s3 sync infrastructure/assets/publications "s3://$publication_bucket/" --exclude '*' --include '*.pdf' --sse AES256 --only-show-errors
 
           current_env=$(aws amplify get-app --app-id "$PUBLIC_APP_ID" --query 'app.environmentVariables' --output json)
+          # The branch can override the app with an obsolete administrator
+          # secret. Resolve authority from the stack, preserve the approved
+          # snapshot, and never expand the public compute role's permissions.
+          branch_env=$(aws amplify get-branch --app-id "$PUBLIC_APP_ID" --branch-name "$AMPLIFY_BRANCH" --query 'branch.environmentVariables' --output json)
+          evidence_outputs=$(aws cloudformation describe-stacks --stack-name sozorock-health-evidence-production --query 'Stacks[0].Outputs' --output json)
+          reconciled_evidence_env=$(jq -n --argjson app "$current_env" --argjson branch "$branch_env" --argjson outputs "$evidence_outputs" \
+            '{app:$app,branch:$branch,outputs:$outputs}' | node scripts/evidence-deployment-environment.mjs)
+          current_env=$(jq -c '.app' <<<"$reconciled_evidence_env")
+          evidence_branch_env=$(jq -c '.branch' <<<"$reconciled_evidence_env")
+          identity_outputs=$(aws cloudformation describe-stacks --stack-name sozorock-explore-collaboration-production --query 'Stacks[0].Outputs' --output json)
+          workspace_pool=$(jq -er '.[] | select(.OutputKey=="CountyWorkspaceUserPoolId") | .OutputValue' <<<"$identity_outputs")
+          workspace_client=$(jq -er '.[] | select(.OutputKey=="CountyWorkspaceAppClientId") | .OutputValue' <<<"$identity_outputs")
+          identity_env=$(jq -n --arg pool "$workspace_pool" --arg client "$workspace_client" '{EXPLORE_COGNITO_USER_POOL_ID:$pool,EXPLORE_COGNITO_CLIENT_ID:$client}')
+          current_env=$(jq -c --argjson identity "$identity_env" '. + $identity' <<<"$current_env")
+          evidence_branch_env=$(jq -c --argjson identity "$identity_env" '. + $identity' <<<"$evidence_branch_env")
           public_build_spec=$(cat infrastructure/amplify/public-site.yml)
           merged_env=$(jq -c \
             --arg ct "$contact_table" --arg cn "$contact_topic" --arg cs "$contact_salt_arn" \
@@ -254,11 +269,7 @@ jobs:
           # Amplify can retain branch-level variables and build definitions
           # independently of app-level settings. Reconcile both layers so the
           # production branch cannot build with stale publication resources.
-          branch_env=$(aws amplify get-branch \
-            --app-id "$PUBLIC_APP_ID" \
-            --branch-name "$AMPLIFY_BRANCH" \
-            --query 'branch.environmentVariables' \
-            --output json)
+          branch_env="$evidence_branch_env"
           publication_branch_env=$(jq -c \
             --arg pt "$publication_table" --arg pb "$publication_bucket" \
             --arg mp "$PUBLICATION_EMAIL_PROVIDER" --arg gp "$PUBLICATION_GOOGLE_MAIL_PARAMETER" --arg pe "$PUBLICATION_EMAIL_FROM" --arg ps "$publication_salt_arn" \

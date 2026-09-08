@@ -105,6 +105,7 @@ jobs:
       PRODUCTION_URL: ${{ vars.PUBLIC_SITE_URL || 'https://health.sozorockfoundation.org' }}
       OPENAI_SECRET_ARN: ${{ secrets.OPENAI_SECRET_ARN }}
       RELEASE_SHA: ${{ github.sha }}
+      HEALTH_SYSTEM_COPY_ACCEPTANCE: "true"
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
@@ -251,7 +252,7 @@ jobs:
           set -euo pipefail
           if ! aws amplify get-branch --app-id "$PUBLIC_APP_ID" --branch-name "$STAGING_BRANCH" >/dev/null 2>&1; then
             aws amplify create-branch --app-id "$PUBLIC_APP_ID" --branch-name "$STAGING_BRANCH" \
-              --stage DEVELOPMENT --enable-auto-build >/dev/null
+              --stage DEVELOPMENT --no-enable-auto-build >/dev/null
           fi
           default_domain=$(aws amplify get-app --app-id "$PUBLIC_APP_ID" --query 'app.defaultDomain' --output text)
           branch_slug=$(tr '/_' '--' <<<"$STAGING_BRANCH")
@@ -272,11 +273,16 @@ jobs:
             --arg connections "$ConnectionTable" \
             --arg websocket "$WebSocketUrl" \
             --arg management "$ManagementEndpoint" \
+            --arg pool "$CountyWorkspaceUserPoolId" \
+            --arg client "$CountyWorkspaceAppClientId" \
             --arg snapshot_hash "$EVIDENCE_SNAPSHOT_CONTENT_HASH" \
             --arg rate_table "$evidence_rate_table" \
             --arg rate_salt "$evidence_rate_salt_arn" \
             '. + {
+              RUNTIME_ENV:"staging",
               EVIDENCE_DATABASE_CLUSTER_ARN:$cluster,
+              EXPLORE_COGNITO_USER_POOL_ID:$pool,
+              EXPLORE_COGNITO_CLIENT_ID:$client,
               EVIDENCE_DATABASE_SECRET_ARN:$secret,
               EVIDENCE_DATABASE_NAME:$database,
               EVIDENCE_ARTIFACT_BUCKET:$bucket,
@@ -296,7 +302,9 @@ jobs:
               EVIDENCE_SNAPSHOT_CONTENT_HASH:$snapshot_hash
             }' <<<"$branch_env")
           aws amplify update-branch --app-id "$PUBLIC_APP_ID" --branch-name "$STAGING_BRANCH" \
-            --environment-variables "$merged_env" >/dev/null
+            --environment-variables "$merged_env" \
+            --build-spec "$(cat infrastructure/amplify/public-site.yml)" \
+            --no-enable-auto-build >/dev/null
           echo "STAGING_EXPLORE_URL=$staging_url" >> "$GITHUB_ENV"
           npm run test:non-explore-regression --workspace @sozorock/public-site -- \
             capture "$PRODUCTION_URL" output/non-explore-regression
@@ -358,6 +366,9 @@ jobs:
       - name: Staging browser, national and two-session acceptance
         run: |
           set -euo pipefail
+          curl --fail --silent --show-error "$STAGING_EXPLORE_URL/api/health/version" \
+            | jq -e --arg sha "$RELEASE_SHA" --arg snapshot "$EVIDENCE_SNAPSHOT_CONTENT_HASH" \
+              '.commit == $sha and .snapshotContentHash == $snapshot' >/dev/null
           curl --fail --silent "$STAGING_EXPLORE_URL/explore" >/dev/null
           curl --fail --silent "$STAGING_EXPLORE_URL/api/evidence/v1/place-brief?kind=county&geoid=36001" \
             | jq -e '.contractVersion=="explore.place-brief.v1"' >/dev/null

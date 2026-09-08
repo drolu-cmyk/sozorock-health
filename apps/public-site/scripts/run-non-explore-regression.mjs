@@ -38,6 +38,14 @@ const defaultAllowedChangedPixelRatio = 0.0005;
 // for every other public route.
 const routePixelRatioLimits = new Map([["/publications", 0.003]]);
 const normalizedBaseUrl = baseUrl.replace(/\/$/, "");
+// Explicit Prompt 4 authorization includes these three Health copy surfaces.
+// All other routes retain the exact rendered-text and pixel comparison gate.
+const approvedHealthCopy = process.env.HEALTH_SYSTEM_COPY_ACCEPTANCE === "true";
+const approvedCopyChecks = new Map([
+  ["/", ["digital assurance", "workforce capacity", "Place Intelligence"]],
+  ["/es", ["aseguramiento digital", "Place Intelligence"]],
+  ["/publications", ["Research for stronger health systems.", "10.65473/rebs-v1-2025", "10.65473/rrg-v1-2025"]],
+]);
 
 function keyFor(route, viewport) {
   const routeKey = route === "/" ? "home" : route.slice(1).replaceAll("/", "-");
@@ -96,6 +104,14 @@ try {
       if (mode === "capture") {
         await writeFile(screenshotPath, screenshot);
         await writeFile(textPath, `${text}\n`, "utf8");
+      } else if (approvedHealthCopy && approvedCopyChecks.has(route)) {
+        for (const requiredText of approvedCopyChecks.get(route)) {
+          if (!text.includes(requiredText)) differences.push({key, kind:"approved_copy_missing", requiredText});
+        }
+        const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+        if (overflow > 1) differences.push({key, kind:"viewport_overflow", overflow});
+        await writeFile(path.join(evidenceDirectory, `${key}.approved-candidate.png`), screenshot);
+        await writeFile(path.join(evidenceDirectory, `${key}.approved-candidate.txt`), `${text}\n`, "utf8");
       } else {
         const baselineText = normalizeText(await readFile(textPath, "utf8"));
         if (baselineText !== text) {

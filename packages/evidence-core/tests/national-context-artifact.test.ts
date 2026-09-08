@@ -36,6 +36,23 @@ test("production national context is deterministic, source-governed, and county 
   assert.ok(albany);
   assert.equal(albany.acs.find((item) => item.sourceMeasureId === "B01001_E001")?.value, 317_018);
   assert.equal(albany.acs.length, 5);
+  for (const county of first.counties) {
+    for (const observation of county.acs) {
+      const provenance = observation.sourceMetadata;
+      assert.match(String(provenance.estimateField), /^B\d{5}_E\d{3}$/);
+      assert.match(String(provenance.marginOfErrorField), /^B\d{5}_M\d{3}$/);
+      assert.equal(provenance.table, String(provenance.estimateField).split("_")[0]);
+      if (provenance.numeratorVariableId) {
+        assert.equal(provenance.formula, `${provenance.numeratorVariableId} / ${provenance.denominatorVariableId} * 100`);
+        assert.equal(provenance.sourceVariableId, null);
+        const numerator = provenance.numerator;
+        const denominator = provenance.denominator;
+        if (typeof numerator === "number" && typeof denominator === "number" && denominator > 0) {
+          assert.equal(observation.value, Number((numerator / denominator * 100).toFixed(1)));
+        }
+      }
+    }
+  }
   assert.equal(albany.ahrf.length, 7);
   assert.equal(albany.ahrq.length, 7);
   assert.ok(albany.hpsa.every((designation: { designationDate?: string | null }) =>

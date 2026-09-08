@@ -12,6 +12,7 @@ import {
   evidenceRuntimeEnvironment,
   executeEvidenceSql,
 } from "./evidence-runtime-authority";
+import { currentContextSources } from "./evidence-source-selection";
 
 const STATE_CODES: Record<string, string> = {
   "01": "AL", "02": "AK", "04": "AZ", "05": "AR", "06": "CA", "08": "CO", "09": "CT",
@@ -179,7 +180,8 @@ function sourceProvenance(value: unknown, columns?: {
   };
 }
 
-const ACS_VARIABLE_ID = /^[A-Z][0-9]{5}_[0-9]{3}[A-Z]$/;
+// Census API and table-based Summary File use different, valid field orderings.
+const ACS_VARIABLE_ID = /^[A-Z][0-9]{5}_(?:[0-9]{3}[EM]|[EM][0-9]{3})$/;
 
 function normalizeAcsProvenance(provenance: ReturnType<typeof sourceProvenance>) {
   const sourceVariableId = provenance.sourceVariableId && ACS_VARIABLE_ID.test(provenance.sourceVariableId)
@@ -312,13 +314,13 @@ async function loadPublishedBriefFromEvidenceCore(geoid: string, expectedHash: s
   const sourceVersionResult = await executeEvidenceSql(
     `SELECT sv.id::text, sv.source_id, sv.release_date::text,
             sv.data_period_start::text, sv.data_period_end::text,
-            sv.retrieved_at::text, sv.official_url, sv.review_status::text
+            sv.retrieved_at::text, sv.official_url, sv.review_status::text, sv.reviewed_at::text
        FROM evidence.snapshot_source_version link
        JOIN evidence.source_version sv ON sv.id=link.source_version_id
       WHERE link.snapshot_id=CAST(:snapshot_id AS uuid)`,
     [{ name: "snapshot_id", value: { stringValue: snapshotUuid } }],
   );
-  const sourceVersions = (sourceVersionResult.records ?? []).map((row) => ({
+  const linkedSourceVersions = (sourceVersionResult.records ?? []).map((row) => ({
     id: text(field(row, 0)),
     sourceId: text(field(row, 1)),
     releaseDate: text(field(row, 2)),
@@ -327,11 +329,16 @@ async function loadPublishedBriefFromEvidenceCore(geoid: string, expectedHash: s
     retrievedAt: text(field(row, 5), generatedAt),
     officialUrl: text(field(row, 6)),
     reviewStatus: text(field(row, 7), "verified"),
+    reviewedAt: text(field(row, 8)),
   }));
   // A published snapshot is usable only when every linked source version is
   // reviewed and at least one source version is present.  This prevents a
   // partially published or rollback-incomplete snapshot from being served.
-  if (!sourceVersions.length || sourceVersions.some((source) => source.reviewStatus !== "verified")) return null;
+  if (!linkedSourceVersions.length || linkedSourceVersions.some((source) => source.reviewStatus !== "verified")) return null;
+  // Context sources are refreshed independently of the pinned CDC release.
+  // Keep their history stored, but show one current linked, reviewed release
+  // per source instead of mixing superseded estimates or designations.
+  const sourceVersions = currentContextSources(linkedSourceVersions);
   const selectedCdcSource = sourceVersions.find((source) => source.id === cdcSourceVersionId && source.sourceId === "cdc-places");
   if (!selectedCdcSource) return null;
   const censusGeographySource = sourceVersions.find((source) => source.sourceId === "census-geography");
@@ -677,6 +684,17 @@ export async function getPublishedWorkforceContext(geoid: string, expectedHash?:
       WHERE snapshot.content_hash=:snapshot_hash
         AND snapshot.review_status='verified' AND snapshot.published_at IS NOT NULL
         AND sv.review_status='verified' AND sv.source_id='hrsa-workforce'
+        AND sv.id=(
+          SELECT current_version.id
+            FROM evidence.snapshot_source_version current_link
+            JOIN evidence.source_version current_version ON current_version.id=current_link.source_version_id
+           WHERE current_link.snapshot_id=snapshot.id
+             AND current_version.source_id='hrsa-workforce'
+             AND current_version.review_status='verified'
+           ORDER BY current_version.release_date DESC NULLS LAST,
+                    current_version.retrieved_at DESC, current_version.reviewed_at DESC NULLS LAST, current_version.id
+           LIMIT 1
+        )
         AND link.snapshot_id=snapshot.id
         AND g.authority='census' AND g.kind='county' AND g.authority_id=:geoid
         AND d.review_status='verified'

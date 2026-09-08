@@ -474,3 +474,5 @@
 .listCoverLink span {
   font-size: 14px;
 }
+
+.publicationDoi { font-size: 13px; overflow-wrap: anywhere; }

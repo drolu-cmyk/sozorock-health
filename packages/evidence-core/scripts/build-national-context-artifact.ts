@@ -21,6 +21,27 @@ function sourceVersion(sourceId: string, contentHash: string) {
   return `${sourceId}:${contentHash}`;
 }
 
+function acsProvenance(variables: Record<string, string>) {
+  const direct = variables.estimate;
+  const numerator = variables.numerator;
+  const denominator = variables.denominator;
+  const estimate = direct ?? numerator;
+  const validField = (field: string | undefined) => Boolean(field && /^B[0-9]{5}_E[0-9]{3}$/.test(field));
+  if (!validField(estimate) || (!direct && !validField(denominator))) {
+    throw new Error("ACS artifact is missing its verified Summary File variables.");
+  }
+  const table = estimate.split("_")[0];
+  return {
+    sourceVariableId: direct ?? null,
+    numeratorVariableId: numerator ?? null,
+    denominatorVariableId: denominator ?? null,
+    table, group: table, estimateField: estimate,
+    marginOfErrorField: variables.marginOfError ?? estimate.replace("_E", "_M"),
+    formula: direct ? null : `${numerator} / ${denominator} * 100`,
+    transformationVersion: direct ? null : "sozorock.acs-derived-percent.v1",
+  };
+}
+
 function isoDate(value: unknown) {
   if (typeof value !== "string" || !value) return null;
   const match = value.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
@@ -190,11 +211,11 @@ export async function buildNationalContextArtifact() {
   const counties = countyFips.map((fips) => {
     const acsRecord = acs.records[fips];
     const acsMeasures = [
-      measure({ sourceId: "census-acs5", sourceMeasureId: "B01001_E001", name: "Total population", description: "ACS five-year estimate of the total population.", unit: "count", universe: "Total population", direction: "contextual", value: acsRecord.population, marginOfError: acsRecord.populationMoe }),
-      measure({ sourceId: "census-acs5", sourceMeasureId: "B01002_E001", name: "Median age", description: "ACS five-year estimate of median age in years.", unit: "index", universe: "Total population", direction: "contextual", value: acsRecord.medianAge, marginOfError: acsRecord.medianAgeMoe, sourceMetadata: { displayUnit: "years" } }),
-      measure({ sourceId: "census-acs5", sourceMeasureId: "B17001_PERCENT_BELOW_POVERTY", name: "Population below the poverty level", description: "ACS five-year percentage of people below the poverty level.", unit: "percent", universe: "Population for whom poverty status is determined", direction: "adverse", value: acsRecord.povertyPercent, marginOfError: acsRecord.povertyPercentMoe, sourceMetadata: { numerator: acsRecord.povertyNumerator, denominator: acsRecord.povertyDenominator } }),
-      measure({ sourceId: "census-acs5", sourceMeasureId: "B08201_PERCENT_NO_VEHICLE", name: "Households with no vehicle available", description: "ACS five-year percentage of households with no vehicle available.", unit: "percent", universe: "Households", direction: "adverse", value: acsRecord.noVehiclePercent, marginOfError: acsRecord.noVehiclePercentMoe, sourceMetadata: { numerator: acsRecord.noVehicleNumerator, denominator: acsRecord.noVehicleDenominator } }),
-      measure({ sourceId: "census-acs5", sourceMeasureId: "B28002_PERCENT_INTERNET_SUBSCRIPTION", name: "Households with an internet subscription", description: "ACS five-year percentage of households with an internet subscription.", unit: "percent", universe: "Households", direction: "protective", value: acsRecord.internetSubscriptionPercent, marginOfError: acsRecord.internetSubscriptionPercentMoe, sourceMetadata: { numerator: acsRecord.internetSubscriptionNumerator, denominator: acsRecord.internetSubscriptionDenominator } }),
+      measure({ sourceId: "census-acs5", sourceMeasureId: "B01001_E001", name: "Total population", description: "ACS five-year estimate of the total population.", unit: "count", universe: "Total population", direction: "contextual", value: acsRecord.population, marginOfError: acsRecord.populationMoe, sourceMetadata: acsProvenance(acs.source.variables.population) }),
+      measure({ sourceId: "census-acs5", sourceMeasureId: "B01002_E001", name: "Median age", description: "ACS five-year estimate of median age in years.", unit: "index", universe: "Total population", direction: "contextual", value: acsRecord.medianAge, marginOfError: acsRecord.medianAgeMoe, sourceMetadata: { ...acsProvenance(acs.source.variables.medianAge), displayUnit: "years" } }),
+      measure({ sourceId: "census-acs5", sourceMeasureId: "B17001_PERCENT_BELOW_POVERTY", name: "Population below the poverty level", description: "ACS five-year percentage of people below the poverty level.", unit: "percent", universe: "Population for whom poverty status is determined", direction: "adverse", value: acsRecord.povertyPercent, marginOfError: acsRecord.povertyPercentMoe, sourceMetadata: { ...acsProvenance(acs.source.variables.povertyPercent), numerator: acsRecord.povertyNumerator, denominator: acsRecord.povertyDenominator } }),
+      measure({ sourceId: "census-acs5", sourceMeasureId: "B08201_PERCENT_NO_VEHICLE", name: "Households with no vehicle available", description: "ACS five-year percentage of households with no vehicle available.", unit: "percent", universe: "Households", direction: "adverse", value: acsRecord.noVehiclePercent, marginOfError: acsRecord.noVehiclePercentMoe, sourceMetadata: { ...acsProvenance(acs.source.variables.noVehiclePercent), numerator: acsRecord.noVehicleNumerator, denominator: acsRecord.noVehicleDenominator } }),
+      measure({ sourceId: "census-acs5", sourceMeasureId: "B28002_PERCENT_INTERNET_SUBSCRIPTION", name: "Households with an internet subscription", description: "ACS five-year percentage of households with an internet subscription.", unit: "percent", universe: "Households", direction: "protective", value: acsRecord.internetSubscriptionPercent, marginOfError: acsRecord.internetSubscriptionPercentMoe, sourceMetadata: { ...acsProvenance(acs.source.variables.internetSubscriptionPercent), numerator: acsRecord.internetSubscriptionNumerator, denominator: acsRecord.internetSubscriptionDenominator } }),
     ];
     const ahrfMeasures = ahrf.counties[fips].observations.map((observation: any) => measure({
       sourceId: "ahrf-workforce",

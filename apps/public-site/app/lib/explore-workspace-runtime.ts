@@ -139,7 +139,7 @@ export async function createCountyWorkspace(input: {
          CAST(:snapshot_id AS uuid), :title, 'active', 1, :policy_version,
          now(), :created_by, now()
        )
-       ON CONFLICT (tenant_id, geography_id) WHERE status = 'active'
+       ON CONFLICT (tenant_id, geography_id) WHERE status = 'active' AND parent_workspace_id IS NULL
        DO UPDATE SET updated_at=evidence.county_workspace.updated_at
        RETURNING id::text, title, version`,
       [

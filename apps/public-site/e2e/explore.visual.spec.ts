@@ -21,6 +21,79 @@ const places = [
   { name: "Bexar County, TX", geoid: "48029" },
 ] as const;
 
+test("invalid geography is rejected without masquerading as a service outage", async ({ request }) => {
+  for (const endpoint of ["/api/explore", "/api/evidence/v1/place-brief"]) {
+  for (const [query, status] of [["kind=county&geoid=invalid", 400], ["kind=invalid&geoid=36001", 400], ["kind=county&geoid=99999", 404]] as const) {
+    const response = await request.get(`${endpoint}?${query}`);
+    expect(response.status()).toBe(status);
+    expect(response.headers()["cache-control"]).toBe("no-store");
+  }
+  }
+});
+
+test("deep links preserve the selected view and measure and the download dialog returns focus", async ({ page }) => {
+  await page.goto("/explore?kind=county&geoid=36001&view=map&measure=diabetes");
+  await expect(page.getByRole("tab", { name: "Map", exact: true })).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByLabel("Compatible data layer")).toHaveValue("diabetes");
+  await page.getByLabel("Compatible data layer").selectOption("obesity");
+  await expect(page).toHaveURL(/measure=obesity/);
+  await page.reload();
+  await expect(page.getByLabel("Compatible data layer")).toHaveValue("obesity");
+  const download = page.getByRole("button", { name: "Download", exact: true });
+  await download.click();
+  await expect(page.getByRole("dialog")).toBeVisible();
+  await page.keyboard.press("Shift+Tab");
+  await expect(page.getByRole("button", { name: "Download place brief", exact: true })).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(download).toBeFocused();
+});
+
+test("evidence failure has an actionable retry without invented county data", async ({ page }) => {
+  await page.route("**/api/explore?*", (route) => route.fulfill({
+    status: 503, contentType: "application/json", body: JSON.stringify({ error: "The evidence source is temporarily unavailable." }),
+  }));
+  await page.goto("/explore?kind=county&geoid=36001&view=brief");
+  await expect(page.getByRole("heading", { name: "County evidence is unavailable" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Try again" })).toBeVisible();
+  await expect(page.getByRole("tablist")).toHaveCount(0);
+  await page.unroute("**/api/explore?*");
+  await page.getByRole("button", { name: "Try again" }).click();
+  await expect(page.getByRole("heading", { level: 1, name: "Albany County, NY" })).toBeVisible();
+});
+
+test("map failure preserves an accessible county measure", async ({ page }) => {
+  await page.route("**/api/explore/geometry?*", (route) => route.fulfill({status:503,body:"{}",contentType:"application/json"}));
+  await page.goto("/explore?kind=county&geoid=36001&view=map&measure=diabetes");
+  await expect(page.getByText("The official boundary is temporarily unavailable.")).toBeVisible();
+  await expect(page.getByLabel("Compatible data layer")).toHaveValue("diabetes");
+  await page.getByRole("tab", {name:"Brief",exact:true}).click();
+  await expect(page.getByRole("heading", {name:"What is known about this place"})).toBeVisible();
+});
+
+test("enabled evidence and download actions meet text contrast requirements", async ({ page }) => {
+  await page.goto("/explore?kind=county&geoid=36001&view=brief");
+  await page.getByRole("button", { name: "Download", exact: true }).click();
+  const contrast = async (name: string) => page.getByRole("button", { name, exact: true }).evaluate(element => {
+    const style = getComputedStyle(element);
+    const luminance = (color: string) => {
+      const channels = color.match(/[\d.]+/g)!.slice(0, 3).map(Number).map(value => {
+        const channel = value / 255;
+        return channel <= .04045 ? channel / 12.92 : ((channel + .055) / 1.055) ** 2.4;
+      });
+      return channels[0] * .2126 + channels[1] * .7152 + channels[2] * .0722;
+    };
+    const foreground = luminance(style.color), background = luminance(style.backgroundColor);
+    return (Math.max(foreground, background) + .05) / (Math.min(foreground, background) + .05);
+  });
+  expect(await contrast("Download place brief")).toBeGreaterThanOrEqual(4.5);
+  await page.keyboard.press("Escape");
+  await page.getByRole("tab", { name: "Action", exact: true }).click();
+  await page.getByLabel("Question about Albany County, NY").fill("What do these county measures mean?");
+  await expect(page.getByRole("button", { name: "Ask Place Intelligence", exact: true })).toBeEnabled();
+  expect(await contrast("Ask Place Intelligence")).toBeGreaterThanOrEqual(4.5);
+});
+
 for (const place of places) {
   test(`${place.name} renders Brief, Map, Action and Visuals without viewport overflow`, async ({ page }, testInfo) => {
     await page.goto(`/explore?kind=county&geoid=${place.geoid}&view=brief`, { waitUntil: "domcontentloaded" });

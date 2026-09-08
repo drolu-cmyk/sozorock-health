@@ -26,6 +26,14 @@ type ResolutionIndex = {
 };
 
 const resolutionIndex = resolutionIndexJson as ResolutionIndex;
+const searchCatalog = createRequire(import.meta.url)(
+  "../../../../packages/evidence-core/data/national/geography-search-index.v1.json",
+) as { records: Array<{kind:string;geoid:string}> };
+const knownCountyGeoids = new Set(searchCatalog.records.filter((item) => item.kind === "county").map((item) => item.geoid));
+
+export function isKnownCountyGeoid(geoid: string) {
+  return knownCountyGeoids.has(geoid);
+}
 
 export type CountyResolutionCandidate = {
   countyGeoid: string;

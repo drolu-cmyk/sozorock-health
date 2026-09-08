@@ -35,7 +35,7 @@ type PlaceIntelligenceInput = {
     geoid: string;
     label: string;
     state: string;
-    population: number;
+    population: number | null;
   };
   metrics: PlaceIntelligenceMetric[];
   priorities: PlaceIntelligenceMetric[];
@@ -145,18 +145,13 @@ export function buildPlaceIntelligence({
     .filter((metric) => metric.category === "Prevention")
     .sort((a, b) => b.score - a.score);
 
-  const healthAccessDayStatus: EvidenceStatus =
-    (strongSignals.length >= 2 && supportedAccessSignals.length >= 1) ||
-    (Boolean(localPlan) && strongSignals.length >= 1)
-      ? "Supported"
-      : strongSignals.length >= 1
-        ? "Potentially supported"
-        : "Insufficient evidence";
+  // Population estimates can justify local review, not validate an intervention.
+  const healthAccessDayStatus: EvidenceStatus = strongSignals.length >= 1
+    ? "Potentially supported"
+    : "Insufficient evidence";
 
   const healthAccessDayStatement =
-    healthAccessDayStatus === "Supported"
-      ? `The current evidence supports considering a Health Access Day in ${location.label}, subject to local confirmation and licensed-professional participation.`
-      : healthAccessDayStatus === "Potentially supported"
+    healthAccessDayStatus === "Potentially supported"
         ? `The current evidence supports further local review of a Health Access Day in ${location.label}; more current local planning context would strengthen the decision.`
         : `The measures currently available do not establish a strong enough case for a Health Access Day in ${location.label}.`;
 
@@ -272,7 +267,7 @@ export function buildPlaceIntelligence({
   ];
 
   const locationSummary = `${location.label} is a U.S. ${geographyLabel(location.kind)}${
-    location.population > 0
+    location.population !== null && location.population > 0
       ? ` with an estimated population of ${number.format(location.population)}`
       : ""
   }. ${strongest ? `${strongest.label} is the strongest signal among the measures currently available.` : "The current source set has limited compatible measures for this place."}`;
@@ -310,7 +305,10 @@ export function buildPlaceIntelligence({
       status: statusForDifference(metric.difference),
     })),
     practicalBarriers,
-    placeBasedResponses,
+    placeBasedResponses: placeBasedResponses.map((response) => ({
+      ...response,
+      status: response.status === "Supported" ? "Potentially supported" : response.status,
+    })),
     geospatialInsights: [
       {
         title: "Selected-place boundary",

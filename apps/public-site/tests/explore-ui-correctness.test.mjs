@@ -29,15 +29,15 @@ test("Explore reports one available-measure count and hides disabled exports", a
   assert.match(route, /funderSnapshot: funderSnapshotEnabled/);
   assert.match(
     component,
-    /All \{data\.dataCoverage\.measureCount\} compatible measures/,
+    /All available measures/,
   );
-  assert.match(component, /availableContextMeasures\.map/);
+  assert.match(component, /data\.contextMeasures\.map/);
   assert.doesNotMatch(
     component,
     /data\.metrics\.length \+ data\.contextMeasures\.length/,
   );
   assert.match(component, /data\.capabilities\.funderSnapshot/);
-  assert.match(component, /Funder snapshot available after reviewed release/);
+  assert.doesNotMatch(component, /Funder snapshot available after reviewed release/);
 });
 
 test("a post-ready MapLibre error does not replace healthy geometry", async () => {
@@ -66,9 +66,9 @@ test("Explore owns its X metadata and route-specific structured data", async () 
     "https://health.sozorockfoundation.org/#webpage",
   );
   assert.match(explore, /twitter: \{/);
-  assert.match(explore, /SozoRock Place Intelligence \| SozoRock Health/);
-  assert.match(explore, /`\$\{siteUrl\}\/explore#webpage`/);
-  assert.match(explore, /"@type": "SoftwareApplication"/);
+  assert.match(explore, /healthMetadata\("SozoRock Place Intelligence"/);
+  assert.match(explore, /`\$\{healthOrigin\}\/explore#webpage`/);
+  assert.match(explore, /"@type": "WebApplication"/);
 });
 
 test("favicon.ico returns genuine icon bytes directly", async () => {

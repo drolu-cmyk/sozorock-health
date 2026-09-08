@@ -23,10 +23,10 @@ export default async function PublicationsPage({
         <main id="health-main" className={styles.main}>
           <div className={styles.formIntro}>
             <p>Publications</p>
-            <h1>Research to put to work.</h1>
+            <h1>Research for stronger health systems.</h1>
             <p>
-              Explore frameworks for rural equity, public governance and health
-              systems assurance by Oluwabiyi Adeyemo.
+              Rural equity. Public governance. Health systems assurance.
+              Explore the frameworks by Oluwabiyi Adeyemo and put the research to work.
             </p>
           </div>
           {verification ? (
@@ -42,12 +42,10 @@ export default async function PublicationsPage({
             {publications.map((publication) => (
               <article key={publication.slug} className={styles.listItem}>
                 {publication.cover ? (
-                  <a
+                  <Link
                     className={styles.listCoverLink}
-                    href={publication.cover}
-                    target="_blank"
-                    rel="noreferrer"
-                    aria-label={`View the full-resolution front cover of ${publication.title}`}
+                    href={`/publications/${publication.slug}`}
+                    aria-label={`Read about ${publication.title}`}
                   >
                     <Image
                       src={publication.previewCover ?? publication.cover}
@@ -57,8 +55,7 @@ export default async function PublicationsPage({
                       quality={95}
                       sizes="(max-width: 700px) 110px, 200px"
                     />
-                    <span>View full-resolution cover</span>
-                  </a>
+                  </Link>
                 ) : (
                   <div className={styles.listPlaceholder}>Publication</div>
                 )}
@@ -66,8 +63,9 @@ export default async function PublicationsPage({
                   <p className={styles.status}>{publication.status}</p>
                   <h2>{publication.title}</h2>
                   <p>{publication.description}</p>
+                  {publication.doi && <p className={styles.publicationDoi}><a href={`https://doi.org/${publication.doi}`}>DOI: {publication.doi}</a></p>}
                   <Link href={`/publications/${publication.slug}`}>
-                    View publication
+                    Read overview and access publication
                   </Link>
                 </div>
               </article>
