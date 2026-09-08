@@ -1,27 +1,24 @@
-# SozoRock Health Design QA
+# Health redesign — Prompt 3 design acceptance
 
-Status: **Passed for release**
+Reviewed 2026-09-07 against the user-approved revised Option 2 image. This record supersedes the earlier navigation-led review. Implementation: e6813ae050d8481a4936a5cc13e37ee63cabb227.
 
-Reference: approved Direction 3 system with Direction 2 warmth
+VERIFIED: local design acceptance passed. Production acceptance is recorded separately after release.
 
-Verification sizes: 1440 x 900 desktop and Pixel 7 mobile viewport
+## Reference comparison
 
-## Side-by-side findings
+- Desktop: the white/cobalt 52/48 opening, Instrument Sans, large headline, four capability disclosures and short evidence/publications entry retain the approved composition. Actual 1418px screenshot reviewed alongside the 1418px reference.
+- Positioning: “Building the systems that make health access possible.” Community access, evidence and intelligence, digital and provider readiness, and workforce capacity are the four areas. Navigation is not the umbrella proposition.
+- Deliberate differences: the Spanish entry is retained; disclosures have working deeper links; the footer contains the verified Foundation relationship and complete legal routes. These make the page taller than the concept image.
+- Mobile/tablet: 390px and 768px full-page captures reviewed. Mobile has full-width actions, menu disclosure, compact headings and a single evidence-link column. Tablet has a full-width opening and two evidence links. No hero bitmap or crop is required.
+- Clinical responsibility is stated concisely near the opening and expanded where relevant. No diagnosis, treatment, prescribing or clinical-provider claims.
+- Explore: no product component or module stylesheet changed. Before/after typography, colors, dimensions and screenshots were compared. Its redesign remains a separate assignment.
 
-1. **Copy and hierarchy — pass.** The implementation preserves the approved lead idea, “Access shouldn’t depend on your ZIP code,” and turns it into the dominant editorial headline with a single nationwide search action.
-2. **Layout — pass.** The desktop hero retains the reference’s split editorial composition while replacing decorative geography with a real U.S. county map. Mobile reflows to one clear reading order without horizontal overflow or hidden primary content.
-3. **Typography — pass.** High-contrast editorial serif headlines, compact uppercase labels, and restrained sans-serif body copy match the approved premium system while remaining readable at mobile sizes.
-4. **Palette and warmth — pass.** Ivory, ink, moss, cobalt, coral, and harvest gold reproduce Direction 3’s information clarity and borrow Direction 2’s rural warmth. Color is used for hierarchy and state, not decoration alone.
-5. **Assets and credibility — pass.** The production build uses the approved SozoRock wordmark, real U.S. county geometry, rural imagery derived from the approved publication, and the actual publication covers and PDFs. No placeholder map or decorative analytics remain.
-6. **Responsive behavior — pass.** Navigation collapses to a mobile control; search, cards, resident preview, charts, publications, and the contact form stack cleanly in a touch viewport. Controls retain adequate target size and visible focus treatment.
-7. **Product boundaries — pass.** Nationwide availability, state licensure, non-clinical scope, illustrative CB-CAP data, privacy suppression, and county-interest access are stated directly in the public experience.
+## Executed checks
 
-## Deliberate implementation differences
+VERIFIED: 72 production-build route/viewport cases across 18 routes and 1418, 768, 390 and 320 CSS-pixel widths. No overflow, broken images, encoding errors, unexpected HTTP statuses or browser page errors. One H1 per page.
 
-- The reference’s static map has been replaced by searchable county-level geography so the hero provides real value.
-- The implementation adds deeper resident, provider, county, AI, publications, and contact sections required for a complete marketable site.
-- Publication-led rural imagery is used instead of stock visual filler to keep the story tied to the intellectual foundation of the platform.
+VERIFIED: axe WCAG 2 A/AA, 2.1 AA and 2.2 AA checks on 11 representative routes returned zero violations and zero incomplete checks. Mobile menu, Escape/focus return, native capability disclosure, reduced motion, contact interest preselection and form validation passed. Contact API error/success responses were simulated without duplicate inquiries.
 
-## Release decision
+VERIFIED: application/repository tests, typecheck, lint, build, runtime checks, dependency audit and CodeQL passed. CI 34173926460 includes PostgreSQL migrations and secret/runtime scans.
 
-The implementation clears the approved visual and product bar for deployment. Final acceptance also requires live checks of county search, mobile navigation, contact submission, CB-CAP filters, and downloadable exports after the release is promoted.
+UNVERIFIED: comprehensive screen-reader and real-device Safari/Firefox acceptance; field INP and sustained real-user Core Web Vitals. Automated and Chromium checks do not establish full conformance. Local measurements are lab samples. Existing Explore backend findings are not repaired by this visual release.
