@@ -131,6 +131,7 @@ try {
   if (!immutableGuardPassed) throw new Error("Immutable execution-audit trigger did not reject mutation.");
 
   let workspaceEventImmutableGuardPassed = false;
+  let rootWorkspaceAndForkPassed = false;
   let workspaceEventMutationError: unknown = null;
   await client.query("BEGIN");
   try {
@@ -173,9 +174,47 @@ try {
          'test','recorded',now()
        )`,
     );
-    await client.query(
-      "UPDATE evidence.workspace_event SET outcome='accepted' WHERE id='66666666-6666-4666-a666-666666666666'",
-    );
+    const workspaceRuntime = await readFile(path.resolve(packageRoot, "../../apps/public-site/app/lib/explore-workspace-runtime.ts"), "utf8");
+    const createSql = workspaceRuntime.match(/`(INSERT INTO evidence\.county_workspace \([\s\S]*?)`/)?.[1];
+    if (!createSql) throw new Error("The actual workspace creation SQL was not found.");
+    const workspaceValues: Record<string, string> = {
+      id: "77777777-7777-4777-a777-777777777777",
+      tenant_id: "22222222-2222-4222-a222-222222222222",
+      geography_id: "33333333-3333-4333-a333-333333333333",
+      snapshot_id: "44444444-4444-4444-a444-444444444444",
+      title: "Repeat workspace request", policy_version: "test", created_by: "migration-test",
+    };
+    const parameterValues: string[] = [];
+    const postgresSql = createSql.replace(/(?<!:):([a-z_]+)/g, (_, name: string) => {
+      if (!(name in workspaceValues)) throw new Error(`Missing workspace test parameter ${name}`);
+      parameterValues.push(workspaceValues[name]);
+      return `$${parameterValues.length}`;
+    });
+    const rootAgain = await client.query(postgresSql, parameterValues);
+    if (rootAgain.rows[0].id !== "55555555-5555-4555-a555-555555555555") {
+      throw new Error("Repeated creation did not return the original county workspace.");
+    }
+    await client.query(`INSERT INTO evidence.county_workspace (
+      id, tenant_id, geography_id, evidence_snapshot_id, title, status, version,
+      policy_version, created_at, created_by, updated_at, parent_workspace_id
+    ) SELECT '88888888-8888-4888-a888-888888888888', tenant_id, geography_id,
+      evidence_snapshot_id, 'Independent fork', status, version, policy_version,
+      now(), created_by, now(), id FROM evidence.county_workspace
+      WHERE id='55555555-5555-4555-a555-555555555555'`);
+    const stillRoot = await client.query(postgresSql, parameterValues);
+    if (stillRoot.rows[0].id !== rootAgain.rows[0].id) throw new Error("A fork intercepted original workspace creation.");
+    await client.query("SAVEPOINT duplicate_root_check");
+    let duplicateRejected = false;
+    try {
+      await client.query(`UPDATE evidence.county_workspace SET parent_workspace_id=NULL
+        WHERE id='88888888-8888-4888-a888-888888888888'`);
+    } catch (error) {
+      duplicateRejected = (error as { code?: string }).code === "23505";
+    }
+    await client.query("ROLLBACK TO SAVEPOINT duplicate_root_check");
+    if (!duplicateRejected) throw new Error("The database accepted a duplicate active original workspace.");
+    rootWorkspaceAndForkPassed = true;
+    await client.query("UPDATE evidence.workspace_event SET outcome='accepted' WHERE id='66666666-6666-4666-a666-666666666666'");
   } catch (error) {
     workspaceEventMutationError = error;
     workspaceEventImmutableGuardPassed = String(error).includes("immutable");
@@ -190,6 +229,10 @@ try {
 
   // The latest correctness migrations must be reversible and re-applicable in
   // the disposable database before any protected environment is touched.
+  await client.query(await readFile(path.join(migrationsDir, "rollback", "0018_workspace_root_uniqueness.down.sql"), "utf8"));
+  const priorRootIndex = await client.query("SELECT indexdef FROM pg_indexes WHERE schemaname='evidence' AND indexname='county_workspace_one_active_per_place'");
+  if (priorRootIndex.rows[0].indexdef.includes("parent_workspace_id")) throw new Error("Migration 0018 rollback did not restore the prior index.");
+  await client.query(await readFile(path.join(migrationsDir, "0018_workspace_root_uniqueness.sql"), "utf8"));
   const down0014 = await readFile(
     path.join(migrationsDir, "rollback", "0014_workspace_publication_controls.down.sql"),
     "utf8",
@@ -413,6 +456,9 @@ try {
     privilegedRoleRejected,
     rollback0017Passed: true,
     reapply0017Passed: true,
+    rootWorkspaceAndForkPassed,
+    rollback0018Passed: true,
+    reapply0018Passed: true,
   }, null, 2));
 } finally {
   await client.end();
