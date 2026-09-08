@@ -2,5 +2,5 @@ bootstrap: cbcap-agentic-production
 repository: drolu-cmyk/sozorock-health-agentic
 environment: production
 approval: user-authorized-production-activation
-request_generation: 11
-reason: add exact read-only access for the governed model reference and Cognito domain validation after fail-closed activation generation 5
+request_generation: 12
+reason: permit one bounded recovery of the empty CB-CAP first-create rollback on its exact stack and user-pool ARNs while preserving retained secret, log, and KMS artifacts

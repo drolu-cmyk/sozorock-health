@@ -21,6 +21,24 @@ test('CB-CAP deployment role can resolve only the governed contact-stack model r
   assert.match(template, /- cognito-idp:DescribeUserPoolDomain/);
 });
 
+test('CB-CAP failed-first-create recovery authority is bounded and recoverable', async () => {
+  const template = await readFile(templateUrl, 'utf8');
+  const workflow = await readFile(workflowUrl, 'utf8');
+  const deployRole = template.slice(template.indexOf('  GitHubDeployRole:'));
+  assert.match(template, /FailedFirstCreateStackArn:/);
+  assert.match(template, /FailedFirstCreateUserPoolArn:/);
+  assert.match(deployRole, /Sid: DeleteExactFailedFirstCreateStack[\s\S]*Resource: !Ref FailedFirstCreateStackArn/);
+  assert.match(deployRole, /Sid: UpdateExactFailedFirstCreateUserPool[\s\S]*Resource: !Ref FailedFirstCreateUserPoolArn/);
+  assert.match(workflow, /FAILED_FIRST_CREATE_STACK_ARN: arn:aws:cloudformation:us-east-1:791860731989:stack\/cbcap-agentic-production\/[0-9a-f-]{36}/);
+  assert.match(workflow, /FAILED_FIRST_CREATE_USER_POOL_ARN: arn:aws:cognito-idp:us-east-1:791860731989:userpool\/[A-Za-z0-9_-]+/);
+  assert.match(workflow, /FailedFirstCreateStackArn="\$FAILED_FIRST_CREATE_STACK_ARN"/);
+  assert.match(workflow, /FailedFirstCreateUserPoolArn="\$FAILED_FIRST_CREATE_USER_POOL_ARN"/);
+  assert.doesNotMatch(deployRole, /secretsmanager:DeleteSecret/);
+  assert.doesNotMatch(deployRole, /logs:DeleteLogGroup/);
+  assert.doesNotMatch(deployRole, /kms:ScheduleKeyDeletion/);
+  assert.doesNotMatch(deployRole, /cognito-idp:.*:userpool\/\*/);
+});
+
 test('newest approved CB-CAP bootstrap supersedes stale queued bootstrap requests', async () => {
   const workflow = await readFile(workflowUrl, 'utf8');
   const template = await readFile(templateUrl, 'utf8');
