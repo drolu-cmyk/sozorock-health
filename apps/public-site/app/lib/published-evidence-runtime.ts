@@ -179,7 +179,8 @@ function sourceProvenance(value: unknown, columns?: {
   };
 }
 
-const ACS_VARIABLE_ID = /^[A-Z][0-9]{5}_[0-9]{3}[A-Z]$/;
+// Census API and table-based Summary File use different, valid field orderings.
+const ACS_VARIABLE_ID = /^[A-Z][0-9]{5}_(?:[0-9]{3}[EM]|[EM][0-9]{3})$/;
 
 function normalizeAcsProvenance(provenance: ReturnType<typeof sourceProvenance>) {
   const sourceVariableId = provenance.sourceVariableId && ACS_VARIABLE_ID.test(provenance.sourceVariableId)
