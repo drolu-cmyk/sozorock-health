@@ -52,6 +52,35 @@ async function applyAll() {
 
 try {
   await applyAll();
+  // This harness is explicitly disposable. Exercise role creation and repeat
+  // rotation without exposing any production credential or altering live roles.
+  const testPassword = "disposable-runtime-password-for-migration-check-only";
+  await client.query("SELECT evidence.configure_runtime_login($1)", [testPassword]);
+  await client.query("SELECT evidence.configure_runtime_login($1)", [testPassword + "-rotated"]);
+  const runtimePrivileges = await client.query(
+    "SELECT has_function_privilege('evidence_runtime_login', 'evidence.configure_runtime_login(text)', 'EXECUTE') AS may_rotate",
+  );
+  if (runtimePrivileges.rows[0].may_rotate) {
+    throw new Error("Runtime login must not execute its security-definer rotation function.");
+  }
+  await client.query("BEGIN");
+  let privilegedRoleRejected = false;
+  try {
+    await client.query("ALTER ROLE evidence_runtime_login CREATEDB");
+    await client.query("SELECT evidence.configure_runtime_login($1)", [testPassword]);
+  } catch (error) {
+    privilegedRoleRejected = String(error).includes("least-privilege contract");
+  } finally {
+    await client.query("ROLLBACK");
+  }
+  if (!privilegedRoleRejected) throw new Error("Rotation accepted a privileged runtime role.");
+  await client.query(await readFile(path.join(migrationsDir, "rollback", "0017_runtime_login_rotation.down.sql"), "utf8"));
+  const oldRotation = await client.query("SELECT pg_get_functiondef('evidence.configure_runtime_login(text)'::regprocedure) AS definition");
+  if (!oldRotation.rows[0].definition.includes("NOSUPERUSER NOCREATEDB")) {
+    throw new Error("Migration 0017 rollback did not restore the prior function.");
+  }
+  await client.query(await readFile(path.join(migrationsDir, "0017_runtime_login_rotation.sql"), "utf8"));
+  await client.query("SELECT evidence.configure_runtime_login($1)", [testPassword + "-reapplied"]);
   const postgis = await client.query("SELECT postgis_version() AS version");
   const requiredTables = [
     "geography", "source_catalog", "source_version", "metric_observation",
@@ -379,6 +408,11 @@ try {
     reapply0013Passed: true,
     rollback0014Passed: true,
     reapply0014Passed: true,
+    runtimeRotationPassed: true,
+    runtimeRotationPermissionPassed: true,
+    privilegedRoleRejected,
+    rollback0017Passed: true,
+    reapply0017Passed: true,
   }, null, 2));
 } finally {
   await client.end();
