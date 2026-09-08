@@ -1,16 +1,15 @@
-import type { Metadata } from "next";
+import { healthMetadata, healthPageSchema } from "../lib/health-metadata";
 import Image from "next/image";
 import Link from "next/link";
-import { LogoLockup } from "../components/LogoLockup";
+import { HealthShell } from "../components/HealthShell";
 import { publications } from "../lib/publications";
 import styles from "./publications.module.css";
 
-export const metadata: Metadata = {
-  title: "Publications",
-  description:
-    "Public-interest publications by Oluwabiyi Adeyemo on rural health access, public systems, governance, and digital assurance.",
-  alternates: { canonical: "/publications" },
-};
+export const metadata = healthMetadata(
+  "Research and publications",
+  "Read publications on rural equity, public governance and health systems assurance by Oluwabiyi Adeyemo. View editions and request access.",
+  "/publications",
+);
 
 export default async function PublicationsPage({
   searchParams,
@@ -19,67 +18,71 @@ export default async function PublicationsPage({
 }) {
   const verification = (await searchParams).verification;
   return (
-    <div className={styles.page}>
-      <header className={styles.header}>
-        <LogoLockup />
-        <Link href="/">Return home</Link>
-      </header>
-      <main className={styles.main}>
-        <div className={styles.formIntro}>
-          <p>Publications</p>
-          <h1>Ideas that shape the work.</h1>
-          <p>
-            Oluwabiyi Adeyemo&rsquo;s publications examine how health access,
-            public systems, technology, and accountability can work together.
-          </p>
-        </div>
-        {verification ? (
-          <p className={styles.error} role="alert">
-            {verification === "expired"
-              ? "That verification link has expired or was already used. Return to the publication and submit the access form again for a new link."
-              : verification === "missing"
-                ? "The verification link is incomplete. Return to the publication and submit the access form again."
-                : "We could not confirm that verification link. Return to the publication and request a new link."}
-          </p>
-        ) : null}
-        <div className={styles.list}>
-          {publications.map((publication) => (
-            <article key={publication.slug} className={styles.listItem}>
-              {publication.cover ? (
-                <a
-                  className={styles.listCoverLink}
-                  href={publication.cover}
-                  target="_blank"
-                  rel="noreferrer"
-                  aria-label={`View the full-resolution front cover of ${publication.title}`}
-                >
-                  <Image
-                    src={publication.cover}
-                    alt={`${publication.title} front cover`}
-                    width={publication.coverWidth ?? 2550}
-                    height={publication.coverHeight ?? 3300}
-                    quality={95}
-                    sizes="(max-width: 700px) 110px, 200px"
-                  />
-                  <span>View full-resolution cover</span>
-                </a>
-              ) : (
-                <div className={styles.listPlaceholder}>
-                  Series in development
+    <HealthShell>
+      <div className={styles.page}>
+        <main id="health-main" className={styles.main}>
+          <div className={styles.formIntro}>
+            <p>Publications</p>
+            <h1>Research to put to work.</h1>
+            <p>
+              Explore frameworks for rural equity, public governance and health
+              systems assurance by Oluwabiyi Adeyemo.
+            </p>
+          </div>
+          {verification ? (
+            <p className={styles.error} role="alert">
+              {verification === "expired"
+                ? "That verification link has expired or was already used. Return to the publication and submit the access form again for a new link."
+                : verification === "missing"
+                  ? "The verification link is incomplete. Return to the publication and submit the access form again."
+                  : "We could not confirm that verification link. Return to the publication and request a new link."}
+            </p>
+          ) : null}
+          <div className={styles.list}>
+            {publications.map((publication) => (
+              <article key={publication.slug} className={styles.listItem}>
+                {publication.cover ? (
+                  <a
+                    className={styles.listCoverLink}
+                    href={publication.cover}
+                    target="_blank"
+                    rel="noreferrer"
+                    aria-label={`View the full-resolution front cover of ${publication.title}`}
+                  >
+                    <Image
+                      src={publication.previewCover ?? publication.cover}
+                      alt={`${publication.title} front cover`}
+                      width={publication.coverWidth ?? 2550}
+                      height={publication.coverHeight ?? 3300}
+                      quality={95}
+                      sizes="(max-width: 700px) 110px, 200px"
+                    />
+                    <span>View full-resolution cover</span>
+                  </a>
+                ) : (
+                  <div className={styles.listPlaceholder}>Publication</div>
+                )}
+                <div>
+                  <p className={styles.status}>{publication.status}</p>
+                  <h2>{publication.title}</h2>
+                  <p>{publication.description}</p>
+                  <Link href={`/publications/${publication.slug}`}>
+                    View publication
+                  </Link>
                 </div>
-              )}
-              <div>
-                <p className={styles.status}>{publication.status}</p>
-                <h2>{publication.title}</h2>
-                <p>{publication.description}</p>
-                <Link href={`/publications/${publication.slug}`}>
-                  View publication
-                </Link>
-              </div>
-            </article>
-          ))}
-        </div>
-      </main>
-    </div>
+              </article>
+            ))}
+          </div>
+        </main>
+      </div>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(
+            healthPageSchema("Publications", "/publications", "CollectionPage"),
+          ),
+        }}
+      />
+    </HealthShell>
   );
 }

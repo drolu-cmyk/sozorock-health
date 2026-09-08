@@ -18,8 +18,12 @@ test("the homepage place search opens the nationwide explore route", async () =>
 
 test("the evidence API uses the approved versioned snapshot and validated geography", async () => {
   const route = await source("app/api/explore/route.ts");
-  const approvedSnapshot = await source("app/lib/approved-evidence-snapshot.ts");
-  const versionedRoute = await source("app/api/evidence/v1/place-brief/route.ts");
+  const approvedSnapshot = await source(
+    "app/lib/approved-evidence-snapshot.ts",
+  );
+  const versionedRoute = await source(
+    "app/api/evidence/v1/place-brief/route.ts",
+  );
   assert.match(route, /getPublishedCountyEvidence/);
   assert.match(route, /sourceCoverage/);
   assert.match(route, /previousMeasureCount/);
@@ -35,7 +39,14 @@ test("the evidence API uses the approved versioned snapshot and validated geogra
   assert.match(versionedRoute, /getPublishedCountyBrief/);
   assert.match(versionedRoute, /normalizePlaceBriefKind/);
   assert.match(versionedRoute, /X-Deprecated-Query-Parameter/);
-  for (const datasetId of ["i46a-9kgh", "vgc8-iyc4", "kee5-23sr", "d3i6-k6z5", "hbpe-6r8n", "6jwg-4k37"]) {
+  for (const datasetId of [
+    "i46a-9kgh",
+    "vgc8-iyc4",
+    "kee5-23sr",
+    "d3i6-k6z5",
+    "hbpe-6r8n",
+    "6jwg-4k37",
+  ]) {
     assert.doesNotMatch(route, new RegExp(datasetId));
   }
   assert.doesNotMatch(route, /fetch\(/);
@@ -43,7 +54,9 @@ test("the evidence API uses the approved versioned snapshot and validated geogra
 });
 
 test("the public route avoids internal product language", async () => {
-  const component = (await source("app/explore/ExploreClient.tsx")).toLowerCase();
+  const component = (
+    await source("app/explore/ExploreClient.tsx")
+  ).toLowerCase();
   for (const phrase of [
     "agentic",
     "grounded summary",
@@ -52,7 +65,11 @@ test("the public route avoids internal product language", async () => {
     "illustrative composite",
     "internal use",
   ]) {
-    assert.equal(component.includes(phrase), false, `public copy contains: ${phrase}`);
+    assert.equal(
+      component.includes(phrase),
+      false,
+      `public copy contains: ${phrase}`,
+    );
   }
 });
 
@@ -65,8 +82,16 @@ test("the public explorer exposes the approved Brief, Map, Action and Visuals wo
     "What the comparable data shows",
     "A planning conversation with sources.",
     "No recommendation yet",
-  ]) assert.equal(component.includes(heading), true, `missing public section: ${heading}`);
-  assert.match(component, /type WorkspaceView = "brief" \| "map" \| "action" \| "visuals"/);
+  ])
+    assert.equal(
+      component.includes(heading),
+      true,
+      `missing public section: ${heading}`,
+    );
+  assert.match(
+    component,
+    /type WorkspaceView = "brief" \| "map" \| "action" \| "visuals"/,
+  );
   assert.match(component, /role="tablist"/);
   assert.match(component, /role="tabpanel"/);
   assert.match(component, /Not yet verified/);
@@ -91,16 +116,27 @@ test("the public map uses MapLibre with official boundaries and no decorative ro
   assert.match(component, /verifiedResources/);
   assert.match(component, /data-map-fallback/);
   assert.match(component, /cached official boundary/);
-  assert.match(component, /The shaded value applies to the selected geography as a whole/);
+  assert.match(
+    component,
+    /The shaded value applies to the selected geography as a whole/,
+  );
   assert.doesNotMatch(geometry, /Transportation\/MapServer/);
   assert.doesNotMatch(component, /Major roads|showRoads|heatmap/i);
 });
 
 test("release validators call the versioned place-brief contract with kind", async () => {
   const nationalValidator = await source("scripts/validate-national-api.mjs");
-  const stagingWorkflow = await source("../../.github/workflows/milestone-10-staging.yml");
-  const productionWorkflow = await source("../../.github/workflows/explore-production.yml");
-  for (const content of [nationalValidator, stagingWorkflow, productionWorkflow]) {
+  const stagingWorkflow = await source(
+    "../../.github/workflows/milestone-10-staging.yml",
+  );
+  const productionWorkflow = await source(
+    "../../.github/workflows/explore-production.yml",
+  );
+  for (const content of [
+    nationalValidator,
+    stagingWorkflow,
+    productionWorkflow,
+  ]) {
     assert.match(content, /place-brief\?kind=county&geoid/);
     assert.doesNotMatch(content, /place-brief\?geography=/);
   }
@@ -113,54 +149,119 @@ test("live national validation is stratified and stays inside the shared evidenc
   assert.match(nationalValidator, /liveSample\.length !== 51/);
   assert.match(nationalValidator, /Array\.from\(\{ length: 4 \}/);
   assert.match(nationalValidator, /authoritativeCountyCount: counties\.length/);
-  assert.match(nationalValidator, /liveStateAndDcSampleCount: validationCounties\.length/);
+  assert.match(
+    nationalValidator,
+    /liveStateAndDcSampleCount: validationCounties\.length/,
+  );
   assert.doesNotMatch(nationalValidator, /length: 24/);
   assert.match(evidenceRateLimit, /const maximum = 120/);
 });
 
 test("production release pins the Amplify job to the approved commit", async () => {
-  const productionWorkflow = await source("../../.github/workflows/explore-production.yml");
-  assert.match(productionWorkflow, /start-job[\s\S]*--commit-id "\$RELEASE_SHA"/);
-  assert.match(productionWorkflow, /git rev-parse origin\/main\)" = "\$RELEASE_SHA"/);
+  const productionWorkflow = await source(
+    "../../.github/workflows/explore-production.yml",
+  );
+  assert.match(
+    productionWorkflow,
+    /start-job[\s\S]*--commit-id "\$RELEASE_SHA"/,
+  );
+  assert.match(
+    productionWorkflow,
+    /git rev-parse origin\/main\)" = "\$RELEASE_SHA"/,
+  );
   assert.match(productionWorkflow, /job\.summary\.commitId/);
   assert.doesNotMatch(productionWorkflow, /deployed_commit" == "HEAD"/);
 });
 
 test("production acceptance reports safe authority failures and skips only dependent checks", async () => {
-  const productionWorkflow = await source("../../.github/workflows/explore-production.yml");
+  const productionWorkflow = await source(
+    "../../.github/workflows/explore-production.yml",
+  );
   assert.match(productionWorkflow, /authority_ready=1/);
   assert.match(productionWorkflow, /authority-error\.json/);
   assert.match(productionWorkflow, /code:\(\.code \/\/ "unclassified"\)/);
-  assert.match(productionWorkflow, /authority_ready=0[\s\S]*invalid_authority_contract/);
-  assert.match(productionWorkflow, /if \[ "\$authority_ready" -eq 1 \]; then[\s\S]*test:national-api[\s\S]*explore\.visual\.spec\.ts/);
-  assert.match(productionWorkflow, /Skipping downstream Explore acceptance because the authority contract probe failed/);
+  assert.match(
+    productionWorkflow,
+    /authority_ready=0[\s\S]*invalid_authority_contract/,
+  );
+  assert.match(
+    productionWorkflow,
+    /if \[ "\$authority_ready" -eq 1 \]; then[\s\S]*test:national-api[\s\S]*explore\.visual\.spec\.ts/,
+  );
+  assert.match(
+    productionWorkflow,
+    /Skipping downstream Explore acceptance because the authority contract probe failed/,
+  );
 });
 
 test("production reuses an already valid least-privileged runtime login", async () => {
-  const productionWorkflow = await source("../../.github/workflows/explore-production.yml");
+  const productionWorkflow = await source(
+    "../../.github/workflows/explore-production.yml",
+  );
   assert.match(productionWorkflow, /r\.rolinherit/);
-  assert.match(productionWorkflow, /pg_has_role\(current_user, 'evidence_runtime', 'MEMBER'\)/);
+  assert.match(
+    productionWorkflow,
+    /pg_has_role\(current_user, 'evidence_runtime', 'MEMBER'\)/,
+  );
   assert.match(productionWorkflow, /runtime_probe_error=\$\(mktemp\)/);
-  assert.match(productionWorkflow, /DatabaseErrorException\.\*password authentication failed/);
-  assert.match(productionWorkflow, /Runtime login probe failed before contract validation/);
-  assert.doesNotMatch(productionWorkflow, /read_runtime_role 2>\/dev\/null \|\| true/);
+  assert.match(
+    productionWorkflow,
+    /DatabaseErrorException\.\*password authentication failed/,
+  );
+  assert.match(
+    productionWorkflow,
+    /Runtime login probe failed before contract validation/,
+  );
+  assert.doesNotMatch(
+    productionWorkflow,
+    /read_runtime_role 2>\/dev\/null \|\| true/,
+  );
   assert.match(productionWorkflow, /\|\| ! jq -e[\s\S]*evidence_runtime_login/);
-  assert.match(productionWorkflow, /\{"booleanValue":true\},\{"booleanValue":true\}/);
-  assert.match(productionWorkflow, /configure_runtime_login\(:runtime_password\)/);
+  assert.match(
+    productionWorkflow,
+    /\{"booleanValue":true\},\{"booleanValue":true\}/,
+  );
+  assert.match(
+    productionWorkflow,
+    /configure_runtime_login\(:runtime_password\)/,
+  );
   assert.match(productionWorkflow, /runtime_role=\$\(read_runtime_role\)/);
-  assert.match(productionWorkflow, /runtime_snapshot=\$\(aws rds-data execute-statement/);
-  assert.match(productionWorkflow, /runtime_geography=\$\(aws rds-data execute-statement/);
-  assert.match(productionWorkflow, /--secret-arn "\$EVIDENCE_DATABASE_RUNTIME_SECRET_ARN"/);
-  assert.match(productionWorkflow, /EVIDENCE_SNAPSHOT_CONTENT_HASH="\$\{snapshot_id\/snapshot:\/sha256:\}"/);
+  assert.match(
+    productionWorkflow,
+    /runtime_snapshot=\$\(aws rds-data execute-statement/,
+  );
+  assert.match(
+    productionWorkflow,
+    /runtime_geography=\$\(aws rds-data execute-statement/,
+  );
+  assert.match(
+    productionWorkflow,
+    /--secret-arn "\$EVIDENCE_DATABASE_RUNTIME_SECRET_ARN"/,
+  );
+  assert.match(
+    productionWorkflow,
+    /EVIDENCE_SNAPSHOT_CONTENT_HASH="\$\{snapshot_id\/snapshot:\/sha256:\}"/,
+  );
   assert.match(productionWorkflow, /export EVIDENCE_SNAPSHOT_CONTENT_HASH/);
 });
 
 test("production binds Amplify compute to the exact evidence-authorized role", async () => {
-  const productionWorkflow = await source("../../.github/workflows/explore-production.yml");
-  assert.match(productionWorkflow, /PUBLIC_COMPUTE_ROLE_ARN=\$compute_role_arn/);
-  assert.match(productionWorkflow, /update-app[\s\S]*--compute-role-arn "\$PUBLIC_COMPUTE_ROLE_ARN"/);
+  const productionWorkflow = await source(
+    "../../.github/workflows/explore-production.yml",
+  );
+  assert.match(
+    productionWorkflow,
+    /PUBLIC_COMPUTE_ROLE_ARN=\$compute_role_arn/,
+  );
+  assert.match(
+    productionWorkflow,
+    /update-app[\s\S]*--compute-role-arn "\$PUBLIC_COMPUTE_ROLE_ARN"/,
+  );
   assert.match(productionWorkflow, /app\.computeRoleArn/);
-  assert.match(productionWorkflow, /app_compute_role" = "\$PUBLIC_COMPUTE_ROLE_ARN"/);
+  assert.match(
+    productionWorkflow,
+    /app_compute_role" = "\$PUBLIC_COMPUTE_ROLE_ARN"/,
+  );
 });
 
 test("available measures remain visible when a compatible benchmark is missing", async () => {
@@ -208,7 +309,9 @@ test("fallback boundary preserves holes, aspect ratio and original search contex
 test("directionality and geography are explicit in the public evidence response", async () => {
   const route = await source("app/api/explore/route.ts");
   const metrics = await source("app/lib/explore-health.ts");
-  const brief = await source("../../packages/evidence-core/src/national/county-brief.ts");
+  const brief = await source(
+    "../../packages/evidence-core/src/national/county-brief.ts",
+  );
   assert.match(route, /function interpretation/);
   assert.match(route, /geographyLevel:/);
   assert.doesNotMatch(route, /kind !== "county"/);
@@ -221,7 +324,9 @@ test("directionality and geography are explicit in the public evidence response"
 
 test("unverified planning claims remain unavailable to the public Explore view", async () => {
   const route = await source("app/api/explore/route.ts");
-  const brief = await source("../../packages/evidence-core/src/national/county-brief.ts");
+  const brief = await source(
+    "../../packages/evidence-core/src/national/county-brief.ts",
+  );
   const planning = await source("app/lib/explore-planning-evidence.ts");
   assert.match(route, /claims: brief\.localPlanningEvidence\.claims/);
   assert.match(brief, /localPlanningEvidence:/);
@@ -262,7 +367,10 @@ test("the Explore interface preserves the original search and requires transpare
   assert.match(component, /countyGeoid/);
   assert.match(resolver, /calculationMethod: resolutionIndex\.method/);
   assert.match(resolver, /resolutionIndex\.placeCaveat/);
-  assert.match(resolver, /overlapPopulationPercent: county\.overlapPopulationPercent/);
+  assert.match(
+    resolver,
+    /overlapPopulationPercent: county\.overlapPopulationPercent/,
+  );
   assert.match(resolver, /counties\.length > 1 \? "selection_required"/);
   assert.doesNotMatch(resolver, /tigerweb|@turf|fetch\(/i);
 });
@@ -270,10 +378,22 @@ test("the Explore interface preserves the original search and requires transpare
 test("all compatible measures and source coverage remain available", async () => {
   const component = await source("app/explore/ExploreClient.tsx");
   const route = await source("app/api/explore/route.ts");
-  assert.match(component, /All \{data\.dataCoverage\.measureCount\} compatible measures/);
+  assert.match(
+    component,
+    /All \{data\.dataCoverage\.measureCount\} compatible measures/,
+  );
   assert.match(component, /availableContextMeasures\.map/);
   assert.match(component, /Evidence coverage/);
-  for (const key of ["chd", "stroke", "cancer", "casthma", "checkup", "cholscreen", "housinsecu", "shututility"]) {
+  for (const key of [
+    "chd",
+    "stroke",
+    "cancer",
+    "casthma",
+    "checkup",
+    "cholscreen",
+    "housinsecu",
+    "shututility",
+  ]) {
     assert.match(route, new RegExp(`${key}:`));
   }
 });
@@ -285,14 +405,8 @@ test("the map worker is allowed without weakening the production script policy",
   assert.match(config, /: "script-src 'self' 'unsafe-inline'"/);
 });
 
-test("the approved live homepage assets and contact path remain locked", async () => {
-  const component = await source("app/components/ApprovedMarketingHome.jsx");
-  assert.match(component, /hero-community-desktop-v2\.webp/);
-  assert.match(component, /hero-community-mobile-v2\.webp/);
-  assert.match(component, /ride-barrier-v2\.webp/);
-  assert.match(component, /portal-barrier-v2\.webp/);
-  assert.match(component, /appointment-distance\.webp/);
-  assert.match(component, /library-hub-v2\.webp/);
-  assert.match(component, /href="\/contact"/);
-  assert.doesNotMatch(component, /Nonprofit health-equity systems infrastructure/);
+test("Health keeps direct evidence and partnership destinations", async () => {
+  const component = await source("app/components/HealthHome.tsx");
+  for (const route of ["/explore", "/contact", "/publications"])
+    assert.ok(component.includes(`href="${route}"`));
 });

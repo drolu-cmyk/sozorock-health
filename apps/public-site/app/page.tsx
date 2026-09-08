@@ -1,25 +1,13 @@
 import type { Metadata } from "next";
-import { ApprovedMarketingHome } from "./components/ApprovedMarketingHome";
-
-const siteUrl = "https://health.sozorockfoundation.org";
-const homeStructuredData = {
-  "@context": "https://schema.org",
-  "@type": "WebPage",
-  "@id": `${siteUrl}/#webpage`,
-  url: siteUrl,
-  name: "SozoRock Health | Care. For every ZIP Code.",
-  isPartOf: { "@id": `${siteUrl}/#website` },
-  about: { "@id": `${siteUrl}/#sozorock-health` },
-  primaryImageOfPage: {
-    "@type": "ImageObject",
-    url: `${siteUrl}/social/sozorock-health-social-2026-07.jpg`,
-    width: 1200,
-    height: 630,
-  },
-  inLanguage: "en-US",
-};
+import { HealthHome } from "./components/HealthHome";
+import { healthMetadata } from "./lib/health-metadata";
 
 export const metadata: Metadata = {
+  ...healthMetadata(
+    "Systems for health access",
+    "Community access models, place-based intelligence, digital readiness and workforce development. Explore SozoRock Health's work and partnership opportunities.",
+    "/",
+  ),
   alternates: {
     canonical: "/",
     languages: { "en-US": "/", "es-US": "/es" },
@@ -27,5 +15,5 @@ export const metadata: Metadata = {
 };
 
 export default function Home() {
-  return <><ApprovedMarketingHome /><script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(homeStructuredData) }} /></>;
+  return <HealthHome />;
 }
