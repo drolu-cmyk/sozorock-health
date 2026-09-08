@@ -105,6 +105,7 @@ jobs:
       PRODUCTION_URL: ${{ vars.PUBLIC_SITE_URL || 'https://health.sozorockfoundation.org' }}
       OPENAI_SECRET_ARN: ${{ secrets.OPENAI_SECRET_ARN }}
       RELEASE_SHA: ${{ github.sha }}
+      HEALTH_SYSTEM_COPY_ACCEPTANCE: "true"
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:

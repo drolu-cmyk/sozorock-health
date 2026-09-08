@@ -622,6 +622,7 @@ function BriefView({ data }: { data: PlaceResponse }) {
           <div><dt>Measures</dt><dd>{data.metrics.length} health measures, with community context shown separately</dd></div></dl>
           <p>Modeled estimates provide context. They do not establish causation, individual risk or a local planning priority.</p>
           {data.provenanceNotice && <p>{data.provenanceNotice}</p>}
+          <a href={`/api/evidence/v1/place-brief?kind=county&geoid=${encodeURIComponent(data.location.geoid)}`} target="_blank" rel="noreferrer">Open complete evidence record (JSON)<ArrowSquareOut size={16} aria-hidden="true"/></a>
           {data.sources.filter((source, index, all) => all.findIndex((item) => item.name === source.name && item.release === source.release) === index).map((source) => <details key={`${source.name}-${source.release}`}>
             <summary>{source.name}<CaretRight size={16} aria-hidden="true"/></summary>
             <dl><div><dt>Release</dt><dd>{source.release || "Unavailable"}</dd></div><div><dt>Period</dt><dd>{source.period || "Not supplied"}</dd></div><div><dt>Retrieved</dt><dd>{formatDate(source.retrievedAt)}</dd></div></dl>
@@ -998,7 +999,7 @@ function VisualsView({ data }: { data: PlaceResponse }) {
         </article>
         <article className={styles.freshnessVisual}>
           <span>Source freshness</span><h3>Different sources move on different schedules.</h3>
-          <ol>{data.sources.map((source) => <li key={`${source.name}-${source.release}`}><time>{source.release}</time><div><strong>{source.name}</strong><span>{source.period} · {source.geography ?? "Source geography"}</span></div></li>)}</ol>
+          <ol>{data.sources.filter((source,index,all)=>all.findIndex(item=>item.name===source.name && item.release===source.release && item.period===source.period)===index).map((source) => <li key={`${source.name}-${source.release}-${source.period}`}><time>{source.release}</time><div><strong>{source.name}</strong><span>{source.period} · {source.geography ?? "Source geography"}</span></div></li>)}</ol>
         </article>
         <article className={styles.workforceVisual}>
           <span>Workforce and shortage context</span><h3>{workforceCount ? `${workforceCount} designation records require scope-aware review.` : "No designation record is available in the approved snapshot."}</h3>

@@ -32,6 +32,12 @@ import { placeAgentRuntimeVersions } from "../../lib/place-agent-openai";
 
 export const runtime = "nodejs";
 
+// The same observation can be linked through multiple published source versions.
+// Collapse only identical presentation records; conflicting values remain visible.
+function distinctRows<T>(rows: T[]): T[] {
+  return [...new Map(rows.map((row) => [JSON.stringify(row), row])).values()];
+}
+
 const paths: Record<string, { group: "conditions" | "barriers" | "prevention"; field: string; sourceMeasureId: string }> = {
   bphigh: { group: "conditions", field: "highBloodPressure", sourceMeasureId: "BPHIGH" },
   diabetes: { group: "conditions", field: "diabetes", sourceMeasureId: "DIABETES" },
@@ -208,6 +214,8 @@ export async function GET(request: NextRequest) {
       })),
   };
   const cdcSource = brief.publicData.sources.find((source) => source.sourceId === "cdc-places");
+  ahrfContext.observations = distinctRows(ahrfContext.observations);
+  ahrqContext.observations = distinctRows(ahrqContext.observations);
   const cdcObservations = indexCdcObservations(
     brief.publicData.observations,
     cdcSource?.sourceVersionId,
