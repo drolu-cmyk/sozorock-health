@@ -1,14 +1,22 @@
+import { healthPageSchema } from "../app/lib/health-metadata.ts";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { canonicalCountyLabel } from "../app/lib/explore-labels.ts";
 import { GET as getFavicon } from "../app/favicon.ico/route.ts";
 
-const source = (path) => readFile(new URL(`../${path}`, import.meta.url), "utf8");
+const source = (path) =>
+  readFile(new URL(`../${path}`, import.meta.url), "utf8");
 
 test("county labels contain one canonical state suffix", () => {
-  assert.equal(canonicalCountyLabel("Albany County", "NY"), "Albany County, NY");
-  assert.equal(canonicalCountyLabel("Albany County, NY", "ny"), "Albany County, NY");
+  assert.equal(
+    canonicalCountyLabel("Albany County", "NY"),
+    "Albany County, NY",
+  );
+  assert.equal(
+    canonicalCountyLabel("Albany County, NY", "ny"),
+    "Albany County, NY",
+  );
 });
 
 test("Explore reports one available-measure count and hides disabled exports", async () => {
@@ -19,9 +27,15 @@ test("Explore reports one available-measure count and hides disabled exports", a
   assert.match(route, /availableContextMeasureCount/);
   assert.match(route, /contextMeasureCount: availableContextMeasureCount/);
   assert.match(route, /funderSnapshot: funderSnapshotEnabled/);
-  assert.match(component, /All \{data\.dataCoverage\.measureCount\} compatible measures/);
+  assert.match(
+    component,
+    /All \{data\.dataCoverage\.measureCount\} compatible measures/,
+  );
   assert.match(component, /availableContextMeasures\.map/);
-  assert.doesNotMatch(component, /data\.metrics\.length \+ data\.contextMeasures\.length/);
+  assert.doesNotMatch(
+    component,
+    /data\.metrics\.length \+ data\.contextMeasures\.length/,
+  );
   assert.match(component, /data\.capabilities\.funderSnapshot/);
   assert.match(component, /Funder snapshot available after reviewed release/);
 });
@@ -42,8 +56,15 @@ test("Explore owns its X metadata and route-specific structured data", async () 
     source("app/explore/page.tsx"),
   ]);
   assert.doesNotMatch(layout, /"@type": "WebPage"/);
-  assert.match(home, /"@type": "WebPage"/);
-  assert.match(home, /`\$\{siteUrl\}\/\#webpage`/);
+  assert.match(home, /HealthHome/);
+  assert.equal(
+    healthPageSchema("Health", "/")["@graph"][0]["@type"],
+    "WebPage",
+  );
+  assert.equal(
+    healthPageSchema("Health", "/")["@graph"][0]["@id"],
+    "https://health.sozorockfoundation.org/#webpage",
+  );
   assert.match(explore, /twitter: \{/);
   assert.match(explore, /SozoRock Place Intelligence \| SozoRock Health/);
   assert.match(explore, /`\$\{siteUrl\}\/explore#webpage`/);

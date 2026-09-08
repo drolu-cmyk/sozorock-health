@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import {existsSync, readFileSync} from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import test from "node:test";
 
 const read = (path) => readFileSync(new URL(path, import.meta.url), "utf8");
@@ -11,16 +11,33 @@ test("the shared wordmark keeps the registered mark attached in header and foote
   assert.match(component, /width=\{560\} height=\{140\}/);
   assert.match(component, /Inicio de SozoRock Health/);
   assert.match(component, /<sup aria-hidden="true">®<\/sup>/);
-  assert.match(styles, /\.logo-lockup__name sup \{[\s\S]*?position: absolute;[\s\S]*?right: -1px;/);
+  assert.match(
+    styles,
+    /\.logo-lockup__name sup \{[\s\S]*?position: absolute;[\s\S]*?right: -1px;/,
+  );
 });
 
 test("the rejected Voice Access film is absent from both localized homepages and public media", () => {
   const englishPage = read("../app/page.tsx");
   const spanishPage = read("../app/es/page.tsx");
-  assert.doesNotMatch(englishPage, /VoiceAccessFilm|media\/voice-access|"@type": "VideoObject"/);
-  assert.doesNotMatch(spanishPage, /VoiceAccessFilm|media\/voice-access|"@type": "VideoObject"/);
-  assert.equal(existsSync(new URL("../app/components/VoiceAccessFilm.tsx", import.meta.url)), false);
-  assert.equal(existsSync(new URL("../public/media/voice-access/", import.meta.url)), false);
+  assert.doesNotMatch(
+    englishPage,
+    /VoiceAccessFilm|media\/voice-access|"@type": "VideoObject"/,
+  );
+  assert.doesNotMatch(
+    spanishPage,
+    /VoiceAccessFilm|media\/voice-access|"@type": "VideoObject"/,
+  );
+  assert.equal(
+    existsSync(
+      new URL("../app/components/VoiceAccessFilm.tsx", import.meta.url),
+    ),
+    false,
+  );
+  assert.equal(
+    existsSync(new URL("../public/media/voice-access/", import.meta.url)),
+    false,
+  );
 });
 
 test("future media publication remains fail closed while ordinary page metadata stays localized", () => {
@@ -28,9 +45,9 @@ test("future media publication remains fail closed while ordinary page metadata 
   const spanishPage = read("../app/es/page.tsx");
   const publisher = read("../../media/scripts/publish-web-assets.mjs");
   assert.doesNotMatch(layout, /"@type": "VideoObject"/);
-  assert.match(spanishPage, /twitter: \{/);
-  assert.match(spanishPage, /siteName: "SozoRock Health"/);
-  assert.match(spanishPage, /type: "website"/);
+  assert.match(spanishPage, /healthMetadata/);
+  assert.match(spanishPage, /spanish: true/);
+  assert.match(spanishPage, /HealthHome spanish/);
   assert.match(publisher, /assertCurrentReleaseApproval/);
   assert.match(publisher, /RELEASE-APPROVAL\.json/);
   assert.match(publisher, /PRODUCTION-METHOD\.json/);
@@ -39,49 +56,27 @@ test("future media publication remains fail closed while ordinary page metadata 
   assert.match(publisher, /publication-manifest\.json/);
 });
 
-test("the approved marketing homepage and publication access remain locked together", () => {
-  const page = read("../app/page.tsx");
-  const homepage = read("../app/components/ApprovedMarketingHome.jsx");
-  const approvedBrand = read("../app/components/ApprovedBrandLockup.jsx");
-  const locationSearch = read("../app/components/ApprovedLocationSearch.tsx");
-  const locationRoute = read("../app/api/locations/route.ts");
-  const contactForm = read("../app/components/ContactForm.tsx");
-  const contactPage = read("../app/contact/page.tsx");
-  const publicationSection = read("../app/components/ApprovedPublications.tsx");
-  const styles = read("../app/approved-home.css");
-
-  assert.match(page, /<ApprovedMarketingHome \/>/);
-  assert.match(homepage, /A clearer path to <span>Care<\/span> that already exists\./);
-  assert.match(homepage, /Care\. For every ZIP Code\./);
-  assert.match(approvedBrand, /SozoRock<sup aria-label="registered trademark">®<\/sup>/);
-  assert.doesNotMatch(homepage, /Nonprofit health-equity systems infrastructure/);
-  assert.match(homepage, /appointment-distance\.webp/);
-  assert.match(homepage, /history\.replaceState/);
-  assert.equal(homepage.includes("instagram.com/srockfoundation"), true);
-  assert.match(homepage, /youtube\.com\/@srockfoundation/);
-  assert.equal(homepage.includes("x.com/srockfoundation"), true);
-  assert.match(locationSearch, /replace\(\/\^ZIP\\s\+\/i, ""\)/);
-  assert.match(locationSearch, /selected\?\.display === query/);
-  assert.match(locationSearch, /place-result/);
-  assert.match(locationSearch, /Explore local priorities/);
-  assert.match(locationSearch, /\/explore\?kind=/);
-  assert.match(contactForm, /defaultValue=\{initialLocation\}/);
-  assert.match(contactPage, /initialLocation=\{initialLocation\}/);
-  assert.match(homepage, /hero-community-desktop-v2\.webp/);
-  assert.match(homepage, /hero-community-mobile-v2\.webp/);
-  assert.match(homepage, /portal-barrier-v2\.webp/);
-  assert.match(locationRoute, /geography-search-index\.v1\.json/);
-  assert.match(locationRoute, /naturalPlacePriority/);
-  assert.match(locationRoute, /U\.S\. Census Bureau \$\{searchIndex\.censusVintage\} Gazetteer/);
-  assert.doesNotMatch(locationRoute, /queryPointLayer/);
-  assert.match(contactForm, /CB-CAP inquiry/);
-  assert.match(contactForm, /Media inquiry/);
-  assert.match(contactForm, /Professional skills support/);
-  assert.match(contactForm, /Clinical education support/);
-  assert.doesNotMatch(contactForm, /\badvisory\b/i);
-  assert.match(publicationSection, /publication\.cover/);
-  assert.match(publicationSection, /href=\{`\/publications\/\$\{publication\.slug\}`\}/);
-  assert.match(publicationSection, /Access publication/);
-  assert.match(styles, /\.approved-home \.hero-scrim/);
-  assert.match(styles, /\.approved-home \.publication-cover/);
+test("Health exposes its systems capabilities and preserves inquiry and evidence paths", () => {
+  const home = read("../app/components/HealthHome.tsx");
+  const form = read("../app/components/ContactForm.tsx");
+  for (const label of [
+    "Community access",
+    "Evidence and intelligence",
+    "Digital and provider readiness",
+    "Workforce capacity",
+  ])
+    assert.ok(home.includes(label));
+  for (const route of ["/publications", "/explore", "/contact"])
+    assert.ok(home.includes(`href="${route}"`));
+  assert.match(form, /Workforce partnership/);
+  assert.match(form, /CB-CAP inquiry/);
+  assert.equal(
+    existsSync(
+      new URL(
+        "../public/media/approved-home/ASSET-PROVENANCE.md",
+        import.meta.url,
+      ),
+    ),
+    false,
+  );
 });

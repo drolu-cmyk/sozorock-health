@@ -72,7 +72,8 @@ const formCopy = {
       "No incluya información médica, de emergencias o de salud protegida.",
     review: "Revise los campos indicados e inténtelo de nuevo.",
     received: "Gracias. Hemos recibido su consulta.",
-    failed: "No pudimos enviar la consulta en este momento. Inténtelo de nuevo.",
+    failed:
+      "No pudimos enviar la consulta en este momento. Inténtelo de nuevo.",
     network:
       "No pudimos enviar la consulta. Si el problema continúa, escriba a contact@sozorockfoundation.org.",
     errors: {
@@ -93,20 +94,34 @@ const interestOptions = [
   ["Partner with us", "Colaborar con nosotros"],
   ["CB-CAP inquiry", "Consulta sobre CB-CAP"],
   ["BYOP provider partnership", "Colaboración con proveedores BYOP"],
-  ["Health Equity Hub partnership", "Colaboración con un Centro de Equidad en Salud"],
+  ["Workforce partnership", "Colaboración para el desarrollo laboral"],
+  ["Research partnership", "Colaboración en investigación"],
+  [
+    "Health Equity Hub partnership",
+    "Colaboración con un Centro de Equidad en Salud",
+  ],
   ["Health Access Day partnership", "Colaboración con Health Access Day"],
   ["Fund the work", "Financiar el trabajo"],
   ["Volunteer", "Voluntariado"],
   ["Media inquiry", "Consulta de medios"],
-  ["Support research and publications", "Apoyar la investigación y las publicaciones"],
+  [
+    "Support research and publications",
+    "Apoyar la investigación y las publicaciones",
+  ],
   ["Bring the model to a community", "Llevar el modelo a una comunidad"],
-  ["Institutional or public-sector inquiry", "Consulta institucional o del sector público"],
+  [
+    "Institutional or public-sector inquiry",
+    "Consulta institucional o del sector público",
+  ],
 ] as const;
 
 const roleOptions = [
   ["Individual or family", "Persona o familia"],
   ["Community organization", "Organización comunitaria"],
-  ["Licensed provider or health organization", "Profesional con licencia u organización de salud"],
+  [
+    "Licensed provider or health organization",
+    "Profesional con licencia u organización de salud",
+  ],
   ["County, state, or public agency", "Condado, estado u organismo público"],
   ["University or researcher", "Universidad o investigador"],
   ["Foundation or funder", "Fundación o financiador"],
@@ -135,14 +150,12 @@ function validate(form: FormData, locale: Locale): Errors {
   else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value("email")))
     errors.email = copy.invalidEmail;
   if (!value("interest")) errors.interest = copy.interest;
-  if (!value("organizationType"))
-    errors.organizationType = copy.role;
+  if (!value("organizationType")) errors.organizationType = copy.role;
   if (value("interest") === "Volunteer" && !value("volunteerArea"))
     errors.volunteerArea = copy.volunteer;
   if (!value("location")) errors.location = copy.location;
   if (!value("message")) errors.message = copy.message;
-  if (form.get("consent") !== "yes")
-    errors.consent = copy.consent;
+  if (form.get("consent") !== "yes") errors.consent = copy.consent;
   return errors;
 }
 
@@ -222,20 +235,20 @@ export function ContactForm({
       };
       if (response.ok) {
         setState("sent");
-        setMessage(locale === "es" ? copy.received : result.message ?? copy.received);
+        setMessage(
+          locale === "es" ? copy.received : (result.message ?? copy.received),
+        );
         formElement.reset();
         setInterest("");
       } else {
         setState("error");
         setMessage(
-          locale === "es" ? copy.failed : result.error ?? copy.failed,
+          locale === "es" ? copy.failed : (result.error ?? copy.failed),
         );
       }
     } catch {
       setState("error");
-      setMessage(
-        copy.network,
-      );
+      setMessage(copy.network);
     }
   }
 
@@ -290,7 +303,9 @@ export function ContactForm({
             aria-invalid={Boolean(errors.interest)}
             aria-describedby={errors.interest ? "interest-error" : undefined}
           >
-            <option value="" disabled>{copy.select}</option>
+            <option value="" disabled>
+              {copy.select}
+            </option>
             {interestOptions.map(([value, spanishLabel]) => (
               <option value={value} key={value}>
                 {locale === "es" ? spanishLabel : value}
@@ -311,7 +326,9 @@ export function ContactForm({
               errors.organizationType ? "organizationType-error" : undefined
             }
           >
-            <option value="" disabled>{copy.select}</option>
+            <option value="" disabled>
+              {copy.select}
+            </option>
             {roleOptions.map(([value, spanishLabel]) => (
               <option value={value} key={value}>
                 {locale === "es" ? spanishLabel : value}
@@ -334,7 +351,9 @@ export function ContactForm({
               errors.volunteerArea ? "volunteerArea-error" : undefined
             }
           >
-            <option value="" disabled>{copy.select}</option>
+            <option value="" disabled>
+              {copy.select}
+            </option>
             {volunteerAreas.map(([value, spanishLabel]) => (
               <option value={value} key={value}>
                 {locale === "es" ? spanishLabel : value}

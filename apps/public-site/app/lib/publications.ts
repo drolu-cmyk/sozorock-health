@@ -10,6 +10,7 @@ export type Publication = {
   status: PublicationStatus;
   tags: readonly string[];
   cover: string | null;
+  previewCover?: string;
   coverWidth?: number;
   coverHeight?: number;
   assetKey: string | null;
@@ -19,16 +20,21 @@ export type Publication = {
   datePublished?: string;
   edition?: string;
   isbn?: string;
+  doi?: string;
   evidenceCutoff?: string;
 };
 
 export const publications: readonly Publication[] = [
   {
     slug: "rural-equity-blueprint-volume-1",
+    previewCover: "/publications/previews/rural-equity-blueprint-volume-1.webp",
+    doi: "10.65473/rebs-v1-2025",
     title: "Rural Equity Blueprint Series, Volume 1",
     shortTitle: "Rural Equity Blueprint, Volume 1",
-    description: "A practical framework for improving rural health access through accountable local systems.",
-    relevance: "Connects community readiness, health literacy, technology, workforce development, and access planning.",
+    description:
+      "A practical framework for improving rural health access through accountable local systems.",
+    relevance:
+      "Connects community readiness, health literacy, technology, workforce development, and access planning.",
     status: "Available",
     tags: ["Rural health", "Health access", "Public systems"],
     cover: "/publications/covers/rural-equity-blueprint-volume-1.png",
@@ -38,10 +44,15 @@ export const publications: readonly Publication[] = [
   },
   {
     slug: "rethinking-rural-governance-volume-1",
+    previewCover:
+      "/publications/previews/rethinking-rural-governance-volume-1.webp",
+    doi: "10.65473/rrg-v1-2025",
     title: "Rethinking Rural Governance, Volume 1",
     shortTitle: "Rethinking Rural Governance, Volume 1",
-    description: "A governance framework for helping rural institutions move from fragmented responses to coordinated decision-making.",
-    relevance: "Explains how public, private, and community institutions can use shared accountability and systems intelligence.",
+    description:
+      "A governance framework for helping rural institutions move from fragmented responses to coordinated decision-making.",
+    relevance:
+      "Explains how public, private, and community institutions can use shared accountability and systems intelligence.",
     status: "Available",
     tags: ["Governance", "County systems", "Accountability"],
     cover: "/publications/covers/rethinking-rural-governance-volume-1.jpg",
@@ -51,11 +62,14 @@ export const publications: readonly Publication[] = [
   },
   {
     slug: "health-systems-assurance-volume-1",
+    previewCover:
+      "/publications/previews/health-systems-assurance-volume-1.webp",
     legacySlugs: ["health-systems-assurance"],
     title: "Health Systems Assurance, Volume 1",
     shortTitle: "Health Systems Assurance, Volume 1",
     description: "From compliance to evidence-based digital assurance.",
-    relevance: "Connects obligations and risk objectives to operating evidence, monitoring, exceptions, remediation, and accountable decisions.",
+    relevance:
+      "Connects obligations and risk objectives to operating evidence, monitoring, exceptions, remediation, and accountable decisions.",
     status: "Available",
     tags: ["Digital assurance", "Operating evidence", "Health infrastructure"],
     cover: "/publications/covers/health-systems-assurance-volume-1.jpg",

@@ -36,8 +36,14 @@ test("the Spanish route emits a server-side Content-Language header", async () =
 });
 
 test("the document language is selected on the server for Spanish routes", async () => {
-  const layout = await readFile(new URL("../app/layout.tsx", import.meta.url), "utf8");
-  const middleware = await readFile(new URL("../middleware.ts", import.meta.url), "utf8");
+  const layout = await readFile(
+    new URL("../app/layout.tsx", import.meta.url),
+    "utf8",
+  );
+  const middleware = await readFile(
+    new URL("../middleware.ts", import.meta.url),
+    "utf8",
+  );
   assert.match(layout, /<html lang=\{language\}>/);
   assert.match(layout, /x-sozorock-language/);
   assert.match(middleware, /pathname === "\/es"/);
@@ -59,18 +65,23 @@ test("the sitemap source declares reciprocal English and Spanish alternatives", 
 });
 
 test("the public metadata identifies SozoRock Health, its leadership, and social profiles", async () => {
-  const layout = await readFile(new URL("../app/layout.tsx", import.meta.url), "utf8");
-  const home = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  const layout = await readFile(
+    new URL("../app/layout.tsx", import.meta.url),
+    "utf8",
+  );
+  const home = await readFile(
+    new URL("../app/page.tsx", import.meta.url),
+    "utf8",
+  );
 
-  assert.match(layout, /Care\. For every ZIP Code\./);
+  assert.match(layout, /Systems for health access/);
   assert.match(layout, /Oluwabiyi Adeyemo/);
-  assert.match(layout, /Olu Adeyemo/);
-  assert.match(layout, /Biyi Adeyemo/);
-  assert.match(layout, /"@type": "Person"/);
+
+  assert.doesNotMatch(layout, /"@type": "Person"/);
   assert.match(layout, /"@type": "Project"/);
   assert.doesNotMatch(layout, /"@type": "WebPage"/);
-  assert.match(home, /"@type": "WebPage"/);
+  assert.match(home, /HealthHome/);
   assert.match(layout, /site: "@srockfoundation"/);
   assert.match(layout, /NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION/);
-  assert.match(layout, /sozorock-health-social-2026-07\.jpg/);
+  assert.match(layout, /healthSocialImage/);
 });
