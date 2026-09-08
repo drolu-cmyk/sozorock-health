@@ -74,7 +74,9 @@ const selectedVariables = [
 ] as const;
 
 async function downloadXlsx(url: string) {
-  const response = await fetch(`${url}?download=1`, {
+  // Request the exact artifact URL published by AHRQ. The legacy synthetic
+  // download query is no longer accepted by the agency edge and returns 403.
+  const response = await fetch(url, {
     headers: requestHeaders,
     signal: AbortSignal.timeout(5 * 60_000),
   });
