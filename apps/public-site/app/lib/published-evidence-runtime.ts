@@ -12,6 +12,7 @@ import {
   evidenceRuntimeEnvironment,
   executeEvidenceSql,
 } from "./evidence-runtime-authority";
+import { currentContextSources } from "./evidence-source-selection";
 
 const STATE_CODES: Record<string, string> = {
   "01": "AL", "02": "AK", "04": "AZ", "05": "AR", "06": "CA", "08": "CO", "09": "CT",
@@ -333,12 +334,10 @@ async function loadPublishedBriefFromEvidenceCore(geoid: string, expectedHash: s
   // reviewed and at least one source version is present.  This prevents a
   // partially published or rollback-incomplete snapshot from being served.
   if (!linkedSourceVersions.length || linkedSourceVersions.some((source) => source.reviewStatus !== "verified")) return null;
-  // HRSA is a current designation register. Keep historical releases stored,
-  // but do not present superseded designations as current after a refresh.
-  const currentHrsa = linkedSourceVersions.filter(source => source.sourceId === "hrsa-workforce")
-    .sort((a, b) => b.releaseDate.localeCompare(a.releaseDate)
-      || b.retrievedAt.localeCompare(a.retrievedAt) || a.id.localeCompare(b.id))[0];
-  const sourceVersions = linkedSourceVersions.filter(source => source.sourceId !== "hrsa-workforce" || source.id === currentHrsa?.id);
+  // Context sources are refreshed independently of the pinned CDC release.
+  // Keep their history stored, but show one current linked, reviewed release
+  // per source instead of mixing superseded estimates or designations.
+  const sourceVersions = currentContextSources(linkedSourceVersions);
   const selectedCdcSource = sourceVersions.find((source) => source.id === cdcSourceVersionId && source.sourceId === "cdc-places");
   if (!selectedCdcSource) return null;
   const censusGeographySource = sourceVersions.find((source) => source.sourceId === "census-geography");
