@@ -133,7 +133,7 @@ export function PublicationAccessForm({ slug, title }: { slug: string; title: st
       <div className={styles.formIntro}>
         <p>Publication access</p>
         <h1>Request {title}</h1>
-        <p>Complete this short form with accurate information. We will send a verification link to the email address you provide. After verification, you can download the publication securely.</p>
+        <p>Receive a verification link by email, then download your copy.</p>
       </div>
       <div className={styles.twoColumns}>
         <label htmlFor="publication-first-name">First name
@@ -185,7 +185,7 @@ export function PublicationAccessForm({ slug, title }: { slug: string; title: st
       </div>
       <label htmlFor="publication-reason">Reason for interest
         <textarea id="publication-reason" required name="reason" rows={4} minLength={MIN_PUBLICATION_REASON_LENGTH} maxLength={800} aria-invalid={Boolean(errors.reason)} aria-describedby={`publication-reason-hint${errors.reason ? " publication-reason-error" : ""}`} />
-        <span id="publication-reason-hint">Use at least {MIN_PUBLICATION_REASON_LENGTH} meaningful characters. Placeholder or repeated text is rejected. Do not include health or medical information.</span>
+        <span id="publication-reason-hint">Tell us how this publication relates to your work in at least {MIN_PUBLICATION_REASON_LENGTH} characters. Do not include personal health information.</span>
         {fieldError("reason")}
       </label>
       <div className={styles.honeypot} aria-hidden="true"><label>Website<input name="website" tabIndex={-1} autoComplete="off" /></label></div>
@@ -197,7 +197,7 @@ export function PublicationAccessForm({ slug, title }: { slug: string; title: st
         <input id="publication-updates-consent" type="checkbox" name="updatesConsent" value="yes" />
         <span>Optional: Send me future publication updates. This is not required for access.</span>
       </label>
-      <p id="access-privacy" className={styles.privacy}>We record limited first-party attribution such as referral/campaign source, browser/device class, timezone, and privacy-preserving network context to measure reach and prevent abuse. We do not ask for health or medical information. See our <Link href="/privacy">privacy notice</Link>.</p>
+      <p id="access-privacy" className={styles.privacy}>We use request and usage information to provide access, understand readership and prevent misuse. Read our <Link href="/privacy">privacy notice</Link>.</p>
       <button type="submit" disabled={state === "sending"}>{state === "sending" ? "Sending verification link…" : "Send verification link"}</button>
       <p id="access-status" className={state === "error" ? styles.error : styles.status} role="status" aria-live="polite">{message}</p>
     </form>
