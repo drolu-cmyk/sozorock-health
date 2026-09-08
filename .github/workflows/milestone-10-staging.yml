@@ -252,7 +252,7 @@ jobs:
           set -euo pipefail
           if ! aws amplify get-branch --app-id "$PUBLIC_APP_ID" --branch-name "$STAGING_BRANCH" >/dev/null 2>&1; then
             aws amplify create-branch --app-id "$PUBLIC_APP_ID" --branch-name "$STAGING_BRANCH" \
-              --stage DEVELOPMENT --disable-auto-build >/dev/null
+              --stage DEVELOPMENT --no-enable-auto-build >/dev/null
           fi
           default_domain=$(aws amplify get-app --app-id "$PUBLIC_APP_ID" --query 'app.defaultDomain' --output text)
           branch_slug=$(tr '/_' '--' <<<"$STAGING_BRANCH")
@@ -304,7 +304,7 @@ jobs:
           aws amplify update-branch --app-id "$PUBLIC_APP_ID" --branch-name "$STAGING_BRANCH" \
             --environment-variables "$merged_env" \
             --build-spec "$(cat infrastructure/amplify/public-site.yml)" \
-            --disable-auto-build >/dev/null
+            --no-enable-auto-build >/dev/null
           echo "STAGING_EXPLORE_URL=$staging_url" >> "$GITHUB_ENV"
           npm run test:non-explore-regression --workspace @sozorock/public-site -- \
             capture "$PRODUCTION_URL" output/non-explore-regression
