@@ -462,7 +462,7 @@ jobs:
         run: |
           set -euo pipefail
           tenant="10000000-0000-4000-8000-000000000001"
-          suffix="${RELEASE_SHA:0:12}"
+          suffix="${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
           owner_username="release-owner-${suffix}@sozorockfoundation.org"
           contributor_username="release-contributor-${suffix}@sozorockfoundation.org"
           viewer_username="release-viewer-${suffix}@sozorockfoundation.org"
@@ -598,3 +598,53 @@ jobs:
             .schemaVersion=="place-evidence-answer.v1"
             and (.status=="answered" or .status=="evidence_gap")
             and (.geographicScope.geoid=="36001")
+            and (.citedEvidence | length) > 0
+            and (.sourceAndDataDates | length) > 0
+          ' agent-grounded.json >/dev/null || agent_failed=1
+          if [ "$agent_failed" -ne 0 ]; then
+            aws rds-data execute-statement \
+              --resource-arn "$EVIDENCE_DATABASE_CLUSTER_ARN" \
+              --secret-arn "$EVIDENCE_DATABASE_SECRET_ARN" \
+              --database "$EVIDENCE_DATABASE_NAME" \
+              --sql "UPDATE evidence.capability_switch SET enabled=false, reason='Production agent acceptance failed', updated_at=now(), updated_by='explore-production-workflow' WHERE capability_key IN ('narrative_generation','provider:openai_responses','explore:collaboration','explore:scenarios','explore:funder_snapshots','explore:source_maintenance')" >/dev/null
+            exit 1
+          fi
+          curl --fail --silent --show-error "$PUBLIC_SITE_URL/api/health/version" \
+            | jq -e --arg sha "$RELEASE_SHA" --arg snapshot "$EVIDENCE_SNAPSHOT_CONTENT_HASH" \
+              '.commit == $sha and .snapshotContentHash == $snapshot' >/dev/null
+          {
+            echo "## Verified Explore production release"
+            echo "- Commit: $RELEASE_SHA"
+            echo "- Amplify job: $PUBLIC_AMPLIFY_JOB_ID"
+            echo "- Canonical public URL: $PUBLIC_SITE_URL/explore"
+            echo "- County evidence, browser regression, authenticated collaboration and grounded agent acceptance passed."
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Remove scoped production acceptance identities
+        if: always() && env.EXPLORE_CountyWorkspaceUserPoolId != ''
+        run: |
+          set -euo pipefail
+          suffix="${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          for role in owner contributor viewer; do
+            username="release-${role}-${suffix}@sozorockfoundation.org"
+            error_file=$(mktemp)
+            if ! aws cognito-idp admin-delete-user \
+              --user-pool-id "$EXPLORE_CountyWorkspaceUserPoolId" \
+              --username "$username" 2>"$error_file"; then
+              if ! grep -q 'UserNotFoundException' "$error_file"; then
+                cat "$error_file" >&2
+                rm -f "$error_file"
+                exit 1
+              fi
+            fi
+            rm -f "$error_file"
+          done
+      - name: Upload production acceptance evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: explore-production-acceptance
+          path: |
+            albany.json
+            agent-clinical.json
+            agent-grounded.json
+            .playwright-output/explore
