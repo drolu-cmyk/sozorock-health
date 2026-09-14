@@ -21,8 +21,8 @@
   },
   "dependencies": {
     "@react-native/virtualized-lists": "0.86.2",
-    "babel-preset-expo": "57.0.2",
-    "expo": "~57.0.13",
+    "babel-preset-expo": "57.0.11",
+    "expo": "~57.0.21",
     "expo-localization": "~57.0.1",
     "expo-speech": "~57.0.1",
     "expo-speech-recognition": "^56.0.1",
