@@ -1,6 +1,7 @@
 "use client";
 
 import "maplibre-gl/dist/maplibre-gl.css";
+import { evidenceSourceLabel } from "../lib/evidence-source-labels";
 import {
   FormEvent,
   KeyboardEvent as ReactKeyboardEvent,
@@ -563,8 +564,8 @@ function BriefView({ data }: { data: PlaceResponse }) {
             <summary>Evidence coverage <CaretRight size={17} aria-hidden="true" /></summary>
             <div>
               {data.sourceCoverage.map((source) => (
-                <article key={source.sourceId}>
-                  <strong>{source.sourceId.replaceAll("-", " ")}</strong>
+                <article key={`${source.sourceId}-${source.reason}-${source.releaseDate}`}>
+                  <strong>{evidenceSourceLabel(source)}</strong>
                   <span>{source.status.replaceAll("_", " ")}</span>
                   <p>{source.reason}</p>
                 </article>
@@ -994,7 +995,7 @@ function VisualsView({ data }: { data: PlaceResponse }) {
           <span>Evidence coverage</span><h3>Available, missing and under review.</h3>
           <div>
             {data.sourceCoverage.map((source) => (
-              <div key={source.sourceId}><strong>{source.sourceId.replaceAll("-", " ")}</strong><span data-status={source.status}>{source.status.replaceAll("_", " ")}</span><small>{source.observationCount} record{source.observationCount === 1 ? "" : "s"} · {source.releaseDate ?? "Release unavailable"}</small></div>
+              <div key={`${source.sourceId}-${source.reason}-${source.releaseDate}`}><strong>{evidenceSourceLabel(source)}</strong><span data-status={source.status}>{source.status.replaceAll("_", " ")}</span><small>{source.observationCount} record{source.observationCount === 1 ? "" : "s"} · {source.releaseDate ?? "Release unavailable"}</small></div>
             ))}
           </div>
         </article>
