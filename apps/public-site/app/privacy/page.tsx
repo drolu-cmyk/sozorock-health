@@ -13,7 +13,7 @@ export default function PrivacyPage() {
     <LegalPage
       eyebrow="Public policy"
       title="Privacy notice"
-      updated="September 7, 2026"
+      updated="September 15, 2026"
     >
       <h2>Information and choice</h2>
       <p>
@@ -57,7 +57,7 @@ export default function PrivacyPage() {
       <h2>Resident Access Layer and mobile app</h2>
       <p>
         In a supported mobile or shared-tablet readiness flow, we receive only
-        the journey you selected, a ZIP code or Health Equity Hub reference, the
+        the access option you selected, a ZIP code or Health Equity Hub reference, the
         non-clinical support option you selected, the interface language,
         whether the request came from the mobile or kiosk experience, and the
         consent record shown before submission. We do not ask for your name,
@@ -104,9 +104,9 @@ export default function PrivacyPage() {
       <h2>How information is shared</h2>
       <p>
         We may share information with service providers that operate the
-        website, protect it, deliver requested email, or support an feature you
-        choose. They may use the information only to provide those services to
-        support those services. We may also disclose information when required
+        website, protect it, deliver requested email, or support a feature you
+        choose. They may use the information only to provide those services.
+        We may also disclose information when required
         by law, to protect people or our services, or as part of an
         organizational transaction permitted by law. We do not sell personal
         information or use it for behavioral advertising.

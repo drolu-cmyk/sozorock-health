@@ -45,7 +45,7 @@ export default function EvidencePage() {
           <div>
             <p>
               Explore frameworks for rural equity, public governance and health
-              systems assurance by Oluwabiyi Adeyemo.
+              systems assurance by Dr. Oluwabiyi Adeyemo.
             </p>
             <p>
               Publication pages provide the author, edition and available
@@ -59,12 +59,13 @@ export default function EvidencePage() {
           </div>
         </section>
         <section className="hs-work-row">
-          <h2>County-level planning</h2>
+          <h2>County evidence</h2>
           <div>
             <p>
               CB-CAP, the County-Based Community Access Platform, is a separate
-              Foundation product. Explore its county planning experience and
-              evidence on its own site.
+              Foundation product. Its public preview provides county evidence,
+              source dates and limitations. Institutional planning access is
+              not available in that release.
             </p>
             <a className="hs-link" href="https://cbcap.sozorockfoundation.org/">
               Explore CB-CAP
@@ -75,9 +76,8 @@ export default function EvidencePage() {
         <aside className="hs-context">
           <h2>A question the evidence cannot answer yet?</h2>
           <p>
-            Tell us what you are trying to understand. A missing value or
-            unavailable source should remain visible, rather than be treated as
-            an answer.
+            Tell us the question, geography and evidence gap. Missing data does
+            not establish that a need is absent.
           </p>
           <a
             className="hs-link"

@@ -5,7 +5,7 @@ import { healthPageSchema } from "../lib/health-metadata";
 const capabilities = [
   [
     "Community access",
-    "Health Equity Hubs, Health Access Day and practical support around reaching care.",
+    "Health Equity Hubs and Health Access Day: models for health education, digital readiness and reaching available care.",
     "hubs",
     "community-access",
   ],
@@ -31,7 +31,7 @@ const capabilities = [
 const spanishCapabilities = [
   [
     "Acceso comunitario",
-    "Health Equity Hubs, Health Access Day y apoyo práctico para facilitar el acceso a la atención.",
+    "Health Equity Hubs y Health Access Day: modelos de educación en salud, preparación digital y acceso a la atención disponible.",
     "hubs",
     "community-access",
   ],
@@ -67,8 +67,8 @@ export function HealthHome({ spanish = false }: { spanish?: boolean }) {
             <h1 id="health-title">{title}</h1>
             <p className="hs-lead">
               {spanish
-                ? "SozoRock Health desarrolla modelos de acceso comunitario, inteligencia territorial, aseguramiento digital y capacidad laboral para fortalecer los sistemas de salud y su rendición de cuentas."
-                : "SozoRock Health develops community access models, place-based intelligence, digital assurance and workforce capacity to help institutions build more accountable health systems."}
+                ? "SozoRock Health desarrolla modelos de acceso comunitario, evidencia local y preparación digital para ayudar a las comunidades rurales y las instituciones a abordar las barreras de acceso a la atención."
+                : "SozoRock Health develops community access models, local evidence and digital readiness to help rural communities and institutions address barriers to care."}
             </p>
             <div className="hs-actions">
               <a className="hs-primary" href="/work">

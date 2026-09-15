@@ -35,7 +35,7 @@ export async function generateMetadata({
     url: `/social/${code}-social-card.png`,
     width: 1200,
     height: 630,
-    alt: `${publication.title} by Oluwabiyi Adeyemo`,
+    alt: `${publication.title} by Dr. Oluwabiyi Adeyemo`,
   };
   return {
     ...base,
@@ -59,7 +59,7 @@ export default async function PublicationPage({
     name: publication.title,
     author: {
       "@type": "Person",
-      name: publication.author ?? "Oluwabiyi Adeyemo",
+      name: publication.author ?? "Dr. Oluwabiyi Adeyemo",
     },
     publisher: {
       "@type": "Organization",
@@ -111,6 +111,7 @@ export default async function PublicationPage({
               <h1>{publication.title}</h1>
               <p className={styles.description}>{publication.description}</p>
               <p className={styles.relevance}>{publication.relevance}</p>
+              {publication.limitations && <p className={styles.note}><strong>Scope and limitations. </strong>{publication.limitations}</p>}
               {publication.published || publication.isbn || publication.doi ? (
                 <dl className={styles.facts}>
                   {publication.author ? (
@@ -177,7 +178,7 @@ export default async function PublicationPage({
                   <p className={styles.note}>
                     Public-interest access is free. Complete the short access
                     form and confirm your email address to receive a secure,
-                    time-limited download.
+                    time-limited download. Publication updates are optional.
                   </p>
                 </>
               ) : (
@@ -196,6 +197,7 @@ export default async function PublicationPage({
               )}
             </div>
           </article>
+          <p className={styles.note}>For reuse, check the notice in the publication. Send permissions questions or corrections, with the relevant page and source, to <a href="mailto:contact@sozorockfoundation.org">contact@sozorockfoundation.org</a>.</p>
         </main>
         <script
           type="application/ld+json"

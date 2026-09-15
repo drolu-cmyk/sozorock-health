@@ -12,7 +12,7 @@
     "brace-expansion@>=4.0.0 <6.0.0": "5.0.9",
     "fast-uri": "3.1.7",
     "image-size": "$image-size",
-    "js-yaml": "4.3.1",
+    "js-yaml": "4.3.2",
     "metro": {
       "image-size": "$image-size"
     },
@@ -49,12 +49,14 @@
     "start:mobile": "npm exec --workspace @sozorock/mobile -- expo start",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "lint": "eslint apps packages --max-warnings=0",
-    "test": "npm run test --workspaces --if-present"
+    "test": "npm run test --workspaces --if-present",
+    "prebuild:public": "node scripts/copy-maplibre-worker.mjs",
+    "predev:public": "node scripts/copy-maplibre-worker.mjs"
   },
   "devDependencies": {
     "esbuild": "^0.28.1",
     "eslint": "^9.39.5",
-    "eslint-config-next": "^15.5.21",
+    "eslint-config-next": "^15.5.24",
     "image-size": "file:vendor/image-size",
     "patch-package": "^8.0.1",
     "pixelmatch": "^7.2.0",
