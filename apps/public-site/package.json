@@ -13,7 +13,9 @@
     "test:non-explore-regression": "node scripts/run-non-explore-regression.mjs",
     "test:partner-evidence-visual": "node scripts/run-partner-evidence-visual.mjs",
     "test:national-api": "node scripts/validate-national-api.mjs",
-    "test:staging-collaboration": "node scripts/test-staging-collaboration.mjs"
+    "test:staging-collaboration": "node scripts/test-staging-collaboration.mjs",
+    "prebuild": "node ../../scripts/copy-maplibre-worker.mjs",
+    "predev": "node ../../scripts/copy-maplibre-worker.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-apigatewaymanagementapi": "^3.1098.0",
@@ -30,8 +32,8 @@
     "@phosphor-icons/react": "^2.1.10",
     "@sozorock/evidence-core": "0.1.0",
     "d3-geo": "^3.1.1",
-    "maplibre-gl": "^5.24.0",
-    "next": "15.5.21",
+    "maplibre-gl": "6.4.1",
+    "next": "15.5.24",
     "nodemailer": "10.0.1",
     "pdf-lib": "^1.17.1",
     "react": "19.1.1",

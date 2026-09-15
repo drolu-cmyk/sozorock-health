@@ -19,7 +19,7 @@ const areas = [
       ],
       [
         "Health Access Day",
-        "A focused community activation shaped by local evidence. Partners define the place, purpose and support required; any clinical activity belongs to appropriately licensed professionals.",
+        "A proposed local format for health education and health literacy. Hosts and participants agree the purpose, support and follow-up; any clinical activity remains with licensed professionals.",
       ],
     ],
     action: "Discuss a community access model",
@@ -33,7 +33,7 @@ const areas = [
     parts: [
       [
         "County-level planning",
-        "CB-CAP is a related Foundation product for county-level planning. It has its own product experience and scope.",
+        "CB-CAP offers a public preview of county evidence, sources and limitations. Institutional planning access is not available in that release.",
       ],
     ],
     action: "Explore the evidence pathways",
@@ -43,7 +43,7 @@ const areas = [
     id: "digital-readiness",
     title: "Digital and provider readiness",
     intro:
-      "A device, connection or online portal can determine whether someone can take the next step. Our approach brings practical preparation into the access journey.",
+      "A device, connection or online portal can determine whether someone can take the next step. Our approach addresses the skills, equipment and support needed to use available services.",
     parts: [
       [
         "Provider-led pathways",
@@ -61,7 +61,7 @@ const areas = [
     id: "workforce-capacity",
     title: "Workforce capacity",
     intro:
-      "Evidence of local need should inform how skills and capacity develop. We bring workforce questions into conversations with educators, employers and community institutions.",
+      "Evidence of local need should inform how skills and capacity develop. We welcome discussions with educators, employers and community institutions about local skills and capacity.",
     parts: [
       [
         "Build the capability a place needs",
@@ -83,8 +83,8 @@ export default function WorkPage() {
           </div>
           <p>
             Transport, technology, local capacity and institutional decisions
-            shape whether care is within reach. Our work addresses the systems
-            around that journey.
+            shape whether care is within reach. We develop models for addressing
+            those barriers, with a focus on rural communities.
           </p>
         </div>
         {areas.map((area) => (
@@ -108,11 +108,10 @@ export default function WorkPage() {
         <aside className="hs-context">
           <h2>Build from the needs of a place.</h2>
           <p>
-            These are areas for partnership and implementation, not a directory
-            of operating clinics or guaranteed local services. Tell us about
-            your community, institution or access challenge. SozoRock Health is
-            not a clinic, provider or telehealth platform and does not replace
-            licensed practitioners.
+            Local implementation depends on agreed responsibilities, available
+            services and delivery capacity. Tell us the community and access
+            barrier you want to address. SozoRock Health does not diagnose,
+            treat, prescribe or replace licensed providers.
           </p>
           <a className="hs-link" href="/contact">
             Start a conversation

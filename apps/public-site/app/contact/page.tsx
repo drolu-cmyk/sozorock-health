@@ -33,11 +33,11 @@ export default async function ContactPage({
         <div className="hs-page-heading">
           <div>
             <p className="hs-eyebrow">Partner with Health</p>
-            <h1>Bring an access challenge worth solving.</h1>
+            <h1>Discuss a health access challenge.</h1>
           </div>
           <p>
-            Tell us about your place, your institution and the outcome you want
-            to work toward.
+            Tell us about the community, the barrier to care and the contribution
+            your organization could make.
           </p>
         </div>
         <div className="hs-contact-layout">

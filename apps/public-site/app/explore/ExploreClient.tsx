@@ -669,7 +669,7 @@ function MapCanvas({ geometry, data, metric }: { geometry: GeometryResponse | nu
     let mapReady = false;
     let map: import("maplibre-gl").Map | null = null;
     let readinessTimer: ReturnType<typeof setTimeout> | null = null;
-    void import("maplibre-gl").then(({ default: maplibregl }) => {
+    void import("maplibre-gl").then((maplibregl) => {
       if (cancelled || !containerRef.current) return;
       const fill = "#0644AD";
       try {
@@ -678,6 +678,7 @@ function MapCanvas({ geometry, data, metric }: { geometry: GeometryResponse | nu
           setMapError("The interactive map is unavailable in this browser.");
           return;
         }
+        maplibregl.setWorkerUrl("/maplibre/maplibre-gl-worker.mjs");
         map = new maplibregl.Map({
           container: containerRef.current,
           style: {
