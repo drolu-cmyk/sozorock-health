@@ -45,7 +45,7 @@ export default function EvidencePage() {
           <div>
             <p>
               Explore frameworks for rural equity, public governance and health
-              systems assurance by Oluwabiyi Adeyemo.
+              systems assurance by Dr. Oluwabiyi Adeyemo.
             </p>
             <p>
               Publication pages provide the author, edition and available
