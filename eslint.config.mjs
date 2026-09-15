@@ -6,7 +6,7 @@ const root = path.dirname(fileURLToPath(import.meta.url));
 const compat = new FlatCompat({ baseDirectory: root });
 
 export default [
-  { ignores: ["**/.next/**", "**/dist/**", "**/node_modules/**", "**/coverage/**", "**/next-env.d.ts"] },
+  { ignores: ["**/.next/**", "**/dist/**", "**/node_modules/**", "**/coverage/**", "**/next-env.d.ts", "apps/public-site/public/maplibre/**"] },
   ...compat.extends("next/core-web-vitals", "next/typescript"),
   {
     rules: {
