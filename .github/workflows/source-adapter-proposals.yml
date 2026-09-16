@@ -1,6 +1,9 @@
 name: Propose approved-source changes
 
 on:
+  push:
+    branches:
+      - automation/trigger-source-refresh-20260916
   schedule:
     - cron: "17 7 * * 1"
     - cron: "43 8 1 * *"
