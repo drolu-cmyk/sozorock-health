@@ -52,14 +52,11 @@ test("requires delivery consent independently of update consent", () => {
   assert.match(validateAccessInput(input) ?? "", /Confirm/);
 });
 
-test("keeps optional organization details coherent when supplied", () => {
-  const missingSector = parseAccessInput({ ...minimal, organization: "County Library" });
-  assert.equal(
-    validateAccessInput(missingSector),
-    "Complete organization and role together, or leave both optional fields blank.",
-  );
+test("validates optional organization and sector fields independently", () => {
+  const organizationOnly = parseAccessInput({ ...minimal, organization: "County Library" });
+  assert.equal(validateAccessInput(organizationOnly), null);
 
-  const unsupportedSector = parseAccessInput({ ...minimal, organization: "County Library", sector: "Unknown" });
+  const unsupportedSector = parseAccessInput({ ...minimal, sector: "Unknown" });
   assert.equal(validateAccessInput(unsupportedSector), "Choose a valid role or sector.");
 });
 
@@ -90,12 +87,12 @@ test("rejects placeholder identity fields and invalid structured subdivisions", 
   );
 });
 
-test("requires optional location fields to be completed as one group", () => {
-  const incompleteLocation = parseAccessInput({ ...minimal, cityOrRegion: "Albany" });
-  assert.equal(
-    validateAccessInput(incompleteLocation),
-    "Complete city, region and country together, or leave those optional fields blank.",
-  );
+test("accepts partial optional location context and validates country values when supplied", () => {
+  const cityOnly = parseAccessInput({ ...minimal, cityOrRegion: "Albany" });
+  assert.equal(validateAccessInput(cityOnly), null);
+
+  const invalidCountry = parseAccessInput({ ...minimal, country: "Not a country" });
+  assert.equal(validateAccessInput(invalidCountry), "Choose a valid country.");
 });
 
 test("strips control characters", () => {
