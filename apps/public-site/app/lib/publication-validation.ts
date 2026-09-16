@@ -34,6 +34,8 @@ export const MIN_PUBLICATION_REASON_LENGTH = 30;
 
 const PLACEHOLDER = /^(?:a+|x+|test(?:ing)?|asdf+|qwerty|fake|dummy|unknown|none|n\/?a|nope|sample|placeholder)$/iu;
 const RESERVED_EMAIL_DOMAIN = /(?:^|\.)(?:example\.(?:com|net|org)|invalid|localhost|test)$/i;
+const OPTIONAL_PROFILE_SENTINEL = "Not provided by reader";
+const OPTIONAL_REASON_SENTINEL = "Publication access requested without optional readership details.";
 
 function clean(value: unknown, max: number) {
   return typeof value === "string"
@@ -74,11 +76,23 @@ function meaningfulReason(value: string) {
 }
 
 export function parseAccessInput(body: Record<string, unknown>): AccessInput {
+  const organization = clean(body.organization, 160);
+  const sector = clean(body.sector, 100);
+  const cityOrRegion = clean(body.cityOrRegion, 120);
+  const state = clean(body.state, 120);
+  const country = clean(body.country, 100);
+  const reason = clean(body.reason, 800);
+  const defaultSector = organization === OPTIONAL_PROFILE_SENTINEL && sector === "Other";
+
   return {
     firstName: clean(body.firstName, 80), lastName: clean(body.lastName, 80),
-    email: clean(body.email, 254).toLowerCase(), organization: clean(body.organization, 160),
-    sector: clean(body.sector, 100), cityOrRegion: clean(body.cityOrRegion, 120),
-    state: clean(body.state, 120), country: clean(body.country, 100), reason: clean(body.reason, 800),
+    email: clean(body.email, 254).toLowerCase(),
+    organization: organization === OPTIONAL_PROFILE_SENTINEL ? "" : organization,
+    sector: defaultSector ? "" : sector,
+    cityOrRegion: cityOrRegion === OPTIONAL_PROFILE_SENTINEL ? "" : cityOrRegion,
+    state: state === OPTIONAL_PROFILE_SENTINEL ? "" : state,
+    country: country === OPTIONAL_PROFILE_SENTINEL ? "" : country,
+    reason: reason === OPTIONAL_REASON_SENTINEL ? "" : reason,
     deliveryConsent: body.deliveryConsent === true, updatesConsent: body.updatesConsent === true,
     website: clean(body.website, 120),
   };
