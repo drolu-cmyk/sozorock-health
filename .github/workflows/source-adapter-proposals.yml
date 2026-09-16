@@ -63,7 +63,8 @@ jobs:
 
           Failed retrievals remain failed; the last approved snapshot stays active.
           EOF
-          git add packages/evidence-core/data output/source-adapter-review
+          git add packages/evidence-core/data
+          git add -f output/source-adapter-review
           git commit -m "chore(explore): propose governed source adapter update"
           git push origin HEAD:"$branch"
           gh pr create --base main --head "$branch" \
