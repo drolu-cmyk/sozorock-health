@@ -92,24 +92,17 @@ export function validateAccessInput(input: AccessInput) {
   const emailDomain = input.email.split("@").at(-1) ?? "";
   if (RESERVED_EMAIL_DOMAIN.test(emailDomain)) return "Enter an email address you actually use.";
 
-  const hasOrganizationProfile = Boolean(input.organization || input.sector);
-  if (hasOrganizationProfile && (!input.organization || !input.sector)) {
-    return "Complete organization and role together, or leave both optional fields blank.";
-  }
   if (input.organization && !meaningfulShortText(input.organization, 2)) return "Enter a meaningful organization or affiliation.";
   if (input.sector && !PUBLICATION_SECTORS.includes(input.sector as (typeof PUBLICATION_SECTORS)[number])) return "Choose a valid role or sector.";
-
-  const hasLocationProfile = Boolean(input.cityOrRegion || input.state || input.country);
-  if (hasLocationProfile && (!input.cityOrRegion || !input.state || !input.country)) {
-    return "Complete city, region and country together, or leave those optional fields blank.";
-  }
   if (input.cityOrRegion && !meaningfulShortText(input.cityOrRegion, 2)) return "Enter a meaningful city or locality.";
-  if (input.country) {
-    const country = getPublicationCountry(input.country);
-    if (!country) return "Choose a valid country.";
-    if (!meaningfulShortText(input.state, 2) || !isValidPublicationSubdivision(country.code, input.state)) {
-      return "Choose or enter a valid state, province, region, county, department, or equivalent.";
-    }
+
+  const country = input.country ? getPublicationCountry(input.country) : undefined;
+  if (input.country && !country) return "Choose a valid country.";
+  if (input.state && !meaningfulShortText(input.state, 2)) {
+    return "Choose or enter a valid state, province, region, county, department, or equivalent.";
+  }
+  if (country && input.state && !isValidPublicationSubdivision(country.code, input.state)) {
+    return "Choose or enter a valid state, province, region, county, department, or equivalent.";
   }
 
   if (input.reason && !meaningfulReason(input.reason)) return `Use at least ${MIN_PUBLICATION_REASON_LENGTH} meaningful characters to explain your interest.`;
