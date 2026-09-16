@@ -47,6 +47,30 @@ test("accepts a minimal delivery request without readership profiling", () => {
   assert.equal(input.reason, "");
 });
 
+test("normalizes the parent-site compatibility profile back to empty optional fields", () => {
+  const input = parseAccessInput({
+    ...minimal,
+    organization: "Not provided by reader",
+    sector: "Other",
+    cityOrRegion: "Not provided by reader",
+    state: "Not provided by reader",
+    country: "Not provided by reader",
+    reason: "Publication access requested without optional readership details.",
+  });
+  assert.equal(validateAccessInput(input), null);
+  assert.deepEqual(
+    {
+      organization: input.organization,
+      sector: input.sector,
+      cityOrRegion: input.cityOrRegion,
+      state: input.state,
+      country: input.country,
+      reason: input.reason,
+    },
+    { organization: "", sector: "", cityOrRegion: "", state: "", country: "", reason: "" },
+  );
+});
+
 test("requires delivery consent independently of update consent", () => {
   const input = parseAccessInput({ ...minimal, deliveryConsent: false, updatesConsent: true });
   assert.match(validateAccessInput(input) ?? "", /Confirm/);
