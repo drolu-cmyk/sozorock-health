@@ -34,6 +34,8 @@ export const MIN_PUBLICATION_REASON_LENGTH = 30;
 
 const PLACEHOLDER = /^(?:a+|x+|test(?:ing)?|asdf+|qwerty|fake|dummy|unknown|none|n\/?a|nope|sample|placeholder)$/iu;
 const RESERVED_EMAIL_DOMAIN = /(?:^|\.)(?:example\.(?:com|net|org)|invalid|localhost|test)$/i;
+const OPTIONAL_PROFILE_SENTINEL = "Not provided by reader";
+const OPTIONAL_REASON_SENTINEL = "Publication access requested without optional readership details.";
 
 function clean(value: unknown, max: number) {
   return typeof value === "string"
@@ -74,30 +76,50 @@ function meaningfulReason(value: string) {
 }
 
 export function parseAccessInput(body: Record<string, unknown>): AccessInput {
+  const organization = clean(body.organization, 160);
+  const sector = clean(body.sector, 100);
+  const cityOrRegion = clean(body.cityOrRegion, 120);
+  const state = clean(body.state, 120);
+  const country = clean(body.country, 100);
+  const reason = clean(body.reason, 800);
+  const defaultSector = organization === OPTIONAL_PROFILE_SENTINEL && sector === "Other";
+
   return {
     firstName: clean(body.firstName, 80), lastName: clean(body.lastName, 80),
-    email: clean(body.email, 254).toLowerCase(), organization: clean(body.organization, 160),
-    sector: clean(body.sector, 100), cityOrRegion: clean(body.cityOrRegion, 120),
-    state: clean(body.state, 120), country: clean(body.country, 100), reason: clean(body.reason, 800),
+    email: clean(body.email, 254).toLowerCase(),
+    organization: organization === OPTIONAL_PROFILE_SENTINEL ? "" : organization,
+    sector: defaultSector ? "" : sector,
+    cityOrRegion: cityOrRegion === OPTIONAL_PROFILE_SENTINEL ? "" : cityOrRegion,
+    state: state === OPTIONAL_PROFILE_SENTINEL ? "" : state,
+    country: country === OPTIONAL_PROFILE_SENTINEL ? "" : country,
+    reason: reason === OPTIONAL_REASON_SENTINEL ? "" : reason,
     deliveryConsent: body.deliveryConsent === true, updatesConsent: body.updatesConsent === true,
     website: clean(body.website, 120),
   };
 }
 
 export function validateAccessInput(input: AccessInput) {
-  if (!input.firstName || !input.lastName || !input.email || !input.organization || !input.sector || !input.cityOrRegion || !input.state || !input.country || !input.reason) return "Complete every required field.";
+  if (!input.firstName || !input.lastName || !input.email) return "Complete every required field.";
   if (!meaningfulName(input.firstName)) return "Enter a real first name rather than placeholder text.";
   if (!meaningfulName(input.lastName)) return "Enter a real last name rather than placeholder text.";
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.email)) return "Enter a valid email address.";
   const emailDomain = input.email.split("@").at(-1) ?? "";
   if (RESERVED_EMAIL_DOMAIN.test(emailDomain)) return "Enter an email address you actually use.";
-  if (!meaningfulShortText(input.organization, 2)) return "Enter a meaningful organization or affiliation.";
-  if (!PUBLICATION_SECTORS.includes(input.sector as (typeof PUBLICATION_SECTORS)[number])) return "Choose a valid role or sector.";
-  if (!meaningfulShortText(input.cityOrRegion, 2)) return "Enter a meaningful city or locality.";
-  const country = getPublicationCountry(input.country);
-  if (!country) return "Choose a valid country.";
-  if (!meaningfulShortText(input.state, 2) || !isValidPublicationSubdivision(country.code, input.state)) return "Choose or enter a valid state, province, region, county, department, or equivalent.";
-  if (!meaningfulReason(input.reason)) return `Use at least ${MIN_PUBLICATION_REASON_LENGTH} meaningful characters to explain your interest.`;
+
+  if (input.organization && !meaningfulShortText(input.organization, 2)) return "Enter a meaningful organization or affiliation.";
+  if (input.sector && !PUBLICATION_SECTORS.includes(input.sector as (typeof PUBLICATION_SECTORS)[number])) return "Choose a valid role or sector.";
+  if (input.cityOrRegion && !meaningfulShortText(input.cityOrRegion, 2)) return "Enter a meaningful city or locality.";
+
+  const country = input.country ? getPublicationCountry(input.country) : undefined;
+  if (input.country && !country) return "Choose a valid country.";
+  if (input.state && !meaningfulShortText(input.state, 2)) {
+    return "Choose or enter a valid state, province, region, county, department, or equivalent.";
+  }
+  if (country && input.state && !isValidPublicationSubdivision(country.code, input.state)) {
+    return "Choose or enter a valid state, province, region, county, department, or equivalent.";
+  }
+
+  if (input.reason && !meaningfulReason(input.reason)) return `Use at least ${MIN_PUBLICATION_REASON_LENGTH} meaningful characters to explain your interest.`;
   if (!input.deliveryConsent) return "Confirm that we may use your email for publication access.";
   return null;
 }
