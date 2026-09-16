@@ -17,6 +17,21 @@ const valid = {
   website: "",
 };
 
+const minimal = {
+  firstName: "Adaeze",
+  lastName: "Rivera",
+  email: "adaeze@countylibrary.org",
+  organization: "",
+  sector: "",
+  cityOrRegion: "",
+  state: "",
+  country: "",
+  reason: "",
+  deliveryConsent: true,
+  updatesConsent: false,
+  website: "",
+};
+
 test("normalizes a valid publication request", () => {
   const input = parseAccessInput(valid);
   assert.equal(input.firstName, "Adaeze");
@@ -24,21 +39,32 @@ test("normalizes a valid publication request", () => {
   assert.equal(validateAccessInput(input), null);
 });
 
+test("accepts a minimal delivery request without readership profiling", () => {
+  const input = parseAccessInput(minimal);
+  assert.equal(validateAccessInput(input), null);
+  assert.equal(input.organization, "");
+  assert.equal(input.country, "");
+  assert.equal(input.reason, "");
+});
+
 test("requires delivery consent independently of update consent", () => {
-  const input = parseAccessInput({ ...valid, deliveryConsent: false, updatesConsent: true });
+  const input = parseAccessInput({ ...minimal, deliveryConsent: false, updatesConsent: true });
   assert.match(validateAccessInput(input) ?? "", /Confirm/);
 });
 
-test("requires an organization or affiliation", () => {
-  const input = parseAccessInput({ ...valid, organization: "" });
-  assert.equal(validateAccessInput(input), "Complete every required field.");
+test("keeps optional organization details coherent when supplied", () => {
+  const missingSector = parseAccessInput({ ...minimal, organization: "County Library" });
+  assert.equal(
+    validateAccessInput(missingSector),
+    "Complete organization and role together, or leave both optional fields blank.",
+  );
+
+  const unsupportedSector = parseAccessInput({ ...minimal, organization: "County Library", sector: "Unknown" });
+  assert.equal(validateAccessInput(unsupportedSector), "Choose a valid role or sector.");
 });
 
-test("requires an approved sector and a meaningful reason", () => {
-  const unsupportedSector = parseAccessInput({ ...valid, sector: "Unknown" });
-  assert.equal(validateAccessInput(unsupportedSector), "Choose a valid role or sector.");
-
-  const shortReason = parseAccessInput({ ...valid, reason: "Too short" });
+test("validates an optional reason only when supplied", () => {
+  const shortReason = parseAccessInput({ ...minimal, reason: "Too short" });
   assert.equal(
     validateAccessInput(shortReason),
     "Use at least 30 meaningful characters to explain your interest.",
@@ -46,15 +72,15 @@ test("requires an approved sector and a meaningful reason", () => {
 });
 
 test("rejects malformed and reserved email addresses", () => {
-  const malformed = parseAccessInput({ ...valid, email: "not-an-email" });
+  const malformed = parseAccessInput({ ...minimal, email: "not-an-email" });
   assert.equal(validateAccessInput(malformed), "Enter a valid email address.");
 
-  const reserved = parseAccessInput({ ...valid, email: "reader@example.org" });
+  const reserved = parseAccessInput({ ...minimal, email: "reader@example.org" });
   assert.equal(validateAccessInput(reserved), "Enter an email address you actually use.");
 });
 
 test("rejects placeholder identity fields and invalid structured subdivisions", () => {
-  const placeholderName = parseAccessInput({ ...valid, firstName: "asdf" });
+  const placeholderName = parseAccessInput({ ...minimal, firstName: "asdf" });
   assert.equal(validateAccessInput(placeholderName), "Enter a real first name rather than placeholder text.");
 
   const invalidState = parseAccessInput({ ...valid, state: "Synthetic State" });
@@ -64,13 +90,21 @@ test("rejects placeholder identity fields and invalid structured subdivisions", 
   );
 });
 
+test("requires optional location fields to be completed as one group", () => {
+  const incompleteLocation = parseAccessInput({ ...minimal, cityOrRegion: "Albany" });
+  assert.equal(
+    validateAccessInput(incompleteLocation),
+    "Complete city, region and country together, or leave those optional fields blank.",
+  );
+});
+
 test("strips control characters", () => {
-  const input = parseAccessInput({ ...valid, firstName: "Ada\u0000eze" });
+  const input = parseAccessInput({ ...minimal, firstName: "Ada\u0000eze" });
   assert.equal(input.firstName, "Adaeze");
   assert.equal(validateAccessInput(input), null);
 });
 
 test("does not accept truthy strings as consent", () => {
-  const input = parseAccessInput({ ...valid, deliveryConsent: "yes" });
+  const input = parseAccessInput({ ...minimal, deliveryConsent: "yes" });
   assert.equal(input.deliveryConsent, false);
 });
