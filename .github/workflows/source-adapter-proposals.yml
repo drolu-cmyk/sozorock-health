@@ -54,6 +54,8 @@ jobs:
           fi
           branch="automation/source-adapter-review-${GITHUB_RUN_ID}"
           git checkout -b "$branch"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           mkdir -p output/source-adapter-review
           git diff --stat > output/source-adapter-review/change-stat.txt
           cat > output/source-adapter-review/README.md <<'EOF'
