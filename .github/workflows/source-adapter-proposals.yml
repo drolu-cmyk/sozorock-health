@@ -49,7 +49,7 @@ jobs:
             echo "No approved source artifact changed."
             exit 0
           fi
-          branch="automation/source-adapter-review-${GITHUB_RUN_ID}"
+          branch="automation/source-adapter-review-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
           git checkout -b "$branch"
           mkdir -p output/source-adapter-review
           git diff --stat > output/source-adapter-review/change-stat.txt
@@ -60,7 +60,10 @@ jobs:
 
           Failed retrievals remain failed; the last approved snapshot stays active.
           EOF
-          git add packages/evidence-core/data output/source-adapter-review
+          git config user.name "sozorock-data-automation"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -- packages/evidence-core/data
+          git add --force -- output/source-adapter-review/README.md output/source-adapter-review/change-stat.txt
           git commit -m "chore(explore): propose governed source adapter update"
           git push origin HEAD:"$branch"
           gh pr create --base main --head "$branch" \
