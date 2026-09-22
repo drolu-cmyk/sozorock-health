@@ -74,13 +74,13 @@ test("the public metadata identifies SozoRock Health, its leadership, and social
     "utf8",
   );
 
-  assert.match(layout, /Systems for health access/);
+  assert.match(layout, /Health equity and primary care access/);
   assert.match(layout, /Oluwabiyi Adeyemo/);
 
   assert.doesNotMatch(layout, /"@type": "Person"/);
   assert.match(layout, /"@type": "Project"/);
   assert.doesNotMatch(layout, /"@type": "WebPage"/);
-  assert.match(home, /HealthHome/);
+  assert.match(home, /ApprovedHealthPage/);
   assert.match(layout, /site: "@srockfoundation"/);
   assert.match(layout, /NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION/);
   assert.match(layout, /healthSocialImage/);

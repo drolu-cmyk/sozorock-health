@@ -16,7 +16,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
   return [
     {
       url: base,
-      lastModified: new Date("2026-09-07"),
+      lastModified: new Date("2026-09-22"),
       changeFrequency: "weekly",
       priority: 1,
       alternates: { languages: { en: base, es: `${base}/es` } },
@@ -36,7 +36,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     },
     {
       url: `${base}/contact`,
-      lastModified: new Date("2026-09-07"),
+      lastModified: new Date("2026-09-22"),
       changeFrequency: "monthly",
       priority: 0.8,
     },
@@ -49,13 +49,13 @@ export default function sitemap(): MetadataRoute.Sitemap {
     ...publicationRoutes,
     {
       url: `${base}/work`,
-      lastModified: new Date("2026-09-07"),
+      lastModified: new Date("2026-09-22"),
       changeFrequency: "monthly",
       priority: 0.8,
     },
     {
       url: `${base}/evidence`,
-      lastModified: new Date("2026-09-07"),
+      lastModified: new Date("2026-09-22"),
       changeFrequency: "monthly",
       priority: 0.8,
     },

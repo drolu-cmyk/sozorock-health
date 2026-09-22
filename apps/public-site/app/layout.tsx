@@ -4,6 +4,7 @@ import { headers } from "next/headers";
 import "./globals.css";
 import "./marketing.css";
 import "./health-system.css";
+import "./approved.css";
 import { foundationEntity, healthSocialImage } from "./lib/health-metadata";
 
 const siteUrl = "https://health.sozorockfoundation.org";
@@ -31,11 +32,11 @@ const instrumentSans = Instrument_Sans({
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: {
-    default: "SozoRock Health | Systems for health access.",
+    default: "SozoRock Health | Health equity and primary care access.",
     template: "%s | SozoRock Health",
   },
   description:
-    "Community access models, place-based intelligence, digital assurance and workforce capacity for more accountable health systems.",
+    "Health Equity Hubs, digital readiness, county health data and workforce development for underserved communities.",
   applicationName: "SozoRock Health",
   authors: [
     {
@@ -82,7 +83,7 @@ export const metadata: Metadata = {
   },
   formatDetection: { telephone: false, address: false, email: false },
   openGraph: {
-    title: "SozoRock Health | Systems for health access",
+    title: "SozoRock Health | Health equity and primary care access",
     description:
       "Health-equity systems infrastructure for people, communities, licensed providers, institutions, and public agencies across the United States.",
     url: siteUrl,
@@ -95,7 +96,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     site: "@srockfoundation",
     creator: "@srockfoundation",
-    title: "SozoRock Health | Systems for health access.",
+    title: "SozoRock Health | Health equity and primary care access.",
     description:
       "Health-equity systems infrastructure for practical access, community readiness, provider-led pathways, and stronger public systems.",
     images: [healthSocialImage.url],
@@ -147,7 +148,7 @@ const structuredData = {
       name: "SozoRock Health",
       alternateName: "SozoRock",
       url: siteUrl,
-      slogan: "Systems for health access.",
+      slogan: "Health equity and primary care access.",
       description:
         "An initiative developing community access models, place-based intelligence, digital readiness and workforce capacity.",
       parentOrganization: { "@id": foundationEntity },
