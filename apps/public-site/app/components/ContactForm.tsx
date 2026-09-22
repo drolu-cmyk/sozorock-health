@@ -24,11 +24,11 @@ const formCopy = {
     name: "Full name",
     email: "Email",
     interest: "What would you like to do?",
-    role: "Organization or role",
+    role: "Organization type",
     select: "Select one",
     volunteer: "Volunteer interest",
     location: "City, state, or region",
-    outcome: "What outcome are you working toward?",
+    outcome: "Message",
     consentStart:
       "I agree that The SozoRock Foundation, Inc. may use this information to respond to my inquiry. I have read the",
     privacy: "Privacy Notice",
@@ -196,6 +196,8 @@ export function ContactForm({
     event.preventDefault();
     const formElement = event.currentTarget;
     const form = new FormData(formElement);
+    if (locale === "en") form.set("name", `${form.get("firstName") || ""} ${form.get("lastName") || ""}`.trim());
+    if (!formElement.checkValidity()) { formElement.reportValidity(); return; }
     const nextErrors = validate(form, locale);
     if (Object.keys(nextErrors).length) {
       setErrors(nextErrors);
@@ -214,12 +216,12 @@ export function ContactForm({
       typeof raw.volunteerArea === "string" ? raw.volunteerArea : "";
     const inquiryMessage = `${volunteerArea ? `Volunteer area: ${volunteerArea}\n` : ""}${String(raw.message ?? "")}`;
     const payload = {
-      name: raw.name,
+      name: locale === "en" ? `${raw.firstName} ${raw.lastName}`.trim() : raw.name,
       email: raw.email,
       inquiryType: raw.interest,
       stateOrCounty: raw.location,
       role: raw.organizationType,
-      message: inquiryMessage,
+      message: locale === "en" ? `Organization: ${raw.organization}\nRole or job title: ${raw.jobTitle}\nSubject: ${raw.subject}\n\n${inquiryMessage}` : inquiryMessage,
       website: raw.website,
       consent: raw.consent === "yes",
     };
@@ -260,9 +262,10 @@ export function ContactForm({
       aria-describedby="contact-guidance contact-status"
       noValidate
     >
+
       <p id="contact-guidance">{copy.guidance}</p>
       <div className="form-row">
-        <label htmlFor="contact-name">
+        {locale === "en" ? <><label>First name *<input name="firstName" autoComplete="given-name" required maxLength={80}/></label><label>Last name *<input name="lastName" autoComplete="family-name" required maxLength={80}/></label></> : (        <label htmlFor="contact-name">
           {copy.name} <span aria-hidden="true">*</span>
           <input
             id="contact-name"
@@ -273,7 +276,8 @@ export function ContactForm({
             aria-describedby={errors.name ? "name-error" : undefined}
           />
           {fieldError("name")}
-        </label>
+        </label>)}
+
         <label htmlFor="contact-email">
           {copy.email} <span aria-hidden="true">*</span>
           <input
@@ -289,7 +293,8 @@ export function ContactForm({
         </label>
       </div>
       <div className="form-row">
-        <label htmlFor="contact-interest">
+        {locale === "en" && <><label>Organization *<input name="organization" autoComplete="organization" required maxLength={180}/></label><label>Role or job title *<input name="jobTitle" autoComplete="organization-title" required maxLength={100}/></label><label>Subject *<input name="subject" required maxLength={120}/></label></>}
+      <label htmlFor="contact-interest">
           {copy.interest} <span aria-hidden="true">*</span>
           <select
             id="contact-interest"

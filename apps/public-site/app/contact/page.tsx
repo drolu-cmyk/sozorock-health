@@ -1,9 +1,8 @@
-import { ContactForm } from "../components/ContactForm";
-import { HealthShell } from "../components/HealthShell";
-import { healthMetadata, healthPageSchema } from "../lib/health-metadata";
+import { ApprovedHealthPage } from "../components/ApprovedHealthPages";
+import { healthMetadata } from "../lib/health-metadata";
 export const metadata = healthMetadata(
   "Partner with Health",
-  "Discuss community access, provider readiness, workforce capacity or research with SozoRock Health. Tell us the outcome your organization is working toward.",
+  "Discuss community access, provider readiness, workforce capacity or research with SozoRock Health. Discuss a health partnership, community project or funding opportunity.",
   "/contact",
 );
 export default async function ContactPage({
@@ -27,52 +26,5 @@ export default async function ContactPage({
   )
     .trim()
     .slice(0, 120);
-  return (
-    <HealthShell>
-      <main id="health-main" className="hs-content">
-        <div className="hs-page-heading">
-          <div>
-            <p className="hs-eyebrow">Partner with Health</p>
-            <h1>Discuss a health access challenge.</h1>
-          </div>
-          <p>
-            Tell us about the community, the barrier to care and the contribution
-            your organization could make.
-          </p>
-        </div>
-        <div className="hs-contact-layout">
-          <aside className="hs-contact-aside">
-            <h2>Start with the need.</h2>
-            <p>
-              Community access. Digital and provider readiness. Workforce
-              capacity. Research and evidence.
-            </p>
-            <p>
-              Use this form for organizational inquiries and collaboration. It
-              does not book appointments or connect you to clinical care.
-            </p>
-            <p>
-              Do not include medical records, symptoms or urgent health
-              information.
-            </p>
-            <a href="mailto:contact@sozorockfoundation.org">
-              contact@sozorockfoundation.org
-            </a>
-          </aside>
-          <ContactForm
-            initialInterest={initialInterest}
-            initialLocation={initialLocation}
-          />
-        </div>
-      </main>
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{
-          __html: JSON.stringify(
-            healthPageSchema("Contact", "/contact", "ContactPage"),
-          ),
-        }}
-      />
-    </HealthShell>
-  );
+  return <ApprovedHealthPage pathname="/contact" initialInterest={initialInterest} initialLocation={initialLocation} />;
 }

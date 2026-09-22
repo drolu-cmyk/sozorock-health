@@ -20,5 +20,7 @@ includes:
   - safe-ssr-authority-failure-diagnostics
   - ssr-access-failure-subclassification
 approval: user-authorized-production-release
-request_generation: 25
+request_generation: 26
 retry_reason: release the current verified main with patched URI and XML parsers, synchronized county snapshot provenance, the integrated authenticated CB-CAP workspace, and improved public readability; preserve the existing SSR diagnostics, evidence acceptance, production approval, and rollback gates
+
+release_note: approved Health Equity Initiative marketing pages, named hubs, county evidence links, McKinsey Health Institute-informed inquiry fields and search metadata; retain Explore, publication verification and all operational controls

@@ -56,7 +56,7 @@ test("Explore owns its X metadata and route-specific structured data", async () 
     source("app/explore/page.tsx"),
   ]);
   assert.doesNotMatch(layout, /"@type": "WebPage"/);
-  assert.match(home, /HealthHome/);
+  assert.match(home, /ApprovedHealthPage/);
   assert.equal(
     healthPageSchema("Health", "/")["@graph"][0]["@type"],
     "WebPage",
