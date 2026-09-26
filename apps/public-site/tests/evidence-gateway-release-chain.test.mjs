@@ -6,22 +6,26 @@ async function rootSource(path) {
   return (await readFile(new URL(`../../../${path}`, import.meta.url), "utf8")).replace(/\r\n/g, "\n");
 }
 
-test("Evidence Gateway production activation dispatches the governed Explore release for the exact deployed SHA", async () => {
+test("Evidence Gateway activation requires an explicit release SHA and preserves the protected Explore review", async () => {
   const activation = await rootSource(
     ".github/workflows/evidence-gateway-production-activation.yml",
   );
 
-  assert.match(activation, /workflows: \["Deploy"\]/);
-  assert.match(activation, /types: \[completed\]/);
+  assert.match(activation, /workflow_dispatch:\n    inputs:\n      release_sha:/);
+  assert.doesNotMatch(activation, /workflows: \["Deploy"\]/);
+  assert.match(activation, /github\.ref == 'refs\/heads\/main'/);
   assert.match(activation, /actions: write/);
   assert.match(activation, /statuses: write/);
-  assert.match(activation, /TARGET_SHA: \$\{\{ github\.event\.workflow_run\.head_sha \}\}/);
+  assert.match(activation, /TARGET_SHA: \$\{\{ inputs\.release_sha \}\}/);
   assert.match(activation, /test "\$main_sha" = "\$TARGET_SHA"/);
   assert.match(activation, /actions\/workflows\/\$EXPLORE_WORKFLOW\/dispatches/);
   assert.match(activation, /--arg release_sha "\$TARGET_SHA"/);
   assert.match(activation, /\{ref:\$ref,inputs:\{release_sha:\$release_sha\}\}/);
   assert.match(activation, /production-proof/);
   assert.match(activation, /Production proof blocked because governed activation failed/);
+  const request = await rootSource(".github/workflows/explore-production-release-request.yml");
+  assert.match(request, /release\/explore-production\.request/);
+  assert.match(request, /actions\/workflows\/explore-production\.yml\/dispatches/);
 });
 
 test("Evidence Gateway production proof cannot run from a successful Deploy alone", async () => {
@@ -29,9 +33,9 @@ test("Evidence Gateway production proof cannot run from a successful Deploy alon
     ".github/workflows/evidence-gateway-production-proof.yml",
   );
 
-  assert.match(proof, /workflows: \["Deploy", "Explore production"\]/);
+  assert.match(proof, /workflows: \["Explore production"\]/);
   assert.match(proof, /types: \[requested, completed\]/);
-  assert.match(proof, /github\.event\.workflow_run\.name == 'Deploy'/);
+  assert.doesNotMatch(proof, /github\.event\.workflow_run\.name == 'Deploy'/);
   assert.match(proof, /github\.event\.workflow_run\.name == 'Explore production'/);
   assert.match(proof, /Production proof blocked because governed release failed/);
 

@@ -1,9 +1,12 @@
 name: Evidence Gateway production activation
 
 on:
-  workflow_run:
-    workflows: ["Deploy"]
-    types: [completed]
+  workflow_dispatch:
+    inputs:
+      release_sha:
+        description: Exact main commit for an explicitly requested Evidence release
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -11,19 +14,17 @@ permissions:
   statuses: write
 
 concurrency:
-  group: evidence-gateway-production-activation-${{ github.event.workflow_run.head_sha }}
+  group: evidence-gateway-production-activation-${{ inputs.release_sha }}
   cancel-in-progress: false
 
 jobs:
   activate:
     name: Dispatch governed Evidence production
-    if: >-
-      github.event.workflow_run.conclusion == 'success' &&
-      github.event.workflow_run.head_branch == 'main'
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     env:
-      TARGET_SHA: ${{ github.event.workflow_run.head_sha }}
+      TARGET_SHA: ${{ inputs.release_sha }}
       ACTIVATION_STATUS_CONTEXT: evidence-gateway/production-activation
       PROOF_STATUS_CONTEXT: evidence-gateway/production-proof
       GH_API_TOKEN: ${{ github.token }}
