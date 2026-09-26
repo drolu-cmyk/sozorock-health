@@ -1,8 +1,8 @@
 import { ApprovedHealthPage } from "../components/ApprovedHealthPages";
-import { healthMetadata } from "../lib/health-metadata";
+import { healthMetadata, healthPageSchema } from "../lib/health-metadata";
 export const metadata = healthMetadata(
-  "Partner with Health",
-  "Discuss community access, provider readiness, workforce capacity or research with SozoRock Health. Discuss a health partnership, community project or funding opportunity.",
+  "Health Equity Partnerships",
+  "Discuss Health Equity Hubs, provider readiness, county evidence or workforce learning with SozoRock Health.",
   "/contact",
 );
 export default async function ContactPage({
@@ -26,5 +26,13 @@ export default async function ContactPage({
   )
     .trim()
     .slice(0, 120);
-  return <ApprovedHealthPage pathname="/contact" initialInterest={initialInterest} initialLocation={initialLocation} />;
+  return <>
+    <ApprovedHealthPage pathname="/contact" initialInterest={initialInterest} initialLocation={initialLocation} />
+    <script
+      type="application/ld+json"
+      dangerouslySetInnerHTML={{
+        __html: JSON.stringify(healthPageSchema("Health Equity Partnerships", "/contact", "ContactPage")),
+      }}
+    />
+  </>;
 }
