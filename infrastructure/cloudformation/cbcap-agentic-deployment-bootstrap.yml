@@ -17,6 +17,19 @@ Parameters:
     Type: String
     Default: repo:drolu-cmyk@271617784/sozorock-health-agentic@1313269615:environment:production
     AllowedPattern: '^repo:[A-Za-z0-9_.-]+@[0-9]+/[A-Za-z0-9_.-]+@[0-9]+:environment:[A-Za-z0-9_.-]+$'
+  FailedFirstCreateStackArn:
+    Type: String
+    Default: ''
+    AllowedPattern: '^$|^arn:aws:cloudformation:[a-z0-9-]+:[0-9]{12}:stack/cbcap-agentic-production/[0-9a-f-]{36}$'
+  FailedFirstCreateUserPoolArn:
+    Type: String
+    Default: ''
+    AllowedPattern: '^$|^arn:aws:cognito-idp:[a-z0-9-]+:[0-9]{12}:userpool/[A-Za-z0-9_-]+$'
+
+Conditions:
+  FailedFirstCreateRecoveryEnabled: !And
+    - !Not [!Equals [!Ref FailedFirstCreateStackArn, '']]
+    - !Not [!Equals [!Ref FailedFirstCreateUserPoolArn, '']]
 
 Resources:
   CloudFormationServiceRole:
@@ -208,6 +221,13 @@ Resources:
                   - cloudformation:ExecuteChangeSet
                   - cloudformation:DeleteChangeSet
                 Resource: !Sub arn:${AWS::Partition}:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/cbcap-agentic-*/*
+              - !If
+                - FailedFirstCreateRecoveryEnabled
+                - Sid: DeleteExactFailedFirstCreateStack
+                  Effect: Allow
+                  Action: cloudformation:DeleteStack
+                  Resource: !Ref FailedFirstCreateStackArn
+                - !Ref AWS::NoValue
               - Sid: PassCloudFormationRole
                 Effect: Allow
                 Action: iam:PassRole
@@ -272,6 +292,13 @@ Resources:
                   - cognito-idp:AdminSetUserPassword
                   - cognito-idp:AdminDeleteUser
                 Resource: '*'
+              - !If
+                - FailedFirstCreateRecoveryEnabled
+                - Sid: UpdateExactFailedFirstCreateUserPool
+                  Effect: Allow
+                  Action: cognito-idp:UpdateUserPool
+                  Resource: !Ref FailedFirstCreateUserPoolArn
+                - !Ref AWS::NoValue
               - Sid: ReadLiveDeploymentState
                 Effect: Allow
                 Action:
