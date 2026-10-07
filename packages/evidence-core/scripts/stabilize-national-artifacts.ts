@@ -7,78 +7,115 @@ import { fileURLToPath } from "node:url";
 const packageRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const repoRoot = path.resolve(packageRoot, "..", "..");
 
+type JsonPath = readonly string[];
+
 type ArtifactRule = {
   path: string;
-  volatileTopLevelKeys: string[];
+  volatilePaths: readonly JsonPath[];
 };
 
-export const nationalArtifactRules: ArtifactRule[] = [
+export const nationalContextArtifactRules: ArtifactRule[] = [
   {
     path: "packages/evidence-core/data/national/acs-county-context.v1.json",
-    volatileTopLevelKeys: ["generatedAt", "retrievedAt"],
+    volatilePaths: [["generatedAt"], ["source", "retrievedAt"]],
   },
   {
     path: "packages/evidence-core/data/national/hrsa-county-context.v1.json",
-    volatileTopLevelKeys: ["generatedAt", "retrievedAt"],
+    volatilePaths: [["generatedAt"]],
   },
   {
     path: "packages/evidence-core/data/national/ahrf-county-context.v1.json",
-    volatileTopLevelKeys: ["generatedAt", "retrievedAt"],
+    volatilePaths: [["generatedAt"]],
   },
   {
     path: "packages/evidence-core/data/national/ahrq-clh-county-context.v1.json",
-    volatileTopLevelKeys: ["generatedAt", "retrievedAt"],
-  },
-  {
-    path: "packages/evidence-core/data/national/county-evidence-snapshot.v1.json",
-    volatileTopLevelKeys: ["generatedAt", "snapshotId"],
-  },
-  {
-    path: "packages/evidence-core/data/national/national-coverage-report.v1.json",
-    volatileTopLevelKeys: ["generatedAt", "snapshotId", "randomStateSample"],
+    volatilePaths: [["generatedAt"]],
   },
 ];
 
-function withoutVolatileTopLevelKeys(
+export const nationalCoverageArtifactRules: ArtifactRule[] = [
+  {
+    path: "packages/evidence-core/data/national/county-evidence-snapshot.v1.json",
+    volatilePaths: [["generatedAt"], ["snapshotId"]],
+  },
+  {
+    path: "packages/evidence-core/data/national/national-coverage-report.v1.json",
+    volatilePaths: [["generatedAt"], ["snapshotId"], ["randomStateSample"]],
+  },
+];
+
+function withoutVolatilePaths(
   value: unknown,
-  volatileTopLevelKeys: string[],
+  volatilePaths: readonly JsonPath[],
 ): unknown {
   if (!value || typeof value !== "object" || Array.isArray(value)) return value;
   const stable = structuredClone(value) as Record<string, unknown>;
-  for (const key of volatileTopLevelKeys) delete stable[key];
+  for (const volatilePath of volatilePaths) {
+    if (!volatilePath.length) continue;
+    let parent: unknown = stable;
+    for (const segment of volatilePath.slice(0, -1)) {
+      if (!parent || typeof parent !== "object" || Array.isArray(parent)) {
+        parent = undefined;
+        break;
+      }
+      parent = (parent as Record<string, unknown>)[segment];
+    }
+    if (parent && typeof parent === "object" && !Array.isArray(parent)) {
+      delete (parent as Record<string, unknown>)[volatilePath.at(-1)!];
+    }
+  }
   return stable;
 }
 
 export function artifactsMatchExceptVolatileMetadata(
   checkedInRaw: string,
   candidateRaw: string,
-  volatileTopLevelKeys: string[],
+  volatilePaths: readonly JsonPath[],
 ): boolean {
-  const checkedIn = withoutVolatileTopLevelKeys(
+  const checkedIn = withoutVolatilePaths(
     JSON.parse(checkedInRaw),
-    volatileTopLevelKeys,
+    volatilePaths,
   );
-  const candidate = withoutVolatileTopLevelKeys(
+  const candidate = withoutVolatilePaths(
     JSON.parse(candidateRaw),
-    volatileTopLevelKeys,
+    volatilePaths,
   );
   return isDeepStrictEqual(checkedIn, candidate);
+}
+
+export function artifactGroupMatchesExceptVolatileMetadata(
+  artifacts: ReadonlyArray<{
+    checkedInRaw: string;
+    candidateRaw: string;
+    volatilePaths: readonly JsonPath[];
+  }>,
+): boolean {
+  return artifacts.every((artifact) =>
+    artifactsMatchExceptVolatileMetadata(
+      artifact.checkedInRaw,
+      artifact.candidateRaw,
+      artifact.volatilePaths,
+    ));
+}
+
+function checkedInArtifact(rule: ArtifactRule) {
+  return execFileSync("git", ["show", `HEAD:${rule.path}`], {
+    cwd: repoRoot,
+    encoding: "utf8",
+    maxBuffer: 64 * 1024 * 1024,
+  });
 }
 
 export async function stabilizeNationalArtifacts() {
   const stabilized: string[] = [];
   const substantiveChanges: string[] = [];
 
-  for (const rule of nationalArtifactRules) {
+  for (const rule of nationalContextArtifactRules) {
     const artifactPath = path.join(repoRoot, rule.path);
     const candidateRaw = await readFile(artifactPath, "utf8");
     let checkedInRaw: string;
     try {
-      checkedInRaw = execFileSync("git", ["show", `HEAD:${rule.path}`], {
-        cwd: repoRoot,
-        encoding: "utf8",
-        maxBuffer: 64 * 1024 * 1024,
-      });
+      checkedInRaw = checkedInArtifact(rule);
     } catch {
       substantiveChanges.push(rule.path);
       continue;
@@ -87,7 +124,7 @@ export async function stabilizeNationalArtifacts() {
     if (artifactsMatchExceptVolatileMetadata(
       checkedInRaw,
       candidateRaw,
-      rule.volatileTopLevelKeys,
+      rule.volatilePaths,
     )) {
       if (checkedInRaw !== candidateRaw) {
         await writeFile(artifactPath, checkedInRaw);
@@ -95,6 +132,49 @@ export async function stabilizeNationalArtifacts() {
       }
     } else {
       substantiveChanges.push(rule.path);
+    }
+  }
+
+  const coverageArtifacts = [];
+  try {
+    for (const rule of nationalCoverageArtifactRules) {
+      coverageArtifacts.push({
+        rule,
+        artifactPath: path.join(repoRoot, rule.path),
+        checkedInRaw: checkedInArtifact(rule),
+        candidateRaw: await readFile(path.join(repoRoot, rule.path), "utf8"),
+      });
+    }
+  } catch {
+    substantiveChanges.push(...nationalCoverageArtifactRules.map((rule) => rule.path));
+  }
+
+  if (coverageArtifacts.length === nationalCoverageArtifactRules.length) {
+    const coverageGroupIsStable = artifactGroupMatchesExceptVolatileMetadata(
+      coverageArtifacts.map(({ rule, checkedInRaw, candidateRaw }) => ({
+        checkedInRaw,
+        candidateRaw,
+        volatilePaths: rule.volatilePaths,
+      })),
+    );
+    if (coverageGroupIsStable) {
+      for (const artifact of coverageArtifacts) {
+        if (artifact.checkedInRaw !== artifact.candidateRaw) {
+          await writeFile(artifact.artifactPath, artifact.checkedInRaw);
+          stabilized.push(artifact.rule.path);
+        }
+      }
+    } else {
+      substantiveChanges.push(
+        ...coverageArtifacts
+          .filter(({ rule, checkedInRaw, candidateRaw }) =>
+            !artifactsMatchExceptVolatileMetadata(
+              checkedInRaw,
+              candidateRaw,
+              rule.volatilePaths,
+            ))
+          .map(({ rule }) => rule.path),
+      );
     }
   }
 
