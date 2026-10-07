@@ -40,6 +40,7 @@ jobs:
           npm run build:national-ahrf-context --workspace @sozorock/evidence-core
           npm run build:national-ahrq-context --workspace @sozorock/evidence-core
           npm run build:national-coverage --workspace @sozorock/evidence-core
+          npm run stabilize:national-artifacts --workspace @sozorock/evidence-core
           npm run test --workspace @sozorock/evidence-core
       - name: Create a guarded review pull request only when artifacts change
         shell: bash
