@@ -28,7 +28,8 @@
     "test:migrations": "node --experimental-strip-types scripts/test-migrations.ts",
     "migrate:data-api": "node --experimental-strip-types scripts/migrate-data-api.ts",
     "import:production:data-api": "node --experimental-strip-types scripts/import-production-data-api.ts",
-    "seed:collaboration-control-plane": "node --experimental-strip-types scripts/seed-collaboration-control-plane.ts"
+    "seed:collaboration-control-plane": "node --experimental-strip-types scripts/seed-collaboration-control-plane.ts",
+    "stabilize:national-artifacts": "node --experimental-strip-types scripts/stabilize-national-artifacts.ts"
   },
   "dependencies": {
     "@aws-sdk/client-rds-data": "^3.933.0",
