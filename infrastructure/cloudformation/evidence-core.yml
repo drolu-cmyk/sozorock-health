@@ -22,10 +22,13 @@ Parameters:
     AllowedPattern: "^[a-zA-Z][a-zA-Z0-9_]{0,62}$"
   MinimumCapacity:
     Type: Number
-    Default: 0.5
+    Default: 0
   MaximumCapacity:
     Type: Number
     Default: 2
+
+Conditions:
+  EnableEvidenceAutoPause: !Equals [!Ref MinimumCapacity, 0]
 
 Resources:
   EvidenceArtifacts:
@@ -97,6 +100,7 @@ Resources:
       ServerlessV2ScalingConfiguration:
         MinCapacity: !Ref MinimumCapacity
         MaxCapacity: !Ref MaximumCapacity
+        SecondsUntilAutoPause: !If [EnableEvidenceAutoPause, 900, !Ref 'AWS::NoValue']
       StorageEncrypted: true
       VpcSecurityGroupIds:
         - !Ref EvidenceDatabaseSecurityGroup
