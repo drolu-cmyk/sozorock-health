@@ -16,7 +16,7 @@ The jobs use existing deployment roles; no IAM policies or trust rules are chang
 
 - requires the expected Foundation account;
 - checks the three identified Aurora clusters and preserves their maximum capacity while reconciling zero minimum and 900-second auto-pause;
-- attempts to make only the identified legacy nonproduction writer private, and only when DNS confirms the previously observed charged public IP;
+- attempts to make only the explicitly identified legacy nonproduction writer private after verifying its instance, cluster, engine, and class; this blocks direct connections from outside its VPC, and is not proof that the database is unused;
 - reads recent capacity metrics without opening database connections;
 - attempts to disable CB-CAP app and main-branch automatic builds;
 - validates the dedicated CB-CAP WAF stack contains only the exact authorized ACL and its association, saves its original template, then requests deletion;

@@ -62,15 +62,21 @@ class CostControlBoundaries(unittest.TestCase):
                 self.fail(f"Unexpected AWS operation: {operation}")
             self.assertEqual(controls.retire_waf(call, True, output)["status"], "deletion_requested")
 
-    def test_unmatched_ip_does_not_change_network_access(self):
+    def test_other_instance_does_not_change_network_access(self):
+        def call(service, operation, *args):
+            self.assertEqual(operation, "describe-db-instances")
+            return {"DBInstances": [{"DBInstanceIdentifier": controls.CLUSTERS["sozorock-evidence-production"],
+                    "DBClusterIdentifier": "sozorock-evidence-production", "PubliclyAccessible": True}]}
+        with self.assertRaises(controls.ControlBlocked):
+            controls.make_np_private(call, True)
+
+    def test_nonproduction_dry_run_does_not_modify_instance(self):
         def call(service, operation, *args):
             self.assertEqual(operation, "describe-db-instances")
             return {"DBInstances": [{"DBInstanceIdentifier": controls.CLUSTERS["sozorock-np"],
                     "DBClusterIdentifier": "sozorock-np", "PubliclyAccessible": True,
-                    "Endpoint": {"Address": controls.NP_ENDPOINT}}]}
-        def resolve(*args, **kwargs): return [(None, None, None, None, ("192.0.2.1", 5432))]
-        with self.assertRaises(controls.ControlBlocked):
-            controls.make_np_private(call, True, resolve)
+                    "Engine": "aurora-postgresql", "DBInstanceClass": "db.serverless"}]}
+        self.assertEqual(controls.make_np_private(call, False)["status"], "validated")
 
     def test_partial_autobuild_change_is_reported(self):
         app = {"appId": controls.APP, "name": "sozorock-health-cbcap", "enableBranchAutoBuild": True}

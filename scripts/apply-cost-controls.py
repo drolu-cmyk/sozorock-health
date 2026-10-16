@@ -9,7 +9,6 @@ import datetime as dt
 import json
 import os
 from pathlib import Path
-import socket
 import subprocess
 
 
@@ -24,8 +23,6 @@ CLUSTERS = {
     "sozorock-evidence-staging": "sozorock-evidence-staging-writer",
     "sozorock-np": "sozorock-np-instance-1",
 }
-NP_ENDPOINT = "sozorock-np-instance-1.cotwcka22sd1.us-east-1.rds.amazonaws.com"
-NP_PUBLIC_IP = "44.197.89.254"
 
 
 class ControlBlocked(RuntimeError):
@@ -105,20 +102,16 @@ def reconcile_scaling(call, apply):
     return result
 
 
-def make_np_private(call, apply, resolve=socket.getaddrinfo):
+def make_np_private(call, apply):
     db = call("rds", "describe-db-instances", "--db-instance-identifier", CLUSTERS["sozorock-np"])["DBInstances"][0]
     if db.get("DBInstanceIdentifier") != CLUSTERS["sozorock-np"] or db.get("DBClusterIdentifier") != "sozorock-np":
         raise ControlBlocked("Unexpected nonproduction instance identity.")
+    if db.get("Engine") != "aurora-postgresql" or db.get("DBInstanceClass") != "db.serverless":
+        raise ControlBlocked("Unexpected nonproduction database engine or class.")
     if not db.get("PubliclyAccessible"):
         return {"status": "already_private"}
-    endpoint = db.get("Endpoint", {}).get("Address")
-    if endpoint != NP_ENDPOINT:
-        raise ControlBlocked("Unexpected nonproduction endpoint.")
-    addresses = sorted({r[4][0] for r in resolve(endpoint, 5432, family=socket.AF_INET)})
-    if NP_PUBLIC_IP not in addresses:
-        raise ControlBlocked("Cannot confirm the billed public IP belongs to sozorock-np; no change made.")
     if not apply:
-        return {"status": "validated", "instance": db["DBInstanceIdentifier"], "public_ip": NP_PUBLIC_IP}
+        return {"status": "validated", "instance": db["DBInstanceIdentifier"]}
     call("rds", "modify-db-instance", "--db-instance-identifier", db["DBInstanceIdentifier"],
          "--no-publicly-accessible", "--apply-immediately")
     observed = call("rds", "describe-db-instances", "--db-instance-identifier", db["DBInstanceIdentifier"])["DBInstances"][0]
