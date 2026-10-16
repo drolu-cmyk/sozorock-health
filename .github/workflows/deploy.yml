@@ -15,7 +15,8 @@ jobs:
     if: >-
       github.event_name == 'workflow_dispatch' ||
       (github.event.workflow_run.conclusion == 'success' &&
-       github.event.workflow_run.head_branch == 'main')
+       github.event.workflow_run.head_branch == 'main' &&
+       !contains(github.event.workflow_run.head_commit.message, '[cost-controls-20261016]'))
     concurrency:
       group: sozorock-health-public-production
       cancel-in-progress: true
@@ -499,3 +500,94 @@ jobs:
             echo "- Voice hostile-origin request rejected: 403"
             echo "- Security headers: HSTS, CSP frame-ancestors none, nosniff, DENY"
           } >> "$GITHUB_STEP_SUMMARY"
+
+  cost-database:
+    if: >-
+      github.event_name == 'workflow_run' &&
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_branch == 'main' &&
+      contains(github.event.workflow_run.head_commit.message, '[cost-controls-20261016]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: production
+    concurrency:
+      group: sozorock-cost-controls-database
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          persist-credentials: false
+      - name: Verify the approved maintenance source
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$(git ls-remote --exit-code origin refs/heads/main | awk '{print $1}')"
+          python3 -m unittest discover -s scripts/tests -p test_cost_controls.py -v
+      - uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c
+        id: aws
+        continue-on-error: true
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          role-session-name: sozorock-cost-controls-database
+          aws-region: us-east-1
+      - name: Apply authorized cost controls using existing permissions
+        if: steps.aws.outcome == 'success'
+        run: python3 scripts/apply-cost-controls.py --phase database --apply
+      - name: Report unavailable AWS access
+        if: always() && steps.aws.outcome != 'success'
+        run: |
+          echo '## Cost controls: database' >> "$GITHUB_STEP_SUMMARY"
+          echo 'AWS role assumption did not succeed. No AWS changes were made by this job.' >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: cost-controls-database
+          path: output/cost-controls/
+          if-no-files-found: ignore
+          retention-days: 30
+
+  cost-cbcap:
+    needs: cost-database
+    if: >-
+      always() && github.event_name == 'workflow_run' &&
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_branch == 'main' &&
+      contains(github.event.workflow_run.head_commit.message, '[cost-controls-20261016]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: production
+    concurrency:
+      group: sozorock-cost-controls-cbcap
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          persist-credentials: false
+      - name: Verify the approved maintenance source
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$(git ls-remote --exit-code origin refs/heads/main | awk '{print $1}')"
+          python3 -m unittest discover -s scripts/tests -p test_cost_controls.py -v
+      - uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c
+        id: aws
+        continue-on-error: true
+        with:
+          role-to-assume: ${{ vars.CBCAP_AWS_DEPLOY_ROLE_ARN }}
+          role-session-name: sozorock-cost-controls-cbcap
+          aws-region: us-east-1
+      - name: Apply authorized cost controls using existing permissions
+        if: steps.aws.outcome == 'success'
+        run: python3 scripts/apply-cost-controls.py --phase cbcap --apply
+      - name: Report unavailable AWS access
+        if: always() && steps.aws.outcome != 'success'
+        run: |
+          echo '## Cost controls: cbcap' >> "$GITHUB_STEP_SUMMARY"
+          echo 'AWS role assumption did not succeed. No AWS changes were made by this job.' >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: cost-controls-cbcap
+          path: output/cost-controls/
+          if-no-files-found: ignore
+          retention-days: 30
