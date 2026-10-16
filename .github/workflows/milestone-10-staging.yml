@@ -149,7 +149,7 @@ jobs:
               PrivateSubnetIds="$SUBNET_CSV" \
               PublicComputeRoleName="$PUBLIC_COMPUTE_ROLE_NAME" \
               PlaceEvidenceOpenAISecretArn="$OPENAI_SECRET_ARN" \
-              MinimumCapacity=0.5 MaximumCapacity=1
+              MinimumCapacity=0 MaximumCapacity=1
           for output in EvidenceDatabaseClusterArn EvidenceDatabaseSecretArn EvidenceDatabaseAdminSecretArn EvidenceDatabaseName EvidenceArtifactBucket; do
             value=$(aws cloudformation describe-stacks --stack-name sozorock-health-evidence-staging \
               --query "Stacks[0].Outputs[?OutputKey=='$output'].OutputValue" --output text)

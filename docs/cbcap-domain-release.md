@@ -1,5 +1,13 @@
 # CB-CAP production-domain release
 
+## Release suspension
+
+CB-CAP releases are suspended while the product is being defined. The sole deployment job in `.github/workflows/deploy-cbcap.yml` is guarded by `${{ false }}`. Both manual dispatch and release-request pushes therefore skip that job.
+
+This guard prevents future workflow releases; it does not stop an already running job, disable Amplify automatic builds, take the currently hosted application offline, or remove any AWS resource. Those operational changes must be verified separately.
+
+To resume releases, restore the main-branch guard through a reviewed pull request after institutional hosting is approved. Reconcile and verify the intended database, access restrictions, and dedicated WAF association before running the existing release gates and live acceptance checks below.
+
 ## Fixed production boundary
 
 - Application: CB-CAP only

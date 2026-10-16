@@ -16,7 +16,9 @@ permissions:
 
 jobs:
   deploy:
-    if: github.ref == 'refs/heads/main'
+    # CB-CAP releases are suspended while the product is being defined.
+    # Restore the main-branch guard only when institutional hosting is approved.
+    if: ${{ false }}
     name: Verify, release, and prove the live domain
     runs-on: ubuntu-latest
     timeout-minutes: 90

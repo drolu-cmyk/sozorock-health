@@ -87,6 +87,8 @@ jobs:
         with:
           node-version: 24
           cache: npm
+      - name: Verify cost-control resource boundaries
+        run: python3 -m unittest discover -s scripts/tests -p test_cost_controls.py -v
       - run: npm ci --omit=optional
       - name: Detect mobile application changes
         id: mobile-scope
