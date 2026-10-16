@@ -182,6 +182,7 @@ jobs:
               VpcId="$vpc_id" \
               PrivateSubnetIds="$subnet_csv" \
               PublicComputeRoleName="$compute_role_name" \
+              MinimumCapacity=0 \
               PlaceEvidenceOpenAISecretArn="$OPENAI_PLACE_EVIDENCE_SECRET_ARN"; then
             aws cloudformation describe-stack-events \
               --stack-name sozorock-health-evidence-production \
