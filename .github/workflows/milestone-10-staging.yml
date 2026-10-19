@@ -93,6 +93,15 @@ jobs:
             output/security/public-runtime-security.json
             .playwright-output/explore
 
+  retired-release:
+    needs: release-gates
+    runs-on: ubuntu-latest
+    steps:
+      - name: Block retired staging release
+        run: |
+          echo 'RDS provisioning is retired. Local gates do not constitute a staging release.'
+          exit 1
+
   isolated-staging:
     name: RDS provisioning retired
     if: ${{ false }}
