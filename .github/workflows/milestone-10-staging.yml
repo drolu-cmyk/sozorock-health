@@ -94,6 +94,8 @@ jobs:
             .playwright-output/explore
 
   isolated-staging:
+    name: RDS provisioning retired
+    if: ${{ false }}
     needs: release-gates
     runs-on: ubuntu-latest
     timeout-minutes: 120
