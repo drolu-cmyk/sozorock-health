@@ -44,6 +44,7 @@ test("email-only and phone-only requests persist minimal consented records and n
   assert.equal(items.length, 2);
   for (const item of items) {
     assert.equal(item.recordType, "program-interest");
+    assert.equal(item.notificationStatus, "pending");
     assert.equal(item.expiresAt, Date.parse("2028-01-15T00:00:00-05:00") / 1000);
     assert.equal(item.consent, true);
     assert.equal(item.consentVersion, "2026-10-20");
@@ -51,6 +52,9 @@ test("email-only and phone-only requests persist minimal consented records and n
   }
   assert.equal(items[1].email, "");
   assert.equal(notifications.length, 2);
+  const statusWrites = writes.filter((command) => command instanceof UpdateCommand && command.input.ExpressionAttributeValues[":status"]);
+  assert.equal(statusWrites.length, 2);
+  assert.ok(statusWrites.every((command) => command.input.ExpressionAttributeValues[":status"] === "published"));
   for (const notification of notifications) {
     assert.doesNotMatch(notification.Message, /Alex|Example|alex@example.org|5185550123|Community notice/);
   }
@@ -105,7 +109,9 @@ test("rate-limited requests are rejected before persistence", async (t) => {
 });
 
 test("a stored request remains accepted when its notification fails", async (t) => {
-  clients(t);
+  const { writes } = clients(t);
   t.mock.method(SNSClient.prototype, "send", async () => { throw new Error("test notification failure"); });
   assert.equal((await POST(request(valid))).status, 202);
+  assert.equal(writes.find((command) => command instanceof PutCommand).input.Item.notificationStatus, "pending");
+  assert.equal(writes.filter((command) => command instanceof UpdateCommand && command.input.ExpressionAttributeValues[":status"]).length, 0);
 });

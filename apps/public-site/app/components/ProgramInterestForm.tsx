@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import {
   NEW_YORK_COUNTIES,
   PROGRAM_INTEREST_SUCCESS,
@@ -14,6 +14,11 @@ export function ProgramInterestForm() {
   const [message, setMessage] = useState("");
   const sending = useRef(false);
   const status = useRef<HTMLParagraphElement>(null);
+  const focusAfterRender = useRef<HTMLElement | null>(null);
+  useEffect(() => {
+    focusAfterRender.current?.focus();
+    focusAfterRender.current = null;
+  }, [errors, message, state]);
 
   function fieldError(name: keyof ProgramInterestErrors) {
     return errors[name] ? <span className="field-error" id={"interest-" + name + "-error"}>{errors[name]}</span> : null;
@@ -34,8 +39,7 @@ export function ProgramInterestForm() {
       element instanceof HTMLElement && element.getAttribute("name") &&
       nextErrors[element.getAttribute("name") as keyof ProgramInterestErrors],
     );
-    if (control instanceof HTMLElement) control.focus();
-    else status.current?.focus();
+    focusAfterRender.current = control instanceof HTMLElement ? control : status.current;
   }
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -78,7 +82,7 @@ export function ProgramInterestForm() {
         setState("sent");
         setMessage(PROGRAM_INTEREST_SUCCESS);
         form.reset();
-        status.current?.focus();
+        focusAfterRender.current = status.current;
       } else {
         showErrors(form, result.errors ?? {}, result.error ?? "We could not save your request. Please try again.");
       }
@@ -90,7 +94,7 @@ export function ProgramInterestForm() {
   }
 
   return (
-    <form className="partner-form" onSubmit={submit} noValidate aria-describedby="interest-guidance interest-status" aria-busy={state === "sending"}>
+    <form className="partner-form program-interest-form" onSubmit={submit} noValidate aria-describedby="interest-guidance interest-status" aria-busy={state === "sending"}>
       <p id="interest-guidance">Fields marked required must be completed. Provide at least one way to reach you.</p>
       <div className="form-row">
         <label htmlFor="interest-firstName">First name (required)<input {...fieldProps("firstName")} required maxLength={80} autoComplete="given-name" />{fieldError("firstName")}</label>

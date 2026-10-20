@@ -51,7 +51,9 @@ test("reviewer APIs require MFA-backed Foundation reviewer authorization", async
   }
   assert.doesNotMatch(legacyPublications, /requireWorkspaceActor/);
   assert.match(contacts, /ContactIntelligence/);
-  assert.ok(contacts.includes('endsWith("@simulator.amazonses.com")'));
+  assert.match(contacts, /projectContactRecords/);
+  const projection = await read("app/lib/contact-records.ts");
+  assert.ok(projection.includes('endsWith("@simulator.amazonses.com")'));
 });
 
 test("contact stack keeps reviewer access within its already-authorized inline policy", async () => {

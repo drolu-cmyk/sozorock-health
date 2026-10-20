@@ -3,6 +3,7 @@ import { DynamoDBDocumentClient, QueryCommand } from "@aws-sdk/lib-dynamodb";
 import { NextRequest, NextResponse } from "next/server";
 import { requireFoundationReviewer } from "../../../lib/foundation-admin-auth";
 import { csvCell } from "../../../lib/csv";
+import { projectContactRecords, type ContactRecordType } from "../../../lib/contact-records";
 
 export const runtime = "nodejs";
 
@@ -23,12 +24,10 @@ function protectedJson(body: unknown, status = 200) {
   });
 }
 
-function text(value: unknown) {
-  return typeof value === "string" ? value : "";
-}
-
-function csvExport(records: Array<Record<string, unknown>>) {
-  const columns = ["createdAt", "name", "email", "inquiryType", "role", "stateOrCounty", "message"];
+function csvExport(records: Array<Record<string, unknown>>, type: ContactRecordType) {
+  const columns = type === "program-interest"
+    ? ["createdAt", "name", "email", "phone", "preferredContact", "stateOrCounty", "message", "consentedAt", "expiresAt", "notificationStatus"]
+    : ["createdAt", "name", "email", "inquiryType", "role", "stateOrCounty", "message"];
   return [
     columns.map(csvCell).join(","),
     ...records.map((record) => columns.map((column) => csvCell(record[column])).join(",")),
@@ -39,32 +38,46 @@ export async function GET(request: NextRequest) {
   try {
     await requireFoundationReviewer(request);
     if (!tableName) throw new Error("Contact intelligence is not configured");
-    const response = await dynamo.send(new QueryCommand({
+    const requestedType = request.nextUrl.searchParams.get("type") ?? "contact";
+    if (requestedType !== "contact" && requestedType !== "program-interest") return protectedJson({ error: "Choose a supported inquiry type." }, 400);
+    const type: ContactRecordType = requestedType;
+    const now = Math.floor(Date.now() / 1000);
+    let cursor: Record<string, string> | undefined;
+    const suppliedCursor = request.nextUrl.searchParams.get("cursor");
+    if (suppliedCursor) {
+      try {
+        if (suppliedCursor.length > 2000) throw new Error("Invalid cursor");
+        const value = JSON.parse(Buffer.from(suppliedCursor, "base64url").toString("utf8"));
+        if (!value || value.recordType !== type || typeof value.submissionId !== "string" || typeof value.createdAt !== "string" || value.submissionId.length > 300 || value.createdAt.length > 40) throw new Error("Invalid cursor");
+        cursor = { recordType: type, submissionId: value.submissionId, createdAt: value.createdAt };
+      } catch { return protectedJson({ error: "The page reference is invalid. Refresh this view." }, 400); }
+    }
+    const exporting = request.nextUrl.searchParams.get("format") === "csv";
+    const records: Array<Record<string, unknown>> = [];
+    let pages = 0;
+    do {
+      const response = await dynamo.send(new QueryCommand({
       TableName: tableName,
       IndexName: "ContactIntelligence",
       KeyConditionExpression: "recordType = :recordType",
-      ExpressionAttributeValues: { ":recordType": "contact" },
+      FilterExpression: "attribute_not_exists(expiresAt) OR expiresAt > :now",
+      ExpressionAttributeValues: { ":recordType": type, ":now": now },
       ScanIndexForward: false,
       Limit: 250,
+      ExclusiveStartKey: cursor,
     }));
-    const records = (response.Items ?? [])
-      .filter((item) => !text(item.email).toLowerCase().endsWith("@simulator.amazonses.com"))
-      .map((item) => ({
-        createdAt: text(item.createdAt),
-        name: text(item.name),
-        email: text(item.email),
-        inquiryType: text(item.inquiryType),
-        role: text(item.role),
-        stateOrCounty: text(item.stateOrCounty),
-        message: text(item.message),
-      }));
+      records.push(...projectContactRecords(response.Items ?? [], type, now));
+      cursor = response.LastEvaluatedKey as Record<string, string> | undefined;
+      pages += 1;
+    } while (exporting && cursor && pages < 20);
+    if (exporting && cursor) return protectedJson({ error: "This export exceeds the safe size limit. Contact the data custodian for a complete export." }, 409);
 
-    if (request.nextUrl.searchParams.get("format") === "csv") {
-      return new NextResponse(csvExport(records), {
+    if (exporting) {
+      return new NextResponse(csvExport(records, type), {
         status: 200,
         headers: {
           "Content-Type": "text/csv; charset=utf-8",
-          "Content-Disposition": "attachment; filename=foundation-contact-inquiries.csv",
+          "Content-Disposition": `attachment; filename=${type === "program-interest" ? "primary-care-interest-list" : "foundation-contact-inquiries"}.csv`,
           "Cache-Control": "private, no-store",
           "Referrer-Policy": "no-referrer",
           "X-Content-Type-Options": "nosniff",
@@ -76,6 +89,7 @@ export async function GET(request: NextRequest) {
       contractVersion: "foundation.contacts.v1",
       generatedAt: new Date().toISOString(),
       records,
+      nextCursor: cursor ? Buffer.from(JSON.stringify(cursor)).toString("base64url") : null,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "";

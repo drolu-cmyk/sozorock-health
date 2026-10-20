@@ -117,7 +117,7 @@ export async function POST(request: Request) {
 
   const submissionId = `contact#${now.toISOString()}#${randomUUID()}`;
   const item = program
-    ? { ...program, submissionId, recordType: "program-interest", consentVersion: "2026-10-20", consentedAt: now.toISOString(), createdAt: now.toISOString(), expiresAt: programExpiresAt }
+    ? { ...program, submissionId, recordType: "program-interest", notificationStatus: "pending", consentVersion: "2026-10-20", consentedAt: now.toISOString(), createdAt: now.toISOString(), expiresAt: programExpiresAt }
     : { submissionId, recordType: "contact", name, email, role, stateOrCounty, inquiryType, message, consent: true, consentedAt: now.toISOString(), createdAt: now.toISOString(), expiresAt: epoch + RETENTION_SECONDS };
   try {
     await dynamo.send(new PutCommand({
@@ -136,7 +136,19 @@ export async function POST(request: Request) {
       Subject: program ? "New SozoRock Health interest list request" : "New SozoRock Health partner inquiry",
       Message: program ? `Submission: ${submissionId}\nAuthorized staff can review the consented request in the contact intake.` : [`Submission: ${submissionId}`, `Name: ${safe(name)}`, `Email: ${safe(email)}`, `Interest: ${safe(role)}`, `Location: ${safe(stateOrCounty)}`, "The complete consented message is retained in the encrypted contact-intake table."].join("\n"),
     }));
-  } catch { /* The inquiry is safely stored even if notification delivery is delayed. */ }
+    if (program) {
+      await dynamo.send(new UpdateCommand({
+        TableName: tableName,
+        Key: { submissionId },
+        UpdateExpression: "SET notificationStatus = :status",
+        ConditionExpression: "attribute_exists(submissionId)",
+        ExpressionAttributeValues: { ":status": "published" },
+      }));
+    }
+  } catch (error) {
+    // The saved request remains visible to authorized staff even if the alert fails.
+    console.error("contact-notification-pending", { name: (error as { name?: string }).name ?? "UnknownError" });
+  }
 
   return Response.json({ accepted: true, message: program ? PROGRAM_INTEREST_SUCCESS : "Thank you. A SozoRock Health team member will respond using the contact information you provided." }, { status: 202 });
 }

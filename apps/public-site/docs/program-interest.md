@@ -20,3 +20,13 @@ Run the repository install, lint, typecheck, public-site tests and build. The co
 On a local or test target, check email-only and phone-only submissions, missing and malformed contacts, matching preferred contact methods, all required confirmations, unsupported fields, an overlong referral answer, rate limiting, retry after storage failure and the success message. Inspect the saved test record for the expected expiration and absence of health fields, then delete test records.
 
 Review the homepage, work, interest and privacy pages at 390 and 1280 pixels. Use only the keyboard to complete the form; check labels, focus movement, announced errors, retry input preservation and duplicate-submit prevention.
+
+## Staff review and notification status
+
+The existing MFA-protected Foundation Operations console has a Program interest view. It queries the existing ContactIntelligence index with `recordType=program-interest`; it does not create a database or use the publication request table. The view includes phone-only requests, preferred contact method, county, referral answer and the deletion deadline. Expired and unconsented program records are excluded before projection. Ordinary inquiries keep their separate view and response shape.
+
+Requests are stored with `notificationStatus=pending`. A successful SNS Publish response changes the status to `published`; this means the notification service accepted the alert, not that a person received or read it. If publication or the status update fails, the saved request stays accepted and remains visible to authorized reviewers. The staff owner must review pending/unknown alerts and the interest view routinely. Program alerts contain no submitted contact details.
+
+Staff pages support continuation through all records. CSV export reads consecutive pages and returns an explicit error rather than a partial export if the bounded export limit is exceeded. Protect and delete exported copies under the same retention deadline; the website cannot delete files already downloaded to staff devices.
+
+The Amplify build allowlist now passes the cohort-date setting into the server environment. Its value has not been selected or configured in production. Local integration verification uses a clearly marked synthetic January 15 fixture and an in-memory AWS protocol emulator; this is not a confirmed program start day or proof of live AWS delivery.
