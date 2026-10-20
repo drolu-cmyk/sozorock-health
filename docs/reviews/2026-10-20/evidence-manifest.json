@@ -1,0 +1,14 @@
+{
+  "albany-places-2025-raw.json": {
+    "bytes": 5072,
+    "sha256": "0b69868db5c2a90a73407f682d90560c014e93c1ee2e23e9fcc1b62302fb1595"
+  },
+  "cdc-places-2025-metadata.json": {
+    "bytes": 313141,
+    "sha256": "6e14b9d27a1f9fbc61bd2d88f8230a7c29d775f6f98a4ef789f4658d7f327cdc"
+  },
+  "albany-places-2025-verified.json": {
+    "bytes": 7105,
+    "sha256": "84e5dec522c7cf7c2a5b2619793eb8d1a70f005111718a3aa15d3e6d9f94bcb0"
+  }
+}

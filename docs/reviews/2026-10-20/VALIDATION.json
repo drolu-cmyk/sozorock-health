@@ -1,0 +1,47 @@
+{
+  "reviewDate": "2026-10-20",
+  "deploymentPerformed": false,
+  "productionMergePerformed": false,
+  "healthOriginalHead": "41e1a34a3d295c674bc494a7e07122c6f84d8f97",
+  "healthCodeHead": "e3539448a44ddaa6b4fa40f4e57c2a4056b34f03",
+  "foundationBase": "ada2d34a1ce4dbf8ff23dde6ec5acfc9c1cc2999",
+  "foundationCodeHead": "8c0e059dc1f53d2b2edfb3b794c3397cf8aa2b09",
+  "checks": {
+    "cleanInstall": "pass",
+    "lint": "pass",
+    "workspaceTypecheck": "pass",
+    "workspaceUnitTests": 478,
+    "publicProductionBuild": "pass",
+    "publicRuntimeSecurity": "pass: 482 traced files",
+    "foundationBuild": "pass",
+    "foundationTests": 52,
+    "foundationAwsContract": "pass",
+    "localIntakeIntegrationScenarios": 9,
+    "fivePageBrowserReview": "1280px and 390px: one h1, no horizontal overflow, no automated WCAG violations",
+    "narrowFormReview": "320px: pass",
+    "publicProductionDependencyAudit": 0,
+    "foundationDependencyAudit": 0,
+    "requiredMonorepoProductionAudit": {
+      "status": "blocked",
+      "highFindings": 16,
+      "rootPackages": [
+        "braces 3.0.3",
+        "node-forge 1.4.0"
+      ]
+    },
+    "platformBuild": "in progress at checkpoint",
+    "databaseMigrations": "not rerun locally: no PostgreSQL service",
+    "fullCi": "not rerun on the new local commits"
+  },
+  "releaseGates": [
+    "Confirm the January 2027 cohort start day; the local January 15 fixture is synthetic only",
+    "Confirm existing-table TTL, named deletion custodian and deletion of staff exports",
+    "Verify actual hosted intake, notification delivery and publication verification/download delivery",
+    "Listen to both complete soundtracks and confirm caption labels",
+    "Resolve the unchanged required monorepo dependency gate",
+    "Complete remaining exact-head CI and screen-reader checks",
+    "Confirm redirect owner variables, permissions and production approval restrictions before any separate publication",
+    "Obtain visual approval"
+  ],
+  "remoteStatus": "Draft PRs not updated at checkpoint; local atomic commits preserved"
+}

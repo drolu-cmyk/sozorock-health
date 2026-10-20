@@ -1,0 +1,45 @@
+{
+  "generatedAt": "2026-10-20T21:20:01.106Z",
+  "environment": "Next production build + real AWS SDK + in-memory local AWS protocol emulator",
+  "liveAwsVerified": false,
+  "cohortDate": "Synthetic January 15 fixture only; no production day selected",
+  "passed": true,
+  "results": [
+    {
+      "name": "Email-only request: HTTP 202, SDK persistence, consent, exact test expiry, published alert",
+      "passed": true
+    },
+    {
+      "name": "Phone-only request persists without requiring email",
+      "passed": true
+    },
+    {
+      "name": "Invalid contact, missing consent, wrong contact method, unsupported health fields rejected before storage",
+      "passed": true
+    },
+    {
+      "name": "Cross-origin, oversized request and honeypot controls hold",
+      "passed": true
+    },
+    {
+      "name": "Sixth request from one network is rate limited",
+      "passed": true
+    },
+    {
+      "name": "Storage failure returns 503; retry saves once",
+      "passed": true
+    },
+    {
+      "name": "Notification failure preserves request with pending status",
+      "passed": true
+    },
+    {
+      "name": "Notification contains no submitted contact details",
+      "passed": true
+    },
+    {
+      "name": "Ordinary contact intake still accepts valid consented inquiry",
+      "passed": true
+    }
+  ]
+}

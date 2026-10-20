@@ -1,0 +1,139 @@
+{
+  "date": "2026-10-20",
+  "status": "visual-review-candidates",
+  "publicationCleared": false,
+  "videos": [
+    {
+      "name": "care-within-reach",
+      "durationSeconds": 60,
+      "source": {
+        "file": "care-within-reach.mp4",
+        "sha256": "bc19660fb2487b2d93d4d68e4ac61da96b49ca6af04f2d3f82666cb51ede319b",
+        "sizeBytes": 23416804,
+        "width": 3840,
+        "height": 2160,
+        "preservedUnchanged": true
+      },
+      "delivery": {
+        "file": "care-within-reach.web.mp4",
+        "sha256": "c7074d79ef3a6fd2f839b09fb6526816baad947e2b4693f47381606b9f4ff0d7",
+        "sizeBytes": 4233522,
+        "sizeReductionPercent": 81.92,
+        "width": 1920,
+        "height": 1080,
+        "fps": 30,
+        "videoCodec": "h264",
+        "crf": 16,
+        "renderFrameFormat": "PNG",
+        "audioCodec": "aac",
+        "audioSampleRate": 48000,
+        "audioChannels": 2,
+        "audioPacketPayloadSHA256": "00c7cdafb309349478e7ddfdd2a7207f02a629ccdeab5fe58c117ea14167a5b6",
+        "originalAudioCopiedWithoutReencoding": true,
+        "fullDecodeWithoutErrors": true,
+        "faststart": true
+      },
+      "poster": {
+        "file": "care-within-reach.poster.jpg",
+        "actualDeliveredFrameSeconds": 58,
+        "sha256": "373ce082b4a6d6882117cf13b7eef51738788abc60e966d37a3111dd919faa24"
+      },
+      "accessibility": {
+        "soundtrackCaptions": "care-within-reach.en.vtt",
+        "captionJSON": "care-within-reach.en.captions.json",
+        "visualDescriptionTrack": "care-within-reach.visual.en.vtt",
+        "visualTranscript": "care-within-reach.transcript.txt",
+        "visualTextIsSpokenNarration": false,
+        "allCaptionTimesInRange": true
+      }
+    },
+    {
+      "name": "fireside-roundtable",
+      "durationSeconds": 30,
+      "source": {
+        "file": "fireside-roundtable.mp4",
+        "sha256": "31911b585fe868e7f21e2e669cc72bd026a62943be937a3b334934cbc8d11a82",
+        "sizeBytes": 19784221,
+        "width": 3840,
+        "height": 2160,
+        "preservedUnchanged": true
+      },
+      "delivery": {
+        "file": "fireside-roundtable.web.mp4",
+        "sha256": "2ce79363b3814ff97f354473ca0a445d244e006388d827b437d2a543b8cadd92",
+        "sizeBytes": 8899473,
+        "sizeReductionPercent": 55.02,
+        "width": 1920,
+        "height": 1080,
+        "fps": 30,
+        "videoCodec": "h264",
+        "crf": 16,
+        "renderFrameFormat": "PNG",
+        "audioCodec": "aac",
+        "audioSampleRate": 48000,
+        "audioChannels": 2,
+        "audioPacketPayloadSHA256": "a1fc16efe2287c7888e4abba9270979d41ceee4c1fef3e1efe5c05b4b900e260",
+        "originalAudioCopiedWithoutReencoding": true,
+        "fullDecodeWithoutErrors": true,
+        "faststart": true
+      },
+      "poster": {
+        "file": "fireside-roundtable.poster.jpg",
+        "actualDeliveredFrameSeconds": 15,
+        "sha256": "d8bea39557553389c00919a0737f5f5141bbcfb0bf4f53a0677c9282ca9e0e56"
+      },
+      "accessibility": {
+        "soundtrackCaptions": "fireside-roundtable.en.vtt",
+        "captionJSON": "fireside-roundtable.en.captions.json",
+        "visualDescriptionTrack": "fireside-roundtable.visual.en.vtt",
+        "visualTranscript": "fireside-roundtable.transcript.txt",
+        "visualTextIsSpokenNarration": false,
+        "allCaptionTimesInRange": true
+      }
+    }
+  ],
+  "sourcePackage": {
+    "file": "sozorock-video-corrections-source.zip",
+    "sizeBytes": 42993018,
+    "sha256": "646d855fa903302ad8375c899e5bb8ed7e325cf8acbcb564237e381ac0ad3b9b",
+    "includesUnchanged4KOriginals": true,
+    "remotionVersion": "4.0.537",
+    "typescriptCheck": "passed"
+  },
+  "visualReview": {
+    "sourceReview": "Full-duration one-second frame sampling with OCR, plus selected full-resolution frames.",
+    "correctedScenes": "Rendered and visually inspected population, chart, services, cohort, funding/reporting, budget, Fireside planned-series label, Fireside closing label and final actual poster frames.",
+    "finalCohortFrame": "Delivered MP4 checked at 41.5 seconds: up to 25, 12 months, January 2027, financial need, a chronic condition, one per household, all 62 counties.",
+    "completeOutputOCRScan": false,
+    "outputOCRNote": "Optional final whole-video OCR scan was stopped to preserve shared build resources; no completion claim is made.",
+    "fullFrameByFrameVisualReview": false
+  },
+  "audioReview": {
+    "engine": "whisper.cpp compiled locally with HTTP support disabled; CPU-only offline base.en and small.en inference.",
+    "careBaseResult": "gentle music; no spoken program narration identified",
+    "careSmallResult": "heartbeat/pulsing sound; no spoken program narration identified",
+    "firesideBaseResult": "Ambiguous repeated Whoa at 0–3 seconds; unsupported by the stronger model and not used as a transcript.",
+    "firesideSmallResult": "Music across 0–29.84 seconds; no spoken program narration identified.",
+    "directListeningPossible": false,
+    "humanListeningAuditCompleted": false,
+    "captionLabels": "Care: [Rhythmic background audio]; Fireside: [Music]. Conservative labels, subject to listening confirmation.",
+    "remainingReleaseCheck": "A person must listen to both full tracks and confirm the soundtrack captions before publication. No speech transcript, voice replacement, or publication clearance is asserted."
+  },
+  "evidence": {
+    "source": "Archived HRSA FY2026 Q4 designated HPSA statistics; Table 3, page 5; endnotes on pages 14–15.",
+    "observationDate": "2026-09-30",
+    "newYorkPrimaryCareNeedMetPercent": 35.42,
+    "nationalTotalPrimaryCareNeedMetPercent": 46.75,
+    "differencePercentagePoints": 11.33,
+    "sameScalePercent": [
+      0,
+      100
+    ],
+    "nationalIncludesNewYork": true,
+    "newYorkDesignatedAreaPopulation": 5288766,
+    "populationIsNotPeopleWithoutCare": true,
+    "notTrendCausalOrWaitTimeComparison": true,
+    "notSozoRockOutcomes": true
+  },
+  "reviewBoundary": "No deployment, production merge, or publication approval performed. 1080p web derivatives are delivered; unchanged 4K originals remain available."
+}

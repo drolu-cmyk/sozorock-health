@@ -1,0 +1,271 @@
+{
+  "checked_on": "2026-10-20",
+  "foundationPr": {
+    "url": "https://github.com/drolu-cmyk/sozorock-foundation/pull/125",
+    "number": 125,
+    "state": "open",
+    "merged": false,
+    "mergeable": true,
+    "draft": true,
+    "body": "## Summary\n\nLive checks on October 20 found CloudFront function-generated 301 responses on both legacy hosts. This PR makes publishing controlled and repeatable, and maps /about to the existing Health /work page instead of a missing destination.\n\n- Add a manual-only, main-only workflow using the production environment and the existing OIDC pattern.\n- Back up DEVELOPMENT and LIVE code/configuration plus distribution configuration before mutation; require successful artifact upload.\n- Verify alias ownership and all viewer-request associations, test DEVELOPMENT, and publish only the tested version with a fresh ETag.\n- Verify all six required URLs with curl, including final 200 destinations, with a ten-minute propagation limit.\n- Remove hardcoded resource identifiers from the redirect documentation. Preserve existing CB-CAP, method, host and private-query protections.\n\n## Owner configuration\n\nCreate repository variables:\n- LEGACY_HEALTH_DISTRIBUTION_ID\n- LEGACY_HEALTH_FUNCTION_NAME\n- LEGACY_HEALTH_DEPLOY_ROLE_ARN\n- AWS_REGION (optional, default us-east-1)\n\nIf absent from the existing role, add cloudfront:GetDistribution scoped to the configured distribution and cloudfront:DescribeFunction, cloudfront:GetFunction, cloudfront:UpdateFunction, cloudfront:TestFunction and cloudfront:PublishFunction scoped to the configured function. OIDC trust must permit subject repo:drolu-cmyk/sozorock-foundation:environment:production with audience sts.amazonaws.com. IAM access was not available for inspection; this PR creates no IAM resources.\n\nThe separate drolu-cmyk/sozorock-ai-lab workflow complete-foundation-production-recovery.yml manages legacy Amplify recovery and still expects 308. Its owner must align those checks to 301 and reconcile domain ownership before running it. That repository is unchanged. No Amplify permissions are needed for the observed CloudFront path.\n\n## Reviewer checklist\n\n- [x] Redirect tests pass as part of npm run test:sites (57 tests passed).\n- [ ] Confirm /about \u2192 https://health.sozorockfoundation.org/work is the intended legacy mapping.\n- [ ] Verify repository variables, bounded role permissions and production environment protections.\n- [ ] Review backup, ETag change detection, DEVELOPMENT tests and rollback instructions.\n- [ ] Align the conflicting recovery workflow in the other repository before any future recovery.\n- [ ] After a separate approved publish, verify /, /about and /cb-cap on both hosts return 301 and final pages return 200.\n\n## Manual fallback\n\n- CloudFront: Console \u2192 CloudFront \u2192 Functions \u2192 the legacy Health viewer-request function \u2192 back up the current code/configuration \u2192 paste the repo source \u2192 Save \u2192 Test \u2192 Publish.\n- Amplify, only if confirmed to be serving the hosts: Console \u2192 the legacy Health app \u2192 Hosting \u2192 Rewrites and redirects \u2192 back up the rules \u2192 change 302 to 301, preserving the CB-CAP rule.\n\nThis is a draft for review. No merge, deployment or publishing workflow run has been performed. At commit cd43082, the Foundation CI run passed installation, build, all 57 site tests (including legacy redirect tests), AWS release validation, production and agent dependency audits, restricted deployment/rollback tests and workflow YAML validation. The workflow allowlist includes the new manual publisher; unrelated checks remain unchanged.\n\nVerification: https://github.com/drolu-cmyk/sozorock-foundation/actions/runs/39469998597",
+    "title": "Publish the permanent sozorockhealth.com redirect",
+    "base": "main",
+    "base_sha": "ada2d34a1ce4dbf8ff23dde6ec5acfc9c1cc2999",
+    "head": "legacy-health-301",
+    "head_sha": "cd43082aee149c14a45da061c5e49cca652d843d",
+    "head_repo_id": 1337104562,
+    "head_repo_full_name": "drolu-cmyk/sozorock-foundation",
+    "merge_commit_sha": "e588348bcee1a59e91cbab31d402c26dfc9ba713",
+    "user": {
+      "login": "drolu-cmyk",
+      "name": "drolu-cmyk",
+      "email": null,
+      "avatar_url": "https://avatars.githubusercontent.com/u/271617784?v=4",
+      "id": 271617784
+    },
+    "requested_reviewers": null,
+    "requested_team_reviewers": null,
+    "diff": null,
+    "comments": null,
+    "created_at": "2026-10-20T17:47:29Z",
+    "updated_at": "2026-10-20T17:55:31Z",
+    "closed_at": null,
+    "merged_at": null,
+    "commits": 2,
+    "changed_files": 6,
+    "additions": 373,
+    "deletions": 11,
+    "display_url": "https://github.com/drolu-cmyk/sozorock-foundation/pull/125",
+    "display_title": "Publish the permanent sozorockhealth.com redirect"
+  },
+  "branchReads": [
+    {
+      "repo": "foundation-main",
+      "name": "main",
+      "sha": "ada2d34a1ce4dbf8ff23dde6ec5acfc9c1cc2999",
+      "protected": false,
+      "protection": {
+        "enabled": false,
+        "required_status_checks": {
+          "enforcement_level": "off",
+          "contexts": [],
+          "checks": []
+        }
+      }
+    },
+    {
+      "repo": "ai-main",
+      "name": "main",
+      "sha": "13d2569f1c48627e4eea8f00affefdc02967779b",
+      "protected": false,
+      "protection": {
+        "enabled": false,
+        "required_status_checks": {
+          "enforcement_level": "off",
+          "contexts": [],
+          "checks": []
+        }
+      }
+    }
+  ],
+  "recordedCI": {
+    "jobs": [
+      {
+        "id": 118791239751,
+        "name": "validate",
+        "status": "completed",
+        "conclusion": "success",
+        "run_id": 39469998597,
+        "logs_url": null,
+        "steps": [
+          {
+            "name": "Set up job",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 1
+          },
+          {
+            "name": "Checkout",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 2
+          },
+          {
+            "name": "Set up Node",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 3
+          },
+          {
+            "name": "Block vulnerable dependency changes",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 4
+          },
+          {
+            "name": "Install parent site dependencies",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 5
+          },
+          {
+            "name": "Build parent site",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 6
+          },
+          {
+            "name": "Test Sites worker",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 7
+          },
+          {
+            "name": "Validate AWS CloudFront release contract",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 8
+          },
+          {
+            "name": "Audit production dependencies",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 9
+          },
+          {
+            "name": "Validate AWS bootstrap shell",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 10
+          },
+          {
+            "name": "Install agent runtime dependencies",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 11
+          },
+          {
+            "name": "Validate agent graph structure",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 12
+          },
+          {
+            "name": "Audit agent runtime dependencies",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 13
+          },
+          {
+            "name": "Validate agent deployment shell",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 14
+          },
+          {
+            "name": "Test restricted deployment and rollback",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 15
+          },
+          {
+            "name": "Validate workflow YAML",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 16
+          },
+          {
+            "name": "Post Set up Node",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 31
+          },
+          {
+            "name": "Post Checkout",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 32
+          },
+          {
+            "name": "Complete job",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 33
+          }
+        ]
+      }
+    ]
+  },
+  "freshLocalTests": {
+    "command": "node --test redirect-pr125-snapshot/tests/legacy-health-redirect.test.mjs",
+    "node": "v24.19.0",
+    "tests": 8,
+    "pass": 8,
+    "fail": 0,
+    "skipped": 0,
+    "exitCode": 0,
+    "scope": "Isolated copies of exact PR-head files; pure unit tests only. No AWS commands, workflow dispatch, live requests, or submissions."
+  },
+  "sourceFiles": [
+    {
+      "key": "foundation-publish-workflow",
+      "sha": "a292ae5e3e0f99670a3af7c714ec7da78ebc7cb0",
+      "url": "https://github.com/drolu-cmyk/sozorock-foundation/blob/cd43082aee149c14a45da061c5e49cca652d843d/.github/workflows/publish-legacy-health-redirect.yml",
+      "local_snapshot": "foundation-publish-workflow.yml",
+      "sha256": "e169b75952b541a461085a516f143e638b11d55743ba8f25e19813486c46215b"
+    },
+    {
+      "key": "foundation-publish-script",
+      "sha": "33ae55b30eeb79ab1f142eb0046f55c9c716a4e5",
+      "url": "https://github.com/drolu-cmyk/sozorock-foundation/blob/cd43082aee149c14a45da061c5e49cca652d843d/scripts/publish-legacy-health-redirect.mjs",
+      "local_snapshot": "foundation-publish-script.mjs",
+      "sha256": "a501595982039be0d36a50800ec6d766ea12ea3c0d56b183a36d3e61884d1b80"
+    },
+    {
+      "key": "foundation-redirect-doc",
+      "sha": "e4eac050dabaafed92d429f453318d9703d04566",
+      "url": "https://github.com/drolu-cmyk/sozorock-foundation/blob/cd43082aee149c14a45da061c5e49cca652d843d/infra/LEGACY-HEALTH-REDIRECT.md",
+      "local_snapshot": "foundation-redirect-doc.md",
+      "sha256": "fa9f88716ecd93d39cc9d0520828060f6d18a4d27774f5aa4b34cc55a2cc6593"
+    },
+    {
+      "key": "foundation-redirect-tests",
+      "sha": "4a16f363996593e83c17098b7b2bdfe132acdac7",
+      "url": "https://github.com/drolu-cmyk/sozorock-foundation/blob/cd43082aee149c14a45da061c5e49cca652d843d/tests/legacy-health-redirect.test.mjs",
+      "local_snapshot": "foundation-redirect-tests.mjs",
+      "sha256": "a4b4bfb82fcc8ea9c888e5c85d3be9ea29d9a96e392e51543bda5b8ecef215b1"
+    },
+    {
+      "key": "foundation-redirect-function",
+      "sha": "7fc62e47c90c77098c855252d8abb1bdfbd27439",
+      "url": "https://github.com/drolu-cmyk/sozorock-foundation/blob/cd43082aee149c14a45da061c5e49cca652d843d/infra/cloudfront/legacy-health-redirect.js",
+      "local_snapshot": "foundation-redirect-function.js",
+      "sha256": "b22c0756237e46ed8cb71833c74e459f3397477ac950b97994e8405980cb1eff"
+    },
+    {
+      "key": "foundation-pr-ci",
+      "sha": "756bdc1030933323e48212c82ea9e5a342d4cb7e",
+      "url": "https://github.com/drolu-cmyk/sozorock-foundation/blob/cd43082aee149c14a45da061c5e49cca652d843d/.github/workflows/agentic-foundation-ci.yml",
+      "local_snapshot": "foundation-pr-ci.yml",
+      "sha256": "689ade4edf39952689b33341b1e5993e0664a70b5910b2702e5cadf85017b108"
+    },
+    {
+      "key": "ai-recovery-workflow",
+      "sha": "e8ba4677dd0d4f56bd664d0b00a3633dd6350f09",
+      "url": "https://github.com/drolu-cmyk/sozorock-ai-lab/blob/13d2569f1c48627e4eea8f00affefdc02967779b/.github/workflows/complete-foundation-production-recovery.yml",
+      "local_snapshot": "ai-recovery-workflow.yml",
+      "sha256": "4532e6986fc19c42a9d24886e3b7a830114da4884474d2a888d165b99ea9c2ed"
+    },
+    {
+      "key": "ai-other-recovery",
+      "sha": "4c149babe800a6ec29d88ca31c1ea4e406fa7f7c",
+      "url": "https://github.com/drolu-cmyk/sozorock-ai-lab/blob/13d2569f1c48627e4eea8f00affefdc02967779b/.github/workflows/run-foundation-amplify-recovery.yml"
+    }
+  ],
+  "limitations": [
+    "No repository/environment variable values or AWS role policies inspected.",
+    "No deployment workflow run or infrastructure mutation.",
+    "Recent workflow-run listings cover first 100 runs only.",
+    "No complete live metadata/indexing or email audit."
+  ]
+}

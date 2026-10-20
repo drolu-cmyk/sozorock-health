@@ -1,0 +1,108 @@
+{
+  "checked_on": "2026-10-20",
+  "scope": "Read-only upstream and installed-source research. No package installation, patch application, repository modification or independent regression execution.",
+  "files": [
+    {
+      "file": "forge-pr-1159.json",
+      "url": "https://api.github.com/repos/digitalbazaar/forge/pulls/1159",
+      "bytes": 20210,
+      "sha256": "03bd73f64c3107e31fae8455833b86368f81cade164ff78abbd08ac5c3b5f86d"
+    },
+    {
+      "file": "forge-pr-1152.json",
+      "url": "https://api.github.com/repos/digitalbazaar/forge/pulls/1152",
+      "bytes": 17139,
+      "sha256": "131ba7b67459fcaeb2da92b5add05c5dbdf022abeef1245f1ca43203bca185c7"
+    },
+    {
+      "file": "forge-pr-1159-files.json",
+      "url": "https://api.github.com/repos/digitalbazaar/forge/pulls/1159/files",
+      "bytes": 16810,
+      "sha256": "18e576dad2c689e865e9ef406a2f60b29e9b1f5de399000cdf6e6826e478bb66"
+    },
+    {
+      "file": "braces-issue-70.json",
+      "url": "https://api.github.com/repos/micromatch/braces/issues/70",
+      "bytes": 5157,
+      "sha256": "23736c89826dd3f86e9c3cf9a36b5599df42252e854a19f83daef94997ceae0d"
+    },
+    {
+      "file": "braces-advisory.json",
+      "url": "https://api.github.com/advisories/GHSA-vfj7-8cjw-p6xm",
+      "bytes": 2072,
+      "sha256": "2ddb4a23a2b060e6b8b7c1a4dbf8693153be4ff8f5a2c478120ea6d8044c7bcb"
+    },
+    {
+      "file": "node-forge-advisory.json",
+      "url": "https://api.github.com/advisories/GHSA-86w9-cpqp-85rv",
+      "bytes": 2216,
+      "sha256": "3be0dee541f8ecd819de2f230fd0f79137951cbdd1d109ecd3a52baff97e6b1f"
+    },
+    {
+      "file": "braces-pr-72.json",
+      "url": "https://api.github.com/repos/micromatch/braces/pulls/72",
+      "bytes": 17917,
+      "sha256": "49b78f9284d3946c8c98d3c0ae5112a05f13d4a1ca10a46c0512d50c2d9efc98"
+    },
+    {
+      "file": "braces-pr-75.json",
+      "url": "https://api.github.com/repos/micromatch/braces/pulls/75",
+      "bytes": 12270,
+      "sha256": "c3cc1d7e0ae1e1682d67695cd0881522ecadd3db520e5edeefcc73502dc0139f"
+    },
+    {
+      "file": "braces-advisory-correction-pr-10132.json",
+      "url": "https://api.github.com/repos/github/advisory-database/pulls/10132",
+      "bytes": 17273,
+      "sha256": "4b9a6fa5c26d04f8a887a35ab5c43cb9634ce721fc0de8708091ac15d67457fe"
+    },
+    {
+      "file": "npm-braces-latest.json",
+      "url": "https://registry.npmjs.org/braces/latest",
+      "bytes": 2428,
+      "sha256": "8fd4c1db771542ab5456bb4806408fea9cdb5bf77f6cb9d5d563a3bd0ebb0b13"
+    },
+    {
+      "file": "npm-node-forge-latest.json",
+      "url": "https://registry.npmjs.org/node-forge/latest",
+      "bytes": 3638,
+      "sha256": "bab897062dd42d67cc7212c18a524d729e84d0900512038a5ec14bba74357bf8"
+    }
+  ],
+  "registry_latest": [
+    {
+      "name": "braces",
+      "version": "3.0.3",
+      "dist": {
+        "shasum": "490332f40919452272d55a8480adc0c441358789",
+        "tarball": "https://registry.npmjs.org/braces/-/braces-3.0.3.tgz",
+        "fileCount": 10,
+        "integrity": "sha512-yQbXgO/OSZVD2IsiLlro+7Hf6Q18EJrKSEsdoMzKePKXct3gvD8oLcOQdIzGupr5Fj+EDe8gO/lxc1BzfMpxvA==",
+        "signatures": [
+          {
+            "sig": "MEQCICfWLKNcFCGtU07ikrPJ+s1dTDH3VZTE+vQZzC22s6o+AiAEVUE/YXRqHYgctcwHqNawvsOviSDFZPvgNm8+SUXD3w==",
+            "keyid": "SHA256:jl3bwswu80PjjokCgh0o2w5c2U4LhQAE57gj9cz1kzA"
+          }
+        ],
+        "unpackedSize": 44635
+      }
+    },
+    {
+      "name": "node-forge",
+      "version": "1.4.0",
+      "dist": {
+        "shasum": "1c7b7d8bdc2d078739f58287d589d903a11b2fc2",
+        "tarball": "https://registry.npmjs.org/node-forge/-/node-forge-1.4.0.tgz",
+        "fileCount": 59,
+        "integrity": "sha512-LarFH0+6VfriEhqMMcLX2F7SwSXeWwnEAJEsYm5QKWchiVYVvJyV9v7UDvUv+w5HO23ZpQTXDv/GxdDdMyOuoQ==",
+        "signatures": [
+          {
+            "sig": "MEQCIHN+qilMnh4W7N6nrRE5KXZgu26uSkmTfjPiujxr0qAvAiB2zOy5/OdnRK68PHo2WfVDpoLCo8PgFJ5pyBuWqNUO9A==",
+            "keyid": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U"
+          }
+        ],
+        "unpackedSize": 1647637
+      }
+    }
+  ]
+}
