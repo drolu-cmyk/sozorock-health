@@ -150,7 +150,8 @@ test("successful verification atomically consumes the token and creates the acce
 });
 
 test("publication email validation is provider-neutral", () => {
-  assert.match(validationSource, /\^\[\^\\s@\]\+@\[\^\\s@\]\+\\\.\[\^\\s@\]\+\$/);
+  assert.match(validationSource, /const CANONICAL_EMAIL/);
+  assert.match(validationSource, /!CANONICAL_EMAIL\.test\(input\.email\)/);
   assert.match(accessFormSource, /type="email"/);
   const providerNeutralSource = `${validationSource}\n${accessFormSource}`.toLowerCase();
   for (const domain of ["gmail.com", "yahoo.com", "outlook.com", "hotmail.com", "icloud.com"]) {

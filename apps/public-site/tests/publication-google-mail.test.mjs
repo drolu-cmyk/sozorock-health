@@ -32,6 +32,17 @@ test('rejects sender mismatch and header injection before transmission', async (
   await assert.rejects(run.send({...message, subject: 'Title\r\nBcc: other@example.org'}));
   assert.equal(run.messages.length, 0);
 });
+test('rejects recipient syntax that Nodemailer could normalize or expand', async () => {
+  const run = setup();
+  for (const to of [
+    'reader(comment)@real.org',
+    'reader@real.org,localalias',
+    'Reader <reader@real.org>',
+    '"reader"@real.org',
+    'reader..name@real.org',
+  ]) await assert.rejects(run.send({...message, to}), {name: 'PublicationDeliveryError'});
+  assert.equal(run.messages.length, 0);
+});
 test('provider rejection is not reported as successful delivery', async () => {
   const run = setup({createTransport: () => ({sendMail: async () => ({accepted: []})})});
   await assert.rejects(run.send(message), {name: 'PublicationDeliveryError'});
