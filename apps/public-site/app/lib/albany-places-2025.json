@@ -1,0 +1,163 @@
+{
+  "geography": {
+    "name": "Albany County, New York",
+    "countyFips": "36001"
+  },
+  "source": {
+    "agency": "Centers for Disease Control and Prevention",
+    "title": "PLACES: County Data (GIS Friendly Format), 2025 release",
+    "datasetId": "i46a-9kgh",
+    "releaseYear": 2025,
+    "dataLastUpdatedUtc": "2025-12-04T10:43:02+00:00",
+    "metadataLastUpdatedUtc": "2026-09-22T22:42:43+00:00",
+    "retrievedDate": "2026-10-20",
+    "dataUrl": "https://data.cdc.gov/resource/i46a-9kgh.json?countyfips=36001",
+    "datasetUrl": "https://data.cdc.gov/d/i46a-9kgh",
+    "metadataUrl": "https://data.cdc.gov/api/views/i46a-9kgh.json",
+    "rawSha256": "0b69868db5c2a90a73407f682d90560c014e93c1ee2e23e9fcc1b62302fb1595"
+  },
+  "measures": [
+    {
+      "id": "ACCESS2",
+      "label": "Adults aged 18–64 without health insurance",
+      "estimate": 5.5,
+      "unit": "percent",
+      "confidenceInterval95": [
+        4.2,
+        7.0
+      ],
+      "population": "Adults aged 18–64",
+      "referencePeriod": "Current",
+      "observationYear": 2023,
+      "estimateType": "Model-based crude prevalence",
+      "valueField": "access2_crudeprev",
+      "intervalField": "access2_crude95ci",
+      "definition": "No current health insurance coverage.",
+      "definitionUrl": "https://www.cdc.gov/places/measure-definitions/prevention.html"
+    },
+    {
+      "id": "LACKTRPT",
+      "label": "Adults lacking reliable transportation",
+      "estimate": 7.2,
+      "unit": "percent",
+      "confidenceInterval95": [
+        6.1,
+        8.5
+      ],
+      "population": "Adults aged 18 or older",
+      "referencePeriod": "Past 12 months",
+      "observationYear": 2023,
+      "estimateType": "Model-based crude prevalence",
+      "valueField": "lacktrpt_crudeprev",
+      "intervalField": "lacktrpt_crude95ci",
+      "definition": "Transportation prevented medical appointments, meetings, work or obtaining daily essentials.",
+      "definitionUrl": "https://www.cdc.gov/places/measure-definitions/health-related-social-needs.html"
+    },
+    {
+      "id": "FOODINSECU",
+      "label": "Adults experiencing food insecurity",
+      "estimate": 12.2,
+      "unit": "percent",
+      "confidenceInterval95": [
+        9.9,
+        15.0
+      ],
+      "population": "Adults aged 18 or older",
+      "referencePeriod": "Past 12 months",
+      "observationYear": 2023,
+      "estimateType": "Model-based crude prevalence",
+      "valueField": "foodinsecu_crudeprev",
+      "intervalField": "foodinsecu_crude95ci",
+      "definition": "Food ran out at least sometimes and there was insufficient money to buy more.",
+      "definitionUrl": "https://www.cdc.gov/places/measure-definitions/health-related-social-needs.html"
+    },
+    {
+      "id": "HOUSINSECU",
+      "label": "Adults experiencing housing insecurity",
+      "estimate": 10.8,
+      "unit": "percent",
+      "confidenceInterval95": [
+        9.0,
+        12.9
+      ],
+      "population": "Adults aged 18 or older",
+      "referencePeriod": "Past 12 months",
+      "observationYear": 2023,
+      "estimateType": "Model-based crude prevalence",
+      "valueField": "housinsecu_crudeprev",
+      "intervalField": "housinsecu_crude95ci",
+      "definition": "Unable to pay mortgage, rent or a utility bill.",
+      "definitionUrl": "https://www.cdc.gov/places/measure-definitions/health-related-social-needs.html"
+    },
+    {
+      "id": "SHUTUTILITY",
+      "label": "Adults facing a utility shutoff threat",
+      "estimate": 6.6,
+      "unit": "percent",
+      "confidenceInterval95": [
+        5.5,
+        7.9
+      ],
+      "population": "Adults aged 18 or older",
+      "referencePeriod": "Past 12 months",
+      "observationYear": 2023,
+      "estimateType": "Model-based crude prevalence",
+      "valueField": "shututility_crudeprev",
+      "intervalField": "shututility_crude95ci",
+      "definition": "An electricity, gas, oil or water company threatened to discontinue service.",
+      "definitionUrl": "https://www.cdc.gov/places/measure-definitions/health-related-social-needs.html"
+    },
+    {
+      "id": "DISABILITY",
+      "label": "Adults with any disability",
+      "estimate": 25.9,
+      "unit": "percent",
+      "confidenceInterval95": [
+        22.3,
+        29.8
+      ],
+      "population": "Adults aged 18 or older",
+      "referencePeriod": "Current",
+      "observationYear": 2023,
+      "estimateType": "Model-based crude prevalence",
+      "valueField": "disability_crudeprev",
+      "intervalField": "disability_crude95ci",
+      "definition": "At least one of the six disability types covered by the BRFSS questions.",
+      "definitionUrl": "https://www.cdc.gov/places/measure-definitions/disability.html"
+    },
+    {
+      "id": "LONELINESS",
+      "label": "Adults experiencing loneliness",
+      "estimate": 36.1,
+      "unit": "percent",
+      "confidenceInterval95": [
+        31.9,
+        40.7
+      ],
+      "population": "Adults aged 18 or older",
+      "referencePeriod": "Current",
+      "observationYear": 2023,
+      "estimateType": "Model-based crude prevalence",
+      "valueField": "loneliness_crudeprev",
+      "intervalField": "loneliness_crude95ci",
+      "definition": "Feeling lonely at least sometimes.",
+      "definitionUrl": "https://www.cdc.gov/places/measure-definitions/health-related-social-needs.html"
+    }
+  ],
+  "interpretation": [
+    "All seven selected measures use 2023 estimates from the 2025 release. The release year and retrieval date are not observation years.",
+    "Values are model-based crude prevalence estimates, not age-adjusted prevalence and not direct local survey estimates.",
+    "Uninsured covers adults aged 18–64. The other selected indicators cover adults aged 18 or older. Do not combine their denominators.",
+    "These are community estimates, not SozoRock program results or individual needs. They do not establish waiting times, causation, program impact or eligibility.",
+    "Do not multiply the uninsured percentage by the dataset total adult population because the eligible population differs.",
+    "Transportation covers medical appointments and other daily activities; it does not mean medical-appointment failure alone.",
+    "Utility services threat describes a threatened shutoff, not necessarily a completed shutoff.",
+    "The current CDC release notes rename social isolation as feelings of loneliness. The GIS schema retains older social-isolation wording; use the current measure name and definition."
+  ],
+  "additionalSources": {
+    "releaseNotes": "https://www.cdc.gov/places/current-release-notes/index.html",
+    "methodology": "https://www.cdc.gov/places/methodology/index.html"
+  },
+  "recommendedPublicSourceLine": "Source: CDC PLACES, 2025 release. Model-based crude estimates for 2023, with 95% confidence intervals. Retrieved October 20, 2026. These county estimates describe community conditions, not SozoRock results or individual needs. Health insurance covers ages 18–64; the other measures cover adults aged 18 or older.",
+  "recommendedPeriodLabel": "County FIPS 36001 · 2023 estimates · 2025 release"
+}

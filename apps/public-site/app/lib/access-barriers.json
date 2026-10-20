@@ -1,0 +1,51 @@
+[
+  {
+    "key": "time",
+    "title": "Timely appointments",
+    "context": "Wait times, opening hours and acceptance of new patients determine when care is available.",
+    "role": "The program includes a sponsored direct primary care membership and ongoing telehealth.",
+    "limits": "Provider counts do not measure appointment availability. Routine and urgent care, and new and established patients, can face different waits.",
+    "source": "Appointment access and patient experience: AHRQ CAHPS."
+  },
+  {
+    "key": "capacity",
+    "title": "Workforce capacity",
+    "context": "Provider availability depends on the number and mix of clinicians, where they practice and whether they accept new patients.",
+    "role": "The program provides access to a direct primary care membership with Dr. Michael Purcell and Purcell Integrative Osteopathic Care.",
+    "limits": "Workforce ratios and shortage designations describe capacity. They do not measure an individual practice’s open appointments.",
+    "source": "HRSA, fourth quarter of fiscal year 2026.",
+    "chart": true
+  },
+  {
+    "key": "cost",
+    "title": "Affordable care",
+    "context": "Out-of-pocket costs, coverage gaps and time away from paid work can make it difficult to obtain and continue care.",
+    "role": "The program sponsors a direct primary care membership and includes help with transportation. Membership is not health insurance.",
+    "limits": "Insurance coverage and affordability are different measures. Coverage alone does not establish whether someone can afford the care they need.",
+    "source": "Coverage measures: CDC PLACES."
+  },
+  {
+    "key": "digital",
+    "title": "Usable technology",
+    "context": "Telehealth depends on a usable connection, a suitable device, digital skills, accessibility and a private place to speak.",
+    "role": "Ongoing telehealth and health access education are included in the program.",
+    "limits": "An internet subscription does not establish connection quality, digital confidence or telehealth readiness.",
+    "source": "Computer and internet access: U.S. Census Bureau, American Community Survey."
+  },
+  {
+    "key": "reach",
+    "title": "Practical access",
+    "context": "Distance, transportation, disability access, work schedules and caregiving responsibilities shape whether people can reach care. Food and housing insecurity add to daily demands.",
+    "role": "The program includes help with transportation.",
+    "limits": "Transportation and food-insecurity measures describe different barriers. Food insecurity concerns reliable access to enough food; it is not a measure of a local food-supply shortage.",
+    "source": "Transportation and food insecurity: CDC PLACES."
+  },
+  {
+    "key": "continuity",
+    "title": "Navigation and continuity",
+    "context": "Language, health literacy, trust, referrals and follow-up shape whether people can understand the process and remain connected to care.",
+    "role": "The program includes health access education and coordination. Clinical care remains with the licensed provider.",
+    "limits": "County-level statistics do not describe an individual’s experience, trust or understanding.",
+    "source": "Patient experience: AHRQ CAHPS."
+  }
+]

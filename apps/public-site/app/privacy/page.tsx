@@ -11,7 +11,6 @@ export const metadata = createLegalMetadata({
 export default function PrivacyPage() {
   return (
     <LegalPage
-      eyebrow="Public policy"
       title="Privacy notice"
       updated="October 20, 2026"
     >
@@ -61,7 +60,7 @@ export default function PrivacyPage() {
         hosting network. A random first-party visitor identifier may be stored
         in your browser so repeat access attempts can be measured and abuse
         controls applied without storing a raw network address with the request.
-        We may assign internal quality indicators to publication-access records
+        We may assign quality indicators to publication-access records
         based on signals such as whether an email was verified, whether
         submitted text appears incomplete or automated, whether location fields
         are internally consistent, and whether requests occur unusually quickly
@@ -72,7 +71,7 @@ export default function PrivacyPage() {
       <h2>Resident Access Layer and mobile app</h2>
       <p>
         In a supported mobile or shared-tablet readiness flow, we receive only
-        the access option you selected, a ZIP code or Health Equity Hub reference, the
+        the access option you selected, a ZIP Code or Health Equity Hub reference, the
         non-clinical support option you selected, the interface language,
         whether the request came from the mobile or kiosk experience, and the
         consent record shown before submission. We do not ask for your name,
