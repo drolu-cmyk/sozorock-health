@@ -29,7 +29,7 @@
         "node-forge 1.4.0"
       ]
     },
-    "platformBuild": "in progress at checkpoint",
+    "platformBuild": "not completed: process interrupted before a success result",
     "databaseMigrations": "not rerun locally: no PostgreSQL service",
     "fullCi": "not rerun on the new local commits"
   },
