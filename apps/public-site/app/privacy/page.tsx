@@ -13,7 +13,7 @@ export default function PrivacyPage() {
     <LegalPage
       eyebrow="Public policy"
       title="Privacy notice"
-      updated="September 15, 2026"
+      updated="October 20, 2026"
     >
       <h2>Information and choice</h2>
       <p>
@@ -35,6 +35,21 @@ export default function PrivacyPage() {
         the request before a secure download session is created. Receiving
         future publication updates is optional and is not a condition of
         accessing a requested publication.
+      </p>
+      <h2 id="program-interest">Primary Care Access Program interest list</h2>
+      <p>
+        We collect first and last name, email address or phone number (or both),
+        preferred contact method, New York county, confirmation of New York
+        residency and age 64 or younger, contact consent, and an optional short
+        answer about how you heard about us. Authorized SozoRock staff use this
+        information to contact you about eligibility and next steps. Please do
+        not include medical, insurance, income or other personal health details.
+      </p>
+      <p>
+        Interest list information is deleted 12 months after the first cohort
+        begins unless you enroll or ask to stay on the list. To request deletion,
+        use the contact path in Your choices below. Eligibility screening and
+        enrollment will use a separate notice and consent.
       </p>
       <h2>Publication access and attribution</h2>
       <p>

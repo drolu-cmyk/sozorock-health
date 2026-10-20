@@ -55,7 +55,7 @@ export function HealthHeader({ spanish = false }: { spanish?: boolean }) {
         <a href="/work">{spanish ? "Nuestro trabajo" : "Our work"}</a>
         <a href="/evidence">{spanish ? "Evidencia" : "Evidence"}</a>
         <a href="/publications">{spanish ? "Publicaciones" : "Publications"}</a>
-        <a href="/contact">{spanish ? "Colaborar" : "Partner"}</a>
+        <a href={spanish ? "/contact" : "https://www.sozorockfoundation.org/partner"}>{spanish ? "Colaborar" : "Partner"}</a>
         <a
           className="hs-language"
           href={spanish ? "/" : "/es"}
