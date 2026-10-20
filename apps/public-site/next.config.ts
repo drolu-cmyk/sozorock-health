@@ -8,6 +8,8 @@ const contentSecurityPolicy = `default-src 'self'; ${scriptPolicy}; worker-src '
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  // Bound build concurrency and Webpack memory without skipping validation.
+  experimental: { webpackMemoryOptimizations: true, cpus: 2 },
   images: {
     // Public images are trusted static assets. Amplify serves them directly,
     // so the production runtime does not need Next's optional Sharp/libvips
