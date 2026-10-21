@@ -1,17 +1,9 @@
 name: Foundation consolidation production
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - "apps/public-site/app/admin/**"
-      - "apps/public-site/app/api/admin/**"
-      - "apps/public-site/app/lib/foundation-admin-auth.ts"
-      - "infrastructure/cloudformation/contact-backend.yml"
-      - "infrastructure/iam/sozorock-ai-lab-github-trust.json"
-      - "scripts/reconcile-foundation-recovery-trust.sh"
-      - "scripts/enroll-foundation-smoke-mfa.sh"
-      - ".github/workflows/foundation-consolidation-production.yml"
+  # Manual only. This workflow edits IAM trust and policies, deploys the
+  # contact stack and starts an Amplify release; ordinary main merges that
+  # touch admin paths must not start it implicitly.
   workflow_dispatch:
 
 permissions:
@@ -24,6 +16,7 @@ concurrency:
 
 jobs:
   verify:
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 35
     steps:
