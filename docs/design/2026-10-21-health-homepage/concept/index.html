@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SozoRock Health homepage concept (review, Oct 21 2026)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&display=swap">
+<style>
+:root{--navy:#071D3B;--cobalt:#0644AD;--icy:#EFF5FF;--ice2:#F7FAFF;--rule:#CED7E3;--ink2:#33495D;--muted:#4B607A;--orange:#F28A3C}
+*{box-sizing:border-box}
+body{margin:0;background:#fff;color:var(--navy);font-family:'Instrument Sans',system-ui,sans-serif;font-feature-settings:"tnum" 1,"lnum" 1}
+a{color:var(--cobalt)}a:hover{color:var(--navy)}
+.wrap{max-width:1200px;margin:0 auto;padding:0 48px}
+.nav{display:flex;align-items:center;justify-content:space-between;gap:24px;flex-wrap:wrap;min-height:76px}
+.navlinks{display:flex;gap:28px;align-items:center;flex-wrap:wrap}
+.navlinks a.t{text-decoration:none;color:var(--navy);font-weight:500;font-size:15px}
+.btn{display:inline-flex;align-items:center;justify-content:center;min-height:48px;padding:0 24px;border-radius:999px;font-weight:600;font-size:16px;text-decoration:none}
+.btn-primary{background:var(--cobalt);color:#fff}.btn-primary:hover{background:var(--navy);color:#fff}
+.btn-ghost{border:1.5px solid var(--navy);color:var(--navy)}.btn-ghost:hover{background:var(--navy);color:#fff}
+.sec{padding:112px 0 96px}
+h1{margin:0;font-size:72px;line-height:1;letter-spacing:-.035em;font-weight:700}
+h2{margin:0;font-size:40px;line-height:1.1;letter-spacing:-.025em;font-weight:700}
+h3{margin:0}
+.lead{font-size:18px;line-height:1.55;color:var(--ink2)}
+.note{font-size:13px;line-height:1.55;color:var(--muted)}
+.hero{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:64px;align-items:end}
+.kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr))}
+.kpi{padding:28px 32px 28px 0;border-right:1px solid var(--rule);margin-right:32px}.kpi:last-child{border-right:0;margin-right:0}
+.big{font-size:52px;font-weight:700;letter-spacing:-.03em;color:var(--cobalt)}
+.split{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.35fr);gap:64px;align-items:start}
+.mapgrid{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:48px;align-items:start}
+.four{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:32px}
+.two{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:32px}
+.three{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:32px}
+.steps{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));list-style:none;margin:28px 0 0;padding:0}
+.steps li{padding:0 20px 20px 0;border-top:2px solid var(--rule)}
+.tiers{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.bar{display:grid;grid-template-columns:128px minmax(0,1fr) 64px;gap:14px;align-items:center}
+.track{height:26px;background:var(--icy);border-radius:2px}.fill{height:26px;border-radius:2px}
+.toggle{min-height:44px;padding:0 18px;border-radius:999px;font:600 14px 'Instrument Sans',sans-serif;cursor:pointer;border:1.5px solid #fff;background:transparent;color:#fff}
+.toggle[aria-pressed="true"]{background:#fff;color:var(--navy)}
+.county{stroke:#fff;stroke-width:1.2}.county:hover{stroke:var(--navy);stroke-width:2.5}
+.support{border-top:3px solid var(--cobalt);padding-top:18px}
+.support h3{margin:12px 0 6px;font-size:19px;font-weight:600}.support p{margin:0;font-size:15px;line-height:1.5;color:var(--ink2)}
+.pill{display:inline-block;font-size:12px;font-weight:600;color:var(--cobalt);border:1px solid var(--cobalt);border-radius:999px;padding:3px 10px}
+@media (max-width:900px){
+ .wrap{padding:0 20px}.sec{padding:64px 0}
+ h1{font-size:44px;line-height:1.04}h2{font-size:30px}.big{font-size:44px}
+ .hero,.split,.mapgrid{grid-template-columns:minmax(0,1fr);gap:36px}
+ .kpis{grid-template-columns:minmax(0,1fr)}.kpi{border-right:0;margin-right:0;border-bottom:1px solid var(--rule);padding:22px 0}.kpi:last-child{border-bottom:0}
+ .four,.two{grid-template-columns:repeat(2,minmax(0,1fr));gap:24px}.tiers{gap:12px}.three,.steps{grid-template-columns:minmax(0,1fr)}
+ .navlinks a.t{display:none}
+}
+</style>
+</head>
+<body>
+<header style="border-bottom:1px solid var(--rule)">
+ <div class="wrap nav">
+  <a href="#top" style="display:flex;align-items:baseline;gap:8px;text-decoration:none;color:var(--navy)"><span style="font-size:22px;font-weight:700;letter-spacing:-.02em">SozoRock.</span><span style="font-size:15px;font-weight:500;color:var(--muted)">Health</span></a>
+  <nav class="navlinks" aria-label="Primary"><a class="t" href="#program">The program</a><a class="t" href="#evidence">Evidence</a><a class="t" href="#sponsor">Sponsor</a><a class="btn btn-primary" href="#join" style="min-height:44px;font-size:15px">Join the interest list</a></nav>
+ </div>
+</header>
+<main>
+<section id="top" class="sec" style="padding-top:96px;padding-bottom:72px">
+ <div class="wrap hero">
+  <div>
+   <h1>Care for every ZIP Code.</h1>
+   <p style="margin:28px 0 0;font-size:21px;line-height:1.5;color:var(--ink2);max-width:560px">A year of sponsored primary care for up to 25 New Yorkers living with a chronic condition. Starting January 2027.</p>
+   <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:36px"><a class="btn btn-primary" href="#join">Join the interest list</a><a class="btn btn-ghost" href="#sponsor">Sponsor a participant</a></div>
+  </div>
+  <figure style="margin:0;background:var(--navy);color:#fff;border-radius:4px;padding:36px 36px 30px">
+   <p style="margin:0;font-size:14px;font-weight:600;color:#B4C7D9">Primary-care need met in shortage areas</p>
+   <div style="display:flex;flex-direction:column;gap:18px;margin-top:24px">
+    <div><div style="display:flex;justify-content:space-between;font-size:15px;margin-bottom:8px"><span>United States</span><span style="font-weight:600">46.75%</span></div><div style="height:14px;background:#15354E;border-radius:2px"><div style="width:46.75%;height:14px;background:#8FB2E6;border-radius:2px"></div></div></div>
+    <div><div style="display:flex;justify-content:space-between;font-size:15px;margin-bottom:8px"><span style="font-weight:600">New York</span><span style="font-weight:700;color:#FFB37A">35.42%</span></div><div style="height:14px;background:#15354E;border-radius:2px"><div style="width:35.42%;height:14px;background:var(--orange);border-radius:2px"></div></div></div>
+   </div>
+   <div style="display:flex;justify-content:space-between;font-size:12px;color:#B4C7D9;margin-top:12px"><span>0%</span><span>50%</span><span>100%</span></div>
+   <figcaption style="margin:22px 0 0;font-size:13px;line-height:1.5;color:#B4C7D9">HRSA, designated primary-care HPSAs, as of September 30, 2026. A workforce measure, not appointment access.</figcaption>
+  </figure>
+ </div>
+</section>
+
+<section aria-label="Key figures" style="border-top:1px solid var(--rule);border-bottom:1px solid var(--rule);background:var(--ice2)">
+ <div class="wrap kpis">
+  <div class="kpi"><div class="big">5.29M</div><p style="margin:6px 0 0;font-size:16px;line-height:1.45">New Yorkers live in designated primary-care shortage areas.</p><p class="note" style="margin:8px 0 0;font-size:12px">HRSA · Sep 30, 2026</p></div>
+  <div class="kpi"><div class="big">1,130</div><p style="margin:6px 0 0;font-size:16px;line-height:1.45">more primary-care physicians needed to remove those designations.</p><p class="note" style="margin:8px 0 0;font-size:12px">HRSA · Sep 30, 2026</p></div>
+  <div class="kpi"><div class="big">1.8M</div><p style="margin:6px 0 0;font-size:16px;line-height:1.45">adults in New York are estimated to live with diagnosed diabetes.</p><p class="note" style="margin:8px 0 0;font-size:12px">SozoRock estimate from CDC PLACES</p></div>
+ </div>
+</section>
+
+<section id="evidence" class="sec">
+ <div class="wrap split">
+  <div>
+   <h2>New York meets the smallest share of primary-care need in its region.</h2>
+   <p class="lead" style="margin:20px 0 0">In shortage areas, New York has about a third of the primary-care physicians needed. New Jersey and Vermont have more than four-fifths.</p>
+   <p class="note" style="margin:20px 0 0">Percent of need met compares available primary-care physicians with the number needed to remove a shortage designation. It is not the share of people receiving care. Same-date snapshot; not a trend.</p>
+  </div>
+  <figure style="margin:0" role="img" aria-label="Bar chart. Percent of primary-care need met in designated shortage areas: New Jersey 83.22, Vermont 82.64, Connecticut 60.00, Massachusetts 58.72, Pennsylvania 55.47, United States 46.75, New York 35.42.">
+   <div id="bars" style="display:flex;flex-direction:column;gap:14px"></div>
+   <figcaption class="note" style="margin-top:18px;font-size:12px">Source: HRSA, Designated HPSA Quarterly Summary, FY2026 Q4, Table 3 (as of September 30, 2026). National total includes New York.</figcaption>
+  </figure>
+ </div>
+</section>
+
+<section class="sec" style="padding:96px 0;background:var(--navy);color:#fff">
+ <div class="wrap">
+  <div style="max-width:760px"><h2>Chronic conditions reach every corner of the state.</h2><p id="mapLead" style="margin:18px 0 0;font-size:18px;line-height:1.55;color:#C8D3DC"></p></div>
+  <div style="display:flex;gap:8px;margin-top:32px;flex-wrap:wrap" role="group" aria-label="Choose a measure">
+   <button class="toggle" type="button" data-m="diabetes" aria-pressed="true">Diabetes</button>
+   <button class="toggle" type="button" data-m="bphigh" aria-pressed="false">High blood pressure</button>
+  </div>
+  <div class="mapgrid" style="margin-top:36px">
+   <figure style="margin:0"><svg id="map" viewBox="0 0 1000 776" role="img" style="width:100%;height:auto;display:block"></svg></figure>
+   <div>
+    <div style="border-top:1px solid #33506E;padding-top:22px"><p id="hl" style="margin:0;font-size:13px;color:#B4C7D9"></p><div id="hv" style="font-size:56px;font-weight:700;letter-spacing:-.03em;margin-top:4px"></div><p id="hn" style="margin:2px 0 0;font-size:15px;color:#C8D3DC"></p></div>
+    <div style="margin-top:32px"><p id="lt" style="margin:0 0 10px;font-size:13px;color:#B4C7D9"></p><div id="legend" style="display:flex;gap:2px"></div></div>
+    <p style="margin:32px 0 0;font-size:12px;line-height:1.55;color:#B4C7D9">CDC PLACES, 2025 release: model-based estimates for 2023, adults 18+, all 62 counties. Statewide figure is a SozoRock population-weighted calculation from the county estimates. County estimates describe communities, not individuals or program results.</p>
+   </div>
+  </div>
+ </div>
+</section>
+
+<section id="program" class="sec">
+ <div class="wrap">
+  <div class="split">
+   <div>
+    <h2>One clear route to a doctor who knows you.</h2>
+    <p class="lead" style="margin:20px 0 0">The Primary Care Access Program sponsors a direct primary care membership with Dr. Michael Purcell and Purcell Integrative Osteopathic Care in Clifton Park, plus the support that makes care usable.</p>
+    <p class="note" style="margin:16px 0 0;font-size:14px">Clinical care stays with the licensed provider. Membership is not health insurance. Part of the SozoRock Health Equity Initiative.</p>
+   </div>
+   <div class="two">
+    <div class="support"><h3>Direct primary care</h3><p>A sponsored membership for 12 months.</p></div>
+    <div class="support"><h3>Ongoing telehealth</h3><p>Care between visits, from home.</p></div>
+    <div class="support"><h3>Transportation help</h3><p>Support getting to appointments.</p></div>
+    <div class="support"><h3>Health access education</h3><p>Using care, coverage and tools well.</p></div>
+   </div>
+  </div>
+  <div style="margin-top:88px;background:var(--ice2);border:1px solid var(--rule);border-radius:4px;padding:40px">
+   <h3 style="font-size:24px;font-weight:700;letter-spacing:-.015em">Who can join the first cohort</h3>
+   <div class="four" style="margin-top:28px">
+    <div><div style="font-size:36px;font-weight:700;color:var(--cobalt)">Up to 25</div><p style="margin:4px 0 0;font-size:15px">New Yorkers, one per household</p></div>
+    <div><div style="font-size:36px;font-weight:700;color:var(--cobalt)">64 or younger</div><p style="margin:4px 0 0;font-size:15px">with financial need</p></div>
+    <div><div style="font-size:36px;font-weight:700;color:var(--cobalt)">Chronic</div><p style="margin:4px 0 0;font-size:15px">condition, such as diabetes or high blood pressure</p></div>
+    <div><div style="font-size:36px;font-weight:700;color:var(--cobalt)">62 counties</div><p style="margin:4px 0 0;font-size:15px">open to residents statewide</p></div>
+   </div>
+  </div>
+  <div style="margin-top:88px">
+   <h3 style="font-size:24px;font-weight:700;letter-spacing:-.015em">How the year works</h3>
+   <ol id="steps" class="steps"></ol>
+   <p class="note" style="margin:8px 0 0;font-size:14px">A small first cohort shows where the pathway works, where it fails and what should change before expansion.</p>
+  </div>
+ </div>
+</section>
+
+<section id="sponsor" class="sec" style="padding:96px 0;background:var(--cobalt);color:#fff">
+ <div class="wrap split">
+  <div>
+   <div style="font-size:80px;font-weight:700;letter-spacing:-.04em;line-height:1">$4,320</div>
+   <p style="margin:14px 0 0;font-size:22px;line-height:1.4;font-weight:500">supports one New Yorker for a full year.</p>
+   <p style="margin:24px 0 0;font-size:16px;line-height:1.55;color:#DCEAFF">First-cohort budget: $108,000. Funds are confirmed before anyone enrolls. Sponsors receive reports at months 3, 6, 9 and 12, and do not select participants or influence clinical care.</p>
+   <a class="btn" href="#sponsor" style="margin-top:32px;background:#fff;color:var(--navy)">Become a sponsor</a>
+  </div>
+  <div class="tiers" id="tiers"></div>
+ </div>
+</section>
+
+<section class="sec">
+ <div class="wrap">
+  <h2 style="max-width:760px">Next: Health Equity Hubs where people already go.</h2>
+  <div class="three" style="margin-top:40px">
+   <div style="border-top:1px solid var(--navy);padding-top:20px"><span class="pill">Proposed</span><h3 style="margin:14px 0 6px;font-size:20px;font-weight:600">Library hubs</h3><p style="margin:0;font-size:15px;line-height:1.5;color:var(--ink2)">Health literacy and digital support at local libraries.</p></div>
+   <div style="border-top:1px solid var(--navy);padding-top:20px"><span class="pill">Proposed</span><h3 style="margin:14px 0 6px;font-size:20px;font-weight:600">Community hubs</h3><p style="margin:0;font-size:15px;line-height:1.5;color:var(--ink2)">Health education with community organizations.</p></div>
+   <div style="border-top:1px solid var(--navy);padding-top:20px"><span class="pill">Proposed</span><h3 style="margin:14px 0 6px;font-size:20px;font-weight:600">Home hubs</h3><p style="margin:0;font-size:15px;line-height:1.5;color:var(--ink2)">Help using provider platforms from home. Not a clinical service.</p></div>
+  </div>
+ </div>
+</section>
+
+<section id="join" class="sec" style="padding:88px 0;background:var(--icy);border-top:1px solid var(--rule)">
+ <div class="wrap" style="display:flex;justify-content:space-between;align-items:center;gap:32px;flex-wrap:wrap">
+  <div style="max-width:640px"><h2 style="font-size:36px">Could this year of care be for you, or someone you know?</h2><p style="margin:14px 0 0;font-size:17px;line-height:1.5;color:var(--ink2)">Join the interest list by email or phone. No health details needed.</p></div>
+  <div style="display:flex;gap:12px;flex-wrap:wrap"><a class="btn btn-primary" href="#join">Join the interest list</a><a class="btn btn-ghost" href="#sponsor">Sponsor a participant</a></div>
+ </div>
+</section>
+</main>
+<footer style="background:var(--navy);color:#C8D3DC;padding:48px 0">
+ <div class="wrap" style="display:flex;justify-content:space-between;gap:24px;flex-wrap:wrap;font-size:13px;line-height:1.6">
+  <div><span style="color:#fff;font-weight:700;font-size:17px">SozoRock.</span> Health<br>A program of The SozoRock Foundation, Inc., a 501(c)(3) public charity.</div>
+  <div style="max-width:560px">Sources: HRSA Designated HPSA Quarterly Summary, FY2026 Q4, Table 3. CDC PLACES County Data, 2025 release (dataset i46a-9kgh). Full methods and downloadable data on the Evidence page.</div>
+ </div>
+</footer>
+
+<script src="ny_map.js"></script>
+<script>
+const ORANGE = '#F28A3C';
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+// Bars (HRSA FY2026 Q4 Table 3, same date)
+const rows = [['New Jersey', 83.22], ['Vermont', 82.64], ['Connecticut', 60.0], ['Massachusetts', 58.72], ['Pennsylvania', 55.47], ['United States', 46.75], ['New York', 35.42]];
+document.getElementById('bars').innerHTML = rows.map(([n, v]) => {
+  const ny = n === 'New York', us = n === 'United States';
+  const w = ny || us ? 700 : 500, ink = ny ? '#071D3B' : '#33495D', col = ny ? ORANGE : us ? '#4B607A' : '#8FB2E6';
+  return `<div class="bar"><span style="font-size:15px;font-weight:${w};color:${ink}">${n}</span><div class="track"><div class="fill" style="width:${v}%;background:${col}"></div></div><span style="font-size:15px;font-weight:${w};color:${ink};text-align:right">${v.toFixed(1)}%</span></div>`;
+}).join('');
+// Steps
+const steps = [['Now', 'Join the interest list', '#0644AD'], ['Before enrollment', 'Eligibility review; sponsor funds confirmed', '#0644AD'], ['January 2027', 'Membership and support begin', ORANGE], ['Months 3, 6, 9', 'Progress reports to sponsors', '#6C7F98'], ['Month 12', 'Year-end report; renewal optional', '#6C7F98']];
+document.getElementById('steps').innerHTML = steps.map(([w, t, c], i) => `<li style="border-top-color:${i < 3 ? c : '#CED7E3'}"><div style="width:14px;height:14px;border-radius:50%;background:${c};margin-top:-8px"></div><p style="margin:16px 0 4px;font-size:13px;font-weight:600;color:#0644AD">${w}</p><p style="margin:0;font-size:16px;line-height:1.45;font-weight:500">${t}</p></li>`).join('');
+// Tiers: participant-years at $4,320, rounded down
+document.getElementById('tiers').innerHTML = [['Community', 5000], ['Access', 10000], ['Principal', 25000], ['Lead', 50000]].map(([n, a]) => {
+  const k = Math.floor(a / 4320);
+  return `<div style="background:#fff;color:#071D3B;border-radius:4px;padding:24px 22px"><p style="margin:0;font-size:14px;font-weight:600;color:#4B607A">${n}</p><div style="font-size:32px;font-weight:700;letter-spacing:-.02em;margin-top:6px">$${a.toLocaleString('en-US')}</div><div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:16px" aria-hidden="true">${'<span style="width:12px;height:12px;border-radius:50%;background:#F28A3C"></span>'.repeat(k)}</div><p style="margin:10px 0 0;font-size:14px;line-height:1.45">Covers ${k} participant-year${k > 1 ? 's' : ''}</p></div>`;
+}).join('') + '<p style="grid-column:1/-1;margin:4px 0 0;font-size:13px;color:#DCEAFF">Other amounts are welcome. Participant-years calculated at $4,320 each, rounded down.</p>';
+// Map (CDC PLACES 2025 release, county crude prevalence, adults 18+)
+const RAMP = ['#DCEAFF', '#A9C6F0', '#6E9BDF', '#2F66C2', '#0B2F6E'];
+const CFG = {
+  diabetes: { bins: [9, 10.5, 12, 13.5], labels: ['<9%', '9–10.5', '10.5–12', '12–13.5', '13.5%+'], title: 'Adults with diagnosed diabetes', state: '11.5%', lead: 'An estimated 11.5% of New York adults live with diagnosed diabetes, from 7.6% in Tompkins County to 16.1% in the Bronx.' },
+  bphigh: { bins: [30, 33, 36, 39], labels: ['<30%', '30–33', '33–36', '36–39', '39%+'], title: 'Adults with high blood pressure', state: '32.6%', lead: 'An estimated 32.6% of New York adults have high blood pressure, from 26.1% in Tompkins County to 41.5% in Hamilton County.' }
+};
+let counties = [], metric = 'diabetes';
+function draw() {
+  const c = CFG[metric];
+  const col = (v) => { let i = 0; while (i < c.bins.length && v >= c.bins[i]) i++; return RAMP[i]; };
+  document.getElementById('map').innerHTML = counties.map((k, i) => `<path class="county" data-i="${i}" d="${k.d}" fill="${col(k[metric])}"><title>${esc(k.name)} County: ${k[metric].toFixed(1)}%</title></path>`).join('');
+  document.getElementById('map').setAttribute('aria-label', c.lead);
+  document.getElementById('mapLead').textContent = c.lead;
+  document.getElementById('lt').textContent = c.title;
+  document.getElementById('legend').innerHTML = RAMP.map((r, i) => `<div style="flex:1"><div style="height:14px;background:${r}"></div><div style="font-size:12px;color:#C8D3DC;margin-top:6px">${c.labels[i]}</div></div>`).join('');
+  show(null);
+}
+function show(k) {
+  document.getElementById('hl').textContent = k ? CFG[metric].title : 'Statewide estimate';
+  document.getElementById('hv').textContent = k ? k[metric].toFixed(1) + '%' : CFG[metric].state;
+  document.getElementById('hn').textContent = k ? k.name + ' County' : 'Hover a county to compare';
+}
+document.getElementById('map').addEventListener('mouseover', (e) => { const i = e.target.getAttribute && e.target.getAttribute('data-i'); if (i !== null && i !== undefined) show(counties[+i]); });
+document.querySelectorAll('.toggle').forEach((b) => b.addEventListener('click', () => {
+  metric = b.dataset.m; document.querySelectorAll('.toggle').forEach((x) => x.setAttribute('aria-pressed', String(x === b))); draw();
+}));
+counties = window.NY_MAP.counties; draw();
+</script>
+</body>
+</html>
