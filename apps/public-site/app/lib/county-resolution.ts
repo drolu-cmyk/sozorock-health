@@ -94,6 +94,12 @@ export async function resolveEvidenceCounty(input: {
   label: string;
   selectedCountyGeoid?: string | null;
 }): Promise<CountyResolution> {
+  const validIdentifier = input.kind === "place"
+    ? /^\d{7}$/.test(input.geoid)
+    : (input.kind === "county" || input.kind === "zip") && /^\d{5}$/.test(input.geoid);
+  if (!validIdentifier || (input.kind === "county" && !isKnownCountyGeoid(input.geoid))) {
+    return { original: { kind: input.kind, geoid: input.geoid, label: input.label }, status: "not_found", selectedCountyGeoid: null, counties: [], caveats: [] };
+  }
   const resolution: CountyResolution = input.kind === "county"
     ? {
         original: { kind: input.kind, geoid: input.geoid, label: input.label },
