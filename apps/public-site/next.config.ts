@@ -28,6 +28,11 @@ const nextConfig: NextConfig = {
   async redirects() {
     return [
       {
+        source: "/about",
+        destination: "/work",
+        permanent: true,
+      },
+      {
         source: "/publications/health-systems-assurance",
         destination: "/publications/health-systems-assurance-volume-1",
         permanent: true,
