@@ -41,6 +41,9 @@ export default async function ExplorePage({ searchParams }: { searchParams: Prom
         candidates=publicCountyChoices.filter(c=>resolution.counties.some(r=>r.countyGeoid===c.fips));
         notice=resolution.status === "selection_required" ? "This location intersects multiple counties. Choose one below; its figures describe that county, not the whole city or ZIP area." : "Choose a county below to view its published estimates.";
       }
+    } else if (query.kind !== undefined || query.geoid !== undefined) {
+      initialCounty="";
+      notice="Choose a county below to view its published estimates.";
     }
     return <><ApprovedHealthPage pathname="/explore"><PublicCountyExplorer choices={publicCountyChoices} initialCounty={initialCounty} initialEvidence={publicCountyEvidence(initialCounty)} notice={notice} candidates={candidates}/></ApprovedHealthPage><script type="application/ld+json" dangerouslySetInnerHTML={{__html:JSON.stringify(schema)}}/></>;
   }

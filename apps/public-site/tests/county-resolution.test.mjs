@@ -57,3 +57,22 @@ test("a Census place that crosses county-equivalent geography requires explicit 
   assert.equal(resolution.original.kind, "place");
   assert.ok(resolution.counties.length > 1);
 });
+
+
+test("malformed and inherited-property identifiers resolve safely without a county", async () => {
+  for (const kind of ["place", "zip", "county"]) {
+    for (const geoid of ["__proto__", "constructor", "toString", "hasOwnProperty", "", "36001" + String.fromCharCode(0), "３６００１", "36001' OR 1=1"]) {
+      const resolution = await resolveEvidenceCounty({kind,geoid,label:geoid});
+      assert.equal(resolution.status,"not_found",`${kind}: ${geoid}`);
+      assert.equal(resolution.selectedCountyGeoid,null);
+      assert.deepEqual(resolution.counties,[]);
+    }
+  }
+});
+
+test("unknown county codes do not resolve, while known counties with missing health estimates remain valid geography", async () => {
+  assert.equal((await resolveEvidenceCounty({kind:"county",geoid:"99999",label:"Unknown"})).status,"not_found");
+  const known=await resolveEvidenceCounty({kind:"county",geoid:"42001",label:"Adams County, PA"});
+  assert.equal(known.status,"resolved");
+  assert.equal(known.selectedCountyGeoid,"42001");
+});
