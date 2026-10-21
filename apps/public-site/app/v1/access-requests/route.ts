@@ -9,7 +9,7 @@ import {
   parseAccessRequestInput,
   validateAccessRequestInput,
 } from "../../lib/access-request-validation.ts";
-import { clientNetworkAddress } from "../../lib/request-security.ts";
+import { clientNetworkAddress, readBoundedText } from "../../lib/request-security.ts";
 
 export const runtime = "nodejs";
 
@@ -109,21 +109,19 @@ export async function POST(request: Request) {
   if (!trustedClient(request)) {
     return json(request, { error: "Request origin was not accepted." }, 403);
   }
-  if (!request.headers.get("content-type")?.toLowerCase().startsWith("application/json")) {
-    return json(request, { error: "Send this request as JSON." }, 415);
-  }
-
-  const declaredLength = Number(request.headers.get("content-length") ?? "0");
-  if (Number.isFinite(declaredLength) && declaredLength > MAX_REQUEST_BYTES) {
-    return json(request, { error: "The request is too large." }, 413);
-  }
-  const rawBody = await request.text().catch(() => "");
-  if (Buffer.byteLength(rawBody, "utf8") > MAX_REQUEST_BYTES) {
-    return json(request, { error: "The request is too large." }, 413);
+  const rawBody = await readBoundedText(request, MAX_REQUEST_BYTES, ["application/json"]);
+  if (!rawBody.ok) {
+    if (rawBody.error === "unsupported-media-type") {
+      return json(request, { error: "Send this request as JSON." }, 415);
+    }
+    if (rawBody.error === "too-large") {
+      return json(request, { error: "The request is too large." }, 413);
+    }
+    return json(request, { error: "Enter the required information." }, 400);
   }
   let body: unknown;
   try {
-    body = JSON.parse(rawBody);
+    body = JSON.parse(rawBody.text);
   } catch {
     return json(request, { error: "Enter the required information." }, 400);
   }
