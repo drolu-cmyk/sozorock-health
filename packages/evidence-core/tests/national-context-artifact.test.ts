@@ -40,7 +40,13 @@ test("production national context is deterministic, source-governed, and county 
     for (const observation of county.acs) {
       const provenance = observation.sourceMetadata;
       assert.match(String(provenance.estimateField), /^B\d{5}_E\d{3}$/);
-      assert.match(String(provenance.marginOfErrorField), /^B\d{5}_M\d{3}$/);
+      if (provenance.numeratorVariableId) {
+        assert.equal(provenance.marginOfErrorField, null);
+        assert.equal(provenance.marginOfErrorNumeratorField, String(provenance.numeratorVariableId).replace("_E", "_M"));
+        assert.equal(provenance.marginOfErrorDenominatorField, String(provenance.denominatorVariableId).replace("_E", "_M"));
+        assert.equal(provenance.marginOfErrorUnit,"percentage_points");
+        assert.equal(provenance.marginOfErrorMethod,"acs-derived-proportion-with-ratio-fallback.v1");
+      } else assert.match(String(provenance.marginOfErrorField), /^B\d{5}_M\d{3}$/);
       assert.equal(provenance.table, String(provenance.estimateField).split("_")[0]);
       if (provenance.numeratorVariableId) {
         assert.equal(provenance.formula, `${provenance.numeratorVariableId} / ${provenance.denominatorVariableId} * 100`);
