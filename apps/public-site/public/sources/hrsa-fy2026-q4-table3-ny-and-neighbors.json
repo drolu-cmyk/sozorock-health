@@ -1,0 +1,61 @@
+{
+ "source": "HRSA Designated HPSA Quarterly Summary, FY2026 Q4, Table 3 (Primary Care HPSAs by State, as of September 30, 2026); archived PDF in this folder",
+ "columns": [
+  "location",
+  "total_designations",
+  "population_of_designated_hpsas",
+  "percent_of_need_met",
+  "practitioners_needed_to_remove_designations"
+ ],
+ "rows": [
+  [
+   "New Jersey",
+   45,
+   796188,
+   83.22,
+   39
+  ],
+  [
+   "Vermont",
+   17,
+   50210,
+   82.64,
+   3
+  ],
+  [
+   "Connecticut",
+   68,
+   1371291,
+   60.0,
+   172
+  ],
+  [
+   "Massachusetts",
+   68,
+   796906,
+   58.72,
+   108
+  ],
+  [
+   "Pennsylvania",
+   150,
+   666243,
+   55.47,
+   113
+  ],
+  [
+   "New York",
+   211,
+   5288766,
+   35.42,
+   1130
+  ],
+  [
+   "United States (HPSA total)",
+   8830,
+   102257076,
+   46.75,
+   17675
+  ]
+ ]
+}

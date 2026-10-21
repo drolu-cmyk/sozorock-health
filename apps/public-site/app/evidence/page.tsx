@@ -1,3 +1,6 @@
+export const dynamic = "force-static";
+export const revalidate = 3600;
+
 import { ApprovedHealthPage } from "../components/ApprovedHealthPages";
 import { healthMetadata, healthPageSchema } from "../lib/health-metadata";
 export const metadata = healthMetadata('County health data and CB-CAP', 'Explore county health and community data, workforce information, source dates and definitions through Place Intelligence and CB-CAP.', '/evidence');

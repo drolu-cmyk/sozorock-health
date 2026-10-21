@@ -1,3 +1,6 @@
+export const dynamic = "force-static";
+export const revalidate = 3600;
+
 import { LegalPage } from "../components/LegalPage";
 import { createLegalMetadata } from "../lib/legal-metadata";
 

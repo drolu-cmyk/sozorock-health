@@ -1,3 +1,6 @@
+export const dynamic = "force-static";
+export const revalidate = 3600;
+
 import { healthMetadata, healthPageSchema } from "../lib/health-metadata";
 import Link from "next/link";
 import { HealthShell } from "../components/HealthShell";

@@ -4,6 +4,7 @@ import { headers } from "next/headers";
 import "./globals.css";
 import "./marketing.css";
 import "./health-system.css";
+import "./health-program.css";
 import "./approved.css";
 import "./access-refinements.css";
 import { foundationEntity, healthSocialImage } from "./lib/health-metadata";
@@ -37,43 +38,23 @@ export const metadata: Metadata = {
     template: "%s | SozoRock Health",
   },
   description:
-    "Health Equity Hubs, digital readiness, county health data and workforce development for underserved communities.",
+    "New York primary care access support, proposed Health Equity Hubs and public county health evidence from SozoRock Health.",
   applicationName: "SozoRock Health",
   authors: [
     {
       name: "The SozoRock Foundation, Inc.",
-      url: "https://sozorockfoundation.org",
+      url: "https://www.sozorockfoundation.org",
     },
     { name: "Dr. Oluwabiyi Adeyemo" },
   ],
-  creator: "Dr. Oluwabiyi Adeyemo and The SozoRock Foundation, Inc.",
+  creator: "SozoRock Health",
   publisher: "The SozoRock Foundation, Inc.",
-  category: "health systems infrastructure",
-  keywords: [
-    "SozoRock",
-    "SozoRock Health",
-    "SozoRock Foundation",
-    "Dr. Oluwabiyi Adeyemo",
-    "Olu Adeyemo",
-    "Biyi Adeyemo",
-    "health equity",
-    "rural health",
-    "underserved communities",
-    "Health Equity Hubs",
-    "Health Access Day",
-    "BYOP provider pathways",
-    "CB-CAP",
-    "county health planning",
-    "digital health access",
-    "public health systems",
-    "AI readiness",
-    "cybersecurity readiness",
-    "workforce development",
-  ],
+  category: "nonprofit health access",
+  keywords: ["SozoRock Health", "Primary Care Access Program", "New York primary care access", "sponsored direct primary care", "health literacy", "county health evidence"],
   alternates: { canonical: "/" },
   icons: {
-    icon: [{ url: "/icon.png", sizes: "512x512", type: "image/png" }],
-    shortcut: "/icon.png",
+    icon: [{ url: "/health-icon.svg", sizes: "any", type: "image/svg+xml" }, { url: "/icon.png", sizes: "512x512", type: "image/png" }],
+    shortcut: "/health-icon.svg",
     apple: [{ url: "/apple-icon.png", sizes: "180x180", type: "image/png" }],
   },
   manifest: "/manifest.webmanifest",
@@ -86,7 +67,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "SozoRock Health | Health equity and primary care access",
     description:
-      "Health-equity systems infrastructure for people, communities, licensed providers, institutions, and public agencies across the United States.",
+      "Primary care access support for eligible New Yorkers, proposed community hubs and county evidence with visible sources and limits.",
     url: siteUrl,
     siteName: "SozoRock Health",
     type: "website",
@@ -99,7 +80,7 @@ export const metadata: Metadata = {
     creator: "@srockfoundation",
     title: "SozoRock Health | Health equity and primary care access.",
     description:
-      "Health-equity systems infrastructure for practical access, community readiness, provider-led pathways, and stronger public systems.",
+      "The Primary Care Access Program begins January 2027 for up to 25 New Yorkers, with 12 months of support per participant.",
     images: [healthSocialImage.url],
   },
   robots: {
@@ -129,29 +110,15 @@ const structuredData = {
   "@context": "https://schema.org",
   "@graph": [
     {
-      "@type": "Organization",
-      "@id": foundationEntity,
-      name: "The SozoRock Foundation, Inc.",
-      alternateName: ["SozoRock Foundation", "SozoRock"],
-      url: "https://www.sozorockfoundation.org",
-      logo: `${siteUrl}/brand/sozorock-wordmark-clean-v2.png`,
-      email: "contact@sozorockfoundation.org",
-      areaServed: { "@type": "Country", name: "United States" },
-      sameAs: [
-        "https://x.com/srockfoundation",
-        "https://www.youtube.com/@srockfoundation",
-        "https://www.instagram.com/srockfoundation/",
-      ],
-    },
-    {
       "@type": "Project",
       "@id": `${siteUrl}/#sozorock-health`,
       name: "SozoRock Health",
-      alternateName: "SozoRock",
+      alternateName: "SozoRock Health Equity Initiative",
       url: siteUrl,
-      slogan: "Health equity and primary care access.",
+      slogan: "Care. For every ZIP Code.",
+      logo: `${siteUrl}/icon.png`,
       description:
-        "An initiative developing community access models, place-based intelligence, digital readiness and workforce capacity.",
+        "The Foundation’s health initiative: primary care access support in New York, proposed Health Equity Hubs and public county health evidence.",
       parentOrganization: { "@id": foundationEntity },
       creator: { "@id": foundationEntity },
       areaServed: { "@type": "Country", name: "United States" },
@@ -161,9 +128,9 @@ const structuredData = {
       "@id": `${siteUrl}/#website`,
       url: siteUrl,
       name: "SozoRock Health",
-      alternateName: "SozoRock",
+      alternateName: "SozoRock Health website",
       description:
-        "Health-equity systems infrastructure for rural and underserved communities across the United States.",
+        "Program information, eligibility, the Primary Care Access Program interest list and sourced county health evidence from SozoRock Health.",
       publisher: { "@id": foundationEntity },
       about: { "@id": `${siteUrl}/#sozorock-health` },
       inLanguage: ["en-US", "es-US"],

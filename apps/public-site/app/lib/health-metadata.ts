@@ -4,10 +4,10 @@ export const healthOrigin = "https://health.sozorockfoundation.org";
 export const foundationEntity =
   "https://www.sozorockfoundation.org/#organization";
 export const healthSocialImage = {
-  url: "/social/health-systems-2026.png",
+  url: "/social/primary-care-access-2027.png",
   width: 1200,
   height: 630,
-  alt: "SozoRock Health — Building the systems that make health access possible.",
+  alt: "SozoRock Health. Primary Care Access Program for up to 25 New Yorkers, beginning January 2027.",
 };
 
 export function healthMetadata(
@@ -20,6 +20,9 @@ export function healthMetadata(
   return {
     title: { absolute: fullTitle },
     description,
+    keywords: path === "/" || path === "/interest"
+      ? ["SozoRock Health", "Primary Care Access Program", "New York primary care access", "sponsored direct primary care", "health access support"]
+      : ["SozoRock Health", title, "health equity", "community health access"],
     alternates: { canonical: path },
     robots: { index: !options.noindex, follow: true },
     openGraph: {
@@ -55,6 +58,7 @@ export function healthPageSchema(
         name: title,
         isPartOf: { "@id": `${healthOrigin}/#website` },
         about: { "@id": `${healthOrigin}/#sozorock-health` },
+        inLanguage: path === "/es" ? "es-US" : "en-US",
       },
       ...(path === "/" || path === "/es"
         ? []
