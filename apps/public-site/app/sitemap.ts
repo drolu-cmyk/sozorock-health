@@ -47,6 +47,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
       priority: 0.8,
     },
     ...publicationRoutes,
+    {url: `${base}/primary-care-access`, lastModified: new Date("2026-10-21"), changeFrequency: "monthly", priority: 0.9},
     {
       url: `${base}/interest`,
       lastModified: new Date("2026-10-20"),

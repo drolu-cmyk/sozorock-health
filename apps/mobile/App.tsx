@@ -20,6 +20,8 @@ import {
 } from "react-native";
 import {accessApiUrl, mobileFeatures, privacyUrl} from "./src/config";
 
+import {translateSelection} from "./src/localized-selection";
+
 type Language = "en" | "es";
 type Journey = "care" | "hub" | "language";
 type Screen = "welcome" | "details" | "complete";
@@ -276,7 +278,10 @@ export default function App() {
   const toggleLanguage = () => {
     Speech.stop();
     setIsSpeaking(false);
-    setLanguage(current => (current === "en" ? "es" : "en"));
+    const next = language === "en" ? "es" : "en";
+    const field = journey === "care" ? "supportOptions" : journey === "language" ? "languages" : null;
+    if (field) setSelectedOption(translateSelection(selectedOption, copy[language][field], copy[next][field]));
+    setLanguage(next);
     setError("");
     setConsented(false);
   };

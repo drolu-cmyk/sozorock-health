@@ -1,0 +1,154 @@
+.health-system .hc-home{--navy:#071D3B;--cobalt:#0644AD;--icy:#EFF5FF;--panel:#F7FAFF;--rule:#CED7E3;--body:#33495D;--muted:#4B607A;--orange:#F28A3C;font-size:18px;line-height:1.55;font-variant-numeric:tabular-nums}
+.health-system .hc-wrap{width:100%;max-width:1200px;margin:0 auto;padding:0 48px}
+.health-system .hc-section{padding:112px 0 96px;scroll-margin-top:28px}
+.health-system .hc-home h1{font-size:72px;line-height:1;letter-spacing:-.035em;font-weight:700}
+.health-system .hc-home h2{font-size:40px;line-height:1.1;letter-spacing:-.025em;font-weight:700}
+.health-system .hc-home h3{font-weight:600;letter-spacing:-.015em}
+.health-system .hc-home figure{margin:0}
+.health-system .hc-lead{font-size:18px;line-height:1.55;color:var(--body);margin-top:20px}
+.health-system .hc-note{font-size:13px;line-height:1.55;color:var(--muted);margin-top:20px}
+.health-system .hc-actions{display:flex;gap:12px;flex-wrap:wrap;margin-top:36px}
+.health-system .hc-btn{display:inline-flex;align-items:center;justify-content:center;min-height:48px;padding:12px 24px;border-radius:999px;font-size:16px;font-weight:600;line-height:1.4;text-decoration:none;text-align:center}
+.health-system .hc-primary{background:var(--cobalt);color:#fff}
+.health-system .hc-primary:hover{background:var(--navy);color:#fff}
+.health-system .hc-ghost{border:1.5px solid var(--navy);color:var(--navy)}
+.health-system .hc-ghost:hover{background:var(--navy);color:#fff}
+.health-system .hc-opening{padding-top:96px;padding-bottom:72px}
+.health-system .hc-hero{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:64px;align-items:end}
+.health-system .hc-hero-lead{font-size:21px;line-height:1.5;color:var(--body);max-width:560px;margin-top:28px}
+.health-system .hc-hero-chart{padding:36px 36px 30px;background:var(--navy);color:#fff;border-radius:4px}
+.health-system .hc-hero-chart figcaption{font-size:14px;font-weight:600;color:#B4C7D9}
+.health-system .hc-mini-bars{display:flex;flex-direction:column;gap:18px;margin-top:24px}
+.health-system .hc-mini-row>div:first-child{display:flex;justify-content:space-between;gap:10px;font-size:15px;margin-bottom:8px}
+.health-system .hc-mini-track{height:14px;background:#15354E;border-radius:2px}
+.health-system .hc-mini-track>span{height:100%;display:block;background:#8FB2E6;border-radius:2px}
+.health-system .hc-mini-row.hc-new-york .hc-mini-track>span{background:var(--orange)}
+.health-system .hc-mini-row.hc-new-york strong{color:#FFB37A}
+.health-system .hc-axis{display:flex;justify-content:space-between;font-size:12px;color:#B4C7D9;margin-top:12px}
+.health-system .hc-hero-chart .hc-note{color:#B4C7D9;margin-top:22px}
+.health-system .hc-kpi-band{background:var(--panel);border-block:1px solid var(--rule)}
+.health-system .hc-kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr))}
+.health-system .hc-kpi{padding:28px 32px 28px 0;border-right:1px solid var(--rule);margin-right:32px}
+.health-system .hc-kpi:last-child{border:0;margin:0}
+.health-system .hc-kpi>strong{font-size:52px;font-weight:700;letter-spacing:-.03em;color:var(--cobalt)}
+.health-system .hc-kpi>p{font-size:16px;line-height:1.45;margin-top:6px}
+.health-system .hc-kpi>.hc-note{font-size:12px;margin-top:8px}
+.health-system .hc-split{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.35fr);gap:64px;align-items:start}
+.health-system .hc-ranked-bars{display:flex;flex-direction:column;gap:14px}
+.health-system .hc-ranked-row{display:grid;grid-template-columns:128px minmax(0,1fr) 58px;gap:14px;align-items:center;font-size:15px;color:var(--body)}
+.health-system .hc-ranked-row>strong{text-align:right;font-weight:500}
+.health-system .hc-ranked-track{height:26px;background:var(--icy);border-radius:2px}
+.health-system .hc-ranked-track>span{height:100%;display:block;background:#8FB2E6;border-radius:2px}
+.health-system .hc-ranked-row.hc-new-york{font-weight:700;color:var(--navy)}
+.health-system .hc-ranked-row.hc-national{font-weight:700}
+.health-system .hc-ranked-row.hc-new-york>strong,.health-system .hc-ranked-row.hc-national>strong{font-weight:700}
+.health-system .hc-ranked-row.hc-new-york .hc-ranked-track>span{background:var(--orange)}
+.health-system .hc-ranked-row.hc-national .hc-ranked-track>span{background:var(--muted)}
+.health-system .hc-ranked-axis{display:flex;justify-content:space-between;margin:12px 72px 0 142px;font-size:12px;color:var(--muted)}
+.health-system .hc-map-section{background:var(--navy);color:#fff;padding:96px 0}
+.health-system .hc-map-intro{max-width:760px}
+.health-system .hc-map-section .hc-lead{color:#C8D3DC}
+.health-system .hc-toggle{display:flex;gap:8px;flex-wrap:wrap;margin-top:32px}
+.health-system .hc-toggle button{min-height:44px;padding:10px 18px;border-radius:999px;font-size:14px;font-weight:600;border:1.5px solid white;background:transparent;color:white;cursor:pointer}
+.health-system .hc-toggle button[aria-pressed=true]{background:white;color:var(--navy)}
+.health-system .hc-map-grid{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:48px;align-items:start;margin-top:36px}
+.health-system .hc-county-figure svg{width:100%;height:auto;display:block}
+.health-system .hc-county{stroke:#fff;stroke-width:1.2;cursor:pointer}
+.health-system .hc-county:hover,.health-system .hc-county.is-selected{stroke:var(--orange);stroke-width:3}
+.health-system .hc-map-reading{border-top:1px solid #33506E;padding-top:22px;color:#C8D3DC;font-size:15px}
+.health-system .hc-map-reading>p:first-child{font-size:13px;color:#B4C7D9}
+.health-system .hc-map-reading>strong{display:block;font-size:56px;font-weight:700;letter-spacing:-.03em;color:#fff;margin-top:4px;line-height:1.2}
+.health-system .hc-map-section .hc-note{color:#B4C7D9}
+.health-system .hc-map-section a{color:#DCEAFF}
+.health-system .hc-methods-link{display:inline-flex;min-height:44px;align-items:center;font-size:14px}
+.health-system .hc-county-select{display:flex;flex-direction:column;gap:6px;font-size:14px;margin-top:24px}
+.health-system .hc-county-select select{min-height:44px;width:100%;max-width:100%;background:var(--navy);color:#fff;border:1px solid #B4C7D9;border-radius:0;padding:10px;font-size:16px}
+.health-system .hc-legend{margin-top:28px;font-size:13px;color:#B4C7D9}
+.health-system .hc-legend>div{display:flex;gap:2px;margin-top:10px}
+.health-system .hc-legend>div>div{flex:1;min-width:0}
+.health-system .hc-legend span{height:14px;display:block}
+.health-system .hc-legend small{display:block;font-size:11px;color:#C8D3DC;margin-top:6px;white-space:nowrap}
+.health-system .hc-data-table{margin-top:24px;border-top:1px solid #33506E;padding-top:16px;font-size:14px}
+.health-system .hc-data-table summary{min-height:44px;cursor:pointer;display:list-item;padding:10px 0}
+.health-system .hc-table-scroll{overflow-x:auto;max-width:100%}
+.health-system .hc-data-table table{width:100%;border-collapse:collapse;text-align:left}
+.health-system .hc-data-table th,.health-system .hc-data-table td{padding:10px;border-bottom:1px solid #33506E}
+.health-system .hc-data-table caption{text-align:left;padding:12px 0}
+.health-system .hc-supports{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:32px}
+.health-system .hc-supports article{border-top:3px solid var(--cobalt);padding-top:18px}
+.health-system .hc-supports h3{font-size:19px;margin:12px 0 6px}
+.health-system .hc-supports p{font-size:15px;line-height:1.5;color:var(--body)}
+.health-system .hc-eligibility{margin-top:88px;background:var(--panel);border:1px solid var(--rule);border-radius:4px;padding:40px}
+.health-system .hc-eligibility h3,.health-system .hc-year h3{font-size:24px;font-weight:700}
+.health-system .hc-eligibility>div{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:32px;margin-top:28px}
+.health-system .hc-eligibility strong{font-size:36px;font-weight:700;color:var(--cobalt);line-height:1.15;display:block}
+.health-system .hc-eligibility p{font-size:15px;margin-top:8px}
+.health-system .hc-year{margin-top:88px}
+.health-system .hc-year ol{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));list-style:none;margin:28px 0 0;padding:0}
+.health-system .hc-year li{position:relative;padding:24px 20px 20px 0;border-top:2px solid var(--rule);font-size:16px;line-height:1.45}
+.health-system .hc-year li::before{content:"";position:absolute;width:14px;height:14px;border-radius:50%;top:-8px;left:0;background:#6C7F98}
+.health-system .hc-year li:nth-child(-n+2){border-color:var(--cobalt)}
+.health-system .hc-year li:nth-child(-n+2)::before{background:var(--cobalt)}
+.health-system .hc-year li.hc-start{border-color:var(--orange)}
+.health-system .hc-year li.hc-start::before{background:var(--orange)}
+.health-system .hc-year li>strong{font-size:13px;color:var(--cobalt)}
+.health-system .hc-year li p{margin-top:4px;font-weight:500}
+.health-system .hc-film{padding:0 0 96px}
+.health-system .hc-film h2{font-size:30px;margin-bottom:28px}
+.health-system .hc-film video{display:block;width:100%;height:auto;aspect-ratio:16/9;background:var(--navy)}
+.health-system .hc-sponsor{background:var(--cobalt);color:white;padding:96px 0}
+.health-system .hc-sponsor h2{font-size:22px;line-height:1.4;font-weight:500;letter-spacing:0}
+.health-system .hc-sponsor h2>span{display:block;font-size:80px;font-weight:700;letter-spacing:-.04em;line-height:1;margin-bottom:14px}
+.health-system .hc-sponsor .hc-split>div>p{font-size:16px;line-height:1.55;color:#DCEAFF;margin-top:24px}
+.health-system .hc-sponsor .hc-btn{margin-top:32px;background:white;color:var(--navy)}
+.health-system .hc-tiers{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.health-system .hc-tiers article{background:white;color:var(--navy);border-radius:4px;padding:24px 22px;min-width:0}
+.health-system .hc-tiers h3{font-size:14px;color:var(--muted)}
+.health-system .hc-tiers article>strong{display:block;font-size:clamp(26px,2.7vw,32px);font-weight:700;letter-spacing:-.02em;margin-top:6px}
+.health-system .hc-participant-dots{display:flex;gap:4px;flex-wrap:wrap;margin-top:16px}
+.health-system .hc-participant-dots span{width:12px;height:12px;border-radius:50%;background:var(--orange)}
+.health-system .hc-tiers article>p{font-size:14px;line-height:1.45;margin-top:10px}
+.health-system .hc-tiers .hc-tier-note{grid-column:1/-1;margin-top:4px;font-size:13px;color:#DCEAFF}
+.health-system .hc-hubs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:32px;margin-top:40px}
+.health-system .hc-hubs article{border-top:1px solid var(--navy);padding-top:20px}
+.health-system .hc-hubs article>span{display:inline-block;font-size:12px;font-weight:600;color:var(--cobalt);border:1px solid var(--cobalt);border-radius:999px;padding:3px 10px}
+.health-system .hc-hubs h3{font-size:20px;margin:14px 0 6px}
+.health-system .hc-hubs p{font-size:15px;line-height:1.5;color:var(--body)}
+.health-system .hc-more-work{margin-top:32px}
+.health-system .hc-closing{padding:88px 0;background:var(--icy);border-top:1px solid var(--rule)}
+.health-system .hc-closing .hc-wrap{display:flex;justify-content:space-between;align-items:center;gap:32px;flex-wrap:wrap}
+.health-system .hc-closing .hc-wrap>div:first-child{max-width:640px}
+.health-system .hc-closing h2{font-size:36px}
+.health-system .hc-closing p{font-size:17px;color:var(--body);margin-top:14px}
+.health-system .hc-closing .hc-actions{margin-top:0}
+.health-system .hc-source-footer{padding-top:24px;padding-bottom:24px}
+.health-system .hc-source-footer .hc-note{margin:0}
+.health-system .hc-overview-feature .hc-hero{align-items:center}
+.health-system .hc-overview-feature .hc-film{padding:56px 0 0}
+.health-system .hc-overview-feature .hc-film .hc-wrap{padding:0}
+.health-system .hc-overview-feature .hc-film h2{font-size:24px}
+.health-system .hc-program-nav{max-width:1200px;width:100%;margin:auto;padding:0 48px;min-height:76px;display:flex;justify-content:space-between;align-items:center;gap:24px}
+.health-system .hc-program-nav>a{display:flex;align-items:baseline;gap:8px;text-decoration:none;color:#071D3B;white-space:nowrap}
+.health-system .hc-program-nav>a strong{font-size:22px;letter-spacing:-.02em}
+.health-system .hc-program-nav>a span{font-size:15px;color:#4B607A}
+.health-system .hc-program-nav nav{display:flex;gap:28px;align-items:center}
+.health-system .hc-program-nav nav>a{min-height:44px;display:inline-flex;align-items:center;text-decoration:none;font-size:15px;color:#071D3B}
+.health-system .hc-program-nav nav>a:last-child{background:#0644AD;color:white;padding:10px 24px;border-radius:999px;font-weight:600}
+@media(max-width:900px){
+ .health-system .hc-wrap{padding:0 20px}.health-system .hc-section{padding:64px 0}
+ .health-system .hc-home h1{font-size:44px;line-height:1.04}.health-system .hc-home h2{font-size:30px}
+ .health-system .hc-hero,.health-system .hc-split,.health-system .hc-map-grid{grid-template-columns:minmax(0,1fr);gap:36px}
+ .health-system .hc-kpis{grid-template-columns:minmax(0,1fr)}.health-system .hc-kpi{border-right:0;margin-right:0;border-bottom:1px solid var(--rule);padding:22px 0}.health-system .hc-kpi>strong{font-size:44px}
+ .health-system .hc-eligibility>div{grid-template-columns:repeat(2,minmax(0,1fr));gap:24px}.health-system .hc-eligibility{padding:28px;margin-top:64px}.health-system .hc-eligibility strong{font-size:30px}
+ .health-system .hc-tiers{gap:12px}.health-system .hc-tiers article{padding:22px 16px}.health-system .hc-tiers article>strong{font-size:28px}
+ .health-system .hc-hubs{grid-template-columns:minmax(0,1fr)}.health-system .hc-year{margin-top:64px}.health-system .hc-year ol{grid-template-columns:minmax(0,1fr)}
+ .health-system .hc-year li{border-top:0;border-left:2px solid var(--rule);padding:0 0 28px 24px}.health-system .hc-year li::before{left:-8px;top:3px}
+ .health-system .hc-year li:last-child{border-color:transparent}.health-system .hc-film{padding-bottom:64px}
+ .health-system .hc-sponsor h2>span{font-size:64px}.health-system .hc-sponsor h2{font-size:22px}
+ .health-system .hc-program-nav{padding:16px 20px;gap:12px;flex-wrap:wrap}.health-system .hc-program-nav nav{gap:12px}.health-system .hc-program-nav nav>a:not(:last-child){display:none}.health-system .hc-program-nav nav>a:last-child{font-size:14px;padding:10px 16px}
+}
+@media(max-width:390px){
+ .health-system .hc-hero-chart{padding:28px 24px}.health-system .hc-ranked-row{grid-template-columns:100px minmax(0,1fr) 48px;gap:8px;font-size:13px}.health-system .hc-ranked-axis{margin-left:108px;margin-right:56px}
+ .health-system .hc-tiers article>strong{font-size:25px}.health-system .hc-eligibility{padding:24px 20px}.health-system .hc-eligibility strong{font-size:26px}
+ .health-system .hc-supports{gap:24px}.health-system .hc-legend small{font-size:10px}.health-system .hc-actions{gap:12px}.health-system .hc-btn{padding:12px 20px}
+}

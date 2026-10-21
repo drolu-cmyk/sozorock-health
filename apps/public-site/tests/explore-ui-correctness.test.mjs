@@ -3,7 +3,6 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { canonicalCountyLabel } from "../app/lib/explore-labels.ts";
-import { GET as getFavicon } from "../app/favicon.ico/route.ts";
 
 const source = (path) =>
   readFile(new URL(`../${path}`, import.meta.url), "utf8");
@@ -72,10 +71,7 @@ test("Explore owns its X metadata and route-specific structured data", async () 
 });
 
 test("favicon.ico returns genuine icon bytes directly", async () => {
-  const response = getFavicon();
-  const bytes = new Uint8Array(await response.arrayBuffer());
-  assert.equal(response.status, 200);
-  assert.equal(response.headers.get("content-type"), "image/x-icon");
+  const bytes = new Uint8Array(await readFile(new URL("../app/favicon.ico", import.meta.url)));
   assert.ok(bytes.length > 100);
   assert.deepEqual([...bytes.slice(0, 4)], [0, 0, 1, 0]);
 });

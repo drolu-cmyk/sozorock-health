@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { List, X } from "@phosphor-icons/react";
 
-export function HealthHeader({ spanish = false }: { spanish?: boolean }) {
+export function HealthHeader({ spanish = false, programPage = false }: { spanish?: boolean; programPage?: boolean }) {
   const [open, setOpen] = useState(false);
   const toggle = useRef<HTMLButtonElement>(null);
   useEffect(() => {
@@ -16,6 +16,7 @@ export function HealthHeader({ spanish = false }: { spanish?: boolean }) {
     document.addEventListener("keydown", escape);
     return () => document.removeEventListener("keydown", escape);
   }, [open]);
+  if (programPage) return <header style={{borderBottom: "1px solid #CED7E3"}}><div className="hc-program-nav"><a href="/" aria-label="SozoRock Health home"><strong>SozoRock.</strong><span>Health</span></a><nav aria-label="Primary navigation"><a href="#program">The program</a><a href="#evidence">Evidence</a><a href="#sponsor">Sponsor</a><a href="/interest">Join the interest list</a></nav></div></header>;
   return (
     <header className="hs-header">
       <a
@@ -52,6 +53,7 @@ export function HealthHeader({ spanish = false }: { spanish?: boolean }) {
         aria-label={spanish ? "Navegación principal" : "Primary navigation"}
         className={open ? "hs-nav is-open" : "hs-nav"}
       >
+        {!spanish && <a href="/primary-care-access">The program</a>}
         <a href="/work">{spanish ? "Nuestro trabajo" : "Our work"}</a>
         <a href="/evidence">{spanish ? "Evidencia" : "Evidence"}</a>
         <a href="/publications">{spanish ? "Publicaciones" : "Publications"}</a>

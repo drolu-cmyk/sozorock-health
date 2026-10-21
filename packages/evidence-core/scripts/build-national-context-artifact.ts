@@ -36,7 +36,12 @@ function acsProvenance(variables: Record<string, string>) {
     numeratorVariableId: numerator ?? null,
     denominatorVariableId: denominator ?? null,
     table, group: table, estimateField: estimate,
-    marginOfErrorField: variables.marginOfError ?? estimate.replace("_E", "_M"),
+    marginOfErrorField: direct ? variables.marginOfError ?? estimate.replace("_E", "_M") : null,
+    marginOfErrorNumeratorField: direct ? null : numerator!.replace("_E", "_M"),
+    marginOfErrorDenominatorField: direct ? null : denominator!.replace("_E", "_M"),
+    marginOfErrorUnit: direct ? null : "percentage_points",
+    marginOfErrorMethod: direct ? null : "acs-derived-proportion-with-ratio-fallback.v1",
+    marginOfErrorFormula: direct ? null : "100 / denominator * sqrt(numeratorMoe^2 - (numerator / denominator)^2 * denominatorMoe^2); add the second term when subtraction is negative",
     formula: direct ? null : `${numerator} / ${denominator} * 100`,
     transformationVersion: direct ? null : "sozorock.acs-derived-percent.v1",
   };

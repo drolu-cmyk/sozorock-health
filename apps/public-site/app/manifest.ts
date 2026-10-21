@@ -5,7 +5,7 @@ export default function manifest(): MetadataRoute.Manifest {
     name: "SozoRock Health",
     short_name: "SozoRock Health",
     description:
-      "Community access, evidence, digital readiness and workforce capacity.",
+      "Primary care access support in New York, Health Equity Initiative information and public county evidence.",
     start_url: "/",
     display: "standalone",
     background_color: "#ffffff",

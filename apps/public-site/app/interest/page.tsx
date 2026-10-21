@@ -1,3 +1,6 @@
+export const dynamic = "force-static";
+export const revalidate = 3600;
+
 import { ApprovedHealthPage } from "../components/ApprovedHealthPages";
 import { healthMetadata, healthPageSchema } from "../lib/health-metadata";
 

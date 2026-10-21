@@ -42,19 +42,19 @@ export const metadata: Metadata = {
     type: "website",
     images: [
       {
-        url: "/icon-512.png",
-        width: 512,
-        height: 512,
-        alt: "SozoRock wordmark",
+        url: "/social/cbcap-public-evidence-2026.png",
+        width: 1200,
+        height: 630,
+        alt: "CB-CAP. County planning for health access, with visible sources, dates and limits.",
       },
     ],
   },
   twitter: {
-    card: "summary",
+    card: "summary_large_image",
     title: "CB-CAP | County Planning for Health Access",
     description:
       "County planning for health access. Sources stay visible. Assumptions stay labeled. People decide.",
-    images: ["/icon-512.png"],
+    images: ["/social/cbcap-public-evidence-2026.png"],
   },
 };
 export const viewport: Viewport = {
