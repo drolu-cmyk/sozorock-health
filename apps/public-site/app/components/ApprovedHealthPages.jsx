@@ -22,6 +22,7 @@ case "/": return <>
 <video controls playsInline preload="none" poster="/media/care-within-reach.poster.jpg" aria-label="Care Within Reach, a one-minute introduction to the Primary Care Access Program">
 <source src="/media/care-within-reach.web.mp4" type="video/mp4" />
 <track kind="captions" src="/media/care-within-reach.en.vtt" srcLang="en" label="English" />
+<track kind="descriptions" src="/media/care-within-reach.visual.en.vtt" srcLang="en" label="English visual description" />
 </video>
 <p className="fine"><a href="/media/care-within-reach.transcript.txt">Read the descriptive transcript</a></p>
 </div></section>
