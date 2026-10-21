@@ -52,6 +52,7 @@ test("rejects health and other unsupported fields instead of storing them", () =
 });
 
 test("expiration follows the configured cohort date, never submission time", () => {
+  assert.equal(programInterestExpiry("2027-01-01"), Date.parse("2028-01-01T00:00:00-05:00") / 1000);
   assert.equal(programInterestExpiry("2027-01-15"), Date.parse("2028-01-15T00:00:00-05:00") / 1000);
   for (const value of [undefined, "", "2027-01-32", "2027-02-01", "2026-01-01", "2027-01-01T00:00:00Z"]) {
     assert.equal(programInterestExpiry(value), null);
