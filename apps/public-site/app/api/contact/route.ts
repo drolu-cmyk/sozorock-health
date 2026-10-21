@@ -3,12 +3,12 @@ import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { SNSClient, PublishCommand } from "@aws-sdk/client-sns";
 import { GetSecretValueCommand, SecretsManagerClient } from "@aws-sdk/client-secrets-manager";
 import { DynamoDBDocumentClient, PutCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
-import { NextRequest, NextResponse } from "next/server";
+import { validateProgramInterest, programInterestExpiry, PROGRAM_INTEREST_SUCCESS, type ProgramInterestInput } from "../../lib/program-interest.ts";
 import {
   clientNetworkAddress,
   isTrustedSameOrigin,
   readBoundedText,
-} from "../../lib/request-security";
+} from "../../lib/request-security.ts";
 
 export const runtime = "nodejs";
 
@@ -39,23 +39,23 @@ function value(body: Record<string, unknown>, name: string, max = 180) {
   return typeof body[name] === "string" ? body[name].trim().replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, "").slice(0, max) : "";
 }
 
-function sameOrigin(request: NextRequest) {
+function sameOrigin(request: Request) {
   return isTrustedSameOrigin(request, configuredContactHosts);
 }
 
-export async function POST(request: NextRequest) {
+export async function POST(request: Request) {
   if (!tableName || !topicArn || (!rateLimitSalt && !rateLimitSaltSecretArn)) {
     console.error("contact-intake-config-missing", { hasTable: Boolean(tableName), hasTopic: Boolean(topicArn) });
-    return NextResponse.json({ error: "Contact intake is temporarily unavailable." }, { status: 503 });
+    return Response.json({ error: "Contact intake is temporarily unavailable." }, { status: 503 });
   }
-  if (!sameOrigin(request)) return NextResponse.json({ error: "Request origin was not accepted." }, { status: 403 });
+  if (!sameOrigin(request)) return Response.json({ error: "Request origin was not accepted." }, { status: 403 });
   const rawBody = await readBoundedText(request, 12_000, ["application/json"]);
   if (!rawBody.ok) {
     if (rawBody.error === "unsupported-media-type")
-      return NextResponse.json({ error: "Send this request as JSON." }, { status: 415 });
+      return Response.json({ error: "Send this request as JSON." }, { status: 415 });
     if (rawBody.error === "too-large")
-      return NextResponse.json({ error: "The request is too large." }, { status: 413 });
-    return NextResponse.json({ error: "Enter the required information." }, { status: 400 });
+      return Response.json({ error: "The request is too large." }, { status: 413 });
+    return Response.json({ error: "Enter the required information." }, { status: 400 });
   }
   let body: Record<string, unknown> | null = null;
   try {
@@ -66,8 +66,8 @@ export async function POST(request: NextRequest) {
   } catch {
     body = null;
   }
-  if (!body || typeof body !== "object") return NextResponse.json({ error: "Enter the required information." }, { status: 400 });
-  if (value(body, "website", 120)) return NextResponse.json({ accepted: true }, { status: 202 });
+  if (!body || typeof body !== "object") return Response.json({ error: "Enter the required information." }, { status: 400 });
+  if (value(body, "website", 120)) return Response.json({ accepted: true }, { status: 202 });
 
   const name = value(body, "name");
   const email = value(body, "email").toLowerCase();
@@ -75,8 +75,20 @@ export async function POST(request: NextRequest) {
   const stateOrCounty = value(body, "stateOrCounty");
   const inquiryType = value(body, "inquiryType");
   const message = value(body, "message", 2000);
-  if (!name || !email || !role || !stateOrCounty || !message || body.consent !== true) return NextResponse.json({ error: "Complete the required fields and acknowledge the privacy notice." }, { status: 400 });
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return NextResponse.json({ error: "Enter a valid email address." }, { status: 400 });
+  const isProgramInterest = inquiryType === "program-interest";
+  let program: ProgramInterestInput | undefined;
+  let programExpiresAt: number | undefined;
+  if (isProgramInterest) {
+    const result = validateProgramInterest(body);
+    if (!result.ok) return Response.json({ error: "Review the highlighted fields and try again.", errors: result.errors }, { status: 400 });
+    const expiry = programInterestExpiry(process.env.PRIMARY_CARE_COHORT_START_DATE);
+    if (expiry === null) return Response.json({ error: "The interest list is temporarily unavailable. Please try again later." }, { status: 503 });
+    if (expiry <= Math.floor(Date.now() / 1000)) return Response.json({ error: "This interest list is closed." }, { status: 410 });
+    program = result.value;
+    programExpiresAt = expiry;
+  }
+  if (!isProgramInterest && (!name || !email || !role || !stateOrCounty || !message || body.consent !== true)) return Response.json({ error: "Complete the required fields and acknowledge the privacy notice." }, { status: 400 });
+  if (!isProgramInterest && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return Response.json({ error: "Enter a valid email address." }, { status: 400 });
 
   const now = new Date();
   const epoch = Math.floor(now.getTime() / 1000);
@@ -86,7 +98,7 @@ export async function POST(request: NextRequest) {
   try {
     ipHash = createHash("sha256").update(`${await getRateLimitSalt()}:${ip}`).digest("hex");
   } catch {
-    return NextResponse.json({ error: "Contact intake is temporarily unavailable." }, { status: 503 });
+    return Response.json({ error: "Contact intake is temporarily unavailable." }, { status: 503 });
   }
 
   try {
@@ -98,26 +110,45 @@ export async function POST(request: NextRequest) {
       ExpressionAttributeValues: { ":one": 1, ":maximum": MAX_REQUESTS_PER_HOUR, ":expiresAt": epoch + 7200, ":recordType": "rate-limit" },
     }));
   } catch (error) {
-    if ((error as { name?: string }).name === "ConditionalCheckFailedException") return NextResponse.json({ error: "Please wait before sending another inquiry." }, { status: 429 });
+    if ((error as { name?: string }).name === "ConditionalCheckFailedException") return Response.json({ error: "Please wait before sending another inquiry." }, { status: 429 });
     console.error("contact-rate-limit-failed", { name: (error as { name?: string }).name ?? "UnknownError" });
-    return NextResponse.json({ error: "Contact intake is temporarily unavailable." }, { status: 503 });
+    return Response.json({ error: "Contact intake is temporarily unavailable." }, { status: 503 });
   }
 
   const submissionId = `contact#${now.toISOString()}#${randomUUID()}`;
-  await dynamo.send(new PutCommand({
-    TableName: tableName,
-    Item: { submissionId, recordType: "contact", name, email, role, stateOrCounty, inquiryType, message, consent: true, consentedAt: now.toISOString(), createdAt: now.toISOString(), expiresAt: epoch + RETENTION_SECONDS },
-    ConditionExpression: "attribute_not_exists(submissionId)",
-  }));
+  const item = program
+    ? { ...program, submissionId, recordType: "program-interest", notificationStatus: "pending", consentVersion: "2026-10-20", consentedAt: now.toISOString(), createdAt: now.toISOString(), expiresAt: programExpiresAt }
+    : { submissionId, recordType: "contact", name, email, role, stateOrCounty, inquiryType, message, consent: true, consentedAt: now.toISOString(), createdAt: now.toISOString(), expiresAt: epoch + RETENTION_SECONDS };
+  try {
+    await dynamo.send(new PutCommand({
+      TableName: tableName,
+      Item: item,
+      ConditionExpression: "attribute_not_exists(submissionId)",
+    }));
+  } catch {
+    return Response.json({ error: "We could not save your request. Please try again." }, { status: 503 });
+  }
 
   const safe = (text: string) => text.replace(/[\r\n]+/g, " ");
   try {
     await sns.send(new PublishCommand({
       TopicArn: topicArn,
-      Subject: "New SozoRock Health partner inquiry",
-      Message: [`Submission: ${submissionId}`, `Name: ${safe(name)}`, `Email: ${safe(email)}`, `Interest: ${safe(role)}`, `Location: ${safe(stateOrCounty)}`, "The complete consented message is retained in the encrypted contact-intake table."].join("\n"),
+      Subject: program ? "New SozoRock Health interest list request" : "New SozoRock Health partner inquiry",
+      Message: program ? `Submission: ${submissionId}\nAuthorized staff can review the consented request in the contact intake.` : [`Submission: ${submissionId}`, `Name: ${safe(name)}`, `Email: ${safe(email)}`, `Interest: ${safe(role)}`, `Location: ${safe(stateOrCounty)}`, "The complete consented message is retained in the encrypted contact-intake table."].join("\n"),
     }));
-  } catch { /* The inquiry is safely stored even if notification delivery is delayed. */ }
+    if (program) {
+      await dynamo.send(new UpdateCommand({
+        TableName: tableName,
+        Key: { submissionId },
+        UpdateExpression: "SET notificationStatus = :status",
+        ConditionExpression: "attribute_exists(submissionId)",
+        ExpressionAttributeValues: { ":status": "published" },
+      }));
+    }
+  } catch (error) {
+    // The saved request remains visible to authorized staff even if the alert fails.
+    console.error("contact-notification-pending", { name: (error as { name?: string }).name ?? "UnknownError" });
+  }
 
-  return NextResponse.json({ accepted: true, message: "Thank you. A SozoRock Health team member will respond using the contact information you provided." }, { status: 202 });
+  return Response.json({ accepted: true, message: program ? PROGRAM_INTEREST_SUCCESS : "Thank you. A SozoRock Health team member will respond using the contact information you provided." }, { status: 202 });
 }

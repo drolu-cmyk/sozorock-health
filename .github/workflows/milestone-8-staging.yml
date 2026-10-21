@@ -48,7 +48,7 @@ jobs:
       - name: Production dependency security gate
         run: |
           set -euo pipefail
-          npm audit --omit=dev --omit=optional --audit-level=moderate
+          npm run audit:production
           npm ls sharp --all || test "$?" -eq 1
           test ! -d node_modules/sharp
       - name: Apply, rollback, and reapply migrations

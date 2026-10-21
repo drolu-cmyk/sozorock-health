@@ -5,6 +5,7 @@ import "./globals.css";
 import "./marketing.css";
 import "./health-system.css";
 import "./approved.css";
+import "./access-refinements.css";
 import { foundationEntity, healthSocialImage } from "./lib/health-metadata";
 
 const siteUrl = "https://health.sozorockfoundation.org";

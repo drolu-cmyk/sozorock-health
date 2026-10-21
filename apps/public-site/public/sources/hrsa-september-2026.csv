@@ -1,0 +1,6 @@
+measure,geography,value,unit,observation_date,source_table,source_url,interpretation
+Population of designated primary-care HPSAs,New York,5288766,people,2026-09-30,Table 3 page 5,https://data.hrsa.gov/Default/GenerateHPSAQuarterlyReport,Not the number of people without care
+Primary-care practitioners needed to remove HPSA designations,New York,1130,physicians,2026-09-30,Table 3 page 5 and endnotes pages 14-15,https://data.hrsa.gov/Default/GenerateHPSAQuarterlyReport,Additional primary-care physicians under HRSA designation thresholds; excludes additional NP and PA services
+Primary-care HPSA percent of need met,New York,35.42,percent,2026-09-30,Table 3 page 5,https://data.hrsa.gov/Default/GenerateHPSAQuarterlyReport,Share of designation-threshold workforce need met; not share of residents receiving care
+Primary-care HPSA percent of need met,National total,46.75,percent,2026-09-30,Table 3 page 5,https://data.hrsa.gov/Default/GenerateHPSAQuarterlyReport,Same report and measure as New York; national total includes New York
+Difference in percent of need met,New York minus national total,-11.33,percentage points,2026-09-30,Derived from Table 3 page 5,https://data.hrsa.gov/Default/GenerateHPSAQuarterlyReport,35.42 minus 46.75; no trend or causation claim

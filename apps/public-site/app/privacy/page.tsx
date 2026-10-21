@@ -11,9 +11,8 @@ export const metadata = createLegalMetadata({
 export default function PrivacyPage() {
   return (
     <LegalPage
-      eyebrow="Public policy"
       title="Privacy notice"
-      updated="September 15, 2026"
+      updated="October 20, 2026"
     >
       <h2>Information and choice</h2>
       <p>
@@ -36,6 +35,21 @@ export default function PrivacyPage() {
         future publication updates is optional and is not a condition of
         accessing a requested publication.
       </p>
+      <h2 id="program-interest">Primary Care Access Program interest list</h2>
+      <p>
+        We collect first and last name, email address or phone number (or both),
+        preferred contact method, New York county, confirmation of New York
+        residency and age 64 or younger, contact consent, and an optional short
+        answer about how you heard about us. Authorized SozoRock staff use this
+        information to contact you about eligibility and next steps. Please do
+        not include medical, insurance, income or other personal health details.
+      </p>
+      <p>
+        Interest list information is deleted 12 months after the first cohort
+        begins unless you enroll or ask to stay on the list. To request deletion,
+        use the contact path in Your choices below. Eligibility screening and
+        enrollment will use a separate notice and consent.
+      </p>
       <h2>Publication access and attribution</h2>
       <p>
         For publication access, we may also record limited first-party
@@ -46,7 +60,7 @@ export default function PrivacyPage() {
         hosting network. A random first-party visitor identifier may be stored
         in your browser so repeat access attempts can be measured and abuse
         controls applied without storing a raw network address with the request.
-        We may assign internal quality indicators to publication-access records
+        We may assign quality indicators to publication-access records
         based on signals such as whether an email was verified, whether
         submitted text appears incomplete or automated, whether location fields
         are internally consistent, and whether requests occur unusually quickly
@@ -57,7 +71,7 @@ export default function PrivacyPage() {
       <h2>Resident Access Layer and mobile app</h2>
       <p>
         In a supported mobile or shared-tablet readiness flow, we receive only
-        the access option you selected, a ZIP code or Health Equity Hub reference, the
+        the access option you selected, a ZIP Code or Health Equity Hub reference, the
         non-clinical support option you selected, the interface language,
         whether the request came from the mobile or kiosk experience, and the
         consent record shown before submission. We do not ask for your name,

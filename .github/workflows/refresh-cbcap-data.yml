@@ -103,7 +103,7 @@ jobs:
           npm exec eslint -- apps/platform --max-warnings=0
           npm run test --workspace @sozorock/platform
           npm run build:platform
-          npm audit --omit=dev --audit-level=moderate
+          npm run audit:production -- --include-optional
           node scripts/validate-cbcap-refresh.mjs
 
       - name: Detect a substantive source change

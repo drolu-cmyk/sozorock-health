@@ -1,4 +1,12 @@
 /** Google publication delivery: credentials remain server-side, never in build variables. */
+const PUBLICATION_RECIPIENT = /^[a-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\.[a-z0-9!#$%&'*+/=?^_`{|}~-]+)*@[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+$/i;
+
+function isCanonicalRecipient(value) {
+  if (typeof value !== 'string' || value.length > 254) return false;
+  const [local = '', domain = ''] = value.split('@');
+  return local.length <= 64 && domain.length <= 253 && value === value.trim().toLowerCase() && PUBLICATION_RECIPIENT.test(value);
+}
+
 export function googlePublicationSmtpOptions(value) {
   const user = typeof value.user === 'string' ? value.user.trim().toLowerCase() : '';
   const pass = typeof value.pass === 'string' ? value.pass.replace(/\s/g, '') : '';
@@ -24,7 +32,7 @@ export function createGooglePublicationMailer({ getSecret, createTransport, secr
         cached = { user: options.auth.user, transport: createTransport(options) };
         expiresAt = now() + 5 * 60 * 1000;
       }
-      if (from?.toLowerCase() !== cached.user || !to || /[\r\n]/.test(to + subject)) {
+      if (from?.toLowerCase() !== cached.user || !isCanonicalRecipient(to) || /[\r\n]/.test(subject)) {
         throw new Error('Invalid publication mail envelope');
       }
       const delivered = await cached.transport.sendMail({

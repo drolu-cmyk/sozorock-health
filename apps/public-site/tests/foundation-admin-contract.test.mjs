@@ -51,7 +51,9 @@ test("reviewer APIs require MFA-backed Foundation reviewer authorization", async
   }
   assert.doesNotMatch(legacyPublications, /requireWorkspaceActor/);
   assert.match(contacts, /ContactIntelligence/);
-  assert.ok(contacts.includes('endsWith("@simulator.amazonses.com")'));
+  assert.match(contacts, /projectContactRecords/);
+  const projection = await read("app/lib/contact-records.ts");
+  assert.ok(projection.includes('endsWith("@simulator.amazonses.com")'));
 });
 
 test("contact stack keeps reviewer access within its already-authorized inline policy", async () => {
@@ -76,6 +78,10 @@ test("production workflow proves admin, MFA, intake and trust recovery boundarie
   const trustScript = await read("../../scripts/reconcile-foundation-recovery-trust.sh");
   assert.match(trustScript, /repo:drolu-cmyk@271617784\/sozorock-health-agentic@1313269615:environment:production/);
   assert.match(workflow, /environment: production/);
+  const triggers = workflow.slice(workflow.indexOf("\non:"), workflow.indexOf("\npermissions:"));
+  assert.doesNotMatch(triggers, /^\s+(push|pull_request|pull_request_target|workflow_run|schedule):/m);
+  assert.match(triggers, /workflow_dispatch:/);
+  assert.match(workflow, /if: github\.event_name == 'workflow_dispatch' && github\.ref == 'refs\/heads\/main'/);
   assert.match(workflow, /--stack-name sozorock-health-contact/);
   assert.match(workflow, /FoundationAdminUserPoolArn="\$FOUNDATION_ADMIN_COGNITO_USER_POOL_ARN"/);
   assert.match(workflow, /foundation_reviewer/);

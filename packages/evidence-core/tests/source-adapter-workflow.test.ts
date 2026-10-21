@@ -23,7 +23,13 @@ test("source proposal workflow can commit its ignored review handoff", () => {
 
 test("source health checks the same optional-free production dependency tree as release gates", () => {
   assert.match(operationsWorkflow, /npm ci --omit=optional/);
-  assert.match(operationsWorkflow, /npm audit --omit=dev --omit=optional --audit-level=moderate/);
+  assert.match(operationsWorkflow, /^[ \t]*npm run audit:production[ \t]*$/m);
+  assert.doesNotMatch(operationsWorkflow, /npm run audit:production -- --include-optional/);
+  const auditGate = readFileSync(new URL("../../../scripts/audit-production-dependencies.mjs", import.meta.url), "utf8");
+  assert.match(auditGate, /verifyBackports/);
+  assert.match(auditGate, /audit-level=moderate/);
+  assert.match(auditGate, /--omit=dev/);
+  assert.match(auditGate, /--omit=optional/);
   assert.match(operationsWorkflow, /npm ls sharp --all \|\| test "\$\?" -eq 1/);
   assert.match(operationsWorkflow, /test ! -d node_modules\/sharp/);
   assert.match(operationsWorkflow, /npm run verify:public-runtime-security/);

@@ -100,6 +100,29 @@ test("rejects malformed and reserved email addresses", () => {
   assert.equal(validateAccessInput(reserved), "Enter an email address you actually use.");
 });
 
+test("rejects mailbox syntax that can normalize to a different SMTP envelope", () => {
+  for (const email of [
+    "reader(comment)@countylibrary.org",
+    "reader@countylibrary.org,localalias",
+    "Reader <reader@countylibrary.org>",
+    '"reader"@countylibrary.org',
+    ".reader@countylibrary.org",
+    "reader..name@countylibrary.org",
+  ]) {
+    const input = parseAccessInput({ ...minimal, email });
+    assert.equal(validateAccessInput(input), "Enter a valid email address.", email);
+  }
+
+  for (const email of [
+    "reader+briefing@countylibrary.org",
+    "reader.name@sub.countylibrary.org",
+    "reader_o'connor@countylibrary.org",
+  ]) {
+    const input = parseAccessInput({ ...minimal, email });
+    assert.equal(validateAccessInput(input), null, email);
+  }
+});
+
 test("rejects placeholder identity fields and invalid structured subdivisions", () => {
   const placeholderName = parseAccessInput({ ...minimal, firstName: "asdf" });
   assert.equal(validateAccessInput(placeholderName), "Enter a real first name rather than placeholder text.");

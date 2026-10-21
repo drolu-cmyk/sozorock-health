@@ -18,6 +18,10 @@ type ContactRecord = {
   role: string;
   stateOrCounty: string;
   message: string;
+  phone?: string;
+  preferredContact?: string;
+  expiresAt?: string;
+  notificationStatus?: string;
 };
 type PublicationRequest = {
   requestId: string;
@@ -50,7 +54,7 @@ type PublicationIntelligence = {
 };
 
 type SessionState = "loading" | "signed_out" | "password_change" | "mfa_challenge" | "mfa_enroll" | "signed_in";
-type View = "contacts" | "publications";
+type View = "contacts" | "program-interest" | "publications";
 
 class ApiError extends Error {
   status: number;
@@ -89,6 +93,7 @@ export default function AdminClient({ publications }: { publications: Publicatio
   const [view, setView] = useState<View>("contacts");
   const [selectedPublication, setSelectedPublication] = useState(publications[0]?.slug ?? "");
   const [contacts, setContacts] = useState<ContactRecord[]>([]);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [intelligence, setIntelligence] = useState<PublicationIntelligence | null>(null);
   const [query, setQuery] = useState("");
   const [busy, setBusy] = useState(false);
@@ -152,11 +157,15 @@ export default function AdminClient({ publications }: { publications: Publicatio
   }, [session, mfaSecret, expireSession, refreshSession]);
 
   useEffect(() => {
-    if (session !== "signed_in") return;
+    if (session !== "signed_in" || view === "publications") return;
     let active = true;
+    setContacts([]);
+    setNextCursor(null);
+    setMessage("");
     setDataBusy(true);
-    jsonRequest<{ records: ContactRecord[] }>("/api/admin/contacts")
-      .then((result) => { if (active) setContacts(result.records); })
+    const path = view === "program-interest" ? "/api/admin/contacts?type=program-interest" : "/api/admin/contacts";
+    jsonRequest<{ records: ContactRecord[]; nextCursor: string | null }>(path)
+      .then((result) => { if (active) { setContacts(result.records); setNextCursor(result.nextCursor); } })
       .catch((error) => {
         if (!active) return;
         if (error instanceof ApiError && (error.status === 401 || error.status === 403)) expireSession();
@@ -164,10 +173,10 @@ export default function AdminClient({ publications }: { publications: Publicatio
       })
       .finally(() => { if (active) setDataBusy(false); });
     return () => { active = false; };
-  }, [session, refreshKey, expireSession]);
+  }, [session, view, refreshKey, expireSession]);
 
   useEffect(() => {
-    if (session !== "signed_in" || !selectedPublication) return;
+    if (session !== "signed_in" || view !== "publications" || !selectedPublication) return;
     let active = true;
     setDataBusy(true);
     jsonRequest<{ intelligence: PublicationIntelligence }>(`/api/admin/publications/${encodeURIComponent(selectedPublication)}`)
@@ -179,12 +188,12 @@ export default function AdminClient({ publications }: { publications: Publicatio
       })
       .finally(() => { if (active) setDataBusy(false); });
     return () => { active = false; };
-  }, [session, selectedPublication, refreshKey, expireSession]);
+  }, [session, view, selectedPublication, refreshKey, expireSession]);
 
   const filteredContacts = useMemo(() => {
     const term = query.trim().toLowerCase();
     if (!term) return contacts;
-    return contacts.filter((record) => [record.name, record.email, record.inquiryType, record.role, record.stateOrCounty, record.message]
+    return contacts.filter((record) => [record.name, record.email, record.phone ?? "", record.preferredContact ?? "", record.inquiryType, record.role, record.stateOrCounty, record.message]
       .some((value) => value.toLowerCase().includes(term)));
   }, [contacts, query]);
 
@@ -195,6 +204,22 @@ export default function AdminClient({ publications }: { publications: Publicatio
     return rows.filter((record) => [record.firstName, record.lastName, record.email, record.organization, record.sector, record.state, record.country, record.source]
       .some((value) => value.toLowerCase().includes(term)));
   }, [intelligence, query]);
+
+  async function loadMoreContacts() {
+    if (!nextCursor || dataBusy || view === "publications") return;
+    const selectedView = view;
+    setDataBusy(true);
+    setMessage("");
+    try {
+      const type = selectedView === "program-interest" ? "program-interest" : "contact";
+      const result = await jsonRequest<{ records: ContactRecord[]; nextCursor: string | null }>(`/api/admin/contacts?type=${type}&cursor=${encodeURIComponent(nextCursor)}`);
+      setContacts((current) => [...current, ...result.records]);
+      setNextCursor(result.nextCursor);
+    } catch (error) {
+      if (error instanceof ApiError && (error.status === 401 || error.status === 403)) expireSession();
+      else setMessage(error instanceof Error ? error.message : "More requests could not be loaded.");
+    } finally { setDataBusy(false); }
+  }
 
   function setChallenge(error: unknown) {
     if (!(error instanceof ApiError) || error.status !== 409) return false;
@@ -381,8 +406,9 @@ export default function AdminClient({ publications }: { publications: Publicatio
       </header>
 
       <nav className={styles.tabs} aria-label="Operations sections">
-        <button type="button" className={view === "contacts" ? styles.activeTab : ""} onClick={() => { setView("contacts"); setQuery(""); }}>Inquiries <span>{contacts.length}</span></button>
-        <button type="button" className={view === "publications" ? styles.activeTab : ""} onClick={() => { setView("publications"); setQuery(""); }}>Publication access <span>{summary?.requests ?? 0}</span></button>
+        <button type="button" disabled={dataBusy} className={view === "contacts" ? styles.activeTab : ""} onClick={() => { setView("contacts"); setQuery(""); }}>Inquiries</button>
+        <button type="button" disabled={dataBusy} className={view === "program-interest" ? styles.activeTab : ""} onClick={() => { setView("program-interest"); setQuery(""); setMessage(""); }}>Program interest</button>
+        <button type="button" disabled={dataBusy} className={view === "publications" ? styles.activeTab : ""} onClick={() => { setView("publications"); setQuery(""); }}>Publication access <span>{summary?.requests ?? 0}</span></button>
       </nav>
 
       <section className={styles.toolbar} aria-label="Operations controls">
@@ -392,30 +418,31 @@ export default function AdminClient({ publications }: { publications: Publicatio
 
       {message ? <p className={styles.error} role="status">{message}</p> : null}
 
-      {view === "contacts" ? (
+      {view !== "publications" ? (
         <section className={styles.section} aria-labelledby="contacts-title">
           <div className={styles.sectionHeading}>
-            <div><h2 id="contacts-title">Inquiries</h2><p>Consented partner, funding and institutional requests received through Foundation and Health forms.</p></div>
-            <a href="/api/admin/contacts?format=csv">Export CSV</a>
+            <div><h2 id="contacts-title">{view === "program-interest" ? "Primary Care Access Program interest list" : "Inquiries"}</h2><p>{view === "program-interest" ? "Consented contact requests. Joining the list does not establish eligibility or enrollment. Delete any exported copies by the recorded deadline." : "Consented partner, funding and institutional requests received through Foundation and Health forms."}</p></div>
+            <a href={view === "program-interest" ? "/api/admin/contacts?type=program-interest&format=csv" : "/api/admin/contacts?format=csv"}>Export CSV</a>
           </div>
           <div className={styles.tableWrap}>
             <table>
-              <thead><tr><th>Received</th><th>Name</th><th>Inquiry</th><th>Role</th><th>Location</th><th>Message</th></tr></thead>
+              <thead><tr><th>Received</th><th>Name</th><th>{view === "program-interest" ? "Preferred contact" : "Inquiry"}</th><th>{view === "program-interest" ? "Delete by" : "Role"}</th><th>Location</th><th>{view === "program-interest" ? "Referral / notification" : "Message"}</th></tr></thead>
               <tbody>
                 {filteredContacts.map((record) => (
                   <tr key={`${record.createdAt}-${record.email}`}>
                     <td>{formatDate(record.createdAt)}</td>
-                    <td><strong>{record.name}</strong><a href={`mailto:${record.email}`}>{record.email}</a></td>
-                    <td>{record.inquiryType || "—"}</td>
-                    <td>{record.role}</td>
+                    <td><strong>{record.name}</strong>{record.email ? <a href={`mailto:${record.email}`}>{record.email}</a> : null}{record.phone ? <a href={`tel:${record.phone}`}>{record.phone}</a> : null}</td>
+                    <td>{view === "program-interest" ? record.preferredContact : record.inquiryType || "—"}</td>
+                    <td>{view === "program-interest" ? formatDate(record.expiresAt ?? "") : record.role}</td>
                     <td>{record.stateOrCounty}</td>
-                    <td className={styles.messageCell}>{record.message}</td>
+                    <td className={styles.messageCell}>{record.message}{view === "program-interest" ? <small>Staff alert: {record.notificationStatus}</small> : null}</td>
                   </tr>
                 ))}
-                {!filteredContacts.length ? <tr><td colSpan={6} className={styles.empty}>No inquiries match this view.</td></tr> : null}
+                {!filteredContacts.length ? <tr><td colSpan={6} className={styles.empty}>{dataBusy ? "Loading requests…" : "No requests match this view."}</td></tr> : null}
               </tbody>
             </table>
           </div>
+          {nextCursor ? <button type="button" disabled={dataBusy} onClick={() => void loadMoreContacts()}>{dataBusy ? "Loading…" : "Load more requests"}</button> : null}
         </section>
       ) : (
         <section className={styles.section} aria-labelledby="publications-title">

@@ -1,17 +1,9 @@
 name: Foundation consolidation production
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - "apps/public-site/app/admin/**"
-      - "apps/public-site/app/api/admin/**"
-      - "apps/public-site/app/lib/foundation-admin-auth.ts"
-      - "infrastructure/cloudformation/contact-backend.yml"
-      - "infrastructure/iam/sozorock-ai-lab-github-trust.json"
-      - "scripts/reconcile-foundation-recovery-trust.sh"
-      - "scripts/enroll-foundation-smoke-mfa.sh"
-      - ".github/workflows/foundation-consolidation-production.yml"
+  # Manual only. This workflow edits IAM trust and policies, deploys the
+  # contact stack and starts an Amplify release; ordinary main merges that
+  # touch admin paths must not start it implicitly.
   workflow_dispatch:
 
 permissions:
@@ -24,6 +16,7 @@ concurrency:
 
 jobs:
   verify:
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 35
     steps:
@@ -45,7 +38,7 @@ jobs:
           npm test
           npm run build:public
           npm run verify:public-runtime-security
-          npm audit --omit=dev --omit=optional --audit-level=moderate
+          npm run audit:production
 
   consolidate:
     needs: verify
@@ -54,14 +47,12 @@ jobs:
     environment: production
     env:
       AWS_REGION: ${{ vars.AWS_REGION || 'us-east-1' }}
-      EXPECTED_AWS_ACCOUNT_ID: '791860731989'
       PUBLIC_APP_ID: ${{ vars.PUBLIC_AMPLIFY_APP_ID }}
       AMPLIFY_BRANCH: ${{ vars.AMPLIFY_BRANCH_NAME || 'main' }}
       PUBLIC_SITE_URL: ${{ vars.PUBLIC_SITE_URL || 'https://health.sozorockfoundation.org' }}
       FOUNDATION_ADMIN_EMAIL: ${{ vars.FOUNDATION_ADMIN_EMAIL || 'contact@sozorockfoundation.org' }}
       FOUNDATION_TENANT_ID: '10000000-0000-4000-8000-000000000001'
       FOUNDATION_HEALTH_ROLE_ARN: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
-      RECOVERY_HELPER_ROLE_ARN: arn:aws:iam::791860731989:role/cbcap-agentic-github-deploy
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
@@ -78,9 +69,21 @@ jobs:
           release_sha="$(git rev-parse HEAD)"
           test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$release_sha"
           echo "RELEASE_SHA=$release_sha" >> "$GITHUB_ENV"
+      - name: Validate configured deployment account
+        env:
+          EXPECTED_DEPLOY_ROLE_ARN: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          EXPECTED_ACCOUNT_AUTHORITY_ARN: ${{ vars.SES_IDENTITY_ARN }}
+        run: |
+          set -euo pipefail
+          expected_account=$(node scripts/configured-aws-account.mjs)
+          printf '::add-mask::%s\n' "$expected_account"
+          echo "EXPECTED_AWS_ACCOUNT_ID=$expected_account" >> "$GITHUB_ENV"
+          echo "RECOVERY_HELPER_ROLE_ARN=arn:aws:iam::${expected_account}:role/cbcap-agentic-github-deploy" >> "$GITHUB_ENV"
+
       - name: Assume established Health production role
         uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
         with:
+          mask-aws-account-id: true
           role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
           unset-current-credentials: true
@@ -92,6 +95,7 @@ jobs:
       - name: Assume bounded temporary recovery role
         uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
         with:
+          mask-aws-account-id: true
           role-to-assume: ${{ env.RECOVERY_HELPER_ROLE_ARN }}
           role-session-name: FoundationTrustRepair-${{ github.run_id }}
           aws-region: ${{ env.AWS_REGION }}
@@ -108,6 +112,7 @@ jobs:
         if: always()
         uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
         with:
+          mask-aws-account-id: true
           role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
           role-session-name: FoundationTrustCleanup-${{ github.run_id }}
           aws-region: ${{ env.AWS_REGION }}

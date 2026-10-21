@@ -1,8 +1,8 @@
 import { ApprovedHealthPage } from "../components/ApprovedHealthPages";
 import { healthMetadata, healthPageSchema } from "../lib/health-metadata";
 export const metadata = healthMetadata(
-  "Health Equity Partnerships",
-  "Discuss Health Equity Hubs, provider readiness, county evidence or workforce learning with SozoRock Health.",
+  "Contact",
+  "Contact SozoRock Health with questions about primary care access, proposed Health Equity Hubs, county evidence or getting involved.",
   "/contact",
 );
 export default async function ContactPage({
@@ -31,7 +31,7 @@ export default async function ContactPage({
     <script
       type="application/ld+json"
       dangerouslySetInnerHTML={{
-        __html: JSON.stringify(healthPageSchema("Health Equity Partnerships", "/contact", "ContactPage")),
+        __html: JSON.stringify(healthPageSchema("Contact", "/contact", "ContactPage")),
       }}
     />
   </>;

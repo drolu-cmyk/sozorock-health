@@ -102,7 +102,7 @@ jobs:
           fi
           if [ -z "$base" ] || [ "$base" = "0000000000000000000000000000000000000000" ]; then
             echo "changed=true" >> "$GITHUB_OUTPUT"
-          elif git diff --quiet "$base" "$head" -- apps/mobile; then
+          elif git diff --quiet "$base" "$head" -- apps/mobile packages/domain package.json package-lock.json patches vendor scripts/reconcile-installed-security-lock.mjs scripts/dependency-backports.json scripts/dependency-backport-regressions.cjs scripts/verify-dependency-backports.mjs scripts/audit-production-dependencies.mjs .github/workflows/ci.yml; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
           else
             echo "changed=true" >> "$GITHUB_OUTPUT"
@@ -163,7 +163,7 @@ jobs:
       - name: Export iOS application
         if: steps.mobile-scope.outputs.changed == 'true'
         run: npm exec --workspace @sozorock/mobile -- expo export --platform ios --output-dir dist/ci-ios
-      - run: npm audit --omit=dev --omit=optional --audit-level=moderate
+      - run: npm run audit:production
       - name: Record verification evidence
         run: |
           {
@@ -176,5 +176,5 @@ jobs:
             echo "- Public runtime security manifest: generated"
             echo "- CycloneDX runtime SBOM: generated"
             echo "- Trivy HIGH/CRITICAL SBOM scan: passed"
-            echo "- npm production audit at moderate threshold: passed"
+            echo "- Production dependency audit at moderate threshold and installed-source verification: passed"
           } >> "$GITHUB_STEP_SUMMARY"

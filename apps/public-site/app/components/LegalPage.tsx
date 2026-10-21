@@ -13,7 +13,7 @@ export function LegalPage({
   updated,
   children,
 }: {
-  eyebrow: string;
+  eyebrow?: string;
   title: string;
   titleSize?: "standard" | "compact";
   updated: string;
@@ -27,7 +27,7 @@ export function LegalPage({
     <HealthShell>
       <main id="health-main" className="hs-legal">
         <article>
-          <p className="hs-eyebrow">{eyebrow}</p>
+          {eyebrow ? <p className="hs-eyebrow">{eyebrow}</p> : null}
           <h1>{title}</h1>
           <p className="hs-updated">
             Last updated <time dateTime={isoDate}>{updated}</time>

@@ -23,6 +23,7 @@ jobs:
     environment: production
     env:
       NEXT_TELEMETRY_DISABLED: "1"
+      PRIMARY_CARE_COHORT_START_DATE: "2027-01-01"
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
@@ -51,9 +52,20 @@ jobs:
           npm run build:public
           npm run verify:public-runtime-security
           npm run build:platform
-          npm audit --omit=dev --omit=optional --audit-level=moderate
+          npm run audit:production
+      - name: Validate configured deployment account
+        env:
+          EXPECTED_DEPLOY_ROLE_ARN: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          EXPECTED_ACCOUNT_AUTHORITY_ARN: ${{ vars.SES_IDENTITY_ARN }}
+        run: |
+          set -euo pipefail
+          expected_account=$(node scripts/configured-aws-account.mjs)
+          printf '::add-mask::%s\n' "$expected_account"
+          echo "EXPECTED_AWS_ACCOUNT_ID=$expected_account" >> "$GITHUB_ENV"
+
       - uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
         with:
+          mask-aws-account-id: true
           role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
           aws-region: ${{ vars.AWS_REGION }}
       - name: Deploy public site
@@ -231,19 +243,17 @@ jobs:
           ' <<<"$runtime_policy" >/dev/null
 
           if [[ "$PUBLICATION_EMAIL_PROVIDER" == "google" ]]; then
-            jq -e '[.Statement[] | select(.Sid == "ReadGooglePublicationMail" and .Effect == "Allow" and .Action == "ssm:GetParameter" and .Resource == "arn:aws:ssm:us-east-1:791860731989:parameter/sozorock-foundation/publication-google-mail")] | length == 1' <<<"$runtime_policy" >/dev/null
+            jq -e --arg expected_resource "arn:aws:ssm:us-east-1:${EXPECTED_AWS_ACCOUNT_ID}:parameter/sozorock-foundation/publication-google-mail" '[.Statement[] | select(.Sid == "ReadGooglePublicationMail" and .Effect == "Allow" and .Action == "ssm:GetParameter" and .Resource == $expected_resource)] | length == 1' <<<"$runtime_policy" >/dev/null
           fi
 
           aws s3 sync infrastructure/assets/publications "s3://$publication_bucket/" --exclude '*' --include '*.pdf' --sse AES256 --only-show-errors
 
           current_env=$(aws amplify get-app --app-id "$PUBLIC_APP_ID" --query 'app.environmentVariables' --output json)
-          # The branch can override the app with an obsolete administrator
-          # secret. Resolve authority from the stack, preserve the approved
-          # snapshot, and never expand the public compute role's permissions.
+          # Remove retired relational database authority from both Amplify layers.
+          # Snapshot pins and independent identity/publication services stay intact.
           branch_env=$(aws amplify get-branch --app-id "$PUBLIC_APP_ID" --branch-name "$AMPLIFY_BRANCH" --query 'branch.environmentVariables' --output json)
-          evidence_outputs=$(aws cloudformation describe-stacks --stack-name sozorock-health-evidence-production --query 'Stacks[0].Outputs' --output json)
-          reconciled_evidence_env=$(jq -n --argjson app "$current_env" --argjson branch "$branch_env" --argjson outputs "$evidence_outputs" \
-            '{app:$app,branch:$branch,outputs:$outputs}' | node scripts/evidence-deployment-environment.mjs)
+          reconciled_evidence_env=$(jq -n --argjson app "$current_env" --argjson branch "$branch_env" \
+            '{app:$app,branch:$branch}' | node scripts/evidence-deployment-environment.mjs)
           current_env=$(jq -c '.app' <<<"$reconciled_evidence_env")
           evidence_branch_env=$(jq -c '.branch' <<<"$reconciled_evidence_env")
           identity_outputs=$(aws cloudformation describe-stacks --stack-name sozorock-explore-collaboration-production --query 'Stacks[0].Outputs' --output json)
@@ -258,8 +268,9 @@ jobs:
             --arg at "$access_table" --arg as "$access_salt_arn" \
             --arg oa "$OPENAI_SECRET_ARN" --arg pt "$publication_table" --arg pb "$publication_bucket" \
             --arg mp "$PUBLICATION_EMAIL_PROVIDER" --arg gp "$PUBLICATION_GOOGLE_MAIL_PARAMETER" --arg pe "$PUBLICATION_EMAIL_FROM" --arg ps "$publication_salt_arn" --arg pu "$PUBLIC_SITE_URL" --arg au "$ACCESS_ALLOWED_ORIGINS" \
+            --arg cohort_date "$PRIMARY_CARE_COHORT_START_DATE" \
             --arg va "$VOICE_PROVIDER_ALIAS" --arg rm "$OPENAI_REALTIME_MODEL" --arg re "$OPENAI_REALTIME_ENABLED" --arg lm "$OPENAI_GPT_LIVE_MODEL" \
-            '. + {CONTACT_SUBMISSIONS_TABLE:$ct,CONTACT_NOTIFICATION_TOPIC_ARN:$cn,CONTACT_RATE_LIMIT_SALT_SECRET_ARN:$cs,ACCESS_REQUESTS_TABLE:$at,ACCESS_NOTIFICATION_TOPIC_ARN:$cn,ACCESS_RATE_LIMIT_SALT_SECRET_ARN:$as,ACCESS_ALLOWED_ORIGINS:$au,CONTACT_ALLOWED_HOSTS:$au,EVIDENCE_ALLOWED_HOSTS:$au,PUBLICATION_ALLOWED_HOSTS:$au,OPENAI_SECRET_ARN:$oa,PUBLICATION_ACCESS_TABLE:$pt,PUBLICATION_ASSET_BUCKET:$pb,PUBLICATION_EMAIL_PROVIDER:$mp,PUBLICATION_GOOGLE_MAIL_PARAMETER:$gp,PUBLICATION_EMAIL_FROM:$pe,PUBLICATION_HASH_SALT_SECRET_ARN:$ps,PUBLIC_SITE_URL:$pu,VOICE_PROVIDER_ALIAS:$va,OPENAI_REALTIME_MODEL:$rm,OPENAI_REALTIME_ENABLED:$re,OPENAI_GPT_LIVE_MODEL:$lm}' <<<"$current_env")
+            '. + {PRIMARY_CARE_COHORT_START_DATE:$cohort_date,CONTACT_SUBMISSIONS_TABLE:$ct,CONTACT_NOTIFICATION_TOPIC_ARN:$cn,CONTACT_RATE_LIMIT_SALT_SECRET_ARN:$cs,ACCESS_REQUESTS_TABLE:$at,ACCESS_NOTIFICATION_TOPIC_ARN:$cn,ACCESS_RATE_LIMIT_SALT_SECRET_ARN:$as,ACCESS_ALLOWED_ORIGINS:$au,CONTACT_ALLOWED_HOSTS:$au,EVIDENCE_ALLOWED_HOSTS:$au,PUBLICATION_ALLOWED_HOSTS:$au,OPENAI_SECRET_ARN:$oa,PUBLICATION_ACCESS_TABLE:$pt,PUBLICATION_ASSET_BUCKET:$pb,PUBLICATION_EMAIL_PROVIDER:$mp,PUBLICATION_GOOGLE_MAIL_PARAMETER:$gp,PUBLICATION_EMAIL_FROM:$pe,PUBLICATION_HASH_SALT_SECRET_ARN:$ps,PUBLIC_SITE_URL:$pu,VOICE_PROVIDER_ALIAS:$va,OPENAI_REALTIME_MODEL:$rm,OPENAI_REALTIME_ENABLED:$re,OPENAI_GPT_LIVE_MODEL:$lm}' <<<"$current_env")
           aws amplify update-app \
             --app-id "$PUBLIC_APP_ID" \
             --compute-role-arn "$public_compute_role" \
@@ -273,8 +284,8 @@ jobs:
           publication_branch_env=$(jq -c \
             --arg pt "$publication_table" --arg pb "$publication_bucket" \
             --arg mp "$PUBLICATION_EMAIL_PROVIDER" --arg gp "$PUBLICATION_GOOGLE_MAIL_PARAMETER" --arg pe "$PUBLICATION_EMAIL_FROM" --arg ps "$publication_salt_arn" \
-            --arg pu "$PUBLIC_SITE_URL" --arg au "$ACCESS_ALLOWED_ORIGINS" \
-            '. + {PUBLICATION_ACCESS_TABLE:$pt,PUBLICATION_ASSET_BUCKET:$pb,PUBLICATION_EMAIL_PROVIDER:$mp,PUBLICATION_GOOGLE_MAIL_PARAMETER:$gp,PUBLICATION_EMAIL_FROM:$pe,PUBLICATION_HASH_SALT_SECRET_ARN:$ps,PUBLICATION_ALLOWED_HOSTS:$au,PUBLIC_SITE_URL:$pu}' \
+            --arg pu "$PUBLIC_SITE_URL" --arg au "$ACCESS_ALLOWED_ORIGINS" --arg cohort_date "$PRIMARY_CARE_COHORT_START_DATE" \
+            '. + {PRIMARY_CARE_COHORT_START_DATE:$cohort_date,PUBLICATION_ACCESS_TABLE:$pt,PUBLICATION_ASSET_BUCKET:$pb,PUBLICATION_EMAIL_PROVIDER:$mp,PUBLICATION_GOOGLE_MAIL_PARAMETER:$gp,PUBLICATION_EMAIL_FROM:$pe,PUBLICATION_HASH_SALT_SECRET_ARN:$ps,PUBLICATION_ALLOWED_HOSTS:$au,PUBLIC_SITE_URL:$pu}' \
             <<<"$branch_env")
           aws amplify update-branch \
             --app-id "$PUBLIC_APP_ID" \

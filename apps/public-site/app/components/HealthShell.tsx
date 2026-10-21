@@ -14,7 +14,7 @@ export function HealthFooter({ spanish = false }: { spanish?: boolean }) {
             ? "Sistemas para el acceso a la salud. Una iniciativa de The SozoRock Foundation, Inc."
             : "Systems for health access. An initiative of The SozoRock Foundation, Inc."}
         </p>
-        <a href="/contact">
+        <a href={spanish ? "/contact" : "https://www.sozorockfoundation.org/partner"}>
           {spanish ? "Hablemos de una colaboración" : "Discuss a partnership"}
         </a>
       </div>

@@ -36,6 +36,12 @@ const PLACEHOLDER = /^(?:a+|x+|test(?:ing)?|asdf+|qwerty|fake|dummy|unknown|none
 const RESERVED_EMAIL_DOMAIN = /(?:^|\.)(?:example\.(?:com|net|org)|invalid|localhost|test)$/i;
 const OPTIONAL_PROFILE_SENTINEL = "Not provided by reader";
 const OPTIONAL_REASON_SENTINEL = "Publication access requested without optional readership details.";
+const EMAIL_ATOM = String.raw`[a-z0-9!#$%&'*+/=?^_\x60{|}~-]+`;
+const EMAIL_DOMAIN_LABEL = String.raw`[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?`;
+const CANONICAL_EMAIL = new RegExp(
+  String.raw`^${EMAIL_ATOM}(?:\.${EMAIL_ATOM})*@${EMAIL_DOMAIN_LABEL}(?:\.${EMAIL_DOMAIN_LABEL})+$`,
+  "i",
+);
 
 function clean(value: unknown, max: number) {
   return typeof value === "string"
@@ -102,8 +108,13 @@ export function validateAccessInput(input: AccessInput) {
   if (!input.firstName || !input.lastName || !input.email) return "Complete every required field.";
   if (!meaningfulName(input.firstName)) return "Enter a real first name rather than placeholder text.";
   if (!meaningfulName(input.lastName)) return "Enter a real last name rather than placeholder text.";
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.email)) return "Enter a valid email address.";
-  const emailDomain = input.email.split("@").at(-1) ?? "";
+  const [emailLocal = "", emailDomain = ""] = input.email.split("@");
+  if (
+    input.email.length > 254
+    || emailLocal.length > 64
+    || emailDomain.length > 253
+    || !CANONICAL_EMAIL.test(input.email)
+  ) return "Enter a valid email address.";
   if (RESERVED_EMAIL_DOMAIN.test(emailDomain)) return "Enter an email address you actually use.";
 
   if (input.organization && !meaningfulShortText(input.organization, 2)) return "Enter a meaningful organization or affiliation.";

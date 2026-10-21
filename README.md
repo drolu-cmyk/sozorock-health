@@ -1,13 +1,14 @@
 # SozoRock Health
 
-SozoRock Health is an initiative of The SozoRock Foundation, Inc. It helps communities understand barriers to care and connect people with existing services.
+SozoRock Health is part of The SozoRock Foundation, Inc. It connects health access initiatives with public evidence about barriers to care.
 
-## Programs and products
+## Primary Care Access Program
 
-- **Health Equity Hubs** offer a community setting for access and digital readiness.
-- **Health Access Day** brings partners together around local access needs.
-- **Place Intelligence** presents public evidence with its geography, source, date, and limitations.
-- **County-Based Community Access Platform (CB-CAP)** supports county evidence and planning.
+The program starts in January 2027 and will provide 12 months of support to up to 25 New Yorkers. Services include a sponsored direct primary care membership with Dr. Michael Purcell and Purcell Integrative Osteopathic Care, ongoing telehealth, transportation help and health access education. Clinical care remains with the licensed provider. Membership is not health insurance.
+
+## Community access and public evidence
+
+The Library, Community and Home Health Equity Hubs and Health Access Day are proposed. Place Intelligence presents public evidence with its geography, source, date and limitations. CB-CAP supports county evidence and planning.
 
 ## Public resources
 
@@ -16,15 +17,5 @@ SozoRock Health is an initiative of The SozoRock Foundation, Inc. It helps commu
 - [CB-CAP](https://cbcap.sozorockfoundation.org/)
 - [The SozoRock Foundation](https://www.sozorockfoundation.org/)
 - [SozoRock AI Lab](https://ai-lab.sozorockfoundation.org/)
-
-## Scope
-
-SozoRock Health provides non-clinical access and planning support. Licensed providers retain responsibility for clinical care.
-
-## Contributing and security
-
-See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution guidance and [SECURITY.md](SECURITY.md) to report security concerns privately. Keep personal information, credentials, and operational records out of public issues and pull requests.
-
-## Copyright
 
 Copyright © 2026 The SozoRock Foundation, Inc. All rights reserved.
