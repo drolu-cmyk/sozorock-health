@@ -41,8 +41,8 @@ test("layout links canonical, legal identity, manifest, icon, and social metadat
   assert.match(source, /alternates:\s*\{ canonical: "\/" \}/);
   assert.match(source, /manifest: "\/manifest\.webmanifest"/);
   assert.match(source, /url: "\/icon\.png"/);
-  assert.match(source, /url: "\/icon-512\.png"/);
-  assert.match(source, /images: \["\/icon-512\.png"\]/);
+  assert.match(source, /url: "\/social\/cbcap-public-evidence-2026\.png"/);
+  assert.match(source, /images: \["\/social\/cbcap-public-evidence-2026\.png"\]/);
   assert.match(source, /The SozoRock Foundation, Inc\./);
   for (const candidate of literalHttpsUrls(source)) {
     assert.notEqual(candidate.hostname, "amplifyapp.com");
