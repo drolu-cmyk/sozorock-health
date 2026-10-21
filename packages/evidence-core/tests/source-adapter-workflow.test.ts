@@ -23,7 +23,8 @@ test("source proposal workflow can commit its ignored review handoff", () => {
 
 test("source health checks the same optional-free production dependency tree as release gates", () => {
   assert.match(operationsWorkflow, /npm ci --omit=optional/);
-  assert.match(operationsWorkflow, /npm run audit:production/);
+  assert.match(operationsWorkflow, /^[ \t]*npm run audit:production[ \t]*$/m);
+  assert.doesNotMatch(operationsWorkflow, /npm run audit:production -- --include-optional/);
   const auditGate = readFileSync(new URL("../../../scripts/audit-production-dependencies.mjs", import.meta.url), "utf8");
   assert.match(auditGate, /verifyBackports/);
   assert.match(auditGate, /audit-level=moderate/);
