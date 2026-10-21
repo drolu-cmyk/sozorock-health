@@ -41,7 +41,7 @@
     "npm": ">=10.0.0"
   },
   "scripts": {
-    "postinstall": "patch-package --error-on-fail && node scripts/reconcile-installed-security-lock.mjs",
+    "postinstall": "patch-package --error-on-fail && node scripts/reconcile-installed-security-lock.mjs && node scripts/verify-dependency-backports.mjs",
     "dev:public": "npm exec --workspace @sozorock/public-site -- next dev",
     "build:public": "npm exec --workspace @sozorock/public-site -- next build",
     "verify:public-runtime-security": "node scripts/verify-public-runtime-security.mjs",
@@ -54,9 +54,11 @@
     "start:mobile": "npm exec --workspace @sozorock/mobile -- expo start",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "lint": "eslint apps packages --max-warnings=0",
-    "test": "npm run test --workspaces --if-present",
+    "test": "node --test scripts/dependency-audit.test.mjs scripts/configured-aws-account.test.mjs && npm run test --workspaces --if-present",
     "prebuild:public": "node scripts/copy-maplibre-worker.mjs",
-    "predev:public": "node scripts/copy-maplibre-worker.mjs"
+    "predev:public": "node scripts/copy-maplibre-worker.mjs",
+    "audit:production": "node scripts/audit-production-dependencies.mjs",
+    "verify:dependency-backports": "node scripts/verify-dependency-backports.mjs"
   },
   "devDependencies": {
     "esbuild": "^0.28.1",
