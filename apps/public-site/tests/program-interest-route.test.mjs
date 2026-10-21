@@ -115,3 +115,13 @@ test("a stored request remains accepted when its notification fails", async (t) 
   assert.equal(writes.find((command) => command instanceof PutCommand).input.Item.notificationStatus, "pending");
   assert.equal(writes.filter((command) => command instanceof UpdateCommand && command.input.ExpressionAttributeValues[":status"]).length, 0);
 });
+
+test("ordinary inquiries reject overlong messages without silently losing their ending", async (t) => {
+ const { writes, notifications } = clients(t);
+ const ordinary = {name:"Alex Example",email:"alex@example.org",role:"Individual",stateOrCounty:"Albany",message:"a".repeat(2001),consent:true};
+ assert.equal((await POST(request(ordinary))).status,400);
+ assert.equal(writes.length,0);assert.equal(notifications.length,0);
+ ordinary.message="a".repeat(1997)+"END";
+ assert.equal((await POST(request(ordinary))).status,202);
+ assert.equal(writes.find(c=>c instanceof PutCommand).input.Item.message,ordinary.message);
+});

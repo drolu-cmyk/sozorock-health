@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useState } from "react";
+import { contactMessage, CONTACT_MESSAGE_LIMIT } from "../lib/contact-message";
 
 type Locale = "en" | "es";
 
@@ -155,6 +156,7 @@ function validate(form: FormData, locale: Locale): Errors {
     errors.volunteerArea = copy.volunteer;
   if (!value("location")) errors.location = copy.location;
   if (!value("message")) errors.message = copy.message;
+  else if (contactMessage(form, locale).length > CONTACT_MESSAGE_LIMIT) errors.message = locale === "en" ? "Shorten your message so the complete inquiry is within 2,000 characters." : "Acorte el mensaje a 2.000 caracteres.";
   if (form.get("consent") !== "yes") errors.consent = copy.consent;
   return errors;
 }
@@ -212,16 +214,13 @@ export function ContactForm({
     setErrors({});
     setState("sending");
     const raw = Object.fromEntries(form.entries());
-    const volunteerArea =
-      typeof raw.volunteerArea === "string" ? raw.volunteerArea : "";
-    const inquiryMessage = `${volunteerArea ? `Volunteer area: ${volunteerArea}\n` : ""}${String(raw.message ?? "")}`;
     const payload = {
       name: locale === "en" ? `${raw.firstName} ${raw.lastName}`.trim() : raw.name,
       email: raw.email,
       inquiryType: raw.interest,
       stateOrCounty: raw.location,
       role: raw.organizationType,
-      message: locale === "en" ? `Organization: ${raw.organization}\nRole or job title: ${raw.jobTitle}\nSubject: ${raw.subject}\n\n${inquiryMessage}` : inquiryMessage,
+      message: contactMessage(form, locale),
       website: raw.website,
       consent: raw.consent === "yes",
     };
@@ -388,6 +387,7 @@ export function ContactForm({
           required
           name="message"
           rows={5}
+          maxLength={CONTACT_MESSAGE_LIMIT}
           aria-invalid={Boolean(errors.message)}
           aria-describedby={errors.message ? "message-error" : undefined}
         />

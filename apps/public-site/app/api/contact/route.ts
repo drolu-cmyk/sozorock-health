@@ -74,7 +74,8 @@ export async function POST(request: Request) {
   const role = value(body, "role");
   const stateOrCounty = value(body, "stateOrCounty");
   const inquiryType = value(body, "inquiryType");
-  const message = value(body, "message", 2000);
+  const message = value(body, "message", 12_000);
+  if (message.length > 2000) return Response.json({ error: "Shorten the complete inquiry to 2,000 characters." }, { status: 400 });
   const isProgramInterest = inquiryType === "program-interest";
   let program: ProgramInterestInput | undefined;
   let programExpiresAt: number | undefined;
