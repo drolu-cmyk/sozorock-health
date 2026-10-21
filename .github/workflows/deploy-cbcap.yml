@@ -35,7 +35,6 @@ jobs:
       NEXT_PUBLIC_CBCAP_COGNITO_CLIENT_ID: ${{ vars.CBCAP_COGNITO_CLIENT_ID }}
       NEXT_PUBLIC_CBCAP_COGNITO_REDIRECT_URI: https://cbcap.sozorockfoundation.org/auth/callback
       EXPECTED_REPOSITORY: https://github.com/drolu-cmyk/sozorock-health
-      EXPECTED_WAF_ARN: arn:aws:wafv2:us-east-1:791860731989:global/webacl/sozorock-health-cbcap-production/15608475-1d6c-4e58-9888-1cce47be8059
     steps:
       - name: Check out the approved production source
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
@@ -56,7 +55,7 @@ jobs:
           npm exec eslint -- apps/platform --max-warnings=0
           npm run test --workspace @sozorock/platform
           npm run build:platform
-          npm audit --omit=dev --audit-level=moderate
+          npm run audit:production -- --include-optional
 
           # Release gates and dependency lifecycle scripts must not rewrite any
           # approved source that the deployment steps will subsequently trust.
@@ -68,9 +67,21 @@ jobs:
           test -n "$origin_main"
           test "$origin_main" = "$approved_commit"
 
+      - name: Validate configured deployment account
+        env:
+          EXPECTED_DEPLOY_ROLE_ARN: ${{ vars.CBCAP_AWS_DEPLOY_ROLE_ARN }}
+          EXPECTED_ACCOUNT_AUTHORITY_ARN: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+        run: |
+          set -euo pipefail
+          expected_account=$(node scripts/configured-aws-account.mjs)
+          printf '::add-mask::%s\n' "$expected_account"
+          echo "EXPECTED_AWS_ACCOUNT_ID=$expected_account" >> "$GITHUB_ENV"
+          echo "EXPECTED_WAF_ARN=arn:aws:wafv2:us-east-1:${expected_account}:global/webacl/sozorock-health-cbcap-production/15608475-1d6c-4e58-9888-1cce47be8059" >> "$GITHUB_ENV"
+
       - name: Assume the production deployment role
         uses: aws-actions/configure-aws-credentials@7474bc4690e29a8392af63c5b98e7449536d5c3a # v4
         with:
+          mask-aws-account-id: true
           role-to-assume: ${{ vars.CBCAP_AWS_DEPLOY_ROLE_ARN }}
           role-session-name: cbcap-production-release
           aws-region: ${{ vars.AWS_REGION || 'us-east-1' }}
@@ -80,7 +91,7 @@ jobs:
           set -euo pipefail
 
           account_id=$(aws sts get-caller-identity --query Account --output text)
-          test "$account_id" = "791860731989"
+          test "$account_id" = "$EXPECTED_AWS_ACCOUNT_ID"
 
           app_json=$(aws amplify get-app --app-id "$CBCAP_APP_ID" --output json)
           repository=$(jq -r '.app.repository // ""' <<<"$app_json")

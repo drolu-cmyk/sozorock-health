@@ -51,9 +51,20 @@ jobs:
           npm run build:public
           npm run verify:public-runtime-security
           npm run build:platform
-          npm audit --omit=dev --omit=optional --audit-level=moderate
+          npm run audit:production
+      - name: Validate configured deployment account
+        env:
+          EXPECTED_DEPLOY_ROLE_ARN: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          EXPECTED_ACCOUNT_AUTHORITY_ARN: ${{ vars.SES_IDENTITY_ARN }}
+        run: |
+          set -euo pipefail
+          expected_account=$(node scripts/configured-aws-account.mjs)
+          printf '::add-mask::%s\n' "$expected_account"
+          echo "EXPECTED_AWS_ACCOUNT_ID=$expected_account" >> "$GITHUB_ENV"
+
       - uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
         with:
+          mask-aws-account-id: true
           role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
           aws-region: ${{ vars.AWS_REGION }}
       - name: Deploy public site
@@ -231,7 +242,7 @@ jobs:
           ' <<<"$runtime_policy" >/dev/null
 
           if [[ "$PUBLICATION_EMAIL_PROVIDER" == "google" ]]; then
-            jq -e '[.Statement[] | select(.Sid == "ReadGooglePublicationMail" and .Effect == "Allow" and .Action == "ssm:GetParameter" and .Resource == "arn:aws:ssm:us-east-1:791860731989:parameter/sozorock-foundation/publication-google-mail")] | length == 1' <<<"$runtime_policy" >/dev/null
+            jq -e --arg expected_resource "arn:aws:ssm:us-east-1:${EXPECTED_AWS_ACCOUNT_ID}:parameter/sozorock-foundation/publication-google-mail" '[.Statement[] | select(.Sid == "ReadGooglePublicationMail" and .Effect == "Allow" and .Action == "ssm:GetParameter" and .Resource == $expected_resource)] | length == 1' <<<"$runtime_policy" >/dev/null
           fi
 
           aws s3 sync infrastructure/assets/publications "s3://$publication_bucket/" --exclude '*' --include '*.pdf' --sse AES256 --only-show-errors

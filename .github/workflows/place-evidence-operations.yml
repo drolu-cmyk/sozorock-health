@@ -48,7 +48,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          npm audit --omit=dev --omit=optional --audit-level=moderate
+          npm run audit:production
           npm run build:public
           npm run verify:public-runtime-security
           echo "SECURITY_GATE_PASSED=true" >> "$GITHUB_ENV"
