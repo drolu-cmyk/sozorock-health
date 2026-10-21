@@ -34,3 +34,18 @@ test("scheduled source health builds the public runtime before inspecting it", a
   assert.ok(buildIndex >= 0);
   assert.ok(securityIndex > buildIndex);
 });
+
+test("public release does not resolve retired database authority and preserves independent identity", async () => {
+  const workflow = await rootSource(".github/workflows/deploy.yml");
+  assert.doesNotMatch(workflow, /describe-stacks --stack-name sozorock-health-evidence-production/);
+  assert.match(workflow, /node scripts\/evidence-deployment-environment\.mjs/);
+  assert.match(workflow, /describe-stacks --stack-name sozorock-explore-collaboration-production/);
+  assert.match(workflow, /EXPLORE_COGNITO_USER_POOL_ID/);
+  for (const [path, job] of [["explore-production.yml", "deploy-explore"], ["milestone-10-staging.yml", "isolated-staging"]]) {
+    const workflow = await rootSource(`.github/workflows/${path}`);
+    const definition = workflow.slice(workflow.indexOf(`  ${job}:`)).split(/\n  [a-z][a-z-]+:/)[0];
+    assert.match(definition, /\n    if: \$\{\{ false \}\}/);
+    assert.match(workflow, /\n  retired-release:\n    needs: release-gates/);
+    assert.match(workflow.slice(workflow.indexOf("  retired-release:")), /exit 1/);
+  }
+});

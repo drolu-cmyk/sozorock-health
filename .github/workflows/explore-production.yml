@@ -118,6 +118,8 @@ jobs:
             output/security/public-runtime-security.json
 
   deploy-explore:
+    # Relational database provisioning is permanently retired.
+    if: ${{ false }}
     needs: release-gates
     runs-on: ubuntu-latest
     timeout-minutes: 90
@@ -649,3 +651,14 @@ jobs:
             agent-clinical.json
             agent-grounded.json
             .playwright-output/explore
+
+  retired-release:
+    needs: release-gates
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Reject retired relational database release
+        run: |
+          echo "This relational database release is retired. Use the Health public-site release."
+          exit 1
