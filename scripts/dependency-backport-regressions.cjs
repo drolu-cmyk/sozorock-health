@@ -5,7 +5,8 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 
 function checkForge(directory, forge = require(directory)) {
-  const keys = crypto.generateKeyPairSync('rsa', { modulusLength: 1024, publicExponent: 3 });
+  const keys = crypto.generateKeyPairSync('rsa', { modulusLength: 2048, publicExponent: 3 });
+  const modulusBytes = Math.ceil(keys.publicKey.asymmetricKeyDetails.modulusLength / 8);
   const publicKey = forge.pki.publicKeyFromPem(keys.publicKey.export({ type: 'spki', format: 'pem' }));
   const privateKey = forge.pki.privateKeyFromPem(keys.privateKey.export({ type: 'pkcs1', format: 'pem' }));
   const message = Buffer.from('SozoRock dependency verification');
@@ -19,7 +20,7 @@ function checkForge(directory, forge = require(directory)) {
   const digest = tlv(4, sha256);
   const canonical = seq(seq(oid, nil), digest);
   const signature = info => {
-    const padding = Buffer.alloc(128 - info.length - 3, 0xff);
+    const padding = Buffer.alloc(modulusBytes - info.length - 3, 0xff);
     assert(padding.length >= 8);
     return crypto.privateEncrypt({ key: keys.privateKey, padding: crypto.constants.RSA_NO_PADDING },
       Buffer.concat([Buffer.from([0, 1]), padding, Buffer.from([0]), info])).toString('binary');
