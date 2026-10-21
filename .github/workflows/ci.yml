@@ -102,7 +102,7 @@ jobs:
           fi
           if [ -z "$base" ] || [ "$base" = "0000000000000000000000000000000000000000" ]; then
             echo "changed=true" >> "$GITHUB_OUTPUT"
-          elif git diff --quiet "$base" "$head" -- apps/mobile; then
+          elif git diff --quiet "$base" "$head" -- apps/mobile packages/domain package.json package-lock.json patches vendor scripts/reconcile-installed-security-lock.mjs .github/workflows/ci.yml; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
           else
             echo "changed=true" >> "$GITHUB_OUTPUT"
