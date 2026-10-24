@@ -1,11 +1,11 @@
 import { PrimaryCareAccessPage } from "./PrimaryCareAccessPage";
-import { HealthOverview } from "./HealthOverview";
+import { HealthStory } from "./HealthStory";
 import { HealthEvidenceMethods } from "./HealthEvidenceMethods";
 import { ProgramInterestForm } from "./ProgramInterestForm";
 import { ContactForm } from "./ContactForm";
 import { HealthHeader } from "./HealthHeader";
 function Content({pathname,initialInterest,initialLocation}){switch(pathname){
-case "/": return <HealthOverview />;
+case "/": return <HealthStory />;
 case "/primary-care-access": return <PrimaryCareAccessPage />;
 case "/work": return <>
 <section className="hero blue"><div className="shell"><h1>{"The Health Equity Initiative"}</h1>
@@ -207,7 +207,7 @@ case "/interest": return <>
 </>;
 default:return null;}}
 /** @param {{pathname:string,initialInterest?:string,initialLocation?:string,children?:import("react").ReactNode}} props */
-export function ApprovedHealthPage({pathname,initialInterest="",initialLocation="",children=null}){return <div className="approved-site health-system"><a className="hs-skip" href="#health-main">Skip to content</a><HealthHeader programPage={pathname === "/primary-care-access"} /><main id="health-main">{children ?? <Content pathname={pathname} initialInterest={initialInterest} initialLocation={initialLocation}/>}</main><footer className="footer"><div className="shell"><div className="footertop"><div><a className="brand" href="/">SozoRock<strong>Health</strong></a><p className="fine">An initiative of The SozoRock Foundation</p></div>
+export function ApprovedHealthPage({pathname,initialInterest="",initialLocation="",children=null}){return <div className="approved-site health-system"><a className="hs-skip" href="#health-main">Skip to content</a><HealthHeader programPage={pathname === "/primary-care-access"} /><main id="health-main">{children ?? <Content pathname={pathname} initialInterest={initialInterest} initialLocation={initialLocation}/>}</main><footer className="footer"><div className="shell"><div className="footertop"><div><a className="brand" href="/">SozoRock<sup className="hx-reg">®</sup><strong>Health</strong></a><p className="fine">An initiative of The SozoRock Foundation</p></div>
 <nav aria-label="SozoRock Health"><a href="/work">Our work</a><a href="/primary-care-access">Primary Care Access Program</a><a href="/interest">Interest list</a><a href="/evidence">Evidence</a><a href="/publications">Health research</a><a href="https://cbcap.sozorockfoundation.org/">County evidence</a></nav>
 <nav aria-label="Foundation"><a href="https://www.sozorockfoundation.org/">The Foundation</a><a href="https://www.sozorockfoundation.org/support">Support health access</a><a href="https://www.sozorockfoundation.org/partner">Partner</a><a href="/contact">Contact Health</a></nav>
 </div>

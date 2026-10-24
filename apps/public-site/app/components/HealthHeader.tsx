@@ -27,7 +27,7 @@ export function HealthHeader({ spanish = false, programPage = false }: { spanish
         }
       >
         <span>
-          <strong>SozoRock</strong> Health
+          <strong>SozoRock<sup className="hx-reg">®</sup></strong> Health
         </span>
         <small>
           {spanish ? "Una iniciativa de" : "An initiative of"} The SozoRock
