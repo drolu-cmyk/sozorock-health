@@ -1,19 +1,18 @@
 # SozoRock Health
 
-SozoRock Health is part of The SozoRock Foundation, Inc. It connects health access initiatives with public evidence about barriers to care.
+SozoRock Health is part of The SozoRock Foundation, Inc. It works to remove the barriers that keep people from care: cost, distance, technology, health information and trust.
 
 ## Primary Care Access Program
 
-The program starts in January 2027 and will provide 12 months of support to up to 25 New Yorkers. Services include a sponsored direct primary care membership with Dr. Michael Purcell and Purcell Integrative Osteopathic Care, ongoing telehealth, transportation help and health access education. Clinical care remains with the licensed provider. Membership is not health insurance.
+Starting January 2027, the program gives up to 25 New Yorkers 12 months of support: a sponsored direct primary care membership with Dr. Michael Purcell and Purcell Integrative Osteopathic Care, ongoing telehealth, transportation help and health access education. Clinical care remains with the licensed provider. Membership is not health insurance.
 
-## Community access and public evidence
+## Health Equity Initiative
 
-The Library, Community and Home Health Equity Hubs and Health Access Day are proposed. Place Intelligence presents public evidence with its geography, source, date and limitations. CB-CAP supports county evidence and planning.
+Library, Community and Home Health Equity Hubs and Health Access Day bring access support closer to where people live. Place Intelligence presents public evidence with its geography, source, date and limits.
 
-## Public resources
+## Links
 
 - [SozoRock Health](https://health.sozorockfoundation.org/)
-- [Place Intelligence](https://health.sozorockfoundation.org/explore)
 - [CB-CAP](https://cbcap.sozorockfoundation.org/)
 - [The SozoRock Foundation](https://www.sozorockfoundation.org/)
 - [SozoRock AI Lab](https://ai-lab.sozorockfoundation.org/)
