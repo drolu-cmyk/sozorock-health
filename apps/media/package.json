@@ -17,12 +17,12 @@
   "dependencies": {
     "@aws-sdk/client-polly": "^3.1085.0",
     "@phosphor-icons/react": "^2.1.10",
-    "@remotion/cli": "4.0.487",
-    "@remotion/media": "4.0.487",
+    "@remotion/cli": "4.0.537",
+    "@remotion/media": "4.0.537",
     "react": "19.2.3",
     "react-dom": "19.2.3",
-    "remotion": "4.0.487",
-    "zod": "4.6.6"
+    "remotion": "4.0.537",
+    "zod": "4.6.7"
   },
   "devDependencies": {
     "typescript": "~6.0.3"
