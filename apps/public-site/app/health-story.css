@@ -1,6 +1,7 @@
 .hx{--hx-navy:#071D3B;--hx-royal:#0B2F6E;--hx-cobalt:#0644AD;--hx-ice:#EFF5FF;--hx-ice2:#DCEAFF;--hx-chart2:#A9C6F0;--hx-body:#33495D;--hx-pad:clamp(20px,6.6vw,96px);background:#fff;color:var(--hx-navy);font-family:var(--font-instrument-sans),"Instrument Sans",Arial,sans-serif;font-feature-settings:"tnum" 1,"lnum" 1}
 .hx *{box-sizing:border-box}
 .hx img{max-width:100%;display:block}
+.hx picture{display:contents}
 .hx-wrap{padding-left:var(--hx-pad);padding-right:var(--hx-pad)}
 .hx-ice{background:var(--hx-ice)}
 .hx-reg{font-size:.45em;font-weight:500;vertical-align:.9em;margin-left:.04em;line-height:0}
@@ -69,7 +70,7 @@
 
 @media (max-width:960px){
   .hx-hero,.hx-problem,.hx-row,.hx-row.hx-flip,.hx-fund{grid-template-columns:minmax(0,1fr)}
-  .hx-row.hx-flip>img{order:-1}
+  .hx-row.hx-flip .hx-photo{order:-1}
   .hx-steps{flex-wrap:wrap}
   .hx-steps li{flex:1 1 40%}
 }

@@ -1,5 +1,3 @@
-import Image from "next/image";
-
 const R = <sup className="hx-reg">®</sup>;
 
 const milestones = [
@@ -25,7 +23,7 @@ export function HealthStory() {
         <p className="hx-lede">We turn trusted local places into doors to care, backed by local evidence and secure digital health.</p>
         <div className="hx-actions"><a className="hx-pill" href="#hx-approach">See how it works</a><a className="hx-text" href="/contact">Partner with us →</a></div>
       </div>
-      <Image className="hx-hero-img" src="/media/approved-home/hero-community-desktop-v2.webp" width={1672} height={941} alt="A health access guide and a resident review care options on a tablet in a library" priority />
+      <picture><img className="hx-hero-img" src="/media/approved-home/hero-community-desktop-v2.webp" width="1672" height="941" alt="A health access guide and a resident review care options on a tablet in a library" fetchPriority="high" decoding="async" /></picture>
     </section>
 
     <section className="hx-problem hx-ice hx-wrap" aria-labelledby="hx-problem-title">
@@ -49,7 +47,7 @@ export function HealthStory() {
 
     <div id="hx-approach">
       <section className="hx-row hx-ice hx-wrap" aria-labelledby="hx-understand">
-        <div className="hx-map"><Image src="/media/county-map-brand.webp" width={1470} height={844} alt="Map of United States counties with New York State highlighted" /></div>
+        <div className="hx-map"><picture><img src="/media/county-map-brand.webp" width="1470" height="844" alt="Map of United States counties with New York State highlighted" loading="lazy" decoding="async" /></picture></div>
         <div>
           <p className="hx-label">Understand · Place Intelligence</p>
           <h2 id="hx-understand">See every barrier in a county before you act.</h2>
@@ -65,11 +63,11 @@ export function HealthStory() {
           <p className="hx-lede">Health Equity Hubs in libraries, community centers and homes, Health Access Day, and the <a href="/primary-care-access">Primary Care Access Program</a>: a sponsored year of care for up to 25 New Yorkers from January 2027.</p>
           <div className="hx-actions"><a className="hx-pill" href="/contact">Host a hub</a><a className="hx-text" href="/interest">Join the care interest list →</a></div>
         </div>
-        <Image className="hx-photo" src="/media/approved-home/hero-tablet.webp" width={1800} height={1350} alt="A community helper shows an older resident how to use a health app" />
+        <picture><img className="hx-photo" src="/media/approved-home/hero-tablet.webp" width="1800" height="1350" alt="A community helper shows an older resident how to use a health app" loading="lazy" decoding="async" /></picture>
       </section>
 
       <section className="hx-row hx-ice hx-wrap" aria-labelledby="hx-protect">
-        <div className="hx-cover"><Image src="/publications/covers/health-systems-assurance-volume-1.jpg" width={2550} height={3300} alt="Health Systems Assurance Series, Volume 1 cover" /></div>
+        <div className="hx-cover"><picture><img src="/publications/covers/health-systems-assurance-volume-1.jpg" width="2550" height="3300" alt="Health Systems Assurance Series, Volume 1 cover" loading="lazy" decoding="async" /></picture></div>
         <div>
           <p className="hx-label">Protect · Digital readiness and assurance</p>
           <h2 id="hx-protect">Make digital health safe enough to trust.</h2>
