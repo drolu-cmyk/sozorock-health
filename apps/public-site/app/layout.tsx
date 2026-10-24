@@ -7,6 +7,7 @@ import "./health-system.css";
 import "./health-program.css";
 import "./approved.css";
 import "./access-refinements.css";
+import "./health-story.css";
 import { foundationEntity, healthSocialImage } from "./lib/health-metadata";
 
 const siteUrl = "https://health.sozorockfoundation.org";
@@ -38,7 +39,7 @@ export const metadata: Metadata = {
     template: "%s | SozoRock Health",
   },
   description:
-    "New York primary care access support, proposed Health Equity Hubs and public county health evidence from SozoRock Health.",
+    "New York primary care access support, Health Equity Hubs and public county health evidence from SozoRock Health.",
   applicationName: "SozoRock Health",
   authors: [
     {
@@ -118,7 +119,7 @@ const structuredData = {
       slogan: "Care. For every ZIP Code.",
       logo: `${siteUrl}/icon.png`,
       description:
-        "The Foundation’s health initiative: primary care access support in New York, proposed Health Equity Hubs and public county health evidence.",
+        "The Foundation’s health initiative: primary care access support in New York, Health Equity Hubs and public county health evidence.",
       parentOrganization: { "@id": foundationEntity },
       creator: { "@id": foundationEntity },
       areaServed: { "@type": "Country", name: "United States" },

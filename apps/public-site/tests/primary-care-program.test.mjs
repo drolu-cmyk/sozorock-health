@@ -40,8 +40,11 @@ test("the branch film retains native playback, captions and descriptions",()=>{
  assert.match(video,/controls=""/);assert.match(video,/playsInline=""/i);assert.match(video,/preload="none"/);assert.doesNotMatch(video,/autoPlay|autoplay/);
  assert.match(html,/sozorock-health-care-for-every-zip-code.mp4/);assert.match(html,/kind="captions"/);assert.match(html,/kind="descriptions"/);assert.match(html,/care-for-every-zip-code.transcript.txt/);
 });
-test("the homepage links to the dedicated program page while retaining its own overview",()=>{
- const home=component("HealthOverview.jsx","HealthOverview");
- assert.equal((home.match(/<h1[ >]/g)||[]).length,1);assert.match(home,/href="\/primary-care-access"/);assert.match(home,/sozorock-health-care-for-every-zip-code.mp4/);
- assert.doesNotMatch(home,/hc-tiers|hc-county-figure/);
+test("the homepage tells the health access story and links to every program",()=>{
+ const home=component("HealthStory.jsx","HealthStory");
+ assert.equal((home.match(/<h1[ >]/g)||[]).length,1);
+ for(const href of ["/primary-care-access","/interest","/explore","/contact"])assert.match(home,new RegExp(`href="${href}"`),href);
+ for(const fact of ["up to 25","January 2027","46.75%","35.42%","$108,000","Health Equity Hubs","Place Intelligence"])assert.ok(home.includes(fact),fact);
+ assert.doesNotMatch(home,/Proposed|proposed| \u2014 | \u2013 /);
+ assert.match(home,/hero-community-desktop-v2\.webp/);
 });
