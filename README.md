@@ -13,6 +13,7 @@ Library, Community and Home Health Equity Hubs and Health Access Day bring acces
 ## Links
 
 - [SozoRock Health](https://health.sozorockfoundation.org/)
+- [CB-CAP](https://cbcap.sozorockfoundation.org/)
 - [The SozoRock Foundation](https://www.sozorockfoundation.org/)
 - [SozoRock AI Lab](https://ai-lab.sozorockfoundation.org/)
 
