@@ -1,4 +1,5 @@
 import { HealthHeader } from "./HealthHeader";
+import { HealthSiteFooter } from "./HealthSiteFooter";
 
 export function HealthFooter({ spanish = false }: { spanish?: boolean }) {
   return (
@@ -50,7 +51,7 @@ export function HealthShell({
       </a>
       <HealthHeader spanish={spanish} />
       {children}
-      <HealthFooter spanish={spanish} />
+      {spanish ? <HealthFooter spanish /> : <HealthSiteFooter />}
     </div>
   );
 }

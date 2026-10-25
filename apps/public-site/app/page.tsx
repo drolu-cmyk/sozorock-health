@@ -3,5 +3,5 @@ export const revalidate = 3600;
 
 import { ApprovedHealthPage } from "./components/ApprovedHealthPages";
 import { healthMetadata, healthPageSchema } from "./lib/health-metadata";
-export const metadata = {...healthMetadata('Health Access in New York', 'SozoRock Health closes the distance between people and care: Health Equity Hubs in trusted local places, free county health evidence, secure digital health and the Primary Care Access Program for up to 25 New Yorkers from January 2027.', '/'), alternates:{canonical:'/',languages:{'en-US':'/','es-US':'/es'}}};
-export default function Page() {return <><ApprovedHealthPage pathname="/"/><script type="application/ld+json" dangerouslySetInnerHTML={{__html:JSON.stringify(healthPageSchema('Health Access in New York', '/'))}} /></>;}
+export const metadata = {...healthMetadata('Health Access for Every ZIP Code', 'Care is too few, too far and too hard to reach. SozoRock Health helps change all three with Health Equity Hubs, Health Access Day, sponsored primary care and free county health data. All care is delivered by licensed providers.', '/'), alternates:{canonical:'/',languages:{'en-US':'/','es-US':'/es'}}};
+export default function Page() {return <><ApprovedHealthPage pathname="/"/><script type="application/ld+json" dangerouslySetInnerHTML={{__html:JSON.stringify(healthPageSchema('Health Access for Every ZIP Code', '/'))}} /></>;}

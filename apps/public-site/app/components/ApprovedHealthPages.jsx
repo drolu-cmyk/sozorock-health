@@ -4,42 +4,43 @@ import { HealthEvidenceMethods } from "./HealthEvidenceMethods";
 import { ProgramInterestForm } from "./ProgramInterestForm";
 import { ContactForm } from "./ContactForm";
 import { HealthHeader } from "./HealthHeader";
+import { HealthSiteFooter } from "./HealthSiteFooter";
 function Content({pathname,initialInterest,initialLocation}){switch(pathname){
 case "/": return <HealthStory />;
 case "/primary-care-access": return <PrimaryCareAccessPage />;
 case "/work": return <>
 <section className="hero blue"><div className="shell"><h1>{"The Health Equity Initiative"}</h1>
-<p>{"Health literacy, digital readiness and preparation for provider-led care—in libraries, communities and homes."}</p>
-<a className="action" href="https://www.sozorockfoundation.org/partner">{"Partner"}</a>
+<p>{"A private place, a device and secure Wi‑Fi close to home, so people can reach the licensed providers who already serve them."}</p>
+<a className="action" href="/contact">{"Work with us"}</a>
 </div>
 </section>
-<section className="section" id="hubs"><div className="shell"><div className="hubset"><article><h3>{"Proposed: Library Health Equity Hub"}</h3>
-<p>{"Health literacy and digital support through local libraries."}</p>
+<section className="section" id="hubs"><div className="shell"><div className="hubset"><article><h3>{"Library Health Equity Hub"}</h3>
+<p>{"By appointment. A private room, a device and secure Wi‑Fi in a public library."}</p>
 <details><summary>{"Details"}</summary>
-<p>{"A proposed library-based model for health information, digital skills and preparation to use provider-led services. Local partners would agree the space, connectivity, privacy and staff responsibilities."}</p>
+<p>{"Residents reserve a time when space is available, then join a visit on their own provider’s platform. Libraries make space available; they do not take part in care."}</p>
 </details>
 </article>
-<article><h3>{"Proposed: Community Health Equity Hub"}</h3>
-<p>{"Health education and digital support through community organizations."}</p>
+<article><h3>{"Community Health Equity Hub"}</h3>
+<p>{"At scheduled events. The same private setup, brought to community spaces."}</p>
 <details><summary>{"Details"}</summary>
-<p>{"A proposed community-based model combining local health information, digital support and preparation for provider-led services. Activities would reflect local needs, partner capacity and available services."}</p>
+<p>{"Held in community spaces based on availability and reservation, with health education in plain language."}</p>
 </details>
 </article>
-<article><h3>{"Proposed: Home Health Equity Hub"}</h3>
-<p>{"Help preparing to use provider platforms from home."}</p>
+<article><h3>{"Home Health Equity Hub"}</h3>
+<p>{"In development. Support to use a provider’s platform from home."}</p>
 <details><summary>{"Details"}</summary>
-<p>{"A proposed home-based model for people who need support using devices, connectivity or provider platforms. It does not establish a home-care or home-health clinical service."}</p>
+<p>{"A subscription for people who need help with a device or connection at home. It is not a home-care or clinical service."}</p>
 </details>
 </article>
 </div>
-<p className="modelnote">{"Proposed partner models. Local implementation depends on agreed responsibilities, available services and delivery capacity. Clinical care remains with licensed providers."}</p>
+<p className="modelnote">{"Spaces are used based on availability and reservation. The visit and the record stay with the provider. SozoRock Health does not provide medical care. All care is delivered by licensed providers."}</p>
 </div>
 </section>
-<section className="section soft"><div className="shell focusgrid"><article><h2>{"Proposed: Health Access Day"}</h2>
-<p>{"A proposed community format for health education and health literacy, with locally agreed activities and follow-up."}</p>
+<section className="section soft"><div className="shell focusgrid"><article id="health-access-day"><h2>{"Health Access Day"}</h2>
+<p>{"Health education, interpretation and screenings by licensed providers, held in the ZIP Codes where chronic illness runs highest and aligned with local health priorities."}</p>
 </article>
-<article><h2>{"Provider partnerships"}</h2>
-<p>{"Bring Your Own Platform keeps clinical systems, records, consent and medical decisions with the provider. SozoRock supports nonclinical readiness and coordination."}</p>
+<article><h2>{"For providers"}</h2>
+<p>{"Residents use your platform, so clinical systems, records, consent and medical decisions stay with you. We help people reach you."}</p>
 </article>
 </div>
 </section>
@@ -207,20 +208,5 @@ case "/interest": return <>
 </>;
 default:return null;}}
 /** @param {{pathname:string,initialInterest?:string,initialLocation?:string,children?:import("react").ReactNode}} props */
-export function ApprovedHealthPage({pathname,initialInterest="",initialLocation="",children=null}){return <div className="approved-site health-system"><a className="hs-skip" href="#health-main">Skip to content</a><HealthHeader programPage={pathname === "/primary-care-access"} /><main id="health-main">{children ?? <Content pathname={pathname} initialInterest={initialInterest} initialLocation={initialLocation}/>}</main><footer className="footer"><div className="shell"><div className="footertop"><div><a className="brand" href="/">SozoRock<sup className="hx-reg">®</sup><strong>Health</strong></a><p className="fine">An initiative of The SozoRock Foundation</p></div>
-<nav aria-label="SozoRock Health"><a href="/work">Our work</a><a href="/primary-care-access">Primary Care Access Program</a><a href="/interest">Interest list</a><a href="/evidence">Evidence</a><a href="/publications">Health research</a><a href="https://cbcap.sozorockfoundation.org/">County evidence</a></nav>
-<nav aria-label="Foundation"><a href="https://www.sozorockfoundation.org/">The Foundation</a><a href="https://www.sozorockfoundation.org/support">Support health access</a><a href="https://www.sozorockfoundation.org/partner">Partner</a><a href="/contact">Contact Health</a></nav>
-</div>
-<div className="footerlegal"><p>{"The SozoRock Foundation, Inc. · 501(c)(3) public charity"}<br />{"EIN 39-4736725"}</p>
-<nav aria-label="Policies"><a className="" href="/privacy">{"Privacy"}</a>
-<a className="" href="/terms">{"Terms"}</a>
-<a className="" href="/accessibility">{"Accessibility"}</a>
-<a className="" href="/nondiscrimination">{"Nondiscrimination"}</a>
-<a className="" href="https://www.sozorockfoundation.org/standards">{"Standards"}</a>
-</nav>
-</div>
-<p className="fine">Clinical care remains with the licensed provider. Direct primary care membership is not health insurance.</p>
-<p className="copyright">{"© 2026 The SozoRock Foundation, Inc."}</p>
-</div>
-</footer>
+export function ApprovedHealthPage({pathname,initialInterest="",initialLocation="",children=null}){return <div className="approved-site health-system"><a className="hs-skip" href="#health-main">Skip to content</a><HealthHeader /><main id="health-main">{children ?? <Content pathname={pathname} initialInterest={initialInterest} initialLocation={initialLocation}/>}</main><HealthSiteFooter />
 </div>}
