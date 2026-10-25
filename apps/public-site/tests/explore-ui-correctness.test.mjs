@@ -65,7 +65,7 @@ test("Explore owns its X metadata and route-specific structured data", async () 
     "https://health.sozorockfoundation.org/#webpage",
   );
   assert.match(explore, /twitter: \{/);
-  assert.match(explore, /healthMetadata\("SozoRock Place Intelligence"/);
+  assert.match(explore, /healthMetadata\("Health Data for Every County"/);
   assert.match(explore, /`\$\{healthOrigin\}\/explore#webpage`/);
   assert.match(explore, /"@type": "WebApplication"/);
 });

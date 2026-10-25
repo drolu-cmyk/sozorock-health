@@ -44,7 +44,8 @@ test("the branch film retains native playback, captions and descriptions",()=>{
 test("the homepage tells the health access story and links to every program",()=>{
  const home=component("HealthStory.jsx","HealthStory");
  assert.equal((home.match(/<h1[ >]/g)||[]).length,1);
- for(const href of ["/primary-care-access","/interest","/explore","/contact","/publications","/work#hubs"])assert.ok(home.includes(`"${href}"`),href);
- for(const fact of ["Too few","Too far","Too hard","Health Equity Hubs","Health Access Day","Place Intelligence","does not provide medical care","licensed providers"])assert.ok(home.includes(fact),fact);
+ for(const href of ["/primary-care-access","/interest","/explore","/contact?audience=providers","/publications","/work#hubs"])assert.ok(home.includes(`"${href}"`),href);
+ for(const fact of ["Too few","Too far","Too hard","Health Equity Hubs","Health Access Day","Place Intelligence","licensed providers"])assert.ok(home.includes(fact),fact);
  assert.doesNotMatch(home,/Proposed|proposed|navigator|BYOP|Bring Your Own Platform| \u2014 | \u2013 /);
+ assert.match(readFileSync(new URL("../app/components/HealthSiteFooter.jsx",import.meta.url),"utf8"),/does not provide medical care/);
 });
