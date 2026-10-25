@@ -56,6 +56,10 @@ const nextConfig: NextConfig = {
         source: "/es",
         headers: [{ key: "Content-Language", value: "es-US" }],
       },
+      {
+        source: "/es/:path*",
+        headers: [{ key: "Content-Language", value: "es-US" }],
+      },
       { source: "/(.*)", headers: [
         { key: "Content-Security-Policy", value: contentSecurityPolicy },
         { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains; preload" },
