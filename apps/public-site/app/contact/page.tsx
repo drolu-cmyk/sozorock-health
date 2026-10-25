@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import { ApprovedHealthPage } from "../components/ApprovedHealthPages";
 import { healthMetadata, healthPageSchema } from "../lib/health-metadata";
 export const metadata = healthMetadata(
@@ -16,21 +17,21 @@ export default async function ContactPage({
 }) {
   const params = await searchParams;
   const pick = (value: string | string[] | undefined) => (Array.isArray(value) ? value[0] : (value ?? ""));
-  const legacy: Record<string, string> = {
-    "Media inquiry": "media",
-    "Research partnership": "media",
-    "Support research and publications": "media",
-    "Fund the work": "funders",
-    "BYOP provider partnership": "providers",
-    "Partner with us": "providers",
-    "Workforce partnership": "counties",
-    "CB-CAP inquiry": "counties",
-    "Health Access Day partnership": "counties",
-    "Health Equity Hub partnership": "counties",
-    "Bring the model to a community": "counties",
-    "Institutional or public-sector inquiry": "counties",
-  };
-  const initialInterest = (pick(params.audience) || legacy[pick(params.interest)] || "").slice(0, 40);
+  const legacy = new Map<string, string>([
+    ["Media inquiry", "media"],
+    ["Research partnership", "media"],
+    ["Support research and publications", "media"],
+    ["Fund the work", "funders"],
+    ["BYOP provider partnership", "providers"],
+    ["Partner with us", "counties"],
+    ["Workforce partnership", "counties"],
+    ["CB-CAP inquiry", "counties"],
+    ["Health Access Day partnership", "counties"],
+    ["Health Equity Hub partnership", "counties"],
+    ["Institutional or public-sector inquiry", "counties"],
+  ]);
+  if (pick(params.interest) === "Bring the model to a community") redirect("/interest");
+  const initialInterest = (pick(params.audience) || legacy.get(pick(params.interest)) || "").slice(0, 40);
   const initialLocation = (
     Array.isArray(params.location)
       ? params.location[0]
