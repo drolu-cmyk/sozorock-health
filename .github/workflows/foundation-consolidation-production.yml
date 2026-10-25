@@ -8,7 +8,6 @@ on:
 
 permissions:
   contents: read
-  id-token: write
 
 concurrency:
   group: foundation-consolidation-production
@@ -16,6 +15,8 @@ concurrency:
 
 jobs:
   verify:
+    permissions:
+      contents: read
     if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 35
@@ -41,6 +42,9 @@ jobs:
           npm run audit:production
 
   consolidate:
+    permissions:
+      contents: read
+      id-token: write
     needs: verify
     runs-on: ubuntu-latest
     timeout-minutes: 75

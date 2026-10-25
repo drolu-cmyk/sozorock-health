@@ -7,10 +7,12 @@ on:
 
 permissions:
   contents: read
-  statuses: write
 
 jobs:
   publish:
+    permissions:
+      contents: read
+      statuses: write
     name: Record production Deploy result
     if: >-
       github.event.action == 'completed' &&

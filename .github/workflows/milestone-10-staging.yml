@@ -8,7 +8,6 @@ on:
 
 permissions:
   contents: read
-  id-token: write
 
 concurrency:
   group: milestone-10-explore-staging
@@ -16,6 +15,8 @@ concurrency:
 
 jobs:
   release-gates:
+    permissions:
+      contents: read
     runs-on: ubuntu-latest
     timeout-minutes: 60
     services:
@@ -38,8 +39,8 @@ jobs:
       EVIDENCE_MIGRATION_TEST_DISPOSABLE: "true"
       NATIONAL_SNAPSHOT_DATE: "2026-07-23T00:00:00.000Z"
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: "24"
           cache: npm
@@ -83,7 +84,7 @@ jobs:
           const forbidden = ["build:" + "platform", "CBCAP" + "_APP_ID", "d307" + "qqji18y8il"];
           if (forbidden.some((token) => workflow.includes(token))) process.exit(1);
           NODE
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: milestone-10-release-gates
           path: |
@@ -94,6 +95,9 @@ jobs:
             .playwright-output/explore
 
   isolated-staging:
+    permissions:
+      contents: read
+      id-token: write
     # Relational database provisioning is permanently retired.
     if: ${{ false }}
     needs: release-gates
@@ -109,16 +113,16 @@ jobs:
       RELEASE_SHA: ${{ github.sha }}
       HEALTH_SYSTEM_COPY_ACCEPTANCE: "true"
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           ref: ${{ github.sha }}
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: "24"
           cache: npm
       - run: npm ci --omit=optional
       - run: npx playwright install --with-deps chromium
-      - uses: aws-actions/configure-aws-credentials@7474bc4690e29a8392af63c5b98e7449536d5c3a # v4
+      - uses: aws-actions/configure-aws-credentials@7474bc4690e29a8392af63c5b98e7449536d5c3a # v4.3.1
         with:
           mask-aws-account-id: true
           role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
@@ -406,7 +410,7 @@ jobs:
             compare "$STAGING_EXPLORE_URL" output/non-explore-regression
       - name: Upload staging acceptance evidence
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: milestone-10-isolated-staging
           path: |

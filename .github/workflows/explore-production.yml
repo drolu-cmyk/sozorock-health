@@ -10,7 +10,6 @@ on:
 
 permissions:
   contents: read
-  id-token: write
 
 concurrency:
   group: sozorock-explore-production
@@ -18,6 +17,8 @@ concurrency:
 
 jobs:
   release-gates:
+    permissions:
+      contents: read
     runs-on: ubuntu-latest
     timeout-minutes: 50
     services:
@@ -46,7 +47,7 @@ jobs:
         run: |
           set -euo pipefail
           [[ "$RELEASE_SHA" =~ ^[0-9a-f]{40}$ ]]
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           ref: ${{ inputs.release_sha }}
       - name: Verify exact release commit and main ancestry
@@ -57,7 +58,7 @@ jobs:
           test "$(git rev-parse HEAD)" = "$RELEASE_SHA"
           git fetch --no-tags origin main
           test "$(git rev-parse origin/main)" = "$RELEASE_SHA"
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: "24"
           cache: npm
@@ -107,7 +108,7 @@ jobs:
             process.exit(1);
           }
           NODE
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: explore-production-gates
           path: |
@@ -118,6 +119,9 @@ jobs:
             output/security/public-runtime-security.json
 
   deploy-explore:
+    permissions:
+      contents: read
+      id-token: write
     # Relational database provisioning is permanently retired.
     if: ${{ false }}
     needs: release-gates
@@ -131,17 +135,17 @@ jobs:
       PUBLIC_SITE_URL: ${{ vars.PUBLIC_SITE_URL || 'https://health.sozorockfoundation.org' }}
       OPENAI_PLACE_EVIDENCE_SECRET_ARN: ${{ secrets.OPENAI_PLACE_EVIDENCE_SECRET_ARN }}
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           ref: ${{ inputs.release_sha }}
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: "24"
           cache: npm
       - run: npm ci --omit=optional
       - name: Install browser for release regression
         run: npx playwright install --with-deps chromium
-      - uses: aws-actions/configure-aws-credentials@7474bc4690e29a8392af63c5b98e7449536d5c3a # v4
+      - uses: aws-actions/configure-aws-credentials@7474bc4690e29a8392af63c5b98e7449536d5c3a # v4.3.1
         with:
           mask-aws-account-id: true
           role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
@@ -569,7 +573,7 @@ jobs:
           fi
       - name: Upload non-Explore regression evidence
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: non-explore-production-regression
           path: output/non-explore-regression
@@ -643,7 +647,7 @@ jobs:
           done
       - name: Upload production acceptance evidence
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: explore-production-acceptance
           path: |

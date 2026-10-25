@@ -8,7 +8,6 @@ on:
 
 permissions:
   contents: read
-  statuses: write
 
 concurrency:
   group: evidence-gateway-production-proof
@@ -16,6 +15,9 @@ concurrency:
 
 jobs:
   record-governed-release-failure:
+    permissions:
+      contents: read
+      statuses: write
     name: Record failed governed Evidence production release
     if: >-
       github.event_name == 'workflow_run' &&
@@ -62,6 +64,9 @@ jobs:
           done
 
   record-governed-release-success:
+    permissions:
+      contents: read
+      statuses: write
     name: Record governed Evidence production activation
     if: >-
       github.event_name == 'workflow_run' &&
@@ -102,6 +107,9 @@ jobs:
             "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/statuses/$TARGET_SHA" >/dev/null
 
   prove:
+    permissions:
+      contents: read
+      statuses: write
     name: Prove published five-county gateway
     if: >-
       (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') ||

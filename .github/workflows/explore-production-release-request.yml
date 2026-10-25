@@ -8,8 +8,6 @@ on:
 
 permissions:
   contents: read
-  actions: write
-  statuses: write
 
 concurrency:
   group: queue-explore-production-release
@@ -17,6 +15,10 @@ concurrency:
 
 jobs:
   dispatch:
+    permissions:
+      contents: read
+      actions: write
+      statuses: write
     name: Retire superseded queued releases, dispatch, and verify exact production run
     runs-on: ubuntu-latest
     timeout-minutes: 10

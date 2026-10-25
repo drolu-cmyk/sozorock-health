@@ -8,8 +8,6 @@ on:
 
 permissions:
   contents: read
-  id-token: write
-  statuses: write
 
 concurrency:
   group: cbcap-agentic-bootstrap-production
@@ -17,6 +15,8 @@ concurrency:
 
 jobs:
   announce:
+    permissions:
+      statuses: write
     name: Record bootstrap request
     runs-on: ubuntu-latest
     timeout-minutes: 2
@@ -45,6 +45,9 @@ jobs:
             --data "$payload" >/dev/null
 
   bootstrap:
+    permissions:
+      contents: read
+      id-token: write
     name: Apply production OIDC bootstrap
     needs: announce
     runs-on: ubuntu-latest
@@ -116,6 +119,8 @@ jobs:
           ' <<<"$trust" >/dev/null
 
   finalize:
+    permissions:
+      statuses: write
     name: Record terminal bootstrap state
     if: always()
     needs: [announce, bootstrap]

@@ -10,8 +10,6 @@ on:
 
 permissions:
   contents: read
-  actions: write
-  statuses: write
 
 concurrency:
   group: evidence-gateway-production-activation-${{ inputs.release_sha }}
@@ -19,6 +17,10 @@ concurrency:
 
 jobs:
   activate:
+    permissions:
+      contents: read
+      actions: write
+      statuses: write
     name: Dispatch governed Evidence production
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
