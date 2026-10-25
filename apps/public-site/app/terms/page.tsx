@@ -5,7 +5,7 @@ import { LegalPage } from "../components/LegalPage";
 import { createLegalMetadata } from "../lib/legal-metadata";
 
 export const metadata = createLegalMetadata({
-  title: "Terms of use",
+  title: "Terms of Use",
   description:
     "Terms governing the public use of SozoRock Health digital experiences.",
   path: "/terms",
@@ -14,8 +14,8 @@ export const metadata = createLegalMetadata({
 export default function TermsPage() {
   return (
     <LegalPage
-      eyebrow="Public policy"
-      title="Terms of use"
+     
+      title="Terms of Use"
       updated="September 7, 2026"
     >
       <h2>About these terms</h2>

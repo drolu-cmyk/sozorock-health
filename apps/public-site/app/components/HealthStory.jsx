@@ -19,22 +19,22 @@ const COPY = {
       { word: "Too far", pct: 28, line: "of rural adults have no broadband at home", source: "Pew Research Center, 2026" },
       { word: "Too hard", pct: 88, line: "of adults lack proficient health literacy", source: "U.S. Department of Health and Human Services" },
     ],
-    few: { word: "Too few", title: "Too few providers. Too long to wait.", covers: "Provider shortages, wait times, a shrinking health workforce and an aging population.", answer: "We give counties clear local data to plan for the care their residents need.", links: [["Place Intelligence", "/explore"], ["CB-CAP county planning", "https://cbcap.sozorockfoundation.org/"]] },
-    far: { word: "Too far", title: "Too far, too costly, too disconnected.", covers: "Distance, transportation, no device or internet, no private place and cost.", answer: "Health Equity Hubs bring a private place, a device and secure Wi‑Fi close to home. When cost stands in the way, we sponsor a year of primary care.", links: [["Health Equity Hubs", "/work#hubs"], ["Primary Care Access Program", "/primary-care-access"]] },
+    few: { word: "Too few", title: "Providers are short and waits are long.", covers: "Provider shortages, wait times, a shrinking health workforce and an aging population.", answer: "We give counties clear local data to plan for the care their residents need.", links: [["Place Intelligence", "/explore"], ["CB-CAP county planning", "https://cbcap.sozorockfoundation.org/"]] },
+    far: { word: "Too far", title: "Distance, cost and no connection keep care out of reach.", covers: "Distance, transportation, no device or internet, no private place and cost.", answer: "Health Equity Hubs bring a private place, a device and secure Wi‑Fi close to home. When cost stands in the way, we sponsor a year of primary care.", links: [["Health Equity Hubs", "/work#hubs"], ["Primary Care Access Program", "/primary-care-access"]] },
     hubs: { ends: ["In a public space", "At home"], items: [["Library", "By appointment"], ["Community", "At scheduled events"], ["Home", "In development"]], caption: "Each visit runs on the provider’s own platform. The visit and the record stay with the provider." },
-    hard: { word: "Too hard", title: "Too hard to understand. Too late to prevent.", covers: "Language, translation, health literacy, prevention not reached and chronic illness found late.", answer: "Health Access Day brings health education, interpretation and screenings by licensed providers to the ZIP Codes where chronic illness runs highest.", links: [["Health Access Day", "/work#health-access-day"]] },
+    hard: { word: "Too hard", title: "Language and late diagnosis keep care from working.", covers: "Language, translation, health literacy, prevention not reached and chronic illness found late.", answer: "Health Access Day brings health education, interpretation and screenings by licensed providers to the ZIP Codes where chronic illness runs highest.", links: [["Health Access Day", "/work#health-access-day"]] },
     venn: { label: "Health Access Day sits where high chronic illness, low access and local health priorities overlap", parts: ["High chronic illness", "Low access", "Local health priorities"] },
     youTitle: "What it means for you",
     audiences: [
       { who: "Residents", what: "A way in to care near you, in your language.", cta: "Join the interest list", href: "/interest" },
-      { who: "Providers", what: "Reach the people you are missing.", cta: "Talk with us", href: "/contact" },
-      { who: "Counties", what: "Local data for your community health plan.", cta: "Explore county data", href: "/explore" },
+      { who: "Providers", what: "Reach the people you are missing.", cta: "Tell us about your practice", href: "/contact?audience=providers" },
+      { who: "Counties", what: "Local data for your community health plan.", cta: "Find your county", href: "/explore" },
       { who: "Funders", what: "Measurable access where need is highest.", cta: "Support the work", href: SUPPORT },
     ],
     care: <>SozoRock{R} Health does not provide medical care. All care is delivered by licensed providers.</>,
     researchLabel: "Research",
-    researchTitle: "Three ideas for reaching every ZIP Code.",
-    researchLink: "Explore all research",
+    researchTitle: "Three ideas behind every program.",
+    researchLink: "Read the research",
     ideas: ["Put care where people already go: the library, the community center and the home.", "Counties already hold the data they need to plan health. Connect it.", "Digital health earns trust when it is tested, not assumed."],
     cover: (t) => `${t}, Volume 1 cover`,
     foundation: "Part of The SozoRock Foundation: access, capacity and trust.",
@@ -50,22 +50,22 @@ const COPY = {
       { word: "Muy lejos", pct: 28, line: "de los adultos en zonas rurales no tiene internet de banda ancha en casa", source: "Pew Research Center, 2026" },
       { word: "Muy difícil", pct: 88, line: "de los adultos no tiene un nivel competente de alfabetización en salud", source: "Departamento de Salud y Servicios Humanos de EE. UU." },
     ],
-    few: { word: "Muy escasa", title: "Muy pocos proveedores. Esperas muy largas.", covers: "Escasez de proveedores, tiempos de espera, menos personal de salud y una población que envejece.", answer: "Damos a los condados datos locales claros para planificar la atención que necesitan sus residentes.", links: [["Place Intelligence", "/explore"], ["Planificación de condados CB-CAP", "https://cbcap.sozorockfoundation.org/"]] },
-    far: { word: "Muy lejos", title: "Muy lejos, muy costosa, sin conexión.", covers: "Distancia, transporte, falta de un dispositivo o de internet, falta de un lugar privado y costo.", answer: "Los Health Equity Hubs ofrecen un lugar privado, un dispositivo y wifi seguro cerca de casa. Cuando el costo es un obstáculo, patrocinamos un año de atención primaria.", links: [["Health Equity Hubs", "/work#hubs"], ["Programa de Acceso a la Atención Primaria", "/primary-care-access"]] },
+    few: { word: "Muy escasa", title: "Faltan proveedores y las esperas son largas.", covers: "Escasez de proveedores, tiempos de espera, menos personal de salud y una población que envejece.", answer: "Damos a los condados datos locales claros para planificar la atención que necesitan sus residentes.", links: [["Place Intelligence", "/explore"], ["Planificación de condados CB-CAP", "https://cbcap.sozorockfoundation.org/"]] },
+    far: { word: "Muy lejos", title: "La distancia, el costo y la falta de conexión alejan la atención.", covers: "Distancia, transporte, falta de un dispositivo o de internet, falta de un lugar privado y costo.", answer: "Los Health Equity Hubs ofrecen un lugar privado, un dispositivo y wifi seguro cerca de casa. Cuando el costo es un obstáculo, patrocinamos un año de atención primaria.", links: [["Health Equity Hubs", "/work#hubs"], ["Programa de Acceso a la Atención Primaria", "/primary-care-access"]] },
     hubs: { ends: ["En un espacio público", "En casa"], items: [["Biblioteca", "Con cita previa"], ["Comunidad", "En eventos programados"], ["Hogar", "En desarrollo"]], caption: "Cada consulta se realiza en la plataforma del propio proveedor. La consulta y el expediente quedan con el proveedor." },
-    hard: { word: "Muy difícil", title: "Muy difícil de entender. Muy tarde para prevenir.", covers: "Idioma, traducción, alfabetización en salud, prevención que no llega y enfermedades crónicas detectadas tarde.", answer: "Health Access Day lleva educación en salud, interpretación y pruebas de detección a cargo de proveedores con licencia a los códigos postales con más enfermedades crónicas.", links: [["Health Access Day", "/work#health-access-day"]] },
+    hard: { word: "Muy difícil", title: "El idioma y los diagnósticos tardíos impiden que la atención funcione.", covers: "Idioma, traducción, alfabetización en salud, prevención que no llega y enfermedades crónicas detectadas tarde.", answer: "Health Access Day lleva educación en salud, interpretación y pruebas de detección a cargo de proveedores con licencia a los códigos postales con más enfermedades crónicas.", links: [["Health Access Day", "/work#health-access-day"]] },
     venn: { label: "Health Access Day se ubica donde coinciden muchas enfermedades crónicas, poco acceso y las prioridades locales de salud", parts: ["Muchas enfermedades crónicas", "Poco acceso", "Prioridades locales de salud"] },
     youTitle: "Lo que significa para usted",
     audiences: [
       { who: "Residentes", what: "Una forma de acceder a la atención cerca de usted, en su idioma.", cta: "Únase a la lista de interés", href: "/interest" },
-      { who: "Proveedores", what: "Llegue a las personas que hoy no alcanza.", cta: "Hable con nosotros", href: "/contact" },
-      { who: "Condados", what: "Datos locales para su plan de salud comunitaria.", cta: "Explore los datos del condado", href: "/explore" },
+      { who: "Proveedores", what: "Llegue a las personas que hoy no alcanza.", cta: "Cuéntenos sobre su práctica", href: "/contact?audience=providers" },
+      { who: "Condados", what: "Datos locales para su plan de salud comunitaria.", cta: "Busque su condado", href: "/explore" },
       { who: "Financiadores", what: "Acceso medible donde la necesidad es mayor.", cta: "Apoye este trabajo", href: SUPPORT },
     ],
     care: <>SozoRock{R} Health no presta atención médica. Toda la atención la brindan proveedores con licencia.</>,
     researchLabel: "Investigación",
-    researchTitle: "Tres ideas para llegar a cada código postal.",
-    researchLink: "Explore toda la investigación (en inglés)",
+    researchTitle: "Tres ideas detrás de cada programa.",
+    researchLink: "Lea la investigación (en inglés)",
     ideas: ["Llevar la atención a donde la gente ya va: la biblioteca, el centro comunitario y el hogar.", "Los condados ya tienen los datos que necesitan para planificar la salud. Falta conectarlos.", "La salud digital se gana la confianza cuando se pone a prueba, no cuando se da por sentada."],
     cover: (t) => `Portada de ${t}, volumen 1`,
     foundation: "Parte de The SozoRock Foundation: acceso, capacidad y confianza.",
@@ -136,7 +136,6 @@ export function HealthStory({ spanish = false }) {
       <ul>
         {t.audiences.map((a) => <li key={a.who}><p className="hx-who">{a.who}</p><p className="hx-what">{a.what}</p><a href={a.href}>{a.cta}</a></li>)}
       </ul>
-      <p className="hx-care">{t.care}</p>
     </section>
 
     <section className="hx-research hx-wrap" aria-labelledby="hx-research-title">
@@ -150,9 +149,5 @@ export function HealthStory({ spanish = false }) {
       </ul>
     </section>
 
-    <section className="hx-foundation hx-wrap hx-ice" aria-label="The SozoRock Foundation">
-      <p>{t.foundation}</p>
-      <a className="hx-text" href="https://www.sozorockfoundation.org/">{t.foundationLink}</a>
-    </section>
   </div>;
 }

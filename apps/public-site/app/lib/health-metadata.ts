@@ -5,6 +5,12 @@ export const healthOrigin = "https://health.sozorockfoundation.org";
 export const foundationEntity =
   "https://www.sozorockfoundation.org/#organization";
 export const healthSocialImage = {
+  url: "/social/sozorock-health-2026.png",
+  width: 1200,
+  height: 630,
+  alt: "SozoRock Health. Care is too few, too far and too hard to reach. We help change all three.",
+};
+export const programSocialImage = {
   url: "/social/primary-care-access-2027.png",
   width: 1200,
   height: 630,
@@ -21,14 +27,14 @@ export function healthMetadata(
   title: string,
   description: string,
   path: string,
-  options: { noindex?: boolean; spanish?: boolean } = {},
+  options: { noindex?: boolean; spanish?: boolean; image?: typeof healthSocialImage } = {},
 ): Metadata {
   const fullTitle = `${title} | SozoRock Health`;
   return {
     title: { absolute: fullTitle },
     description,
     keywords: path === "/" || path === "/interest"
-      ? ["SozoRock Health", "Primary Care Access Program", "New York primary care access", "sponsored direct primary care", "health access support"]
+      ? ["SozoRock Health", "primary care access", "health equity", "rural health access", "Primary Care Access Program", "Health Access Day"]
       : ["SozoRock Health", title, "health equity", "community health access"],
     alternates: languageAlternates(path),
     robots: { index: !options.noindex, follow: true },
@@ -39,13 +45,13 @@ export function healthMetadata(
       siteName: "SozoRock Health",
       type: "website",
       locale: options.spanish ? "es_US" : "en_US",
-      images: [healthSocialImage],
+      images: [options.image ?? healthSocialImage],
     },
     twitter: {
       card: "summary_large_image",
       title: fullTitle,
       description,
-      images: [healthSocialImage.url],
+      images: [(options.image ?? healthSocialImage).url],
     },
   };
 }

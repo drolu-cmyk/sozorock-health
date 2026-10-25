@@ -11,7 +11,6 @@ import { notFound } from "next/navigation";
 import { PublicationEvent } from "../../components/PublicationEvent";
 import { HealthShell } from "../../components/HealthShell";
 import { getPublication, publications } from "../../lib/publications";
-import styles from "../publications.module.css";
 
 export function generateStaticParams() {
   return publications.map(({ slug }) => ({ slug }));
@@ -25,7 +24,7 @@ export async function generateMetadata({
   const publication = getPublication((await params).slug);
   if (!publication) return {};
   const path = `/publications/${publication.slug}`;
-  const base = healthMetadata(publication.title, publication.description, path);
+  const base = healthMetadata(`${publication.plainTitle}, Volume 1`, `${publication.takeaway} ${publication.listFinding} By Dr. Oluwabiyi Adeyemo.`, path);
   const code = publication.slug.startsWith("rural")
     ? "rebs"
     : publication.slug.startsWith("rethinking")
@@ -84,126 +83,74 @@ export default async function PublicationPage({
   };
   return (
     <HealthShell>
-      <div className={styles.page}>
-        <PublicationEvent event="publication_viewed" slug={publication.slug} />
-        <main id="health-main" className={styles.main}>
-          <article className={styles.detail}>
-            <div className={styles.cover}>
-              {publication.cover ? (
-                <Image
-                  src={publication.previewCover ?? publication.cover}
-                  alt={`${publication.title} cover`}
-                  width={publication.coverWidth ?? 2550}
-                  height={publication.coverHeight ?? 3300}
-                  quality={95}
-                  sizes="(max-width: 700px) 78vw, 360px"
-                  priority
-                />
-              ) : (
-                <div className={styles.placeholder}>
-                  <span>Publication series</span>
-                  <strong>Health Systems Assurance</strong>
-                </div>
-              )}
-            </div>
+      <PublicationEvent event="publication_viewed" slug={publication.slug} />
+      <main id="health-main" className="hx">
+        <section className="hx-report-hero hx-wrap" aria-labelledby="hx-title">
+          <div>
+            <p className="hx-label">Research · {publication.published} · Volume 1</p>
+            <h1 id="hx-title">{publication.plainTitle}</h1>
+            <p className="hx-promise">{publication.takeaway}</p>
+            <p className="hx-report-byline">
+              {publication.author ?? "Dr. Oluwabiyi Adeyemo"} · The SozoRock Foundation
+              {publication.doi ? <> · DOI <a href={`https://doi.org/${publication.doi}`}>{publication.doi}</a></> : null}
+              {publication.isbn ? <> · ISBN {publication.isbn}</> : null}
+            </p>
+            {publication.assetKey ? <p className="hx-links hx-cta-row"><Link className="hx-pill" href={`/publications/${publication.slug}/access`}>Read the full report</Link></p> : null}
+          </div>
+          {publication.cover ? (
+            <Image
+              src={publication.previewCover ?? publication.cover}
+              alt={`${publication.plainTitle} cover`}
+              width={publication.previewWidth}
+              height={publication.previewHeight}
+              sizes="(max-width: 900px) 70vw, 380px"
+              priority
+            />
+          ) : null}
+        </section>
+
+        <section className="hx-findings hx-wrap hx-ice" aria-labelledby="hx-found-title">
+          <h2 id="hx-found-title" className="hx-label">What the report found</h2>
+          <ul>
+            {publication.findings.map((finding) => (
+              <li key={finding.value}>
+                <strong className={finding.value.length > 8 ? "is-word" : undefined}>{finding.value}</strong>
+                <p>{finding.text}</p>
+              </li>
+            ))}
+          </ul>
+          <p className="hx-src">{publication.findingsSource}</p>
+        </section>
+
+        <section className="hx-ideas hx-wrap" aria-labelledby="hx-ideas-title">
+          <div>
+            <p className="hx-label">What it means</p>
+            <h2 id="hx-ideas-title">{publication.ideasTitle}</h2>
+          </div>
+          <ol>
+            {publication.ideas.map((idea) => <li key={idea}>{idea}</li>)}
+          </ol>
+        </section>
+
+        {publication.assetKey ? (
+          <section className="hx-access hx-wrap" aria-labelledby="hx-access-title">
             <div>
-              <p className={styles.status}>{publication.status}</p>
-              <h1>{publication.title}</h1>
-              <p className={styles.description}>{publication.description}</p>
-              <p className={styles.relevance}>{publication.relevance}</p>
-              {publication.limitations && <p className={styles.note}><strong>Scope and limitations. </strong>{publication.limitations}</p>}
-              {publication.published || publication.isbn || publication.doi ? (
-                <dl className={styles.facts}>
-                  {publication.author ? (
-                    <div>
-                      <dt>Author</dt>
-                      <dd>{publication.author}</dd>
-                    </div>
-                  ) : null}
-                  {publication.publisher ? (
-                    <div>
-                      <dt>Publisher</dt>
-                      <dd>{publication.publisher}</dd>
-                    </div>
-                  ) : null}
-                  {publication.published ? (
-                    <div>
-                      <dt>Published</dt>
-                      <dd>{publication.published}</dd>
-                    </div>
-                  ) : null}
-                  {publication.edition ? (
-                    <div>
-                      <dt>Edition</dt>
-                      <dd>{publication.edition}</dd>
-                    </div>
-                  ) : null}
-                  {publication.doi ? (
-                    <div>
-                      <dt>DOI</dt>
-                      <dd>
-                        <a href={`https://doi.org/${publication.doi}`}>
-                          {publication.doi}
-                        </a>
-                      </dd>
-                    </div>
-                  ) : null}
-                  {publication.isbn ? (
-                    <div>
-                      <dt>ISBN</dt>
-                      <dd>{publication.isbn}</dd>
-                    </div>
-                  ) : null}
-                  {publication.evidenceCutoff ? (
-                    <div>
-                      <dt>Evidence cutoff</dt>
-                      <dd>{publication.evidenceCutoff}</dd>
-                    </div>
-                  ) : null}
-                </dl>
-              ) : null}
-              <ul className={styles.tags} aria-label="Subjects">
-                {publication.tags.map((tag) => (
-                  <li key={tag}>{tag}</li>
-                ))}
-              </ul>
-              {publication.assetKey ? (
-                <>
-                  <Link
-                    className={styles.primary}
-                    href={`/publications/${publication.slug}/access`}
-                  >
-                    Access publication
-                  </Link>
-                  <p className={styles.note}>
-                    Public-interest access is free. Complete the short access
-                    form and confirm your email address to receive a secure,
-                    time-limited download. Publication updates are optional.
-                  </p>
-                </>
-              ) : (
-                <>
-                  <a
-                    className={styles.primary}
-                    href="mailto:contact@sozorockfoundation.org?subject=Health%20Systems%20Assurance%20publication%20updates"
-                  >
-                    Ask about the series
-                  </a>
-                  <p className={styles.note}>
-                    This series is in development. No release date has been
-                    announced.
-                  </p>
-                </>
-              )}
+              <h2 id="hx-access-title">Read the full report, free.</h2>
+              <p>Enter your email and we will send a secure link. Updates are optional.</p>
             </div>
-          </article>
-          <p className={styles.note}>For reuse, check the notice in the publication. Send permissions questions or corrections, with the relevant page and source, to <a href="mailto:contact@sozorockfoundation.org">contact@sozorockfoundation.org</a>.</p>
-        </main>
+            <Link className="hx-pill hx-pill-light" href={`/publications/${publication.slug}/access`}>Request the full report</Link>
+          </section>
+        ) : null}
+
+        <p className="hx-wrap hx-fine-print">
+          {publication.limitations ? <>{publication.limitations} </> : null}
+          For reuse, permissions or corrections, write to <a href="mailto:contact@sozorockfoundation.org">contact@sozorockfoundation.org</a>.
+        </p>
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }}
         />
-      </div>
+      </main>
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{

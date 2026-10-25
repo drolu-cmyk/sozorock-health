@@ -7,10 +7,10 @@ import { ExploreClient } from "./ExploreClient";
 import { readExploreState } from "../lib/explore-view-state";
 import { foundationEntity, healthMetadata, healthOrigin } from "../lib/health-metadata";
 const description = "Explore published county health conditions, access barriers and preventive-care estimates. Compare counties and inspect sources, years and uncertainty.";
-const social = { url: "/social/place-intelligence-2026.png", width: 1200, height: 630, alt: "SozoRock Place Intelligence — County evidence, in context." };
+const social = { url: "/social/place-intelligence-2026.png", width: 1200, height: 630, alt: "SozoRock Health data and maps: health data for every county." };
 export async function generateMetadata({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }): Promise<Metadata> {
   const query = await searchParams;
-  const metadata = healthMetadata("SozoRock Place Intelligence", description, "/explore", { noindex: Object.keys(query).length > 0 });
+  const metadata = healthMetadata("Health Data for Every County", description, "/explore", { noindex: Object.keys(query).length > 0 });
   return { ...metadata, openGraph: { ...metadata.openGraph, images: [social] }, twitter: { ...metadata.twitter, images: [social.url] } };
 }
 const schema = {

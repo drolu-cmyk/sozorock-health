@@ -5,7 +5,7 @@ import { LegalPage } from "../components/LegalPage";
 import { createLegalMetadata } from "../lib/legal-metadata";
 
 export const metadata = createLegalMetadata({
-  title: "Privacy notice",
+  title: "Privacy Notice",
   description:
     "How SozoRock Health handles information across its public website and non-clinical readiness experiences.",
   path: "/privacy",
@@ -14,7 +14,7 @@ export const metadata = createLegalMetadata({
 export default function PrivacyPage() {
   return (
     <LegalPage
-      title="Privacy notice"
+      title="Privacy Notice"
       updated="October 20, 2026"
     >
       <h2>Information and choice</h2>
