@@ -1,5 +1,3 @@
-export const dynamic = "force-static";
-export const revalidate = 3600;
 
 import { LegalPage } from "../../components/LegalPage";
 import { healthMetadata } from "../../lib/health-metadata";
