@@ -2,7 +2,7 @@ import { ApprovedHealthPage } from "../components/ApprovedHealthPages";
 import { healthMetadata, healthPageSchema } from "../lib/health-metadata";
 export const metadata = healthMetadata(
   "Contact",
-  "Contact SozoRock Health with questions about primary care access, proposed Health Equity Hubs, county evidence or getting involved.",
+  "Contact SozoRock Health about primary care access, Health Equity Hubs, Health Access Day, county health data or working with us.",
   "/contact",
 );
 export default async function ContactPage({

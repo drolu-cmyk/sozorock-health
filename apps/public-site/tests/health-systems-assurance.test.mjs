@@ -61,6 +61,6 @@ test("the publication pages no longer present Health Systems Assurance as forthc
   assert.match(publicationPage, /datePublished: publication\.datePublished/);
   assert.match(publicationPage, /isbn: publication\.isbn/);
   assert.doesNotMatch(spanishPage, /En desarrollo/);
-  assert.match(spanishPage, /HealthHome spanish/);
+  assert.match(spanishPage, /HealthStory spanish/);
   assert.doesNotMatch(publicationPage, /<span>In development<\/span>/);
 });

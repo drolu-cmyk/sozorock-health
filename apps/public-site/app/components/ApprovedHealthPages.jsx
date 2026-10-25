@@ -1,6 +1,7 @@
 import { PrimaryCareAccessPage } from "./PrimaryCareAccessPage";
 import { HealthStory } from "./HealthStory";
-import { HealthEvidenceMethods } from "./HealthEvidenceMethods";
+import { DataPage } from "./DataPage";
+import { WorkPage } from "./WorkPage";
 import { ProgramInterestForm } from "./ProgramInterestForm";
 import { ContactForm } from "./ContactForm";
 import { HealthHeader } from "./HealthHeader";
@@ -8,187 +9,8 @@ import { HealthSiteFooter } from "./HealthSiteFooter";
 function Content({pathname,initialInterest,initialLocation}){switch(pathname){
 case "/": return <HealthStory />;
 case "/primary-care-access": return <PrimaryCareAccessPage />;
-case "/work": return <>
-<section className="hero blue"><div className="shell"><h1>{"The Health Equity Initiative"}</h1>
-<p>{"A private place, a device and secure Wi‑Fi close to home, so people can reach the licensed providers who already serve them."}</p>
-<a className="action" href="/contact">{"Work with us"}</a>
-</div>
-</section>
-<section className="section" id="hubs"><div className="shell"><div className="hubset"><article><h3>{"Library Health Equity Hub"}</h3>
-<p>{"By appointment. A private room, a device and secure Wi‑Fi in a public library."}</p>
-<details><summary>{"Details"}</summary>
-<p>{"Residents reserve a time when space is available, then join a visit on their own provider’s platform. Libraries make space available; they do not take part in care."}</p>
-</details>
-</article>
-<article><h3>{"Community Health Equity Hub"}</h3>
-<p>{"At scheduled events. The same private setup, brought to community spaces."}</p>
-<details><summary>{"Details"}</summary>
-<p>{"Held in community spaces based on availability and reservation, with health education in plain language."}</p>
-</details>
-</article>
-<article><h3>{"Home Health Equity Hub"}</h3>
-<p>{"In development. Support to use a provider’s platform from home."}</p>
-<details><summary>{"Details"}</summary>
-<p>{"A subscription for people who need help with a device or connection at home. It is not a home-care or clinical service."}</p>
-</details>
-</article>
-</div>
-<p className="modelnote">{"Spaces are used based on availability and reservation. The visit and the record stay with the provider. SozoRock Health does not provide medical care. All care is delivered by licensed providers."}</p>
-</div>
-</section>
-<section className="section soft"><div className="shell focusgrid"><article id="health-access-day"><h2>{"Health Access Day"}</h2>
-<p>{"Health education, interpretation and screenings by licensed providers, held in the ZIP Codes where chronic illness runs highest and aligned with local health priorities."}</p>
-</article>
-<article><h2>{"For providers"}</h2>
-<p>{"Residents use your platform, so clinical systems, records, consent and medical decisions stay with you. We help people reach you."}</p>
-</article>
-</div>
-</section>
-<section className="section"><div className="shell"><div className="split"><h2>{"County health data"}</h2>
-<div><p>{"Place Intelligence is public county data on health, community and workforce conditions. CB-CAP is a county planning workspace that links that evidence to access planning."}</p>
-</div>
-</div>
-<div style={{"marginTop": "35px"}}><div className="datahead"><h3>{"Albany County, New York"}</h3>
-<span>{"County FIPS 36001 · 2023 estimates · 2025 release"}</span>
-</div>
-<div className="datastrip"><div><strong>{"5.5%"}</strong>
-<span>{"Adults aged 18–64 without health insurance"}</span>
-<small>{"95% confidence interval: 4.2–7.0%"}</small>
-</div>
-<div><strong>{"7.2%"}</strong>
-<span>{"Lack of reliable transportation"}</span>
-<small>{"95% confidence interval: 6.1–8.5%"}</small>
-</div>
-<div><strong>{"12.2%"}</strong>
-<span>{"Food insecurity"}</span>
-<small>{"95% confidence interval: 9.9–15.0%"}</small>
-</div>
-</div>
-<p className="sources">{"Source: CDC PLACES, 2025 release. Model-based crude prevalence estimates for 2023. Insurance covers adults aged 18–64; other measures cover adults aged 18 or older. County estimates describe community conditions, not SozoRock results or an individual’s needs."} <a href="https://data.cdc.gov/d/i46a-9kgh">CDC dataset</a>{" · "}<a href="/sources/albany-places-2025.json">Albany source data</a></p>
-<a className="textlink" href="/evidence">{"Explore"}</a>
-</div>
-</div>
-</section>
-<section className="section soft"><div className="shell split"><h2>{"Primary Care Access Program"}</h2>
-<div><p>{"Beginning January 2027, the Foundation will sponsor 12 months of primary care support for up to 25 New Yorkers, one per household. Participants are 64 or younger, have financial need and live with a chronic condition such as diabetes or high blood pressure, in any of New York's 62 counties."}</p>
-<p>{"Each participant receives a sponsored direct primary care membership with Dr. Michael Purcell and Purcell Integrative Osteopathic Care, a direct primary care practice in Clifton Park, plus ongoing telehealth, help with transportation and health access education."}</p>
-<p>{"Starting with up to 25 keeps the first cohort small enough to show where the pathway works, where it fails and what should change before expansion."}</p>
-<p className="fine">{"Part of the SozoRock Health Equity Initiative. Clinical care remains with the licensed provider. Membership is not health insurance."}</p>
-<div className="hs-actions"><a className="action" href="/interest">{"Join the interest list"}</a><a className="action" href="https://www.sozorockfoundation.org/support">{"Sponsor a participant"}</a></div>
-<p className="fine">{"$4,320 supports one New Yorker for a full year."}</p>
-</div></div></section>
-<section className="section"><div className="shell"><p>{"The Fireside and the Working Roundtable: a planned series on rural health transformation, measured locally. Dates, locations and participants will appear when confirmed."}</p><a className="textlink" href="https://www.sozorockfoundation.org/events">{"Roundtables and briefings"}</a></div></section>
-<section className="section soft"><div className="shell"><h2>{"Digital readiness and workforce development."}</h2>
-<div className="rows"><article><h3>{"Devices, connectivity and skills"}</h3>
-<div><p>{"Practical preparation to use available services. Voice, text and touch options need consent, accessible alternatives and clear handling of personal information."}</p>
-</div>
-</article>
-<article><h3>{"Local workforce"}</h3>
-<div><p>{"Collaborate with educators, employers and community institutions on the skills and capacity a place needs. Training, credentials and licensure stay with the responsible institutions."}</p>
-</div>
-</article>
-<article><h3>{"Research and applied learning"}</h3>
-<div><p>{"Connect health-access planning with REBS, RRG and HSA research, the SozoRock AI Lab and recurring graduate cybersecurity projects."}</p>
-</div>
-</article>
-</div>
-<a className="textlink" href="https://www.sozorockfoundation.org/partner">{"Partner"}</a>
-</div>
-</section>
-</>;
-case "/evidence": return <>
-<section className="hero blue"><div className="shell"><h1>{"Local data for health-access decisions."}</h1>
-<p>{"Explore health, community and workforce evidence. Use local knowledge to decide what comes next."}</p>
-</div>
-</section>
-<HealthEvidenceMethods />
-<section className="section"><div className="shell focusgrid"><article><h2>{"Place Intelligence"}</h2>
-<p>{"Place Intelligence is public county data on health, community and workforce conditions. Search by county, city or ZIP Code. Review health measures, community conditions and workforce information alongside definitions, sources and dates."}</p>
-<p className="fine">{"City and ZIP searches resolve to county evidence; overlapping boundaries require a geography choice."}</p>
-<a className="textlink" href="/explore" target="_blank" rel="noopener">{"Explore"}</a>
-</article>
-<article><h2>{"CB-CAP"}</h2>
-<p>{"CB-CAP is a county planning workspace that links that evidence to access planning. The County-Based Community Access Platform includes proposed institutional workflows for community health assessments, improvement plans, funding and workforce."}</p>
-<p className="fine">{"Public preview open. Institutional workflows require activation and are not currently available."}</p>
-<a className="textlink" href="https://cbcap.sozorockfoundation.org/" target="_blank" rel="noopener">{"Explore"}</a>
-</article>
-</div>
-</section>
-<section className="section soft"><div className="shell"><h2>{"See what the data includes."}</h2>
-<div className="datahead"><h3>{"Albany County, New York"}</h3>
-<span>{"County FIPS 36001 · 2023 estimates · 2025 release"}</span>
-</div>
-<div className="datastrip"><div><strong>{"5.5%"}</strong>
-<span>{"Adults aged 18–64 without health insurance"}</span>
-<small>{"95% confidence interval: 4.2–7.0%"}</small>
-</div>
-<div><strong>{"7.2%"}</strong>
-<span>{"Lack of reliable transportation"}</span>
-<small>{"95% confidence interval: 6.1–8.5%"}</small>
-</div>
-<div><strong>{"12.2%"}</strong>
-<span>{"Food insecurity"}</span>
-<small>{"95% confidence interval: 9.9–15.0%"}</small>
-</div>
-</div>
-<p className="sources">{"Source: CDC PLACES, 2025 release. Model-based crude prevalence estimates for 2023. Insurance covers adults aged 18–64; other measures cover adults aged 18 or older. County estimates describe community conditions, not SozoRock results or an individual’s needs."} <a href="https://data.cdc.gov/d/i46a-9kgh">CDC dataset</a>{" · "}<a href="/sources/albany-places-2025.json">Albany source data</a></p>
-<details className="dataextras"><summary>{"More access indicators"}</summary>
-<table className="evidencetable"><thead><tr><th>{"County measure"}</th>
-<th>{"Estimate"}</th>
-<th>{"95% confidence interval"}</th>
-</tr>
-</thead>
-<tbody><tr><td>{"Housing insecurity"}</td>
-<td>{"10.8%"}</td>
-<td>{"9.0–12.9%"}</td>
-</tr>
-<tr><td>{"Utility shutoff threat"}</td>
-<td>{"6.6%"}</td>
-<td>{"5.5–7.9%"}</td>
-</tr>
-<tr><td>{"Any disability"}</td>
-<td>{"25.9%"}</td>
-<td>{"22.3–29.8%"}</td>
-</tr>
-<tr><td>{"Loneliness"}</td>
-<td>{"36.1%"}</td>
-<td>{"31.9–40.7%"}</td>
-</tr>
-</tbody>
-</table>
-<p className="sources">{"Same county and 2022–2023 period as the example above. Local planning priorities require local evidence and review; the live page has no verified current local plan for this county."}</p>
-</details>
-<a className="textlink" href="/explore?kind=county&geoid=36001&view=brief" target="_blank" rel="noopener">{"Explore"}</a>
-</div>
-</section>
-<section className="section"><div className="shell"><h2>{"Health, community and workforce data"}</h2>
-<div className="rows"><article><h3>{"Health and access"}</h3>
-<div><p>{"Access barriers, chronic conditions and prevention measures. Explore 21 health measures alongside community context."}</p>
-</div>
-</article>
-<article><h3>{"Community conditions"}</h3>
-<div><p>{"Community-Level Health Database and American Community Survey evidence. Retain geography, period, definitions and data availability."}</p>
-</div>
-</article>
-<article><h3>{"Workforce and shortages"}</h3>
-<div><p>{"Health Professional Shortage Areas, Medically Underserved Areas and Populations, and Area Health Resources Files. Review designation dates and source limitations."}</p>
-</div>
-</article>
-<article><h3>{"Maps, comparisons and planning"}</h3>
-<div><p>{"Use Brief, Map, Action and Visuals views to compare counties, inspect sources, share findings and download evidence. Comparisons are contextual and may not be official state or national estimates."}</p>
-</div>
-</article>
-</div>
-<a className="textlink" href="/explore" target="_blank" rel="noopener">{"Explore"}</a>
-</div>
-</section>
-<section className="section soft"><div className="shell split"><h2>{"Health equity research"}</h2>
-<div><p>{"REBS, RRG and HSA examine rural health equity, governance and digital health systems. Read the publication before adapting a proposed model."}</p>
-<a className="textlink" href="https://www.sozorockfoundation.org/publications">{"Read"}</a>
-</div>
-</div>
-</section>
-</>;
+case "/work": return <WorkPage />;
+case "/evidence": return <DataPage />;
 case "/contact": return <>
 <section className="hero blue"><div className="shell"><h1>{"Contact SozoRock Health."}</h1>
 <p>{"Ask a question about SozoRock Health or how to get involved."}</p>
@@ -207,6 +29,6 @@ case "/interest": return <>
 <section className="section formsection"><div className="shell formlayout"><div className="formheading"><h2>{"Your contact information"}</h2><p>{"Provide your contact details to receive information about eligibility and next steps."}</p><p className="fine">{"Children under 13 should not submit this form. A parent or guardian can contact us about next steps without sending the child's personal or health details."}</p><a className="textlink" href="mailto:contact@sozorockfoundation.org">{"contact@sozorockfoundation.org"}</a><p className="fine"><a href="/privacy#program-interest">{"Read the interest list privacy notice"}</a></p></div><ProgramInterestForm /></div></section>
 </>;
 default:return null;}}
-/** @param {{pathname:string,initialInterest?:string,initialLocation?:string,children?:import("react").ReactNode}} props */
-export function ApprovedHealthPage({pathname,initialInterest="",initialLocation="",children=null}){return <div className="approved-site health-system"><a className="hs-skip" href="#health-main">Skip to content</a><HealthHeader /><main id="health-main">{children ?? <Content pathname={pathname} initialInterest={initialInterest} initialLocation={initialLocation}/>}</main><HealthSiteFooter />
+/** @param {{pathname:string,initialInterest?:string,initialLocation?:string,children?:import("react").ReactNode,spanish?:boolean}} props */
+export function ApprovedHealthPage({pathname,initialInterest="",initialLocation="",children=null,spanish=false}){return <div className="approved-site health-system"><a className="hs-skip" href="#health-main">{spanish?"Saltar al contenido":"Skip to content"}</a><HealthHeader spanish={spanish} /><main id="health-main">{children ?? <Content pathname={pathname} initialInterest={initialInterest} initialLocation={initialLocation}/>}</main><HealthSiteFooter spanish={spanish} />
 </div>}

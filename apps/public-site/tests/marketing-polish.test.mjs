@@ -47,7 +47,7 @@ test("future media publication remains fail closed while ordinary page metadata 
   assert.doesNotMatch(layout, /"@type": "VideoObject"/);
   assert.match(spanishPage, /healthMetadata/);
   assert.match(spanishPage, /spanish: true/);
-  assert.match(spanishPage, /HealthHome spanish/);
+  assert.match(spanishPage, /HealthStory spanish/);
   assert.match(publisher, /assertCurrentReleaseApproval/);
   assert.match(publisher, /RELEASE-APPROVAL\.json/);
   assert.match(publisher, /PRODUCTION-METHOD\.json/);
