@@ -2,6 +2,7 @@ export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 import { healthMetadata, healthPageSchema } from "../lib/health-metadata";
+import Image from "next/image";
 import Link from "next/link";
 import { HealthShell } from "../components/HealthShell";
 import { publications } from "../lib/publications";
@@ -41,7 +42,7 @@ export default async function PublicationsPage({
           {publications.map((publication) => (
             <li key={publication.slug}>
               <Link href={`/publications/${publication.slug}`}>
-                <img src={publication.previewCover ?? publication.cover ?? ""} width={publication.previewWidth} height={publication.previewHeight} alt={`${publication.plainTitle} cover`} loading="lazy" decoding="async" />
+                <Image src={publication.previewCover ?? publication.cover ?? ""} width={publication.previewWidth} height={publication.previewHeight} alt={`${publication.plainTitle} cover`} sizes="(max-width: 960px) 360px, 30vw" />
                 <span className="hx-report-meta">{publication.published} · Volume 1</span>
                 <strong>{publication.plainTitle}</strong>
                 <span className="hx-report-finding">{publication.listFinding}</span>
