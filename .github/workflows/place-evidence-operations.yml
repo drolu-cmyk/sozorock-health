@@ -12,10 +12,11 @@ concurrency:
 
 permissions:
   contents: read
-  issues: write
 
 jobs:
   source-health:
+    permissions:
+      contents: read
     name: Check national source health without publishing
     runs-on: ubuntu-latest
     timeout-minutes: 45
@@ -23,12 +24,12 @@ jobs:
       CENSUS_API_KEY: ${{ secrets.CENSUS_API_KEY }}
     steps:
       - name: Check out the reviewed source
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with:
           persist-credentials: false
 
       - name: Use the supported Node.js release
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 24
           cache: npm
@@ -72,25 +73,27 @@ jobs:
             | tee output/place-evidence-operations/release-gates.json
 
       - name: Upload internal review evidence
-        uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4
+        uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
         with:
           name: place-evidence-source-health-${{ github.run_id }}
           path: output/place-evidence-operations
           retention-days: 30
 
   monthly-planning-review:
+    permissions:
+      contents: read
     name: Rebuild the controlled planning review queue
     if: github.event_name == 'workflow_dispatch' || github.event.schedule == '43 8 1 * *'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
       - name: Check out the reviewed source
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with:
           persist-credentials: false
 
       - name: Use the supported Node.js release
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 24
           cache: npm
@@ -105,13 +108,16 @@ jobs:
         run: git diff --exit-code
 
       - name: Upload the internal review queue
-        uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4
+        uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
         with:
           name: planning-review-queue-${{ github.run_id }}
           path: packages/evidence-core/review/milestone-3-pilot-evidence-review.json
           retention-days: 30
 
   monthly-adapter-candidates:
+    permissions:
+      contents: read
+      issues: write
     name: Validate official candidate releases without publishing
     if: github.event_name == 'workflow_dispatch' || github.event.schedule == '43 8 1 * *'
     runs-on: ubuntu-latest
@@ -120,10 +126,10 @@ jobs:
       CENSUS_API_KEY: ${{ secrets.CENSUS_API_KEY }}
       GH_TOKEN: ${{ github.token }}
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with:
           persist-credentials: false
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 24
           cache: npm
@@ -163,7 +169,7 @@ jobs:
             } > output/place-evidence-operations/candidate-review.md
             gh issue create --title "$title" --body-file output/place-evidence-operations/candidate-review.md
           fi
-      - uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4
+      - uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
         with:
           name: source-adapter-candidates-${{ github.run_id }}
           path: output/place-evidence-operations

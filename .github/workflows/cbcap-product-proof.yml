@@ -12,11 +12,13 @@ permissions:
   contents: read
 jobs:
   campaign:
+    permissions:
+      contents: read
     runs-on: ubuntu-latest
     timeout-minutes: 35
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 24
           cache: npm
@@ -31,17 +33,20 @@ jobs:
           npx remotion render src/index.ts CBCAPPlanningFeed out/cbcap-planning/CB-CAP-feed.mp4 --codec=h264 --crf=23 --concurrency=2
           npx remotion still src/index.ts CBCAPPlanningPoster out/cbcap-planning/CB-CAP-poster.png
           cp public/cbcap-planning/poster.jpg out/cbcap-planning/CB-CAP-poster.jpg
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: cbcap-social-campaign
           path: apps/media/out/cbcap-planning
           retention-days: 30
   responsive:
-    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    # Playwright 1.58.2 does not provide Chromium for Ubuntu 26.04 yet.
+    runs-on: ubuntu-24.04
     timeout-minutes: 25
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 24
           cache: npm
@@ -60,7 +65,7 @@ jobs:
           done
           cd tools/product-qa
           npm test
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()
         with:
           name: cbcap-responsive-proof

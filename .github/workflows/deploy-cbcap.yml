@@ -12,10 +12,12 @@ concurrency:
 
 permissions:
   contents: read
-  id-token: write
 
 jobs:
   deploy:
+    permissions:
+      contents: read
+      id-token: write
     if: github.ref == 'refs/heads/main'
     name: Verify, release, and prove the live domain
     runs-on: ubuntu-latest
@@ -37,12 +39,12 @@ jobs:
       EXPECTED_REPOSITORY: https://github.com/drolu-cmyk/sozorock-health
     steps:
       - name: Check out the approved production source
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with:
           ref: ${{ github.sha }}
 
       - name: Use the supported Node.js release
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 24
           cache: npm
@@ -79,7 +81,7 @@ jobs:
           echo "EXPECTED_WAF_ARN=arn:aws:wafv2:us-east-1:${expected_account}:global/webacl/sozorock-health-cbcap-production/15608475-1d6c-4e58-9888-1cce47be8059" >> "$GITHUB_ENV"
 
       - name: Assume the production deployment role
-        uses: aws-actions/configure-aws-credentials@7474bc4690e29a8392af63c5b98e7449536d5c3a # v4
+        uses: aws-actions/configure-aws-credentials@7474bc4690e29a8392af63c5b98e7449536d5c3a # v4.3.1
         with:
           mask-aws-account-id: true
           role-to-assume: ${{ vars.CBCAP_AWS_DEPLOY_ROLE_ARN }}
