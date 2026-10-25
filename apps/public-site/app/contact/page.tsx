@@ -30,7 +30,7 @@ export default async function ContactPage({
     ["Health Equity Hub partnership", "counties"],
     ["Institutional or public-sector inquiry", "counties"],
   ]);
-  if (pick(params.interest) === "Bring the model to a community") redirect("/interest");
+  if (!pick(params.audience) && pick(params.interest) === "Bring the model to a community") redirect("/interest");
   const initialInterest = (pick(params.audience) || legacy.get(pick(params.interest)) || "").slice(0, 40);
   const initialLocation = (
     Array.isArray(params.location)
