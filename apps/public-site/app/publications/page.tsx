@@ -24,7 +24,6 @@ export default async function PublicationsPage({
       <main id="health-main" className="hx">
         <section className="hx-research-hero hx-wrap" aria-labelledby="hx-title">
           <div>
-            <p className="hx-label">Research</p>
             <h1 id="hx-title">What it takes for care to reach every county.</h1>
           </div>
           <p className="hx-answer">Three reports by Dr. Oluwabiyi Adeyemo on rural access, county planning and trustworthy digital health. Free to read.</p>

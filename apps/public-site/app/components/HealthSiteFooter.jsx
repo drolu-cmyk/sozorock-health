@@ -8,7 +8,7 @@ const COPY = {
     tagline: <>Care. For every ZIP Code.<br />An initiative of The SozoRock Foundation, Inc.</>,
     columns: [
       ["Our work", [["Health Equity Hubs", "/work#hubs"], ["Health Access Day", "/work#health-access-day"], ["Primary Care Access Program", "/primary-care-access"], ["Data and maps", "/explore"]]],
-      ["Research", [["All research", "/publications"], ["Rural Equity Blueprint", "/publications/rural-equity-blueprint-volume-1"], ["Rethinking Rural Governance", "/publications/rethinking-rural-governance-volume-1"], ["Health Systems Assurance", "/publications/health-systems-assurance-volume-1"], ["About the data", "/evidence"]]],
+      ["Research", [["Rural Equity Blueprint", "/publications/rural-equity-blueprint-volume-1"], ["Rethinking Rural Governance", "/publications/rethinking-rural-governance-volume-1"], ["Health Systems Assurance", "/publications/health-systems-assurance-volume-1"], ["About the data", "/evidence"]]],
       ["Work with us", [["Residents", "/interest"], ["Providers", "/contact?audience=providers"], ["Counties", "/contact?audience=counties"], ["Funders", "/contact?audience=funders"], ["Contact us", "/contact"]]],
       ["The Foundation", [["About the Foundation", `${F}/about`], ["Leadership", `${F}/leadership`], ["Support our work", `${F}/support`], ["Our standards", `${F}/standards`]]],
     ],
@@ -24,7 +24,7 @@ const COPY = {
     tagline: <>Atención médica. Para cada código postal.<br />Una iniciativa de The SozoRock Foundation, Inc.</>,
     columns: [
       ["Nuestro trabajo", [["Health Equity Hubs", "/work#hubs"], ["Health Access Day", "/work#health-access-day"], ["Programa de Acceso a la Atención Primaria", "/es/primary-care-access"], ["Datos y mapas", "/explore"]]],
-      ["Investigación", [["Toda la investigación", "/publications"], ["Rural Equity Blueprint", "/publications/rural-equity-blueprint-volume-1"], ["Rethinking Rural Governance", "/publications/rethinking-rural-governance-volume-1"], ["Health Systems Assurance", "/publications/health-systems-assurance-volume-1"], ["Acerca de los datos", "/evidence"]]],
+      ["Investigación", [["Rural Equity Blueprint", "/publications/rural-equity-blueprint-volume-1"], ["Rethinking Rural Governance", "/publications/rethinking-rural-governance-volume-1"], ["Health Systems Assurance", "/publications/health-systems-assurance-volume-1"], ["Acerca de los datos", "/evidence"]]],
       ["Colabore con nosotros", [["Residentes", "/interest"], ["Proveedores", "/contact?audience=providers"], ["Condados", "/contact?audience=counties"], ["Financiadores", "/contact?audience=funders"], ["Contáctenos", "/contact"]]],
       ["La Fundación", [["Acerca de la Fundación", `${F}/about`], ["Liderazgo", `${F}/leadership`], ["Apoye nuestro trabajo", `${F}/support`], ["Nuestros estándares", `${F}/standards`]]],
     ],

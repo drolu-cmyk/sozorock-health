@@ -20,7 +20,7 @@ export function DataPage() {
       <p className="hx-label">About the data</p>
       <h1 id="hx-title">Free local data to plan for care.</h1>
       <p className="hx-promise">Health, community and workforce data for counties across the United States, with every source and date.</p>
-      <p className="hx-links hx-cta-row"><a className="hx-pill" href="/explore">Find your county</a><a className="hx-text" href="https://cbcap.sozorockfoundation.org/">County planning workspace</a></p>
+      <p className="hx-links hx-cta-row"><a className="hx-pill" href="/explore">Find your county</a><a className="hx-text" href="https://cbcap.sozorockfoundation.org/">Preview the planning workspace</a></p>
     </section>
 
     <section className="hx-families hx-wrap hx-ice" aria-labelledby="hx-families-title">
@@ -48,7 +48,7 @@ export function DataPage() {
       <h2 id="hx-tools-title" className="hx-label">Two ways to use it</h2>
       <ul>
         <li><h3>Data and maps</h3><p>Look up a county, compare it with others, and download the data with its sources, dates and definitions.</p><a className="hx-text" href="/explore">Find your county</a></li>
-        <li><h3>County planning workspace</h3><p>A planning workspace that connects this data to community health assessments and improvement plans. The public preview is open.</p><a className="hx-text" href="https://cbcap.sozorockfoundation.org/">Open the workspace</a></li>
+        <li><span className="hx-status">Coming soon</span><h3>County planning workspace</h3><p>For county health teams: turn this data into a community health plan, with every source attached, options with their assumptions stated and a brief ready for the planning meeting. The public county view is open now.</p><a className="hx-text" href="https://cbcap.sozorockfoundation.org/">Preview the workspace</a></li>
       </ul>
     </section>
 
