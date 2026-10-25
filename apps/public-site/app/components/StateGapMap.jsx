@@ -57,6 +57,13 @@ const STATES = [
   ["Florida","FL",9,7,39.6]
 ];
 
+const ES_NAMES = { "New York": "Nueva York", "New Jersey": "Nueva Jersey", "New Mexico": "Nuevo México", "New Hampshire": "Nuevo Hampshire", "North Carolina": "Carolina del Norte", "South Carolina": "Carolina del Sur", "North Dakota": "Dakota del Norte", "South Dakota": "Dakota del Sur", "Pennsylvania": "Pensilvania", "Louisiana": "Luisiana", "Missouri": "Misuri", "Mississippi": "Misisipi", "Hawaii": "Hawái", "West Virginia": "Virginia Occidental", "Oregon": "Oregón", "Michigan": "Míchigan", "District of Columbia": "Distrito de Columbia" };
+
+const TEXT = {
+  en: { group: "Select a state to see the share of primary care need met", tile: (n, p) => `${n}: ${p}% of need met`, read: "of primary care need met in", src: "Darker means less need met. Select a state. KFF analysis of HRSA data, December 31, 2025." },
+  es: { group: "Seleccione un estado para ver qué parte de la necesidad de atención primaria está cubierta", tile: (n, p) => `${n}: ${p}% de la necesidad cubierta`, read: "de la necesidad de atención primaria cubierta en", src: "Más oscuro significa menos necesidad cubierta. Seleccione un estado. Análisis de KFF con datos de HRSA, 31 de diciembre de 2025." },
+};
+
 function tone(pct) {
   if (pct < 30) return "t1";
   if (pct < 40) return "t2";
@@ -65,16 +72,19 @@ function tone(pct) {
   return "t5";
 }
 
-export function StateGapMap() {
+/** @param {{spanish?: boolean}} props */
+export function StateGapMap({ spanish = false }) {
   const [selected, setSelected] = useState("NY");
   const state = STATES.find((s) => s[1] === selected) ?? STATES[0];
+  const t = spanish ? TEXT.es : TEXT.en;
+  const name = (n) => (spanish ? ES_NAMES[n] ?? n : n);
   return <figure className="hx-map">
-    <div className="hx-tiles" role="group" aria-label="Select a state to see the share of primary care need met">
-      {STATES.map(([name, abbr, col, row, pct]) => <button key={abbr} type="button" className={`hx-tile ${tone(pct)}`} style={{ gridColumn: col + 1, gridRow: row + 1 }} aria-pressed={abbr === selected} aria-label={`${name}: ${pct}% of need met`} onClick={() => setSelected(abbr)}>{abbr}</button>)}
+    <div className="hx-tiles" role="group" aria-label={t.group}>
+      {STATES.map(([n, abbr, col, row, pct]) => <button key={abbr} type="button" className={`hx-tile ${tone(pct)}`} style={{ gridColumn: col + 1, gridRow: row + 1 }} aria-pressed={abbr === selected} aria-label={t.tile(name(n), pct)} onClick={() => setSelected(abbr)}>{abbr}</button>)}
     </div>
     <figcaption>
-      <p className="hx-map-read" aria-live="polite"><strong>{state[4]}%</strong> of primary care need met in {state[0]}</p>
-      <p className="hx-src">Darker means less need met. Select a state. KFF analysis of HRSA data, December 31, 2025.</p>
+      <p className="hx-map-read" aria-live="polite"><strong>{state[4]}%</strong> {t.read} {name(state[0])}</p>
+      <p className="hx-src">{t.src}</p>
     </figcaption>
   </figure>;
 }

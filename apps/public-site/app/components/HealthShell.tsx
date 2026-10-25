@@ -51,7 +51,7 @@ export function HealthShell({
       </a>
       <HealthHeader spanish={spanish} />
       {children}
-      {spanish ? <HealthFooter spanish /> : <HealthSiteFooter />}
+      <HealthSiteFooter spanish={spanish} />
     </div>
   );
 }

@@ -3,5 +3,5 @@ export const revalidate = 3600;
 
 import { ApprovedHealthPage } from "../components/ApprovedHealthPages";
 import { healthMetadata, healthPageSchema } from "../lib/health-metadata";
-export const metadata = healthMetadata('County health data and CB-CAP', 'Explore county health and community data, workforce information, source dates and definitions through Place Intelligence and CB-CAP.', '/evidence');
-export default function Page() {return <><ApprovedHealthPage pathname="/evidence"/><script type="application/ld+json" dangerouslySetInnerHTML={{__html:JSON.stringify(healthPageSchema('County health data and CB-CAP', '/evidence'))}} /></>;}
+export const metadata = healthMetadata('Free County Health Data and Maps', 'Free health, community and workforce data for U.S. counties, with every source, date and definition. Explore Place Intelligence and CB-CAP county planning.', '/evidence');
+export default function Page() {return <><ApprovedHealthPage pathname="/evidence"/><script type="application/ld+json" dangerouslySetInnerHTML={{__html:JSON.stringify(healthPageSchema('Free County Health Data and Maps', '/evidence'))}} /></>;}

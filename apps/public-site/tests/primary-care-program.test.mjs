@@ -16,7 +16,8 @@ const html=component("PrimaryCareAccessPage.jsx","PrimaryCareAccessPage");
 test("the dedicated program page retains the approved facts and working next steps",()=>{
  assert.equal((html.match(/<h1[ >]/g)||[]).length,1);
  for(const fact of ["Care for every ZIP Code.","up to 25 New Yorkers","January 2027","12 months","64 or younger","financial need","one per household","62 counties","Dr. Michael Purcell","Purcell Integrative Osteopathic Care","Clifton Park","not health insurance","$108,000","$4,320","$5,000","$10,000","$25,000","$50,000","rounded down","do not select participants or influence clinical care"] ) assert.ok(html.includes(fact),fact);
- assert.equal((html.match(/>Proposed</g)||[]).length,3);
+ assert.doesNotMatch(html,/Proposed|proposed|Fireside|planned series/);
+ assert.match(html,/A sponsored year of primary care\./);
  assert.doesNotMatch(html,/January\s+\d{1,2}(?:,|\s)+2027|TODO|deployment|editorial|review cut|implementation|concept/);
  assert.match(html,/href="\/interest"/);assert.match(html,/href="https:\/\/www.sozorockfoundation.org\/support"/);
  for(const value of ["46.75%","35.42%","83.2%","82.6%","60.0%","58.7%","55.5%","11.5%","1.8M"])assert.ok(html.includes(value),value);
