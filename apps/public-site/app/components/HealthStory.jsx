@@ -1,103 +1,108 @@
+import { StateGapMap } from "./StateGapMap";
+
 const R = <sup className="hx-reg">®</sup>;
 
-const milestones = [
-  ["September 2025", "Western New York roundtable put rural access gaps on the record."],
-  ["2025", "Rural Equity Blueprint, Volume 1, sets out the hub models."],
-  ["2026", "Place Intelligence opens county evidence to the public."],
-  ["January 2027", "The first Primary Care Access Program cohort begins."],
+const gaps = [
+  { word: "Too few", pct: 53, line: "of primary care need goes unmet where providers are short", source: "HRSA, September 30, 2026" },
+  { word: "Too far", pct: 28, line: "of rural adults have no broadband at home", source: "Pew Research Center, 2026" },
+  { word: "Too hard", pct: 88, line: "of adults lack proficient health literacy", source: "U.S. Department of Health and Human Services" },
 ];
 
-function Bar({ name, pct, tone }) {
-  return <div className="hx-bar">
-    <div className="hx-bar-head"><span>{name}</span><span className={`hx-bar-num ${tone}`}>{pct}%</span></div>
-    <div className="hx-track" aria-hidden="true"><div className={`hx-fill ${tone}`} style={{ width: `${pct}%` }} /></div>
-  </div>;
+const audiences = [
+  { who: "Residents", what: "A way in to care near you, in your language.", cta: "Join the interest list", href: "/interest" },
+  { who: "Providers", what: "Reach the people you are missing.", cta: "Talk with us", href: "/contact" },
+  { who: "Counties", what: "Local data for your community health plan.", cta: "Explore county data", href: "/explore" },
+  { who: "Funders", what: "Measurable access where need is highest.", cta: "Support the work", href: "https://www.sozorockfoundation.org/support" },
+];
+
+const research = [
+  { title: "Rural Equity Blueprint", idea: "Put care where people already go: the library, the community center and the home.", href: "/publications/rural-equity-blueprint-volume-1", src: "/media/health-home/rebs-cover.webp", w: 640, h: 905 },
+  { title: "Rethinking Rural Governance", idea: "Counties already hold the data they need to plan health. Connect it.", href: "/publications/rethinking-rural-governance-volume-1", src: "/media/health-home/rrg-cover.webp", w: 640, h: 828 },
+  { title: "Health Systems Assurance", idea: "Digital health earns trust when it is tested, not assumed.", href: "/publications/health-systems-assurance-volume-1", src: "/media/health-home/hsa-cover.webp", w: 640, h: 828 },
+];
+
+function Donut({ pct }) {
+  const r = 52;
+  const c = 2 * Math.PI * r;
+  return <svg className="hx-donut" viewBox="0 0 128 128" aria-hidden="true" focusable="false">
+    <circle cx="64" cy="64" r={r} className="hx-donut-track" />
+    <circle cx="64" cy="64" r={r} className="hx-donut-fill" strokeDasharray={`${(pct / 100) * c} ${c}`} transform="rotate(-90 64 64)" />
+  </svg>;
+}
+
+function Gap({ id, word, title, covers, answer, links, children, ice }) {
+  return <section className={`hx-gap-row hx-wrap${ice ? " hx-ice" : ""}`} aria-labelledby={id}>
+    <div className="hx-gap-copy">
+      <p className="hx-word" aria-hidden="true">{word}</p>
+      <h2 id={id}>{title}</h2>
+      <p className="hx-covers">{covers}</p>
+      <p className="hx-answer">{answer}</p>
+      <p className="hx-links">{links.map(([text, href]) => <a key={href} className="hx-text" href={href}>{text}</a>)}</p>
+    </div>
+    {children}
+  </section>;
 }
 
 export function HealthStory() {
   return <div className="hx">
     <section className="hx-hero hx-wrap" aria-labelledby="hx-title">
-      <div className="hx-hero-copy">
-        <p className="hx-label">Care. For every ZIP Code.</p>
-        <h1 id="hx-title">Close the distance between people and care.</h1>
-        <p className="hx-lede">We turn trusted local places into doors to care, backed by local evidence and secure digital health.</p>
-        <div className="hx-actions"><a className="hx-pill" href="#hx-approach">See how it works</a><a className="hx-text" href="/contact">Partner with us →</a></div>
-      </div>
-      <picture><img className="hx-hero-img" src="/media/approved-home/hero-community-desktop-v2.webp" width="1672" height="941" alt="A health access guide and a resident review care options on a tablet in a library" fetchPriority="high" decoding="async" /></picture>
+      <p className="hx-label">Care. For every ZIP Code.</p>
+      <h1 id="hx-title">Care is too few, too far and too hard to reach.</h1>
+      <p className="hx-promise">We help change all three.</p>
+      <ul className="hx-gaps" aria-label="Three gaps between people and care">
+        {gaps.map((g) => <li key={g.word}>
+          <div className="hx-donut-wrap"><Donut pct={g.pct} /><span className="hx-donut-num" aria-hidden="true">{g.pct}%</span></div>
+          <div><p className="hx-gap-word">{g.word}</p><p className="hx-gap-line"><span className="hx-sr">{g.pct}% </span>{g.line}</p><p className="hx-src">{g.source}</p></div>
+        </li>)}
+      </ul>
     </section>
 
-    <section className="hx-problem hx-ice hx-wrap" aria-labelledby="hx-problem-title">
-      <div>
-        <p className="hx-label">The problem</p>
-        <h2 id="hx-problem-title">New York State’s shortage areas meet only about a third of their primary care need.</h2>
-        <p className="hx-lede">Care can be nearby and still out of reach because of cost, distance, technology or trust.</p>
-      </div>
-      <figure className="hx-chart" aria-label="Share of primary care need met in designated shortage areas: United States 46.75 percent, New York State 35.42 percent">
-        <Bar name="United States" pct={46.75} tone="navy" />
-        <Bar name="New York State" pct={35.42} tone="cobalt" />
-        <figcaption>Share of primary care need met in designated shortage areas. HRSA, September 30, 2026.</figcaption>
+    <Gap ice id="hx-few" word="Too few" title="Too few providers. Too long to wait." covers="Provider shortages, wait times, a shrinking health workforce and an aging population." answer="We give counties clear local data to plan for the care their residents need." links={[["Place Intelligence", "/explore"], ["CB-CAP county planning", "https://cbcap.sozorockfoundation.org/"]]}>
+      <StateGapMap />
+    </Gap>
+
+    <Gap id="hx-far" word="Too far" title="Too far, too costly, too disconnected." covers="Distance, transportation, no device or internet, no private place and cost." answer="Health Equity Hubs bring a private place, a device and secure Wi‑Fi close to home. When cost stands in the way, we sponsor a year of primary care." links={[["Health Equity Hubs", "/work#hubs"], ["Primary Care Access Program", "/primary-care-access"]]}>
+      <figure className="hx-hubs">
+        <div className="hx-hubs-ends" aria-hidden="true"><span>In a public space</span><span>At home</span></div>
+        <ol>
+          <li><span className="hx-node" aria-hidden="true" /><strong>Library</strong><span>By appointment</span></li>
+          <li><span className="hx-node" aria-hidden="true" /><strong>Community</strong><span>At scheduled events</span></li>
+          <li><span className="hx-node open" aria-hidden="true" /><strong>Home</strong><span>In development</span></li>
+        </ol>
+        <figcaption>Each visit runs on the provider’s own platform. The visit and the record stay with the provider.</figcaption>
       </figure>
+    </Gap>
+
+    <Gap ice id="hx-hard" word="Too hard" title="Too hard to understand. Too late to prevent." covers="Language, translation, health literacy, prevention not reached and chronic illness found late." answer="Health Access Day brings health education, interpretation and screenings by licensed providers to the ZIP Codes where chronic illness runs highest." links={[["Health Access Day", "/work#health-access-day"]]}>
+      <figure className="hx-venn" aria-label="Health Access Day sits where high chronic illness, low access and local health priorities overlap">
+        <span className="c1" /><span className="c2" /><span className="c3" />
+        <em className="l1">High chronic illness</em><em className="l2">Low access</em><em className="l3">Local health priorities</em>
+        <strong>Health Access Day</strong>
+      </figure>
+    </Gap>
+
+    <section className="hx-you hx-wrap" aria-labelledby="hx-you-title">
+      <h2 id="hx-you-title" className="hx-label">What it means for you</h2>
+      <ul>
+        {audiences.map((a) => <li key={a.who}><p className="hx-who">{a.who}</p><p className="hx-what">{a.what}</p><a href={a.href}>{a.cta}</a></li>)}
+      </ul>
+      <p className="hx-care">SozoRock{R} Health does not provide medical care. All care is delivered by licensed providers.</p>
     </section>
 
-    <section className="hx-insight hx-wrap" aria-labelledby="hx-insight-title">
-      <p className="hx-label">Our insight</p>
-      <h2 id="hx-insight-title">Libraries, community centers and homes reach the people clinics often miss.</h2>
-      <p className="hx-lede">We equip those places to remove the barriers, and we measure what changes.</p>
-    </section>
-
-    <div id="hx-approach">
-      <section className="hx-row hx-ice hx-wrap" aria-labelledby="hx-understand">
-        <div className="hx-map"><picture><img src="/media/county-map-brand.webp" width="1470" height="844" alt="Map of United States counties with New York State highlighted" loading="lazy" decoding="async" /></picture></div>
-        <div>
-          <p className="hx-label">Understand · Place Intelligence</p>
-          <h2 id="hx-understand">See every barrier in a county before you act.</h2>
-          <p className="hx-lede">Free public data on health, community and workforce conditions, with every source and date.</p>
-          <div className="hx-actions"><a className="hx-pill" href="/explore">Explore your county</a><a className="hx-text" href="https://cbcap.sozorockfoundation.org/" rel="noopener">CB‑CAP county planning →</a></div>
-        </div>
-      </section>
-
-      <section className="hx-row hx-flip hx-wrap" aria-labelledby="hx-connect">
-        <div>
-          <p className="hx-label">Connect · Health Equity Initiative</p>
-          <h2 id="hx-connect">Open a door to care where people already go.</h2>
-          <p className="hx-lede">Health Equity Hubs in libraries, community centers and homes, Health Access Day, and the <a href="/primary-care-access">Primary Care Access Program</a>: a sponsored year of care for up to 25 New Yorkers from January 2027.</p>
-          <div className="hx-actions"><a className="hx-pill" href="/contact">Host a hub</a><a className="hx-text" href="/interest">Join the care interest list →</a></div>
-        </div>
-        <picture><img className="hx-photo" src="/media/approved-home/hero-tablet.webp" width="1800" height="1350" alt="A community helper shows an older resident how to use a health app" loading="lazy" decoding="async" /></picture>
-      </section>
-
-      <section className="hx-row hx-ice hx-wrap" aria-labelledby="hx-protect">
-        <div className="hx-cover"><picture><img src="/publications/covers/health-systems-assurance-volume-1.jpg" width="2550" height="3300" alt="Health Systems Assurance Series, Volume 1 cover" loading="lazy" decoding="async" /></picture></div>
-        <div>
-          <p className="hx-label">Protect · Digital readiness and assurance</p>
-          <h2 id="hx-protect">Make digital health safe enough to trust.</h2>
-          <p className="hx-lede">Practical readiness, cybersecurity and evidence for the platforms patients and providers rely on.</p>
-          <div className="hx-actions"><a className="hx-pill" href="https://www.sozorockfoundation.org/publication/hsa-v1-2026">Read the research</a></div>
-        </div>
-      </section>
-    </div>
-
-    <section className="hx-progress hx-wrap" aria-labelledby="hx-progress-title">
-      <p className="hx-label">Progress</p>
-      <h2 id="hx-progress-title">From listening to care.</h2>
-      <ol className="hx-steps">
-        {milestones.map(([when, what], index) => <li key={when}><span className={`hx-dot${index === milestones.length - 1 ? " next" : ""}`} aria-hidden="true" /><strong>{when}</strong><p>{what}</p></li>)}
-      </ol>
-    </section>
-
-    <section className="hx-fund hx-wrap" aria-labelledby="hx-fund-title">
-      <div>
-        <p className="hx-label">For funders and partners</p>
-        <h2 id="hx-fund-title">$108,000 gives up to 25 people a year of care.</h2>
-        <p className="hx-lede">Built for where health funding is going: rural care coordination, the health workforce and digital access. Sponsors receive reports at months 3, 6, 9 and 12.</p>
+    <section className="hx-research hx-wrap" aria-labelledby="hx-research-title">
+      <div className="hx-research-head">
+        <p className="hx-label">Research</p>
+        <h2 id="hx-research-title">Three ideas for reaching every ZIP Code.</h2>
+        <a className="hx-text" href="/publications">Explore all research</a>
       </div>
-      <div className="hx-fund-go"><a className="hx-pill hx-white" href="https://www.sozorockfoundation.org/support">Sponsor a participant</a><a className="hx-text" href="/contact">Discuss a partnership →</a></div>
+      <ul>
+        {research.map((p) => <li key={p.title}><a href={p.href}><img src={p.src} width={p.w} height={p.h} alt={`${p.title}, Volume 1 cover`} loading="lazy" decoding="async" /><strong>{p.title}</strong><span>{p.idea}</span></a></li>)}
+      </ul>
     </section>
 
-    <section className="hx-close hx-wrap" aria-labelledby="hx-close-title">
-      <div><p className="hx-label">Need care?</p><h2 id="hx-close-title">Be first to know when enrollment opens.</h2></div>
-      <div className="hx-actions"><a className="hx-pill" href="/interest">Join the interest list</a><a className="hx-text" href="/primary-care-access">Who qualifies →</a></div>
+    <section className="hx-foundation hx-wrap hx-ice" aria-label="The SozoRock Foundation">
+      <p>Part of The SozoRock Foundation: access, capacity and trust.</p>
+      <a className="hx-text" href="https://www.sozorockfoundation.org/">Visit the Foundation</a>
     </section>
-    <p className="hx-wrap hx-fine">SozoRock{R} Health is an initiative of The SozoRock Foundation, Inc. Clinical care remains with licensed providers.</p>
   </div>;
 }

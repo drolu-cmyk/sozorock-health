@@ -39,7 +39,7 @@ export const metadata: Metadata = {
     template: "%s | SozoRock Health",
   },
   description:
-    "New York primary care access support, Health Equity Hubs and public county health evidence from SozoRock Health.",
+    "SozoRock Health removes the barriers between people and the licensed providers who serve them: Health Equity Hubs, Health Access Day, sponsored primary care and free county health data.",
   applicationName: "SozoRock Health",
   authors: [
     {
@@ -51,7 +51,7 @@ export const metadata: Metadata = {
   creator: "SozoRock Health",
   publisher: "The SozoRock Foundation, Inc.",
   category: "nonprofit health access",
-  keywords: ["SozoRock Health", "Primary Care Access Program", "New York primary care access", "sponsored direct primary care", "health literacy", "county health evidence"],
+  keywords: ["SozoRock Health", "Primary Care Access Program", "primary care access", "health equity", "rural health access", "community health needs assessment", "health literacy", "sponsored direct primary care", "county health data"],
   alternates: { canonical: "/" },
   icons: {
     icon: [{ url: "/health-icon.svg", sizes: "any", type: "image/svg+xml" }, { url: "/icon.png", sizes: "512x512", type: "image/png" }],
@@ -68,7 +68,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "SozoRock Health | Health equity and primary care access",
     description:
-      "Primary care access support for eligible New Yorkers, proposed community hubs and county evidence with visible sources and limits.",
+      "Care is too few, too far and too hard to reach. SozoRock Health helps change all three, in every ZIP Code.",
     url: siteUrl,
     siteName: "SozoRock Health",
     type: "website",

@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { List, X } from "@phosphor-icons/react";
 
-export function HealthHeader({ spanish = false, programPage = false }: { spanish?: boolean; programPage?: boolean }) {
+export function HealthHeader({ spanish = false }: { spanish?: boolean; programPage?: boolean }) {
   const [open, setOpen] = useState(false);
   const toggle = useRef<HTMLButtonElement>(null);
   useEffect(() => {
@@ -16,7 +16,6 @@ export function HealthHeader({ spanish = false, programPage = false }: { spanish
     document.addEventListener("keydown", escape);
     return () => document.removeEventListener("keydown", escape);
   }, [open]);
-  if (programPage) return <header style={{borderBottom: "1px solid #CED7E3"}}><div className="hc-program-nav"><a href="/" aria-label="SozoRock Health home"><strong>SozoRock.</strong><span>Health</span></a><nav aria-label="Primary navigation"><a href="#program">The program</a><a href="#evidence">Evidence</a><a href="#sponsor">Sponsor</a><a href="/interest">Join the interest list</a></nav></div></header>;
   return (
     <header className="hs-header">
       <a
@@ -53,11 +52,11 @@ export function HealthHeader({ spanish = false, programPage = false }: { spanish
         aria-label={spanish ? "Navegación principal" : "Primary navigation"}
         className={open ? "hs-nav is-open" : "hs-nav"}
       >
-        {!spanish && <a href="/primary-care-access">The program</a>}
         <a href="/work">{spanish ? "Nuestro trabajo" : "Our work"}</a>
-        <a href="/evidence">{spanish ? "Evidencia" : "Evidence"}</a>
-        <a href="/publications">{spanish ? "Publicaciones" : "Publications"}</a>
-        <a href={spanish ? "/contact" : "https://www.sozorockfoundation.org/partner"}>{spanish ? "Colaborar" : "Partner"}</a>
+        <a href="/explore">{spanish ? "Datos y mapas" : "Data and maps"}</a>
+        <a href="/publications">{spanish ? "Investigación" : "Research"}</a>
+        <a href="https://www.sozorockfoundation.org/about">{spanish ? "Quiénes somos" : "About"}</a>
+        <a className="hs-cta" href="/contact">{spanish ? "Colabore con nosotros" : "Work with us"}</a>
         <a
           className="hs-language"
           href={spanish ? "/" : "/es"}
