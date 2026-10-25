@@ -47,7 +47,9 @@ export default function sitemap(): MetadataRoute.Sitemap {
       priority: 0.8,
     },
     ...publicationRoutes,
-    {url: `${base}/primary-care-access`, lastModified: new Date("2026-10-21"), changeFrequency: "monthly", priority: 0.9},
+    {url: `${base}/primary-care-access`, lastModified: new Date("2026-10-25"), changeFrequency: "monthly", priority: 0.9, alternates: { languages: { en: `${base}/primary-care-access`, es: `${base}/es/primary-care-access` } }},
+    {url: `${base}/es/primary-care-access`, lastModified: new Date("2026-10-25"), changeFrequency: "monthly", priority: 0.8, alternates: { languages: { en: `${base}/primary-care-access`, es: `${base}/es/primary-care-access` } },
+    },
     {
       url: `${base}/interest`,
       lastModified: new Date("2026-10-20"),
@@ -71,24 +73,31 @@ export default function sitemap(): MetadataRoute.Sitemap {
       lastModified: new Date("2026-10-20"),
       changeFrequency: "yearly",
       priority: 0.3,
+      alternates: { languages: { en: `${base}/privacy`, es: `${base}/es/privacy` } },
     },
     {
       url: `${base}/terms`,
       lastModified: new Date("2026-09-07"),
       changeFrequency: "yearly",
       priority: 0.3,
+      alternates: { languages: { en: `${base}/terms`, es: `${base}/es/terms` } },
     },
     {
       url: `${base}/accessibility`,
       lastModified: new Date("2026-09-07"),
       changeFrequency: "yearly",
       priority: 0.4,
+      alternates: { languages: { en: `${base}/accessibility`, es: `${base}/es/accessibility` } },
     },
     {
       url: `${base}/nondiscrimination`,
       lastModified: new Date("2026-09-07"),
       changeFrequency: "yearly",
       priority: 0.4,
-    },
+      alternates: { languages: { en: `${base}/nondiscrimination`, es: `${base}/es/nondiscrimination` } }},
+    {url: `${base}/es/privacy`, lastModified: new Date("2026-10-25"), changeFrequency: "yearly", priority: 0.3, alternates: { languages: { en: `${base}/privacy`, es: `${base}/es/privacy` } }},
+    {url: `${base}/es/terms`, lastModified: new Date("2026-10-25"), changeFrequency: "yearly", priority: 0.3, alternates: { languages: { en: `${base}/terms`, es: `${base}/es/terms` } }},
+    {url: `${base}/es/accessibility`, lastModified: new Date("2026-10-25"), changeFrequency: "yearly", priority: 0.4, alternates: { languages: { en: `${base}/accessibility`, es: `${base}/es/accessibility` } }},
+    {url: `${base}/es/nondiscrimination`, lastModified: new Date("2026-10-25"), changeFrequency: "yearly", priority: 0.4, alternates: { languages: { en: `${base}/nondiscrimination`, es: `${base}/es/nondiscrimination` } }},
   ];
 }

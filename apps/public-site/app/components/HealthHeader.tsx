@@ -2,8 +2,9 @@
 
 import { useEffect, useRef, useState } from "react";
 import { List, X } from "@phosphor-icons/react";
+import { counterpartPath } from "../lib/language-paths";
 
-export function HealthHeader({ spanish = false }: { spanish?: boolean; programPage?: boolean }) {
+export function HealthHeader({ spanish = false, path }: { spanish?: boolean; programPage?: boolean; path?: string }) {
   const [open, setOpen] = useState(false);
   const toggle = useRef<HTMLButtonElement>(null);
   useEffect(() => {
@@ -59,8 +60,9 @@ export function HealthHeader({ spanish = false }: { spanish?: boolean; programPa
         <a className="hs-cta" href="/contact">{spanish ? "Colabore con nosotros" : "Work with us"}</a>
         <a
           className="hs-language"
-          href={spanish ? "/" : "/es"}
+          href={counterpartPath(path ?? (spanish ? "/es" : "/"), spanish)}
           lang={spanish ? "en" : "es"}
+          hrefLang={spanish ? "en" : "es"}
         >
           {spanish ? "English" : "Español"}
         </a>

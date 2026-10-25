@@ -179,3 +179,4 @@
 .health-system .hc-home h1,.health-system .hc-home h2{font-family:var(--hc-serif);font-weight:400;letter-spacing:-.02em}
 .health-system .hc-home .hc-kpi>strong,.health-system .hc-home .hc-map-reading>strong,.health-system .hc-home .hc-eligibility strong,.health-system .hc-home .hc-sponsor h2>span,.health-system .hc-home .hc-tiers article>strong{font-family:var(--hc-serif);font-weight:400;letter-spacing:-.02em}
 .health-system .hc-home .hc-mini-row.hc-new-york strong{color:#fff}
+.hs-translation-note{margin:12px 0 0;padding:12px 16px;background:#EFF5FF;border-radius:4px;font-size:15px;line-height:1.5}

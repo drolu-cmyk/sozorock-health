@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { SPANISH_PAGES, spanishPath } from "./language-paths.ts";
 
 export const healthOrigin = "https://health.sozorockfoundation.org";
 export const foundationEntity =
@@ -9,6 +10,12 @@ export const healthSocialImage = {
   height: 630,
   alt: "SozoRock Health. Primary Care Access Program for up to 25 New Yorkers, beginning January 2027.",
 };
+
+function languageAlternates(path: string): Metadata["alternates"] {
+  const english = path === "/es" ? "/" : path.replace(/^\/es\//, "/");
+  if (!(SPANISH_PAGES as readonly string[]).includes(english)) return { canonical: path };
+  return { canonical: path, languages: { "en-US": english, "es-US": spanishPath(english) } };
+}
 
 export function healthMetadata(
   title: string,
@@ -23,7 +30,7 @@ export function healthMetadata(
     keywords: path === "/" || path === "/interest"
       ? ["SozoRock Health", "Primary Care Access Program", "New York primary care access", "sponsored direct primary care", "health access support"]
       : ["SozoRock Health", title, "health equity", "community health access"],
-    alternates: { canonical: path },
+    alternates: languageAlternates(path),
     robots: { index: !options.noindex, follow: true },
     openGraph: {
       title: fullTitle,

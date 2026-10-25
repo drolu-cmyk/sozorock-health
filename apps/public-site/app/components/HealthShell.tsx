@@ -40,18 +40,20 @@ export function HealthFooter({ spanish = false }: { spanish?: boolean }) {
 export function HealthShell({
   children,
   spanish = false,
+  path,
 }: {
   children: React.ReactNode;
   spanish?: boolean;
+  path?: string;
 }) {
   return (
     <div className="health-system">
       <a className="hs-skip" href="#health-main">
         {spanish ? "Saltar al contenido" : "Skip to content"}
       </a>
-      <HealthHeader spanish={spanish} />
+      <HealthHeader spanish={spanish} path={path} />
       {children}
-      <HealthSiteFooter spanish={spanish} />
+      <HealthSiteFooter spanish={spanish} path={path} />
     </div>
   );
 }
