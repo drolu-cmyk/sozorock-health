@@ -19,8 +19,8 @@ export function WorkPage() {
     <section className="hx-work hx-wrap" id="data" aria-labelledby="hx-data-title">
       <p className="hx-word" aria-hidden="true">Too few</p>
       <h2 id="hx-data-title">Local data for local plans</h2>
-      <p className="hx-answer">Free health, community and workforce data for every county, and a planning workspace that connects it to the health workforce pipeline, volunteers and an aging population.</p>
-      <p className="hx-links"><a className="hx-pill" href="/explore">Find your county</a><a className="hx-text" href="https://cbcap.sozorockfoundation.org/">County planning workspace</a></p>
+      <p className="hx-answer">Free health, community and workforce data for every county. Coming soon: a planning workspace where county health teams turn that data into a community health plan, from the workforce pipeline and volunteers to an aging population.</p>
+      <p className="hx-links"><a className="hx-pill" href="/explore">Find your county</a><a className="hx-text" href="https://cbcap.sozorockfoundation.org/">Preview the planning workspace</a></p>
     </section>
 
     <section className="hx-work hx-wrap hx-ice" id="hubs" aria-labelledby="hx-hubs-title">

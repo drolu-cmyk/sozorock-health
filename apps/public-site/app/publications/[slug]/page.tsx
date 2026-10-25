@@ -87,7 +87,7 @@ export default async function PublicationPage({
       <main id="health-main" className="hx">
         <section className="hx-report-hero hx-wrap" aria-labelledby="hx-title">
           <div>
-            <p className="hx-label">Research · {publication.published} · Volume 1</p>
+            <p className="hx-label">{publication.published} · Volume 1</p>
             <h1 id="hx-title">{publication.plainTitle}</h1>
             <p className="hx-promise">{publication.takeaway}</p>
             <p className="hx-report-byline">

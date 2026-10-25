@@ -19,7 +19,7 @@ const COPY = {
       { word: "Too far", pct: 28, line: "of rural adults have no broadband at home", source: "Pew Research Center, 2026" },
       { word: "Too hard", pct: 88, line: "of adults lack proficient health literacy", source: "U.S. Department of Health and Human Services" },
     ],
-    few: { word: "Too few", title: "Providers are short and waits are long.", covers: "Provider shortages, wait times, a shrinking health workforce and an aging population.", answer: "We give counties clear local data to plan for the care their residents need.", links: [["Place Intelligence", "/explore"], ["CB-CAP county planning", "https://cbcap.sozorockfoundation.org/"]] },
+    few: { word: "Too few", title: "Providers are short and waits are long.", covers: "Provider shortages, wait times, a shrinking health workforce and an aging population.", answer: "We give counties clear local data to plan for the care their residents need.", links: [["Place Intelligence", "/explore"], ["County planning workspace, coming soon", "https://cbcap.sozorockfoundation.org/"]] },
     far: { word: "Too far", title: "Distance, cost and no connection keep care out of reach.", covers: "Distance, transportation, no device or internet, no private place and cost.", answer: "Health Equity Hubs bring a private place, a device and secure Wi‑Fi close to home. When cost stands in the way, we sponsor a year of primary care.", links: [["Health Equity Hubs", "/work#hubs"], ["Primary Care Access Program", "/primary-care-access"]] },
     hubs: { ends: ["In a public space", "At home"], items: [["Library", "By appointment"], ["Community", "At scheduled events"], ["Home", "In development"]], caption: "Each visit runs on the provider’s own platform. The visit and the record stay with the provider." },
     hard: { word: "Too hard", title: "Language and late diagnosis keep care from working.", covers: "Language, translation, health literacy, prevention not reached and chronic illness found late.", answer: "Health Access Day brings health education, interpretation and screenings by licensed providers to the ZIP Codes where chronic illness runs highest.", links: [["Health Access Day", "/work#health-access-day"]] },
@@ -32,7 +32,6 @@ const COPY = {
       { who: "Funders", what: "Measurable access where need is highest.", cta: "Support the work", href: SUPPORT },
     ],
     care: <>SozoRock{R} Health does not provide medical care. All care is delivered by licensed providers.</>,
-    researchLabel: "Research",
     researchTitle: "Three ideas behind every program.",
     researchLink: "Read the research",
     ideas: ["Put care where people already go: the library, the community center and the home.", "Counties already hold the data they need to plan health. Connect it.", "Digital health earns trust when it is tested, not assumed."],
@@ -50,7 +49,7 @@ const COPY = {
       { word: "Muy lejos", pct: 28, line: "de los adultos en zonas rurales no tiene internet de banda ancha en casa", source: "Pew Research Center, 2026" },
       { word: "Muy difícil", pct: 88, line: "de los adultos no tiene un nivel competente de alfabetización en salud", source: "Departamento de Salud y Servicios Humanos de EE. UU." },
     ],
-    few: { word: "Muy escasa", title: "Faltan proveedores y las esperas son largas.", covers: "Escasez de proveedores, tiempos de espera, menos personal de salud y una población que envejece.", answer: "Damos a los condados datos locales claros para planificar la atención que necesitan sus residentes.", links: [["Place Intelligence", "/explore"], ["Planificación de condados CB-CAP", "https://cbcap.sozorockfoundation.org/"]] },
+    few: { word: "Muy escasa", title: "Faltan proveedores y las esperas son largas.", covers: "Escasez de proveedores, tiempos de espera, menos personal de salud y una población que envejece.", answer: "Damos a los condados datos locales claros para planificar la atención que necesitan sus residentes.", links: [["Place Intelligence", "/explore"], ["Espacio de planificación para condados, próximamente", "https://cbcap.sozorockfoundation.org/"]] },
     far: { word: "Muy lejos", title: "La distancia, el costo y la falta de conexión alejan la atención.", covers: "Distancia, transporte, falta de un dispositivo o de internet, falta de un lugar privado y costo.", answer: "Los Health Equity Hubs ofrecen un lugar privado, un dispositivo y wifi seguro cerca de casa. Cuando el costo es un obstáculo, patrocinamos un año de atención primaria.", links: [["Health Equity Hubs", "/work#hubs"], ["Programa de Acceso a la Atención Primaria", "/primary-care-access"]] },
     hubs: { ends: ["En un espacio público", "En casa"], items: [["Biblioteca", "Con cita previa"], ["Comunidad", "En eventos programados"], ["Hogar", "En desarrollo"]], caption: "Cada consulta se realiza en la plataforma del propio proveedor. La consulta y el expediente quedan con el proveedor." },
     hard: { word: "Muy difícil", title: "El idioma y los diagnósticos tardíos impiden que la atención funcione.", covers: "Idioma, traducción, alfabetización en salud, prevención que no llega y enfermedades crónicas detectadas tarde.", answer: "Health Access Day lleva educación en salud, interpretación y pruebas de detección a cargo de proveedores con licencia a los códigos postales con más enfermedades crónicas.", links: [["Health Access Day", "/work#health-access-day"]] },
@@ -63,7 +62,6 @@ const COPY = {
       { who: "Financiadores", what: "Acceso medible donde la necesidad es mayor.", cta: "Apoye este trabajo", href: SUPPORT },
     ],
     care: <>SozoRock{R} Health no presta atención médica. Toda la atención la brindan proveedores con licencia.</>,
-    researchLabel: "Investigación",
     researchTitle: "Tres ideas detrás de cada programa.",
     researchLink: "Lea la investigación (en inglés)",
     ideas: ["Llevar la atención a donde la gente ya va: la biblioteca, el centro comunitario y el hogar.", "Los condados ya tienen los datos que necesitan para planificar la salud. Falta conectarlos.", "La salud digital se gana la confianza cuando se pone a prueba, no cuando se da por sentada."],
@@ -140,7 +138,6 @@ export function HealthStory({ spanish = false }) {
 
     <section className="hx-research hx-wrap" aria-labelledby="hx-research-title">
       <div className="hx-research-head">
-        <p className="hx-label">{t.researchLabel}</p>
         <h2 id="hx-research-title">{t.researchTitle}</h2>
         <a className="hx-text" href="/publications">{t.researchLink}</a>
       </div>
