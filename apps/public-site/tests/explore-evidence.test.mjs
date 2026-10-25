@@ -105,7 +105,7 @@ test("the explore route is discoverable", async () => {
   const sitemap = await source("app/sitemap.ts");
   const page = await source("app/explore/page.tsx");
   assert.match(sitemap, /\/explore/);
-  assert.match(page, /healthMetadata\("SozoRock Place Intelligence", description, "\/explore"/);
+  assert.match(page, /healthMetadata\("Health Data for Every County", description, "\/explore"/);
 });
 
 test("the public map uses MapLibre with official boundaries and no decorative roads", async () => {

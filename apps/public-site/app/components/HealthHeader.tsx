@@ -29,10 +29,6 @@ export function HealthHeader({ spanish = false, path }: { spanish?: boolean; pro
         <span>
           <strong>SozoRock<sup className="hx-reg">®</sup></strong> Health
         </span>
-        <small>
-          {spanish ? "Una iniciativa de" : "An initiative of"} The SozoRock
-          Foundation
-        </small>
       </a>
       <button
         ref={toggle}
@@ -56,7 +52,7 @@ export function HealthHeader({ spanish = false, path }: { spanish?: boolean; pro
         <a href="/work">{spanish ? "Nuestro trabajo" : "Our work"}</a>
         <a href="/explore">{spanish ? "Datos y mapas" : "Data and maps"}</a>
         <a href="/publications">{spanish ? "Investigación" : "Research"}</a>
-        <a href="https://www.sozorockfoundation.org/about">{spanish ? "Quiénes somos" : "About"}</a>
+        <a href="https://www.sozorockfoundation.org/about">{spanish ? "Fundación" : "Foundation"}</a>
         <a className="hs-cta" href="/contact">{spanish ? "Colabore con nosotros" : "Work with us"}</a>
         <a
           className="hs-language"

@@ -5,7 +5,7 @@ import { LegalPage } from "../components/LegalPage";
 import { createLegalMetadata } from "../lib/legal-metadata";
 
 export const metadata = createLegalMetadata({
-  title: "Accessibility",
+  title: "Accessibility Statement",
   description:
     "SozoRock Health accessibility commitment and accommodation contact.",
   path: "/accessibility",
@@ -14,8 +14,8 @@ export const metadata = createLegalMetadata({
 export default function AccessibilityPage() {
   return (
     <LegalPage
-      eyebrow="Our commitment"
-      title="Accessibility"
+     
+      title="Accessibility Statement"
       updated="September 7, 2026"
     >
       <h2>Our accessibility goal</h2>

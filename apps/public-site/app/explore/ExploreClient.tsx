@@ -1229,7 +1229,7 @@ export function ExploreClient({ initialState = null }: { initialState?: ExploreS
     try {await navigator.clipboard.writeText(url);setShareMessage("Link copied. It opens this county and view.");}
     catch {setShareFallback(url);setShareMessage("Copy the link below to share this view.");}
   }
-  const partnershipHref=`/contact?interest=${encodeURIComponent("Partner with us")}${data ? `&location=${encodeURIComponent(data.location.label)}` : ""}`;
+  const partnershipHref=`/contact?audience=counties${data ? `&location=${encodeURIComponent(data.location.label)}` : ""}`;
   return <div className={styles.page}>
     <a className={styles.skip} href="#explore-main">Skip to main content</a>
     <header className={styles.header}>

@@ -15,7 +15,7 @@ function component(file, name) {
 const html=component("PrimaryCareAccessPage.jsx","PrimaryCareAccessPage");
 test("the dedicated program page retains the approved facts and working next steps",()=>{
  assert.equal((html.match(/<h1[ >]/g)||[]).length,1);
- for(const fact of ["Care for every ZIP Code.","up to 25 New Yorkers","January 2027","12 months","64 or younger","financial need","one per household","62 counties","Dr. Michael Purcell","Purcell Integrative Osteopathic Care","Clifton Park","not health insurance","$108,000","$4,320","$5,000","$10,000","$25,000","$50,000","rounded down","do not select participants or influence clinical care"] ) assert.ok(html.includes(fact),fact);
+ for(const fact of ["The program in 47 seconds.","up to 25 New Yorkers","January 2027","12 months","64 or younger","financial need","one per household","62 counties","Dr. Michael Purcell","Purcell Integrative Osteopathic Care","Clifton Park","not health insurance","$108,000","$4,320","$5,000","$10,000","$25,000","$50,000","rounded down","do not select participants or influence clinical care"] ) assert.ok(html.includes(fact),fact);
  assert.doesNotMatch(html,/Proposed|proposed|Fireside|planned series/);
  assert.match(html,/A sponsored year of primary care\./);
  assert.doesNotMatch(html,/January\s+\d{1,2}(?:,|\s)+2027|TODO|deployment|editorial|review cut|implementation|concept/);
@@ -44,7 +44,8 @@ test("the branch film retains native playback, captions and descriptions",()=>{
 test("the homepage tells the health access story and links to every program",()=>{
  const home=component("HealthStory.jsx","HealthStory");
  assert.equal((home.match(/<h1[ >]/g)||[]).length,1);
- for(const href of ["/primary-care-access","/interest","/explore","/contact","/publications","/work#hubs"])assert.ok(home.includes(`"${href}"`),href);
- for(const fact of ["Too few","Too far","Too hard","Health Equity Hubs","Health Access Day","Place Intelligence","does not provide medical care","licensed providers"])assert.ok(home.includes(fact),fact);
+ for(const href of ["/primary-care-access","/interest","/explore","/contact?audience=providers","/publications","/work#hubs"])assert.ok(home.includes(`"${href}"`),href);
+ for(const fact of ["Too few","Too far","Too hard","Health Equity Hubs","Health Access Day","Place Intelligence","licensed providers"])assert.ok(home.includes(fact),fact);
  assert.doesNotMatch(home,/Proposed|proposed|navigator|BYOP|Bring Your Own Platform| \u2014 | \u2013 /);
+ assert.match(readFileSync(new URL("../app/components/HealthSiteFooter.jsx",import.meta.url),"utf8"),/does not provide medical care/);
 });

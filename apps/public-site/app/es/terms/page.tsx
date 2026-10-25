@@ -11,7 +11,7 @@ export const metadata = healthMetadata(
 
 export default function SpanishTermsPage() {
   return (
-    <LegalPage spanish path="/es/terms" eyebrow="Política pública" title="Condiciones de uso" updated="7 de septiembre de 2026">
+    <LegalPage spanish path="/es/terms" title="Condiciones de uso" updated="7 de septiembre de 2026">
       <h2>Acerca de estas condiciones</h2>
       <p>
         Estas condiciones se aplican al sitio web público de SozoRock Health y a

@@ -58,7 +58,7 @@ test("future media publication remains fail closed while ordinary page metadata 
 
 test("Health exposes its systems capabilities and preserves inquiry and evidence paths", () => {
   const home = read("../app/components/HealthHome.tsx");
-  const form = read("../app/components/ContactForm.tsx");
+  const form = read("../app/components/AudienceContact.jsx");
   for (const label of [
     "Community access",
     "Evidence and intelligence",
@@ -68,8 +68,8 @@ test("Health exposes its systems capabilities and preserves inquiry and evidence
     assert.ok(home.includes(label));
   for (const route of ["/publications", "/explore", "/contact"])
     assert.ok(home.includes(`href="${route}"`));
-  assert.match(form, /Workforce partnership/);
-  assert.match(form, /CB-CAP inquiry/);
+  for (const audience of ["Residents", "Providers", "Counties and public agencies", "Funders", "Media and research"]) assert.ok(form.includes(audience), audience);
+  assert.doesNotMatch(form, /BYOP|CB-CAP inquiry/);
   assert.equal(
     existsSync(
       new URL(

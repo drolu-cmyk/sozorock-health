@@ -17,10 +17,10 @@ const more = [["Housing insecurity", "10.8%", "9.0% to 12.9%"], ["Utility shutof
 export function DataPage() {
   return <div className="hx">
     <section className="hx-hero hx-wrap" aria-labelledby="hx-title">
-      <p className="hx-label">Data and maps</p>
+      <p className="hx-label">About the data</p>
       <h1 id="hx-title">Free local data to plan for care.</h1>
       <p className="hx-promise">Health, community and workforce data for counties across the United States, with every source and date.</p>
-      <p className="hx-links hx-cta-row"><a className="hx-pill" href="/explore">Open Place Intelligence</a><a className="hx-text" href="https://cbcap.sozorockfoundation.org/">CB-CAP county planning</a></p>
+      <p className="hx-links hx-cta-row"><a className="hx-pill" href="/explore">Find your county</a><a className="hx-text" href="https://cbcap.sozorockfoundation.org/">County planning workspace</a></p>
     </section>
 
     <section className="hx-families hx-wrap hx-ice" aria-labelledby="hx-families-title">
@@ -47,16 +47,16 @@ export function DataPage() {
     <section className="hx-tools hx-wrap hx-ice" aria-labelledby="hx-tools-title">
       <h2 id="hx-tools-title" className="hx-label">Two ways to use it</h2>
       <ul>
-        <li><h3>Place Intelligence</h3><p>Look up a county, compare it with others, and download the data with its sources, dates and definitions.</p><a className="hx-text" href="/explore">Open Place Intelligence</a></li>
-        <li><h3>CB-CAP county planning</h3><p>A planning workspace that connects this data to community health assessments and improvement plans. The public preview is open.</p><a className="hx-text" href="https://cbcap.sozorockfoundation.org/">Open CB-CAP</a></li>
+        <li><h3>Data and maps</h3><p>Look up a county, compare it with others, and download the data with its sources, dates and definitions.</p><a className="hx-text" href="/explore">Find your county</a></li>
+        <li><h3>County planning workspace</h3><p>A planning workspace that connects this data to community health assessments and improvement plans. The public preview is open.</p><a className="hx-text" href="https://cbcap.sozorockfoundation.org/">Open the workspace</a></li>
       </ul>
     </section>
 
     <HealthEvidenceMethods />
 
     <section className="hx-foundation hx-wrap hx-ice" aria-label="Research">
-      <p>Our research explains what the data means for rural health, county planning and digital health.</p>
-      <a className="hx-text" href="/publications">Explore all research</a>
+      <p>What the data means for rural access, county planning and digital health.</p>
+      <a className="hx-text" href="/publications">Read the research</a>
     </section>
   </div>;
 }

@@ -11,7 +11,7 @@ export const metadata = healthMetadata(
 
 export default function SpanishAccessibilityPage() {
   return (
-    <LegalPage spanish path="/es/accessibility" eyebrow="Nuestro compromiso" title="Accesibilidad" updated="7 de septiembre de 2026">
+    <LegalPage spanish path="/es/accessibility" title="Declaración de accesibilidad" updated="7 de septiembre de 2026">
       <h2>Nuestro objetivo de accesibilidad</h2>
       <p>
         SozoRock Health trabaja para cumplir las Pautas de Accesibilidad para el

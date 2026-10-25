@@ -11,7 +11,7 @@ export const metadata = healthMetadata(
 
 export default function SpanishNondiscriminationPage() {
   return (
-    <LegalPage spanish path="/es/nondiscrimination" eyebrow="Nuestro compromiso" title="No discriminación" titleSize="compact" updated="7 de septiembre de 2026">
+    <LegalPage spanish path="/es/nondiscrimination" title="Aviso de no discriminación" titleSize="compact" updated="7 de septiembre de 2026">
       <h2>Igualdad de acceso y participación respetuosa</h2>
       <p>
         The SozoRock Foundation, Inc. se compromete a ofrecer sus programas,

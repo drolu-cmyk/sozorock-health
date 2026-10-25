@@ -37,7 +37,7 @@ const COPY = {
     closeText: "Join the interest list by email or phone. No health details needed.",
     footSources: <>Sources: HRSA Designated HPSA Quarterly Summary, FY2026 Q4, Table 3. CDC PLACES County Data, 2025 release (dataset i46a-9kgh). <a href="/evidence#methods">Full methods and downloadable data</a>.</>,
     chart: { caption: "Primary-care need met in shortage areas", note: "HRSA, designated primary-care HPSAs, as of September 30, 2026. A workforce measure, not appointment access." },
-    film: { title: "Care for every ZIP Code.", label: "Care for every ZIP Code, a 47-second introduction to SozoRock Health", transcript: "Read the descriptive transcript", transcriptHref: "/media/care-for-every-zip-code.transcript.txt", note: null },
+    film: { title: "The program in 47 seconds.", label: "Care for every ZIP Code, a 47-second introduction to SozoRock Health", transcript: "Read the descriptive transcript", transcriptHref: "/media/care-for-every-zip-code.transcript.txt", note: null },
     money: (n) => `$${n.toLocaleString("en-US")}`,
   },
   es: {
@@ -72,7 +72,7 @@ const COPY = {
     closeText: "Únase a la lista de interés por correo electrónico o por teléfono. No necesita dar datos de salud. El formulario está en inglés; si necesita ayuda en español, escriba a contact@sozorockfoundation.org.",
     footSources: <>Fuentes: HRSA Designated HPSA Quarterly Summary, cuarto trimestre del año fiscal 2026, tabla 3. CDC PLACES, datos por condado, edición de 2025 (conjunto de datos i46a-9kgh). <a href="/evidence#methods" hrefLang="en">Métodos completos y datos para descargar (en inglés)</a>.</>,
     chart: { caption: "Necesidad de atención primaria cubierta en zonas con escasez", note: "HRSA, zonas designadas con escasez de atención primaria, al 30 de septiembre de 2026. Mide la fuerza laboral, no la disponibilidad de citas." },
-    film: { title: "Atención médica para cada código postal.", label: "Atención médica para cada código postal, una presentación de 47 segundos de SozoRock Health", transcript: "Lea la transcripción descriptiva", transcriptHref: "/media/care-for-every-zip-code.transcript.es.txt", note: "El video tiene música y no tiene narración. Su texto en pantalla está en inglés; los subtítulos en español lo traducen." },
+    film: { title: "El programa en 47 segundos.", label: "Atención médica para cada código postal, una presentación de 47 segundos de SozoRock Health", transcript: "Lea la transcripción descriptiva", transcriptHref: "/media/care-for-every-zip-code.transcript.es.txt", note: "El video tiene música y no tiene narración. Su texto en pantalla está en inglés; los subtítulos en español lo traducen." },
     money: (n) => `$${n.toLocaleString("en-US")}`,
   },
 };

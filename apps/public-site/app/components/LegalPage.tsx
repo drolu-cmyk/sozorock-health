@@ -1,15 +1,14 @@
 import { HealthShell } from "./HealthShell";
 import { healthPageSchema } from "../lib/health-metadata";
 const paths: Record<string, string> = {
-  "Privacy notice": "/privacy",
-  "Terms of use": "/terms",
-  Accessibility: "/accessibility",
-  Nondiscrimination: "/nondiscrimination",
-  "Nondiscrimination notice": "/nondiscrimination",
+  "Privacy Notice": "/privacy",
+  "Terms of Use": "/terms",
+  "Accessibility Statement": "/accessibility",
+  "Nondiscrimination Notice": "/nondiscrimination",
   "Aviso de privacidad": "/es/privacy",
   "Condiciones de uso": "/es/terms",
-  Accesibilidad: "/es/accessibility",
-  "No discriminación": "/es/nondiscrimination",
+  "Declaración de accesibilidad": "/es/accessibility",
+  "Aviso de no discriminación": "/es/nondiscrimination",
 };
 function legalSchema(title: string, path: string, spanish: boolean) {
   const schema = healthPageSchema(title, path);

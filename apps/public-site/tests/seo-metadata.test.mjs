@@ -5,10 +5,10 @@ import nextConfig from "../next.config.ts";
 import { createLegalMetadata } from "../app/lib/legal-metadata.ts";
 
 const legalPages = [
-  ["Privacy notice", "/privacy"],
-  ["Terms of use", "/terms"],
-  ["Accessibility", "/accessibility"],
-  ["Nondiscrimination", "/nondiscrimination"],
+  ["Privacy Notice", "/privacy"],
+  ["Terms of Use", "/terms"],
+  ["Accessibility Statement", "/accessibility"],
+  ["Nondiscrimination Notice", "/nondiscrimination"],
 ];
 
 for (const [title, path] of legalPages) {

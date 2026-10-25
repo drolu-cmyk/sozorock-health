@@ -2,14 +2,14 @@ export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 import { healthMetadata, healthPageSchema } from "../lib/health-metadata";
+import Image from "next/image";
 import Link from "next/link";
 import { HealthShell } from "../components/HealthShell";
 import { publications } from "../lib/publications";
-import styles from "./publications.module.css";
 
 export const metadata = healthMetadata(
-  "Research and publications",
-  "Read publications on rural equity, public governance and health systems assurance by Dr. Oluwabiyi Adeyemo. View editions and request access.",
+  "Research",
+  "Three reports by Dr. Oluwabiyi Adeyemo on rural health access, county planning and trustworthy digital health, with key findings and free access.",
   "/publications",
 );
 
@@ -21,47 +21,37 @@ export default async function PublicationsPage({
   const verification = (await searchParams).verification;
   return (
     <HealthShell>
-      <div className={styles.page}>
-        <main id="health-main" className={styles.main}>
-          <div className={styles.formIntro}>
-            <p>Publications</p>
-            <h1>Research for stronger health systems.</h1>
-            <p>
-              Research by Dr. Oluwabiyi Adeyemo on rural health access,
-              local governance and digital assurance. Each record includes its
-              scope, publication details and full-text access.
-            </p>
+      <main id="health-main" className="hx">
+        <section className="hx-research-hero hx-wrap" aria-labelledby="hx-title">
+          <div>
+            <p className="hx-label">Research</p>
+            <h1 id="hx-title">What it takes for care to reach every county.</h1>
           </div>
-          {verification ? (
-            <p className={styles.error} role="alert">
-              {verification === "expired"
-                ? "That verification link has expired or was already used. Return to the publication and submit the access form again for a new link."
-                : verification === "missing"
-                  ? "The verification link is incomplete. Return to the publication and submit the access form again."
-                  : "We could not confirm that verification link. Return to the publication and request a new link."}
-            </p>
-          ) : null}
-          <div className={styles.list}>
-            {publications.map((publication) => (
-              <article key={publication.slug} className={styles.listItem}>
-                <div className={styles.listRecord}>
-                  <p className={styles.status}>{publication.published}</p>
-                  <p>Volume 1</p>
-                </div>
-                <div>
-                  <p className={styles.status}>{publication.status}</p>
-                  <h2><Link href={`/publications/${publication.slug}`}>{publication.title}</Link></h2>
-                  <p>{publication.description}</p>
-                  {publication.doi && <p className={styles.publicationDoi}><a href={`https://doi.org/${publication.doi}`}>DOI: {publication.doi}</a></p>}
-                  <Link href={`/publications/${publication.slug}`}>
-                    Read overview and access publication
-                  </Link>
-                </div>
-              </article>
-            ))}
-          </div>
-        </main>
-      </div>
+          <p className="hx-answer">Three reports by Dr. Oluwabiyi Adeyemo on rural access, county planning and trustworthy digital health. Free to read.</p>
+        </section>
+        {verification ? (
+          <p className="hx-wrap hx-alert" role="alert">
+            {verification === "expired"
+              ? "That verification link has expired or was already used. Return to the report and request a new link."
+              : verification === "missing"
+                ? "The verification link is incomplete. Return to the report and request a new link."
+                : "We could not confirm that verification link. Return to the report and request a new link."}
+          </p>
+        ) : null}
+        <ul className="hx-report-grid hx-wrap">
+          {publications.map((publication) => (
+            <li key={publication.slug}>
+              <Link href={`/publications/${publication.slug}`}>
+                <Image src={publication.previewCover ?? publication.cover ?? ""} width={publication.previewWidth} height={publication.previewHeight} alt={`${publication.plainTitle} cover`} sizes="(max-width: 960px) 360px, 30vw" />
+                <span className="hx-report-meta">{publication.published} · Volume 1</span>
+                <strong>{publication.plainTitle}</strong>
+                <span className="hx-report-finding">{publication.listFinding}</span>
+                <span className="hx-report-cta">Read the report</span>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      </main>
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{

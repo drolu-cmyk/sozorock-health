@@ -5,7 +5,7 @@ import { LegalPage } from "../components/LegalPage";
 import { createLegalMetadata } from "../lib/legal-metadata";
 
 export const metadata = createLegalMetadata({
-  title: "Nondiscrimination",
+  title: "Nondiscrimination Notice",
   description:
     "The SozoRock Foundation, Inc. nondiscrimination commitment for SozoRock Health public programs and digital experiences.",
   path: "/nondiscrimination",
@@ -14,8 +14,8 @@ export const metadata = createLegalMetadata({
 export default function NondiscriminationPage() {
   return (
     <LegalPage
-      eyebrow="Our commitment"
-      title="Nondiscrimination"
+     
+      title="Nondiscrimination Notice"
       titleSize="compact"
       updated="September 7, 2026"
     >

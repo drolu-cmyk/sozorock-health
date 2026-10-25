@@ -48,7 +48,7 @@ export function PublicCountyExplorer({choices,initialCounty,initialEvidence,noti
     const url=URL.createObjectURL(new Blob([csv],{type:"text/csv;charset=utf-8"}));const a=document.createElement("a");a.href=url;a.download="sozorock-county-evidence.csv";a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
   };
   return <div className="public-county-explorer shell">
-    <header><p className="eyebrow">SozoRock Place Intelligence</p><h1>County evidence, in context.</h1><p>Explore health conditions, access and preventive care. Compare two counties and follow every measure to its source.</p></header>
+    <header><p className="eyebrow">Data and maps</p><h1>Health data for every county.</h1><p>Explore health conditions, access and preventive care. Compare two counties and follow every measure to its source.</p></header>
     {notice&&<p className="public-county-notice">{notice}</p>}
     {candidates.length>0&&<div className="public-county-candidates"><span>Counties intersecting this location:</span>{candidates.map(c=><button type="button" key={c.fips} onClick={()=>setSelected(c.fips)}>{c.name}, {c.state}</button>)}</div>}
     <div className="public-county-selectors"><CountySelect label="Your county" choices={choices} value={selected} onChange={setSelected}/><CountySelect label="Compare with" choices={choices} value={comparison} onChange={setComparison} optional/></div>
