@@ -9,6 +9,7 @@ import { HealthSiteFooter } from "./HealthSiteFooter";
 function Content({pathname,initialInterest,initialLocation}){switch(pathname){
 case "/": return <HealthStory />;
 case "/primary-care-access": return <PrimaryCareAccessPage />;
+case "/es/primary-care-access": return <PrimaryCareAccessPage spanish />;
 case "/work": return <WorkPage />;
 case "/evidence": return <DataPage />;
 case "/contact": return <>
@@ -30,5 +31,5 @@ case "/interest": return <>
 </>;
 default:return null;}}
 /** @param {{pathname:string,initialInterest?:string,initialLocation?:string,children?:import("react").ReactNode,spanish?:boolean}} props */
-export function ApprovedHealthPage({pathname,initialInterest="",initialLocation="",children=null,spanish=false}){return <div className="approved-site health-system"><a className="hs-skip" href="#health-main">{spanish?"Saltar al contenido":"Skip to content"}</a><HealthHeader spanish={spanish} /><main id="health-main">{children ?? <Content pathname={pathname} initialInterest={initialInterest} initialLocation={initialLocation}/>}</main><HealthSiteFooter spanish={spanish} />
+export function ApprovedHealthPage({pathname,initialInterest="",initialLocation="",children=null,spanish=false}){return <div className="approved-site health-system"><a className="hs-skip" href="#health-main">{spanish?"Saltar al contenido":"Skip to content"}</a><HealthHeader spanish={spanish} path={pathname} /><main id="health-main">{children ?? <Content pathname={pathname} initialInterest={initialInterest} initialLocation={initialLocation}/>}</main><HealthSiteFooter spanish={spanish} path={pathname} />
 </div>}
