@@ -7,7 +7,7 @@ import {
 } from "../../lib/health-metadata";
 import Image from "next/image";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, permanentRedirect } from "next/navigation";
 import { PublicationEvent } from "../../components/PublicationEvent";
 import { HealthShell } from "../../components/HealthShell";
 import { getPublication, publications } from "../../lib/publications";
@@ -23,6 +23,7 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const publication = getPublication((await params).slug);
   if (!publication) return {};
+  if (publication.canonicalUrl) return { title: publication.title, alternates: { canonical: publication.canonicalUrl }, robots: { index: false, follow: true } };
   const path = `/publications/${publication.slug}`;
   const base = healthMetadata(`${publication.plainTitle}, Volume 1`, `${publication.takeaway} ${publication.listFinding} By Dr. Oluwabiyi Adeyemo.`, path);
   const code = publication.slug.startsWith("rural")
@@ -50,6 +51,7 @@ export default async function PublicationPage({
 }) {
   const publication = getPublication((await params).slug);
   if (!publication) notFound();
+  if (publication.canonicalUrl) permanentRedirect(publication.canonicalUrl);
   const schema = {
     "@context": "https://schema.org",
     "@type": "Book",

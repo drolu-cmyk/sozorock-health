@@ -2,6 +2,7 @@ export type PublicationStatus = "Available" | "In development";
 
 export type Publication = {
   slug: string;
+  canonicalUrl?: string;
   legacySlugs?: readonly string[];
   title: string;
   shortTitle: string;
@@ -146,8 +147,38 @@ export const publications: readonly Publication[] = [
   },
 ] as const;
 
+// Foundation outlooks use the established verified delivery service without
+// appearing as another Health research series.
+const foundationOutlooks: readonly Publication[] = [
+  {
+    slug: "economic-outlook-october-2026",
+    canonicalUrl: "https://www.sozorockfoundation.org/publication/economic-outlook-october-2026",
+    title: "Economic conditions outlook, October 2026",
+    shortTitle: "Economic conditions outlook, October 2026",
+    plainTitle: "Economic conditions outlook, October 2026",
+    author: "Dr Oluwabiyi Adeyemo",
+    publisher: "The SozoRock Foundation, Inc.",
+    published: "October 2026",
+    datePublished: "2026-10-26",
+    description: "A national outlook on health access, workforce capacity, and accountable services.",
+    relevance: "Examines household health costs, changing digital occupations, and institutional choices over the next year.",
+    status: "Available",
+    tags: ["Economic outlook", "Health access", "Workforce capacity"],
+    cover: null,
+    assetKey: "economic-outlook-october-2026.pdf",
+    takeaway: "Economic growth leaves difficult choices about who pays for care and how people move into changing work.",
+    listFinding: "Workers at smaller firms contribute $2,847 more on average toward annual family health premiums.",
+    findings: [],
+    findingsSource: "KFF, 2026 Employer Health Benefits Survey; The SozoRock Foundation calculation.",
+    ideasTitle: "The choices shaping the next year",
+    ideas: [],
+    previewWidth: 612,
+    previewHeight: 792,
+  },
+];
+
 export function getPublication(slug: string) {
-  return publications.find(
+  return [...publications, ...foundationOutlooks].find(
     (publication) =>
       publication.slug === slug || publication.legacySlugs?.includes(slug),
   );
