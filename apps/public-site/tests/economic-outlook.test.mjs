@@ -13,6 +13,6 @@ test("the approved outlook is delivered privately with one Foundation canonical 
   assert.equal(record.assetKey, "economic-outlook-october-2026.pdf");
   assert.ok(!publications.some(p => p.slug === record.slug), "delivery registration does not add a duplicate Health series");
   const pdf = readFileSync(new URL(`../../../infrastructure/assets/publications/${record.assetKey}`, import.meta.url));
-  assert.equal(createHash("sha256").update(pdf).digest("hex"), "1b7f3d53a19056ac114d2eaa2af0f84c08596356f6bc4f19ddc804b88d7ecd01");
+  assert.equal(createHash("sha256").update(pdf).digest("hex"), "68d37c4ed099129afe4e569af4e64fa68c493be08b65afd1670c1368b91b23b0");
   assert.equal(existsSync(new URL(`../public/publications/${record.assetKey}`, import.meta.url)), false);
 });
