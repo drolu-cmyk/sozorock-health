@@ -6,4 +6,10 @@
   else .
   end
 ) |
-.Statement = ((.Statement | map(select(.Sid != $evidence_secret.Sid))) + [$evidence_secret])
+# Remove only the obsolete Allow. Existing Deny statements must survive recovery.
+.Statement |= map(select(.Effect != "Allow" or .Sid != "ManageEvidenceDatabaseSecret")) |
+if any(.Statement[]; . == $rds_deny) then .
+elif any(.Statement[]; .Sid == $rds_deny.Sid) then
+  error("Existing RDS retirement policy differs; inspect it before recovery")
+else .Statement += [$rds_deny]
+end

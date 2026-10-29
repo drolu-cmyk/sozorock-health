@@ -1,6 +1,15 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Description: Private production authority for SozoRock Explore evidence snapshots and execution audit.
 
+# Historical definition only. No parameter can re-enable this retired stack.
+# Do not apply a resource-removal update to a live stack; inventory it first.
+Rules:
+  RdsPermanentlyRetired:
+    Assertions:
+      - Assert:
+          Fn::Equals: [rds-retired, rds-enabled]
+        AssertDescription: RDS is permanently retired. This template cannot be deployed.
+
 Parameters:
   EnvironmentName:
     Type: String

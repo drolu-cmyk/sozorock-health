@@ -36,6 +36,16 @@ Resources:
           PolicyDocument:
             Version: '2012-10-17'
             Statement:
+              - Sid: DenyRetiredRdsRecreation
+                Effect: Deny
+                Action:
+                  - rds:Create*
+                  - rds:Restore*
+                  - rds:Start*
+                  - rds:Modify*
+                  - rds:Copy*
+                  - rds:Promote*
+                Resource: '*'
               - Sid: NetworkComputeAndEdge
                 Effect: Allow
                 Action:
@@ -76,7 +86,6 @@ Resources:
               - Sid: ManagedDataIdentityObservability
                 Effect: Allow
                 Action:
-                  - rds:*
                   - cognito-idp:*
                   - secretsmanager:*
                   - logs:*
@@ -167,7 +176,6 @@ Resources:
                   StringEquals:
                     iam:AWSServiceName:
                       - ecs.amazonaws.com
-                      - rds.amazonaws.com
                       - elasticloadbalancing.amazonaws.com
 
   GitHubDeployRole:
@@ -192,6 +200,16 @@ Resources:
           PolicyDocument:
             Version: '2012-10-17'
             Statement:
+              - Sid: DenyRetiredRdsRecreation
+                Effect: Deny
+                Action:
+                  - rds:Create*
+                  - rds:Restore*
+                  - rds:Start*
+                  - rds:Modify*
+                  - rds:Copy*
+                  - rds:Promote*
+                Resource: '*'
               - Sid: GovernedCloudFormationStacks
                 Effect: Allow
                 Action:
@@ -255,16 +273,6 @@ Resources:
                 Condition:
                   StringEquals:
                     iam:PassedToService: ecs-tasks.amazonaws.com
-              - Sid: RecoveryProof
-                Effect: Allow
-                Action:
-                  - rds:CreateDBSnapshot
-                  - rds:DescribeDBSnapshots
-                  - rds:RestoreDBInstanceFromDBSnapshot
-                  - rds:DescribeDBInstances
-                  - rds:DeleteDBInstance
-                  - rds:AddTagsToResource
-                Resource: '*'
               - Sid: CognitoPreflightIdentity
                 Effect: Allow
                 Action:

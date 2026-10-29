@@ -109,9 +109,8 @@ test("production workflow proves admin, MFA, intake and trust recovery boundarie
   assert.match(trustScript, /iam:UpdateAssumeRolePolicy/);
   assert.match(trustScript, /RepairOnlyHealthDeploymentPolicyForFoundationRecovery/);
   assert.match(trustScript, /cloudformation:ContinueUpdateRollback/);
-  assert.match(trustScript, /ManageEvidenceDatabaseSecret/);
-  assert.match(trustScript, /secretsmanager:CreateSecret/);
-  assert.match(trustScript, /sozorock-evidence-runtime-\*/);
+  assert.match(trustScript, /DenyRetiredRdsRecreation/);
+  assert.doesNotMatch(trustScript, /secretsmanager:CreateSecret/);
   assert.match(trustScript, /GitHubOIDC_SozoRockHealthV2_DeployRole/);
   assert.match(trustScript, /sozorock-health-contact/);
   assert.doesNotMatch(trustScript, /iam:\*/);
@@ -120,17 +119,18 @@ test("production workflow proves admin, MFA, intake and trust recovery boundarie
 test("Foundation recovery policy transform is executable and preserves unrelated statements", async () => {
   const filterPath = new URL("../../scripts/patch-health-production-policy.jq", root);
   const stackResource = "arn:aws:cloudformation:us-east-1:791860731989:stack/sozorock-health-contact/*";
-  const evidenceSecret = {
-    Sid: "ManageEvidenceDatabaseSecret",
-    Effect: "Allow",
-    Action: ["secretsmanager:CreateSecret", "secretsmanager:DescribeSecret"],
-    Resource: "arn:aws:secretsmanager:us-east-1:791860731989:secret:sozorock-evidence-runtime-*",
+  const rdsDeny = {
+    Sid: "DenyRetiredRdsRecreation",
+    Effect: "Deny",
+    Action: ["rds:Create*", "rds:Restore*", "rds:Start*", "rds:Modify*", "rds:Copy*", "rds:Promote*"],
+    Resource: "*",
   };
   const current = {
     Version: "2012-10-17",
     Statement: [
       { Sid: "ContactStack", Effect: "Allow", Action: "cloudformation:UpdateStack", Resource: stackResource },
       { Sid: "UnrelatedPermission", Effect: "Allow", Action: "s3:GetObject", Resource: "arn:aws:s3:::example/*" },
+      { Sid: "ManageEvidenceDatabaseSecret", Effect: "Allow", Action: "secretsmanager:CreateSecret", Resource: "arn:aws:secretsmanager:us-east-1:791860731989:secret:sozorock-evidence-runtime-*" },
       { Sid: "ManageEvidenceDatabaseSecret", Effect: "Deny", Action: "secretsmanager:CreateSecret", Resource: "*" },
     ],
   };
@@ -138,7 +138,7 @@ test("Foundation recovery policy transform is executable and preserves unrelated
   const output = execFileSync("jq", [
     "--arg", "resource", stackResource,
     "--arg", "action", "cloudformation:ContinueUpdateRollback",
-    "--argjson", "evidence_secret", JSON.stringify(evidenceSecret),
+    "--argjson", "rds_deny", JSON.stringify(rdsDeny),
     "-f", fileURLToPath(filterPath),
   ], { input: JSON.stringify(current), encoding: "utf8" });
   const patched = JSON.parse(output);
@@ -150,6 +150,22 @@ test("Foundation recovery policy transform is executable and preserves unrelated
   );
   assert.deepEqual(
     patched.Statement.filter((statement) => statement.Sid === "ManageEvidenceDatabaseSecret"),
-    [evidenceSecret],
+    [current.Statement.at(-1)],
   );
+  assert.deepEqual(patched.Statement.find((statement) => statement.Sid === rdsDeny.Sid), rdsDeny);
+  const second = execFileSync("jq", [
+    "--arg", "resource", stackResource,
+    "--arg", "action", "cloudformation:ContinueUpdateRollback",
+    "--argjson", "rds_deny", JSON.stringify(rdsDeny),
+    "-f", fileURLToPath(filterPath),
+  ], { input: JSON.stringify(patched), encoding: "utf8" });
+  assert.deepEqual(JSON.parse(second), patched, "recovery must be idempotent");
+  const conflicting = { ...current, Statement: [...current.Statement, { ...rdsDeny, Action: "rds:Create*" }] };
+  assert.throws(() => execFileSync("jq", [
+    "--arg", "resource", stackResource,
+    "--arg", "action", "cloudformation:ContinueUpdateRollback",
+    "--argjson", "rds_deny", JSON.stringify(rdsDeny),
+    "-f", fileURLToPath(filterPath),
+  ], { input: JSON.stringify(conflicting), encoding: "utf8", stdio: ['pipe', 'pipe', 'pipe'] }),
+  /Existing RDS retirement policy differs/, "an existing policy collision requires inspection");
 });
