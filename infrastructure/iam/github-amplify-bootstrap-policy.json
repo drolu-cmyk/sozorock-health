@@ -37,42 +37,9 @@
       "Resource": [
         "arn:aws:cloudformation:us-east-1:791860731989:stack/sozorock-health-contact/*",
         "arn:aws:cloudformation:us-east-1:791860731989:stack/sozorock-health-publication-access/*",
-        "arn:aws:cloudformation:us-east-1:791860731989:stack/sozorock-health-evidence-production/*",
         "arn:aws:cloudformation:us-east-1:791860731989:changeSet/*/*",
         "arn:aws:cloudformation:us-east-1:aws:transform/Serverless-2016-10-31"
       ]
-    },
-    {
-      "Sid": "DiscoverEvidenceNetwork",
-      "Effect": "Allow",
-      "Action": [
-        "ec2:DescribeVpcs",
-        "ec2:DescribeSubnets",
-        "ec2:DescribeAvailabilityZones",
-        "ec2:DescribeSecurityGroups"
-      ],
-      "Resource": "*"
-    },
-    {
-      "Sid": "ProvisionEvidenceNetworkBoundary",
-      "Effect": "Allow",
-      "Action": [
-        "ec2:CreateSecurityGroup",
-        "ec2:DeleteSecurityGroup",
-        "ec2:AuthorizeSecurityGroupEgress",
-        "ec2:RevokeSecurityGroupEgress",
-        "ec2:CreateTags",
-        "ec2:DeleteTags"
-      ],
-      "Resource": [
-        "arn:aws:ec2:us-east-1:791860731989:security-group/*",
-        "arn:aws:ec2:us-east-1:791860731989:vpc/*"
-      ],
-      "Condition": {
-        "StringEqualsIfExists": {
-          "aws:RequestTag/sozorock:system": "evidence-core"
-        }
-      }
     },
     {
       "Sid": "DiscoverEvidenceAurora",
@@ -83,86 +50,6 @@
         "rds:DescribeDBInstances",
         "rds:DescribeDBSubnetGroups"
       ],
-      "Resource": "*"
-    },
-    {
-      "Sid": "DescribeEvidenceAuroraEncryptionKey",
-      "Effect": "Allow",
-      "Action": "kms:DescribeKey",
-      "Resource": "arn:aws:kms:us-east-1:791860731989:key/2850b0b7-dc61-43ef-8df0-d5f9675f4a78"
-    },
-    {
-      "Sid": "DescribeEvidenceDatabaseSecretEncryptionKey",
-      "Effect": "Allow",
-      "Action": "kms:DescribeKey",
-      "Resource": "arn:aws:kms:us-east-1:791860731989:key/15511f2e-4119-446c-b0fe-53e429ce87ee"
-    },
-    {
-      "Sid": "GrantEvidenceAuroraEncryptionKey",
-      "Effect": "Allow",
-      "Action": "kms:CreateGrant",
-      "Resource": "arn:aws:kms:us-east-1:791860731989:key/2850b0b7-dc61-43ef-8df0-d5f9675f4a78",
-      "Condition": {
-        "Bool": {
-          "kms:GrantIsForAWSResource": "true"
-        }
-      }
-    },
-    {
-      "Sid": "ProvisionEvidenceAurora",
-      "Effect": "Allow",
-      "Action": [
-        "rds:AddTagsToResource",
-        "rds:CreateDBCluster",
-        "rds:CreateDBClusterSnapshot",
-        "rds:CreateDBInstance",
-        "rds:CreateDBSubnetGroup",
-        "rds:DeleteDBInstance",
-        "rds:DeleteDBSubnetGroup",
-        "rds:ModifyDBCluster",
-        "rds:ModifyDBInstance",
-        "rds:RemoveTagsFromResource"
-      ],
-      "Resource": [
-        "arn:aws:rds:us-east-1:791860731989:cluster:sozorock-evidence-*",
-        "arn:aws:rds:us-east-1:791860731989:db:sozorock-evidence-*",
-        "arn:aws:rds:us-east-1:791860731989:cluster-snapshot:sozorock-evidence-*",
-        "arn:aws:rds:us-east-1:791860731989:subgrp:*"
-      ]
-    },
-    {
-      "Sid": "OperateEvidenceDataApi",
-      "Effect": "Allow",
-      "Action": [
-        "rds-data:BeginTransaction",
-        "rds-data:CommitTransaction",
-        "rds-data:RollbackTransaction",
-        "rds-data:ExecuteStatement",
-        "rds-data:BatchExecuteStatement"
-      ],
-      "Resource": "arn:aws:rds:us-east-1:791860731989:cluster:sozorock-evidence-*"
-    },
-    {
-      "Sid": "ManageEvidenceDatabaseSecret",
-      "Effect": "Allow",
-      "Action": [
-        "secretsmanager:CreateSecret",
-        "secretsmanager:DeleteSecret",
-        "secretsmanager:DescribeSecret",
-        "secretsmanager:GetSecretValue",
-        "secretsmanager:PutSecretValue",
-        "secretsmanager:UpdateSecret",
-        "secretsmanager:TagResource"
-      ],
-      "Resource": [
-        "arn:aws:secretsmanager:us-east-1:791860731989:secret:rds!cluster-*",
-        "arn:aws:secretsmanager:us-east-1:791860731989:secret:sozorock-evidence-runtime-*"
-      ]
-    },
-    {
-      "Sid": "GenerateEvidenceRuntimePassword",
-      "Effect": "Allow",
-      "Action": "secretsmanager:GetRandomPassword",
       "Resource": "*"
     },
     {
@@ -229,11 +116,7 @@
         "sns:GetTopicAttributes",
         "sns:SetTopicAttributes",
         "sns:TagResource",
-        "sns:UntagResource",
-        "rds:CreateEventSubscription",
-        "rds:DeleteEventSubscription",
-        "rds:DescribeEventSubscriptions",
-        "rds:ModifyEventSubscription"
+        "sns:UntagResource"
       ],
       "Resource": "*",
       "Condition": {
@@ -383,6 +266,19 @@
       "Effect": "Allow",
       "Action": "ssm:GetParameter",
       "Resource": "arn:aws:ssm:us-east-1:791860731989:parameter/sozorock-foundation/publication-google-mail"
+    },
+    {
+      "Sid": "DenyRetiredRdsRecreation",
+      "Effect": "Deny",
+      "Action": [
+        "rds:Create*",
+        "rds:Restore*",
+        "rds:Start*",
+        "rds:Modify*",
+        "rds:Copy*",
+        "rds:Promote*"
+      ],
+      "Resource": "*"
     }
   ]
 }

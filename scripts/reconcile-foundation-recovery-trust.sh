@@ -111,14 +111,8 @@ repair_health_policy() {
 
   expected_action='cloudformation:ContinueUpdateRollback'
   expected_resource="arn:aws:cloudformation:us-east-1:${account_id}:stack/sozorock-health-contact/*"
-  evidence_secret_resource="arn:aws:secretsmanager:us-east-1:${account_id}:secret:sozorock-evidence-runtime-*"
-  evidence_secret_statement="$(jq -c '.Statement[] | select(.Sid == "ManageEvidenceDatabaseSecret")' "$health_policy_source")"
-  test -n "$evidence_secret_statement"
-  jq -e --arg resource "$evidence_secret_resource" '
-    .Sid == "ManageEvidenceDatabaseSecret" and
-    ((.Action | if type == "array" then . else [.] end) | index("secretsmanager:CreateSecret")) != null and
-    ((.Resource | if type == "array" then . else [.] end) | index($resource)) != null
-  ' <<<"$evidence_secret_statement" >/dev/null
+  rds_deny_statement="$(jq -c '.Statement[] | select(.Sid == "DenyRetiredRdsRecreation" and .Effect == "Deny")' "$health_policy_source")"
+  test -n "$rds_deny_statement"
   matched_policy=''
   patched_policy="$(mktemp)"
 
@@ -133,7 +127,7 @@ repair_health_policy() {
     ' <<<"$current" >/dev/null; then
       test -z "$matched_policy"
       matched_policy="$policy_name"
-      jq --arg resource "$expected_resource" --arg action "$expected_action" --argjson evidence_secret "$evidence_secret_statement" \
+      jq --arg resource "$expected_resource" --arg action "$expected_action" --argjson rds_deny "$rds_deny_statement" \
         -f "$health_policy_patch" <<<"$current" > "$patched_policy"
     fi
   done < <(aws iam list-role-policies --role-name "$health_role_name" --query 'PolicyNames[]' --output text | tr '\t' '\n')
@@ -154,11 +148,9 @@ repair_health_policy() {
       ((.Resource | if type == "array" then . else [.] end) | index($resource)) != null and
       ((.Action | if type == "array" then . else [.] end) | index($action)) != null)
   ' <<<"$actual" >/dev/null
-  jq -e --arg resource "$evidence_secret_resource" '
-    any(.Statement[]?;
-      .Sid == "ManageEvidenceDatabaseSecret" and
-      ((.Action | if type == "array" then . else [.] end) | index("secretsmanager:CreateSecret")) != null and
-      ((.Resource | if type == "array" then . else [.] end) | index($resource)) != null)
+  jq -e --argjson deny "$rds_deny_statement" '
+    any(.Statement[]?; . == $deny) and
+    all(.Statement[]?; (.Effect != "Allow" or .Sid != "ManageEvidenceDatabaseSecret"))
   ' <<<"$actual" >/dev/null
   jq -e --arg action "$expected_action" '
     any(.Statement[]?; ((.Action | if type == "array" then . else [.] end) | index($action)) != null)

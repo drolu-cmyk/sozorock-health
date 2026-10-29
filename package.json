@@ -52,7 +52,7 @@
     "start:mobile": "npm exec --workspace @sozorock/mobile -- expo start",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "lint": "eslint apps packages --max-warnings=0",
-    "test": "node --test scripts/dependency-audit.test.mjs scripts/configured-aws-account.test.mjs && npm run test --workspaces --if-present",
+    "test": "node --test scripts/dependency-audit.test.mjs scripts/configured-aws-account.test.mjs scripts/rds-retirement.test.mjs && npm run test --workspaces --if-present",
     "prebuild:public": "node scripts/copy-maplibre-worker.mjs",
     "predev:public": "node scripts/copy-maplibre-worker.mjs",
     "audit:production": "node scripts/audit-production-dependencies.mjs",

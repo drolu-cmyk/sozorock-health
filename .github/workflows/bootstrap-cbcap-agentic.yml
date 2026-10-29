@@ -8,7 +8,6 @@ on:
 
 permissions:
   contents: read
-  id-token: write
   statuses: write
 
 concurrency:
@@ -45,6 +44,8 @@ jobs:
             --data "$payload" >/dev/null
 
   bootstrap:
+    # Permanent RDS retirement; preserve Foundation trust repair separately.
+    if: ${{ false }}
     name: Apply production OIDC bootstrap
     needs: announce
     runs-on: ubuntu-latest
