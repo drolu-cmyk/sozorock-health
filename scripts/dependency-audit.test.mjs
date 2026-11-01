@@ -50,6 +50,25 @@ test('metavulnerabilities require every reachable root to be repaired', () => {
   assert.deepEqual(evaluateAudit(report, verified, lock).unresolved, ['consumer']);
 });
 
+test('a below-threshold advisory does not block a repaired moderate metavulnerability', () => {
+  const { report, verified, lock } = fixture();
+  report.vulnerabilities.low = {
+    name: 'low', severity: 'low', nodes: ['node_modules/low'], via: [{
+      name: 'low', dependency: 'low', source: 1,
+      url: 'https://github.com/advisories/GHSA-low', severity: 'low',
+    }],
+  };
+  report.vulnerabilities.consumer = {
+    name: 'consumer', severity: 'high', nodes: ['node_modules/consumer'], via: ['braces', 'low'],
+  };
+  lock.packages['node_modules/low'] = {};
+  lock.packages['node_modules/consumer'] = {};
+  report.metadata.vulnerabilities.low = 1;
+  report.metadata.vulnerabilities.high = 2;
+  report.metadata.vulnerabilities.total = 3;
+  assert.deepEqual(evaluateAudit(report, verified, lock).unresolved, []);
+});
+
 test('a dependency cycle without a known root cannot clear a finding', () => {
   const { report, verified, lock } = fixture();
   report.vulnerabilities.braces.via = ['braces'];

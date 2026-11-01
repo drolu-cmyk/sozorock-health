@@ -4,6 +4,60 @@ const path = require('node:path');
 const fs = require('node:fs');
 const vm = require('node:vm');
 
+function checkGlob(directory) {
+  const { glob, globSync } = require(directory);
+  const os = require('node:os');
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sozorock-glob-abort-'));
+  try {
+    fs.mkdirSync(path.join(root, 'a', 'b'), { recursive: true });
+    fs.writeFileSync(path.join(root, 'a', 'b', 'evidence.txt'), 'review');
+    const ac = new AbortController();
+    let reads = 0;
+    const counted = {
+      ...fs,
+      readdir: (...args) => {
+        reads++;
+        ac.abort(new Error('review budget reached'));
+        return fs.readdir(...args);
+      },
+    };
+    return glob('**', { cwd: root, signal: ac.signal, fs: counted }).then(
+      () => assert.fail('aborted glob unexpectedly completed'),
+      async () => {
+        const atReject = reads;
+        await new Promise(resolve => setTimeout(resolve, 50));
+        assert.equal(reads, atReject, 'glob continued filesystem reads after abort');
+        assert(globSync('**/*.txt', { cwd: root }).includes('a/b/evidence.txt'));
+      },
+    ).finally(() => fs.rmSync(root, { recursive: true, force: true }));
+  } catch (error) {
+    fs.rmSync(root, { recursive: true, force: true });
+    throw error;
+  }
+}
+
+function checkMinimatch(directory) {
+  const { Minimatch, minimatch } = require(directory);
+  const pattern = Array(30).fill('**/../a/b').join('/');
+  const limited = new Minimatch(pattern, { optimizationLevel: 2, braceExpandMax: 64 });
+  assert.equal(limited.set.length, 64);
+  const large = new Minimatch('{x,*}/{0..999}', { optimizationLevel: 2 });
+  assert.equal(large.set.length, 2000);
+  assert.equal(large.match('y/999'), true);
+  assert.equal(minimatch('sources/approved.json', 'sources/*.json'), true);
+}
+
+function checkZod(directory) {
+  const z = require(directory);
+  let parsed = 0;
+  const item = z.string().refine(() => { parsed++; return true; });
+  const tooLarge = z.array(item).max(2).safeParse([1, 2, 3]);
+  assert.equal(tooLarge.success, false);
+  assert.equal(parsed, 0, 'oversized array elements were parsed before the size gate');
+  assert.deepEqual(tooLarge.error.issues.map(issue => issue.code), ['too_big']);
+  assert.deepEqual(z.array(z.string()).parse(['county', 'source']), ['county', 'source']);
+}
+
 function checkForge(directory, forge = require(directory)) {
   const keys = crypto.generateKeyPairSync('rsa', { modulusLength: 2048, publicExponent: 3 });
   const modulusBytes = Math.ceil(keys.publicKey.asymmetricKeyDetails.modulusLength / 8);
@@ -102,7 +156,7 @@ function checkBraces(directory) {
 }
 
 const [name, directory] = process.argv.slice(2);
-try {
+Promise.resolve().then(async () => {
 if (name === 'node-forge') {
   checkForge(path.resolve(directory));
   for (const file of ['forge.min.js', 'forge.all.min.js']) {
@@ -113,9 +167,12 @@ if (name === 'node-forge') {
   }
 }
 else if (name === 'braces') checkBraces(path.resolve(directory));
+else if (name === 'glob') await checkGlob(path.resolve(directory));
+else if (name === 'minimatch') checkMinimatch(path.resolve(directory));
+else if (name === 'zod') checkZod(path.resolve(directory));
 else throw new Error('Unknown dependency regression suite');
 console.log(`${name}: malformed inputs rejected; compatibility checks passed.`);
-} catch (error) {
+}).catch(error => {
   console.error(`${name}: regression failed: ${error.message}`);
   process.exitCode = 1;
-}
+});

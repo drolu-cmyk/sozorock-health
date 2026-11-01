@@ -38,6 +38,7 @@ export function evaluateAudit(report, verified, lock) {
       seen.add(current);
       const dependency = report.vulnerabilities[current];
       if (!dependency) { repaired = false; break; }
+      if (ranks[dependency.severity] < ranks.moderate) continue;
       for (const via of dependency.via) {
         if (typeof via === 'string') { pending.push(via); continue; }
         roots++;
