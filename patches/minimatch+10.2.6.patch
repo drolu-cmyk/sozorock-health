@@ -1,7 +1,7 @@
-diff --git a/node_modules/@expo/fingerprint/node_modules/minimatch/dist/commonjs/index.js b/node_modules/@expo/fingerprint/node_modules/minimatch/dist/commonjs/index.js
+diff --git a/node_modules/minimatch/dist/commonjs/index.js b/node_modules/minimatch/dist/commonjs/index.js
 index 5a69834..7adc49b 100644
---- a/node_modules/@expo/fingerprint/node_modules/minimatch/dist/commonjs/index.js
-+++ b/node_modules/@expo/fingerprint/node_modules/minimatch/dist/commonjs/index.js
+--- a/node_modules/minimatch/dist/commonjs/index.js
++++ b/node_modules/minimatch/dist/commonjs/index.js
 @@ -453,6 +453,10 @@ class Minimatch {
      // **/*/<rest> -> */**/<rest> <== not valid because ** doesn't follow
      // this WOULD be allowed if ** did follow symlinks, or * didn't
@@ -34,10 +34,10 @@ index 5a69834..7adc49b 100644
          for (let i = 0; i < globParts.length - 1; i++) {
              for (let j = i + 1; j < globParts.length; j++) {
                  const matched = this.partsMatch(globParts[i], globParts[j], !this.preserveMultipleSlashes);
-diff --git a/node_modules/@expo/fingerprint/node_modules/minimatch/dist/esm/index.js b/node_modules/@expo/fingerprint/node_modules/minimatch/dist/esm/index.js
+diff --git a/node_modules/minimatch/dist/esm/index.js b/node_modules/minimatch/dist/esm/index.js
 index a5e6fa8..e92e25f 100644
---- a/node_modules/@expo/fingerprint/node_modules/minimatch/dist/esm/index.js
-+++ b/node_modules/@expo/fingerprint/node_modules/minimatch/dist/esm/index.js
+--- a/node_modules/minimatch/dist/esm/index.js
++++ b/node_modules/minimatch/dist/esm/index.js
 @@ -444,6 +444,10 @@ export class Minimatch {
      // **/*/<rest> -> */**/<rest> <== not valid because ** doesn't follow
      // this WOULD be allowed if ** did follow symlinks, or * didn't

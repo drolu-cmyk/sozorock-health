@@ -29,8 +29,8 @@
       "reference": "https://github.com/isaacs/node-glob/commit/4682e8c9babee1b385202ede36389634e12076d7",
       "patches": [
         {
-          "path": "patches/glob+13.0.6.patch",
-          "sha256": "69bc8685cd127fdec5b4f0b12504da1fb0458b3acfd020704ed3082bdcee7fa3"
+          "path": "patches/@expo+fingerprint++glob+13.0.6.patch",
+          "sha256": "79eb2c855bb434510cd073727337213a87500716a1a21e11ad4fbea94394e5f6"
         }
       ],
       "upstream_integrity": "sha512-Wjlyrolmm8uDpm/ogGyXZXb1Z+Ca2B8NbJwqBVg0axK9GbBeoS7yGV6vjXnYdGm6X53iehEuxxbyiKp8QmN4Vw==",
@@ -47,20 +47,12 @@
     "minimatch": {
       "version": "10.2.6",
       "advisory": "GHSA-g3hv-75wg-m249",
-      "source_id": 1244012,
+      "source_id": 1244623,
       "reference": "https://github.com/isaacs/minimatch/commit/77a0f5c4b80bdc641c3c930a1d9edf5ad2db57f8",
       "patches": [
         {
-          "path": "patches/@expo+fingerprint++minimatch+10.2.6.patch",
-          "sha256": "8587b86dfce8a0f8ca1e5051a23d21bac7f6bf19debf4bbe1749645b93d74864"
-        },
-        {
-          "path": "patches/@typescript-eslint+typescript-estree++minimatch+10.2.6.patch",
-          "sha256": "500d83a623b3c203c83c6528ad2d311118ae3c27971bedaeafda15de05e147b7"
-        },
-        {
-          "path": "patches/glob++minimatch+10.2.6.patch",
-          "sha256": "0f2bab77fbcee0860de9e47acf86f5f698257b977b94a22fa9b2c46a32af22b6"
+          "path": "patches/minimatch+10.2.6.patch",
+          "sha256": "bccc9b6c360ba5da103526fbadc5a40caa5dc0bc526f6b602569378453dff307"
         }
       ],
       "upstream_integrity": "sha512-vpLQEs+VLCr1nU0BXS07maYoFwlDAH0gngQuuttxIwutDFEMHq2blX+8vpgxDdK3J1PwjCJiep77OitTZ4Ll1A==",

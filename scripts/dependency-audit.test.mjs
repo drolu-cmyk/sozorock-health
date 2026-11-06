@@ -46,9 +46,16 @@ test('the unresolved Zod advisory cannot be cleared by a partial backport', asyn
   assert.deepEqual(evaluateAudit(report, verified, { packages: { [node]: {} } }).unresolved, ['zod']);
 });
 
+test('the dependency lock does not include vulnerable Zod versions', async () => {
+  const lock = JSON.parse(await readFile(path.join(root, 'package-lock.json'), 'utf8'));
+  const copies = Object.entries(lock.packages).filter(([name]) => /(?:^|\/)node_modules\/zod$/.test(name));
+  assert(copies.length > 0, 'expected the supported Zod dependency to remain installed');
+  assert(copies.every(([, metadata]) => metadata.version === '4.6.6'));
+});
+
 test('Zod does not pass unvalidated array values to a refinement', () => {
   const require = createRequire(import.meta.url);
-  const z = require(path.join(root, 'apps/mobile/node_modules/zod'));
+  const z = require(path.join(root, 'node_modules/zod'));
   const schema = z.array(z.string()).max(2).superRefine(items => items[0].toUpperCase());
   assert.equal(schema.safeParse([1, 2, 3]).success, false);
   assert.equal(schema.safeParse(['county']).success, true);

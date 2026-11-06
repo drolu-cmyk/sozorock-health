@@ -27,7 +27,8 @@ function checkGlob(directory) {
         const atReject = reads;
         await new Promise(resolve => setTimeout(resolve, 50));
         assert.equal(reads, atReject, 'glob continued filesystem reads after abort');
-        assert(globSync('**/*.txt', { cwd: root }).includes('a/b/evidence.txt'));
+        const results = globSync('**/*.txt', { cwd: root }).map(file => file.split(path.sep).join('/'));
+        assert(results.includes('a/b/evidence.txt'));
       },
     ).finally(() => fs.rmSync(root, { recursive: true, force: true }));
   } catch (error) {
