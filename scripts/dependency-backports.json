@@ -71,26 +71,6 @@
       },
       "reference_commit": "77a0f5c4b80bdc641c3c930a1d9edf5ad2db57f8",
       "upstream_release": "https://registry.npmjs.org/minimatch/-/minimatch-10.2.6.tgz"
-    },
-    "zod": {
-      "version": "3.25.76",
-      "advisory": "GHSA-mrhx-c7xc-m3w5",
-      "source_id": 1243066,
-      "reference": "https://github.com/colinhacks/zod/commit/a0ebf970f2d752e5f58527cd2942ff48be4f46bd",
-      "patches": [
-        {
-          "path": "scripts/apply-workspace-security-backports.mjs",
-          "sha256": "efe874cde98aff4c918bb36422b562bcc5a63eaea7fa54ef571194e94c2e432c"
-        }
-      ],
-      "upstream_integrity": "sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ==",
-      "inventory_sha256": "e3a74e0bde3672136ef9807982d79137f4dc604be8c5e95d97306d81e7a539fb",
-      "files": {
-        "v3/types.cjs": "7b103758da1d160395554258342b827fc14db2bbfda3f712c41ed344465b499c",
-        "v3/types.js": "a614a93def335978a321f2b82b017335796d947ff3a7f3ec0b24c8b8e22995e7"
-      },
-      "reference_commit": "a0ebf970f2d752e5f58527cd2942ff48be4f46bd",
-      "upstream_release": "https://registry.npmjs.org/zod/-/zod-3.25.76.tgz"
     }
   }
 }

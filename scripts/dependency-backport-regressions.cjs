@@ -47,17 +47,6 @@ function checkMinimatch(directory) {
   assert.equal(minimatch('sources/approved.json', 'sources/*.json'), true);
 }
 
-function checkZod(directory) {
-  const z = require(directory);
-  let parsed = 0;
-  const item = z.string().refine(() => { parsed++; return true; });
-  const tooLarge = z.array(item).max(2).safeParse([1, 2, 3]);
-  assert.equal(tooLarge.success, false);
-  assert.equal(parsed, 0, 'oversized array elements were parsed before the size gate');
-  assert.deepEqual(tooLarge.error.issues.map(issue => issue.code), ['too_big']);
-  assert.deepEqual(z.array(z.string()).parse(['county', 'source']), ['county', 'source']);
-}
-
 function checkForge(directory, forge = require(directory)) {
   const keys = crypto.generateKeyPairSync('rsa', { modulusLength: 2048, publicExponent: 3 });
   const modulusBytes = Math.ceil(keys.publicKey.asymmetricKeyDetails.modulusLength / 8);
@@ -169,7 +158,6 @@ if (name === 'node-forge') {
 else if (name === 'braces') checkBraces(path.resolve(directory));
 else if (name === 'glob') await checkGlob(path.resolve(directory));
 else if (name === 'minimatch') checkMinimatch(path.resolve(directory));
-else if (name === 'zod') checkZod(path.resolve(directory));
 else throw new Error('Unknown dependency regression suite');
 console.log(`${name}: malformed inputs rejected; compatibility checks passed.`);
 }).catch(error => {

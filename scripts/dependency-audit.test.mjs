@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { mkdir, mkdtemp, rm } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm } from 'node:fs/promises';
+import { createRequire } from 'node:module';
 import path from 'node:path';
 import { evaluateAudit } from './audit-production-dependencies.mjs';
 import { root, verifyBackports } from './verify-dependency-backports.mjs';
@@ -25,6 +26,33 @@ test('accepts only a source-verified advisory and reports the registry finding',
   const { report, verified, lock } = fixture();
   assert.deepEqual(evaluateAudit(report, verified, lock), { unresolved: [], repairedEntries: 1, registryFindings: 1 });
   assert.deepEqual(evaluateAudit(report, new Map(), lock).unresolved, ['braces']);
+});
+
+test('the unresolved Zod advisory cannot be cleared by a partial backport', async () => {
+  const manifest = JSON.parse(await readFile(path.join(root, 'scripts/dependency-backports.json'), 'utf8'));
+  const packageJson = JSON.parse(await readFile(path.join(root, 'package.json'), 'utf8'));
+  assert.equal(Object.hasOwn(manifest.packages, 'zod'), false);
+  assert.doesNotMatch(packageJson.scripts.postinstall, /apply-workspace-security-backports/);
+  const node = 'apps/mobile/node_modules/zod';
+  const report = {
+    auditReportVersion: 2,
+    vulnerabilities: { zod: { name: 'zod', severity: 'high', nodes: [node], via: [{
+      name: 'zod', dependency: 'zod', source: 1243066,
+      url: 'https://github.com/advisories/GHSA-mrhx-c7xc-m3w5',
+    }] } },
+    metadata: { vulnerabilities: { info: 0, low: 0, moderate: 0, high: 1, critical: 0, total: 1 } },
+  };
+  const verified = new Map(Object.entries(manifest.packages));
+  assert.deepEqual(evaluateAudit(report, verified, { packages: { [node]: {} } }).unresolved, ['zod']);
+});
+
+test('Zod does not pass unvalidated array values to a refinement', () => {
+  const require = createRequire(import.meta.url);
+  const z = require(path.join(root, 'apps/mobile/node_modules/zod'));
+  const schema = z.array(z.string()).max(2).superRefine(items => items[0].toUpperCase());
+  assert.equal(schema.safeParse([1, 2, 3]).success, false);
+  assert.equal(schema.safeParse(['county']).success, true);
+  assert.deepEqual(z.array(z.string()).parse(['county', 'source']), ['county', 'source']);
 });
 
 test('a new advisory for a patched package still blocks', () => {
