@@ -8,6 +8,12 @@ import { spawnSync } from 'node:child_process';
 export const root = fileURLToPath(new URL('../', import.meta.url));
 const sha256 = bytes => createHash('sha256').update(bytes).digest('hex');
 
+async function inventoryHash(directory, files) {
+  const inventory = [];
+  for (const file of files) inventory.push([file, sha256(await readFile(path.join(directory, file)))]);
+  return sha256(JSON.stringify(inventory));
+}
+
 async function codeFiles(directory, prefix = '') {
   const files = [];
   for (const item of await readdir(path.join(directory, prefix), { withFileTypes: true })) {
@@ -42,11 +48,22 @@ export async function verifyBackports({ repository = root, regressions = true } 
   const installed = await installedCopies(repository, Object.keys(manifest.packages));
   const verified = new Map();
   for (const [name, policy] of Object.entries(manifest.packages)) {
-    assert.equal(sha256(await readFile(path.join(repository, policy.patch))), policy.patch_sha256,
-      `${name}: source patch changed without review`);
-    const nodes = Object.keys(lock.packages).filter(key => key === `node_modules/${name}` || key.endsWith(`/node_modules/${name}`));
-    assert(nodes.length > 0, `${name}: locked dependency is missing`);
-    assert.deepEqual(installed.get(name).sort(), [...nodes].sort(), `${name}: installed copies differ from the lockfile`);
+    const patches = policy.patches ?? [{ path: policy.patch, sha256: policy.patch_sha256 }];
+    assert(patches.length > 0, `${name}: security patch is missing`);
+    for (const patch of patches) {
+      assert.equal(sha256(await readFile(path.join(repository, patch.path))), patch.sha256,
+        `${name}: source patch changed without review`);
+    }
+    const allNodes = Object.keys(lock.packages).filter(
+      key => key === `node_modules/${name}` || key.endsWith(`/node_modules/${name}`),
+    );
+    assert(allNodes.length > 0, `${name}: locked dependency is missing`);
+    assert.deepEqual(installed.get(name).sort(), [...allNodes].sort(), `${name}: installed copies differ from the lockfile`);
+    const nodes = allNodes.filter(node => {
+      const entry = lock.packages[node];
+      return entry.version === policy.version && entry.integrity === policy.upstream_integrity;
+    });
+    assert(nodes.length > 0, `${name}: locked vulnerable version is missing`);
     for (const node of nodes) {
       const entry = lock.packages[node];
       assert.equal(entry.version, policy.version, `${name}: unexpected locked version`);
@@ -57,7 +74,13 @@ export async function verifyBackports({ repository = root, regressions = true } 
       const metadata = JSON.parse(await readFile(path.join(directory, 'package.json'), 'utf8'));
       assert.equal(metadata.name, name);
       assert.equal(metadata.version, policy.version);
-      assert.deepEqual(await codeFiles(directory), Object.keys(policy.files).sort(), `${name}: unexpected source inventory`);
+      const files = await codeFiles(directory);
+      if (policy.inventory_sha256) {
+        assert.equal(await inventoryHash(directory, files), policy.inventory_sha256,
+          `${name}: unexpected source inventory`);
+      } else {
+        assert.deepEqual(files, Object.keys(policy.files).sort(), `${name}: unexpected source inventory`);
+      }
       for (const [file, expected] of Object.entries(policy.files)) {
         assert.equal(sha256(await readFile(path.join(directory, file))), expected,
           `${name}: installed source differs at ${file}`);
